@@ -1,1 +1,2 @@
-Read [AGENTS.md](AGENTS.md) — it holds all instructions for AI agents in this repo.
+@AGENTS.md
+AGENTS.md (imported above) holds all instructions for AI agents in this repo; add only Claude-specific notes below.

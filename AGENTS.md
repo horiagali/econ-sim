@@ -4,13 +4,21 @@ This file is the entry point for any AI agent (Claude, Codex, Cursor, …) worki
 
 ## Project in one paragraph
 
-A country-management game focused on a realistic economic simulation. The player sets policy (taxes, spending, interest rates, regulation, trade, …) and the simulation propagates effects through households, firms, banks, government and the rest of the world. Phase 0 is **design and research only — do not write game code unless a task explicitly asks for it.**
+A country-management sandbox focused on a realistic economic simulation. The player is head of state of **Romania** (recreated from real data) and sets policy (tax brackets, spending, transfers, subsidies, interest rates, trade, nationalisation, infrastructure and power plants, …). The simulation propagates effects through a **weighted synthetic population** of households and persons (the most important system), ~90 industries linked by supply chains, banks, government, central bank and the rest of the world. v1 is economy + people only: no politics layer, no military. Phase 0 is **design and research only — do not write game code unless a task explicitly asks for it.**
 
 ## Before you start any task
 
 1. Read `docs/INDEX.md` to see what exists and its status.
 2. Read only the docs relevant to your task plus their `depends_on` docs. Don't load the whole repo.
 3. Check `docs/glossary.md` for variable names. **Never invent a new name for something that already has one.** If you need a new variable, add it to the glossary in the same change.
+
+## Tech stack (accepted)
+
+See [ADR-0004](docs/03-architecture/decisions/0004-tech-stack-overview.md): Rust simulation core, Tauri 2 + React/TypeScript UI, Python data and calibration tooling. Once code exists, these rules are hard:
+- **Determinism contract** ([ADR-0006](docs/03-architecture/decisions/0006-determinism-contract.md)): keyed RNG only, `libm` maths only, no `HashMap`/`HashSet`, fixed-order sums.
+- **Money moves only through the ledger** ([ADR-0007](docs/03-architecture/decisions/0007-money-and-ledger.md)): `Bani(i64)`, typed transfers with a flow code; never write a balance directly.
+- **Behaviour rules use `behaviour_rule!`** ([ADR-0008](docs/03-architecture/decisions/0008-explainability-architecture.md)); opaque rules need a counted waiver.
+- **Never hardcode the population scale** ([ADR-0003](docs/03-architecture/decisions/0003-people-representation.md)): read `sample_scale` and per-record weights from the scenario; no population-sized constants.
 
 ## Doc conventions
 

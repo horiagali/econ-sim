@@ -4,30 +4,61 @@ title: Roadmap
 status: draft
 owner: horia
 depends_on: [vision/scope]
-updated: 2026-10-08
+updated: 2026-10-09
 ---
 
 # Roadmap
 
 ## Phase 0 — Design & research *(now)*
-- [ ] Finish P0 research (modelling approach, competitor teardown, tick length).
-- [ ] ADR: modelling approach.
-- [ ] ADR: tech stack.
-- [ ] Draft all MVP economy specs to `draft`.
-- [ ] Define accounting matrices (`economy/accounting`) to `review`.
+- [x] v1 game definition: vision, scope, game, society and economy specs at `draft` (2026-10-08).
+- [ ] Owner review pass: answer open questions in each spec.
+- [ ] Finish P0 research (modelling approach, competitor teardown, tick length). Population and tech-stack research done ([population](01-research/notes/population-modelling-deep-research.md), [tech stack](01-research/notes/tech-stack-deep-research.md)).
+- [x] ADR: modelling approach (ADR-0002, hybrid SFC + synthetic population + I-O industries; accepted 2026-10-09).
+- [x] ADR: tech stack drafted as ADR-0004 to ADR-0015, status `proposed` (2026-10-09). See the [architecture overview](03-architecture/README.md).
+- [x] Owner accepts (or amends) ADR-0004 to ADR-0015 (accepted 2026-10-09).
+- [ ] Data plan: Romania calibration pack and synthetic population pipeline from the IPUMS 2011 seed reweighted to 2021 census totals ([ADR-0012](03-architecture/decisions/0012-data-pipeline-and-licensing.md)).
+- [x] v1 additions specified: EU membership and funds, informal economy, foreign ownership, housing, environment, state capacity (2026-10-08).
+- [x] ADR: people representation (ADR-0003, accepted 2026-10-09; 1:100 default, scale configurable and never hardcoded).
+- [x] **Firm table:** [ADR-0016](03-architecture/decisions/0016-firm-representation.md) (accepted 2026-10-09) replaces "one aggregate firm per industry" with firm units: 0–5 named firms plus size-class cohort firms per industry, with one ownership model. Specs updated (production, industries, investment-capital, money-banking, foreign-ownership, state-enterprises, accounting).
+- [ ] Move accounting, population-groups, production and households to `review`.
 
-## Phase 1 — Headless simulation prototype
-- [ ] Simulation core runs from config, no UI; outputs CSV/plots.
-- [ ] Automated acceptance tests from each spec.
-- [ ] SFC consistency check every tick.
-- [ ] Policy-scenario test suite (rate hike, tax cut, deficit spending, devaluation, oil shock).
+### Legal and admin track
+This is a personal, non-commercial project, so data-terms checks are not needed ([ADR-0012](03-architecture/decisions/0012-data-pipeline-and-licensing.md)).
+- [ ] Optional: check BeforeIT.jl licence before copying any code (reading papers is fine).
+- [x] GitHub Free with hooks + CI checks ([ADR-0014](03-architecture/decisions/0014-agent-workflow-guardrails.md)).
+
+## Phase 1 — Technical spikes, then the headless simulation prototype
+Spikes are throwaway-quality prototypes that settle the decisions hardest to change later. Spikes 1–3 come first; 4–6 can overlap; the UI comes late because the core's API defines what it shows. Starting Phase 1 needs the owner's go-ahead (AGENTS.md forbids game code in Phase 0).
+
+| # | Spike | Exit criterion | Settles |
+|---|---|---|---|
+| 0 | Repo hygiene: `@AGENTS.md` import, justfile, toolchain pin, empty workspace, cargo-deny, CI skeleton, PreToolUse hook | An agent on Windows runs `just check` green and is blocked from editing `tests/golden/` | ADR-0014, 0010 |
+| 1 | Numeric foundation: `Bani`, rounding, splits, keyed ChaCha8 + known-answer vectors, `det_sum`, `libm` wrappers, clippy deny config | Same hashes on Windows laptop and Linux CI; clippy rejects `f64::exp` and `HashMap` in core | ADR-0006, 0007 |
+| 2 | Ledger + differential SIM: typed transfers, invariants I-1 to I-7, core "SIM mode", independent Python SIM then PC | Exact match in bani for 200 ticks; a mutated posting sign is caught by the differential test | ADR-0007, 0010 |
+| 3 | Explainability: `behaviour_rule!` on price, wage and consumption rules; `explain()` tree; Σ = Δ and μ tests | A nested tree sums exactly; log-linear aggregation question settled | ADR-0008, 0009 (part) |
+| 4 | Performance and market clearing at variable scale: fake weighted population, labour and goods matching, 80×80 LU, cube | Tick time at 1:1000, 1:100, 1:10; 50-year run ≤ ~30 s at 1:100; 3-scale test passes | ADR-0003, 0005, 0011 |
+| 5 | Calibration loop: `econ-py`, 600-tick runs from Python, Morris on ~10 parameters, one history-matching wave, 100-year quiet baseline | Runs per hour measured; full calibration budget known | ADR-0009 |
+| 6 | Saves and replay: ZIP + manifest + Arrow tables + command log, one migration, history block | Load, replay and state-hash check pass; save size at 1:100 and 1:10 recorded | ADR-0011 |
+| 7 | Data pipeline slice: glossary codegen, Eurostat fetch with provenance tags, DVC with a private remote, population for 2–3 counties from the IPUMS seed via IPF | Scenario builds end to end; provenance listed in the report; no raw restricted microdata tracked by Git | ADR-0012, 0003 |
+| 8 | UI slice: Tauri 2 + React, 40 uPlot charts × 600 months, ECharts county map from geoBoundaries, one nested "why" tooltip | 1–5 MB IPC round trip measured on WebView2; cold start and memory acceptable | ADR-0013 |
+| 9 | Agent workflow dry run: one real mechanic (e.g. VAT) through the tests-first two-PR flow with traceability and `cargo-mutants --in-diff` | Spec → tests → implementation merged with no hand edits to protected paths; friction logged | ADR-0010, 0014 |
+
+After the spikes:
+- [ ] Simulation core runs from a scenario, no UI; outputs Arrow/CSV and plots.
+- [ ] Automated acceptance tests from each spec (tests-first two-PR flow).
+- [ ] SFC invariants I-1 to I-7 every tick ([ADR-0007](03-architecture/decisions/0007-money-and-ledger.md)).
+- [ ] Person-conservation check every tick.
+- [ ] CI runs the tiny scenario at three population scales.
+- [ ] Policy-scenario test suite (rate hike, tax cut, deficit spending, devaluation, oil shock, student-grant rise, power-plant build).
 
 ## Phase 2 — Playable vertical slice
-- [ ] Minimal UI: dashboard, levers, time controls.
+- [ ] Minimal UI: dashboard, levers, time controls, graphs, group explorer, map.
 - [ ] "Why did this change" causal breakdown.
 - [ ] Save/load.
 
 ## Phase 3 — Depth
-- [ ] More industries, income cohorts, multiple countries.
+- [ ] Imperfect information: statistics lags, noise, paid polls.
+- [ ] Scenarios with goals.
+- [ ] More industries, multiple countries.
 - [ ] Politics layer.
 - [ ] Military layer.
