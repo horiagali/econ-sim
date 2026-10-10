@@ -16,6 +16,9 @@
 //! Nothing here hardcodes the scale: record counts and weights come from
 //! `sample_scale` and the (fake) totals.
 //!
+//! [`ScaleWorld::step_day`] runs the same parts with a daily clock, each at
+//! its own period (ADR-0017; results in docs/03-architecture/spikes/spike-10-daily-clock.md).
+//!
 //! [`ScaleWorld::from_population`] builds the same world on a real starting
 //! population (spec `society/population-generator`): households, weights,
 //! counties and ages come from the census; education, jobs, wages and
@@ -25,7 +28,7 @@ use econ_ledger::{FlowCode, Instrument, Ledger, Sector, Txn};
 use econ_mech_tax::vat::{VatCategory, VatRate, VatSchedule};
 use econ_num::lu::leontief_output;
 use econ_rng::{KeyedRng, Stream};
-use econ_types::{Bani, split_largest_remainder};
+use econ_types::{Bani, Date, split_largest_remainder};
 
 /// Fake country totals (stand-ins for scenario data).
 pub const REAL_POPULATION: u64 = 19_000_000;
@@ -818,6 +821,291 @@ impl ScaleWorld {
     }
 }
 
+/// Days of the month on which households take their monthly decisions
+/// (ADR-0017, staggering): 1 to 28, which every month has.
+pub const STAGGER_DAYS: u8 = 28;
+
+/// Who takes their monthly decisions on which day of the month (ADR-0017).
+#[derive(Debug, Clone)]
+pub struct DaySchedule {
+    /// Households of each day; index 0 is the first of the month.
+    households: Vec<Vec<u32>>,
+    /// The members of those households.
+    persons: Vec<Vec<u32>>,
+    /// Hires owed to each (region, skill) cell from earlier days: the part of
+    /// a hire that a day's few job seekers were too few for. Without it a
+    /// cell with four seekers a day would never hire anyone.
+    hire_carry: Vec<f64>,
+}
+
+/// What the month-end phases of [`ScaleWorld::step_day`] report.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MonthClose {
+    /// Weighted employment.
+    pub employed: u64,
+    /// Weighted unemployment.
+    pub unemployed: u64,
+    /// Weighted wage bill of the month.
+    pub wage_bill: Bani,
+    /// Number of non-empty cube cells.
+    pub cube_cells: usize,
+    /// Every wage clearing account netted to zero (I-8).
+    pub clearing_ok: bool,
+}
+
+/// Results of one day.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DayReport {
+    /// Weighted consumption of the households that shopped today (VAT included).
+    pub consumption: Bani,
+    /// Weighted VAT collected today (part of `consumption`).
+    pub vat: Bani,
+    /// Sum of gross output for today's demand.
+    pub gross_output: f64,
+    /// Ledger invariants hold and the ledger agrees with the columns (I-1 to I-4).
+    pub ledger_ok: bool,
+    /// The month-end phases, on the last day of a month.
+    pub month: Option<MonthClose>,
+}
+
+impl ScaleWorld {
+    /// Give every household a day of the month, 1 to [`STAGGER_DAYS`], by a keyed draw.
+    #[must_use]
+    pub fn day_schedule(&self) -> DaySchedule {
+        let days = usize::from(STAGGER_DAYS);
+        let mut households = vec![Vec::new(); days];
+        let mut persons = vec![Vec::new(); days];
+        let day_of = |h: usize| {
+            // Draw index 7 of the consumption stream at tick 0 is used for nothing else.
+            let draw = self.seed.fast_u64(Stream::Consumption, 0, h as u64, 7);
+            usize::try_from(draw % u64::from(STAGGER_DAYS)).expect("below 28")
+        };
+        for h in 0..self.n_households() {
+            households[day_of(h)].push(u32::try_from(h).expect("id"));
+        }
+        for i in 0..self.n_persons() {
+            persons[day_of(self.household[i] as usize)].push(u32::try_from(i).expect("id"));
+        }
+        DaySchedule {
+            households,
+            persons,
+            hire_carry: vec![0.0; N_REGIONS * N_SKILLS],
+        }
+    }
+
+    /// Run one daily tick (ADR-0017): the same work as [`ScaleWorld::step`],
+    /// each part at its own period.
+    ///
+    /// - **Staggered:** the households whose day it is, and their members, do
+    ///   their month's separations, job search and spending.
+    /// - **Daily:** the goods market: demand to gross output through the
+    ///   input-output system, the ledger and its checks.
+    /// - **Month end:** wages for everyone employed, and the statistics cube.
+    ///
+    /// A world is stepped either with this or with `step`, not both.
+    ///
+    /// # Panics
+    /// If the IO system is singular (it is constructed to be productive).
+    pub fn step_day(&mut self, schedule: &mut DaySchedule, date: Date) -> DayReport {
+        let tick = self.tick;
+        self.ledger.begin_tick(tick);
+        let weights_ppm: Vec<u64> = self
+            .consumption_shares
+            .iter()
+            .map(|s| {
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                let v = (s * 1e6).round() as u64;
+                v
+            })
+            .collect();
+        let mut consumption = Bani::ZERO;
+        let mut vat_total = Bani::ZERO;
+        let mut net_by_group = [Bani::ZERO; N_VAT_GROUPS];
+        if date.day <= STAGGER_DAYS {
+            let cohort = usize::from(date.day - 1);
+            // Separations and matching among today's persons.
+            let sep = self.separation_rate;
+            let mut seekers: Vec<Vec<(u64, u32)>> = vec![Vec::new(); N_REGIONS * N_SKILLS];
+            for &id in &schedule.persons[cohort] {
+                let i = id as usize;
+                if self.status[i] == 1
+                    && self
+                        .seed
+                        .fast_bernoulli(Stream::Labour, tick, u64::from(id), 0, sep)
+                {
+                    self.status[i] = 2;
+                }
+                if self.status[i] == 2 {
+                    let c = region_of(self.county[i]) * N_SKILLS + skill_of(self.edu[i]);
+                    let prio = self.seed.fast_u64(Stream::Labour, tick, u64::from(id), 1);
+                    seekers[c].push((prio, id));
+                }
+            }
+            for (s, carry) in seekers.iter_mut().zip(&mut schedule.hire_carry) {
+                let u = s.len() as f64;
+                let v = self.params.vacancy_ratio * u;
+                let owed = self.params.matching_efficiency * (u * v).sqrt() + *carry;
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                let hires = (owed.floor() as usize).min(s.len());
+                *carry = (owed - hires as f64).min(1.0);
+                s.sort_unstable_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+                for &(_, id) in s.iter().take(hires) {
+                    self.status[id as usize] = 1;
+                }
+            }
+            // Spending of today's households, out of last pay day's income and deposits.
+            let mut group_ppm = [0i64; N_VAT_GROUPS];
+            for (g, &w) in weights_ppm.iter().enumerate() {
+                group_ppm[vat_group_of(g)] += i64::try_from(w).expect("share");
+            }
+            let all_ppm: i64 = group_ppm.iter().sum();
+            for &id in &schedule.households[cohort] {
+                let h = id as usize;
+                let c = self.hh_income[h].mul_rate(self.params.mpc_income)
+                    + self.hh_deposits[h].mul_rate(self.params.mpc_wealth);
+                let c = if c > self.hh_deposits[h] {
+                    self.hh_deposits[h]
+                } else {
+                    c
+                };
+                let wgt = i64::from(self.hh_weight[h]);
+                let mut untaxed = c;
+                let mut spent = Bani::ZERO;
+                for (k, &cat) in TAXED_GROUPS.iter().enumerate() {
+                    let gross = c.mul_ratio(group_ppm[k], all_ppm);
+                    untaxed -= gross;
+                    let (net, vat) = split_gross(gross, cat);
+                    spent += net + vat;
+                    net_by_group[k] += net.times(wgt);
+                    vat_total += vat.times(wgt);
+                }
+                spent += untaxed;
+                net_by_group[N_VAT_GROUPS - 1] += untaxed.times(wgt);
+                self.hh_deposits[h] -= spent;
+                consumption += spent.times(wgt);
+            }
+        }
+
+        // Month end: wages for everyone employed, through the clearing accounts.
+        let month_end = date.is_month_end();
+        let mut wage_bill = Bani::ZERO;
+        let mut clearing_ok = true;
+        if month_end {
+            for x in &mut self.hh_income {
+                *x = Bani::ZERO;
+            }
+            let mut clearing = vec![Bani::ZERO; N_INDUSTRIES];
+            for i in 0..self.n_persons() {
+                if self.status[i] == 1 {
+                    let h = self.household[i] as usize;
+                    let total = self.wage[i].times(i64::from(self.hh_weight[h]));
+                    let j = usize::from(self.industry[i]);
+                    clearing[j] += total;
+                    clearing[j] -= total;
+                    self.hh_income[h] += self.wage[i];
+                    self.hh_deposits[h] += self.wage[i];
+                    wage_bill += total;
+                }
+            }
+            clearing_ok = clearing.iter().all(|c| c.is_zero());
+        }
+
+        // Daily: the ledger and its checks.
+        let mut txn = Txn::new();
+        let mut any = false;
+        for (payer, payee, amount, code) in [
+            (
+                Sector::Firms,
+                Sector::Households,
+                wage_bill,
+                FlowCode::WAGES,
+            ),
+            (
+                Sector::Households,
+                Sector::Firms,
+                consumption - vat_total,
+                FlowCode::CONSUMPTION,
+            ),
+            (
+                Sector::Households,
+                Sector::Government,
+                vat_total,
+                FlowCode::TAX_VAT,
+            ),
+        ] {
+            if amount > Bani::ZERO {
+                txn = txn.leg(payer, payee, Instrument::Cash, amount, code);
+                any = true;
+            }
+        }
+        if any {
+            self.ledger
+                .commit(txn)
+                .expect("household spending is capped by deposits");
+        }
+        self.gov_vat += vat_total;
+        let ledger_ok = self.ledger.check_invariants().is_ok()
+            && self.ledger.balance(Sector::Households, Instrument::Cash)
+                == self.weighted_deposits()
+            && self.ledger.balance(Sector::Government, Instrument::Cash) == self.gov_vat;
+
+        // Daily: the goods market, from today's demand to gross output.
+        let mut demand = vec![Bani::ZERO; N_GOODS];
+        for (k, &total) in net_by_group.iter().enumerate() {
+            let w: Vec<u64> = weights_ppm
+                .iter()
+                .enumerate()
+                .map(|(g, &w)| if vat_group_of(g) == k { w } else { 0 })
+                .collect();
+            for (g, part) in split_largest_remainder(total, &w).into_iter().enumerate() {
+                demand[g] += part;
+            }
+        }
+        let mut final_demand = vec![0.0; N_INDUSTRIES];
+        for (g, d) in demand.iter().enumerate() {
+            final_demand[g] = d.to_f64_exact() / 1e8;
+        }
+        let x = leontief_output(N_INDUSTRIES, &self.io, &final_demand).expect("productive IO");
+        let gross_output = econ_num::det_sum(&x);
+
+        // Month end: the statistics cube.
+        let month = month_end.then(|| {
+            let mut cube = vec![0u64; N_COUNTIES * N_STATUS * N_AGE_BANDS * N_EDU];
+            let (mut employed, mut unemployed) = (0u64, 0u64);
+            for i in 0..self.n_persons() {
+                let wgt = u64::from(self.hh_weight[self.household[i] as usize]);
+                let band = (usize::from(self.age[i]) / 12).min(N_AGE_BANDS - 1);
+                let idx = ((usize::from(self.county[i]) * N_STATUS + usize::from(self.status[i]))
+                    * N_AGE_BANDS
+                    + band)
+                    * N_EDU
+                    + usize::from(self.edu[i]);
+                cube[idx] += wgt;
+                match self.status[i] {
+                    1 => employed += wgt,
+                    2 => unemployed += wgt,
+                    _ => {}
+                }
+            }
+            MonthClose {
+                employed,
+                unemployed,
+                wage_bill,
+                cube_cells: cube.iter().filter(|&&c| c > 0).count(),
+                clearing_ok,
+            }
+        });
+        self.tick += 1;
+        DayReport {
+            consumption,
+            vat: vat_total,
+            gross_output,
+            ledger_ok,
+            month,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1088,6 +1376,95 @@ mod tests {
         let run = || {
             let mut w = ScaleWorld::generate(5000, 5);
             (0..3).map(|_| w.step()).collect::<Vec<_>>()
+        };
+        assert_eq!(run(), run());
+    }
+
+    /// The daily tick (ADR-0017) does the same economy as the monthly one:
+    /// run both for two years and compare the second year.
+    #[test]
+    fn daily_clock_agrees_with_the_monthly_tick_in_aggregate() {
+        use econ_types::{Calendar, Date, Day};
+        let mut monthly = ScaleWorld::generate(1000, 42);
+        let (mut m_consumption, mut m_wages, mut m_employed) = (Bani::ZERO, Bani::ZERO, 0u64);
+        for month in 0..24 {
+            let r = monthly.step();
+            assert!(r.ledger_ok && r.clearing_ok);
+            if month >= 12 {
+                m_consumption += r.consumption;
+                m_wages += r.wage_bill;
+                m_employed += r.employed;
+            }
+        }
+
+        let mut daily = ScaleWorld::generate(1000, 42);
+        let mut schedule = daily.day_schedule();
+        // Every household has a day, and the days are about equally full.
+        let per_day: Vec<usize> = schedule.households.iter().map(Vec::len).collect();
+        assert_eq!(per_day.iter().sum::<usize>(), daily.n_households());
+        let mean = daily.n_households() / usize::from(STAGGER_DAYS);
+        assert!(
+            per_day
+                .iter()
+                .all(|&n| n > mean * 3 / 4 && n < mean * 5 / 4)
+        );
+        assert_eq!(
+            schedule.persons.iter().map(Vec::len).sum::<usize>(),
+            daily.n_persons()
+        );
+
+        let cal = Calendar::new(Date::new(2021, 12, 1).unwrap());
+        let (mut d_consumption, mut d_wages, mut d_employed) = (Bani::ZERO, Bani::ZERO, 0u64);
+        let (mut months, mut day) = (0, Day(0));
+        while months < 24 {
+            let r = daily.step_day(&mut schedule, cal.date(day));
+            assert!(r.ledger_ok, "ledger on day {}", day.0);
+            if months >= 12 {
+                d_consumption += r.consumption;
+            }
+            if let Some(close) = r.month {
+                assert!(close.clearing_ok);
+                if months >= 12 {
+                    d_wages += close.wage_bill;
+                    d_employed += close.employed;
+                }
+                months += 1;
+            }
+            day = day.next();
+        }
+        // Two years of days: December 2021 to November 2023.
+        assert_eq!(day.0, 730);
+
+        let close = |a: i64, b: i64, pct: i64| (a - b).abs() * 100 <= b * pct;
+        assert!(
+            close(d_wages.get(), m_wages.get(), 3),
+            "wage bill: daily {d_wages:?}, monthly {m_wages:?}"
+        );
+        assert!(
+            close(d_consumption.get(), m_consumption.get(), 3),
+            "consumption: daily {d_consumption:?}, monthly {m_consumption:?}"
+        );
+        assert!(
+            close(
+                i64::try_from(d_employed).unwrap(),
+                i64::try_from(m_employed).unwrap(),
+                3
+            ),
+            "employment: daily {d_employed}, monthly {m_employed}"
+        );
+    }
+
+    #[test]
+    fn daily_clock_is_deterministic() {
+        use econ_types::{Calendar, Date, Day};
+        let cal = Calendar::new(Date::new(2021, 12, 1).unwrap());
+        let run = || {
+            let mut w = ScaleWorld::generate(1000, 42);
+            let mut schedule = w.day_schedule();
+            for d in 0..62 {
+                w.step_day(&mut schedule, cal.date(Day(d)));
+            }
+            w.state_hash()
         };
         assert_eq!(run(), run());
     }

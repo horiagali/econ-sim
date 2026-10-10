@@ -25,7 +25,7 @@ use econ_rng::{KeyedRng, Stream};
 
 fn usage() -> ExitCode {
     eprintln!(
-        "usage:\n  econ-cli sim [--ticks N] [--hashes] [--check-golden FILE] [--mutate tax-sign|consume-gross]\n  econ-cli bench-scale [--scales 1000,100,10] [--ticks N]\n  econ-cli bench-save [--scales 100,10]\n  econ-cli rng-raw [--pattern entity|tick|grid] [--entities N] [--bytes N] [--seed S]
+        "usage:\n  econ-cli sim [--ticks N] [--hashes] [--check-golden FILE] [--mutate tax-sign|consume-gross]\n  econ-cli bench-scale [--scales 1000,100,10] [--ticks N]\n  econ-cli bench-save [--scales 100,10]\n  econ-cli bench-days [--scales 1000,100,10] [--years N]\n  econ-cli rng-raw [--pattern entity|tick|grid] [--entities N] [--bytes N] [--seed S]
   econ-cli synth-population --margins FILE --sample-scale N [--seed S] --out DIR [--attributes FILE [--jobs FILE]] [--housing FILE]
   econ-cli sim-population --margins FILE --sample-scale N [--seed S] [--ticks N]"
     );
@@ -37,6 +37,7 @@ fn main() -> ExitCode {
     match args.first().map(String::as_str) {
         Some("sim") => run_sim(&args[1..]),
         Some("bench-scale") => bench_scale(&args[1..]),
+        Some("bench-days") => bench_days(&args[1..]),
         Some("bench-save") => bench_save(&args[1..]),
         Some("rng-raw") => rng_raw(&args[1..]),
         Some("synth-population") => synth_population(&args[1..]),
@@ -481,6 +482,87 @@ fn bench_scale(args: &[String]) -> ExitCode {
             per_tick * 600.0 / 1e3,
             r.employed,
             r.wage_bill.get() / 100
+        );
+    }
+    ExitCode::SUCCESS
+}
+
+/// Daily-tick spike (ADR-0017): what a simulated year costs when the clock
+/// advances by the day and each part of the scale world runs at its own
+/// period, against the same world stepped by the month.
+#[allow(clippy::disallowed_types, clippy::disallowed_methods)]
+fn bench_days(args: &[String]) -> ExitCode {
+    use econ_core::scale_spike::ScaleWorld;
+    use econ_types::{Calendar, Date, Day};
+    use std::time::Instant;
+    let mut scales: Vec<u32> = vec![1000, 100, 10];
+    let mut years: u32 = 3;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--scales" => match it.next() {
+                Some(v) => scales = v.split(',').filter_map(|x| x.parse().ok()).collect(),
+                None => return usage(),
+            },
+            "--years" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(n) if n > 0 => years = n,
+                _ => return usage(),
+            },
+            _ => return usage(),
+        }
+    }
+    let calendar = Calendar::new(Date::new(2021, 12, 1).expect("a real date"));
+    println!(
+        "scale,persons,monthly_ms_per_year,daily_ms_per_year,ms_ordinary_day,ms_month_end_day,projected_50_years_daily_s,last_year_wage_bill_daily_over_monthly"
+    );
+    for s in scales {
+        let mut monthly = ScaleWorld::generate(s, 42);
+        let t0 = Instant::now();
+        let mut monthly_wages = 0i64;
+        for month in 0..years * 12 {
+            let r = monthly.step();
+            if month >= (years - 1) * 12 {
+                monthly_wages += r.wage_bill.get();
+            }
+        }
+        let monthly_ms = t0.elapsed().as_secs_f64() * 1e3 / f64::from(years);
+
+        let mut daily = ScaleWorld::generate(s, 42);
+        let mut schedule = daily.day_schedule();
+        let (mut months, mut day) = (0, Day(0));
+        let (mut ordinary_s, mut ordinary_n, mut closing_s, mut closing_n) = (0.0, 0u32, 0.0, 0u32);
+        let mut daily_wages = 0i64;
+        let t1 = Instant::now();
+        while months < years * 12 {
+            let t = Instant::now();
+            let r = daily.step_day(&mut schedule, calendar.date(day));
+            let took = t.elapsed().as_secs_f64();
+            if !r.ledger_ok {
+                eprintln!("ledger check failed on day {} at 1:{s}", day.0);
+                return ExitCode::FAILURE;
+            }
+            if let Some(close) = r.month {
+                if months >= (years - 1) * 12 {
+                    daily_wages += close.wage_bill.get();
+                }
+                months += 1;
+                closing_s += took;
+                closing_n += 1;
+            } else {
+                ordinary_s += took;
+                ordinary_n += 1;
+            }
+            day = day.next();
+        }
+        let daily_ms = t1.elapsed().as_secs_f64() * 1e3 / f64::from(years);
+        #[allow(clippy::cast_precision_loss)]
+        let ratio = daily_wages as f64 / monthly_wages as f64;
+        println!(
+            "1:{s},{},{monthly_ms:.1},{daily_ms:.1},{:.3},{:.3},{:.1},{ratio:.3}",
+            daily.n_persons(),
+            ordinary_s * 1e3 / f64::from(ordinary_n.max(1)),
+            closing_s * 1e3 / f64::from(closing_n.max(1)),
+            daily_ms * 50.0 / 1e3,
         );
     }
     ExitCode::SUCCESS

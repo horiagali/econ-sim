@@ -105,6 +105,7 @@ The electricity phase runs once a day and solves 24 hourly slots from an hourly 
 - Targets compare model output aggregated to the period of the data (month, quarter, year).
 - Budget to confirm by a spike before mechanics are written (roadmap M2): at 1:100 a day with only daily phases and one thirtieth of the staggered work should cost about 1 ms, a month-end day about what a monthly tick costs today. Target: one simulated year in about half a second, 50 years in about 30 seconds, as in Spike 4. If the spike misses this by much, daily phases are moved to aggregates or the staggered share is cut before more code depends on it.
 - Runs per hour for calibration are re-measured with the daily clock.
+- **Measured 2026-10-10** ([spike 10](../spikes/spike-10-daily-clock.md)): on the scale world at 1:100 an ordinary day costs 0.5 ms, a month-end day 2.9 ms and a year 0.21 s, which is 1.6 times a year of monthly ticks. The budget holds for that workload. The spike also showed that a staggered rule which selects whole persons from a rate must carry its remainder from day to day.
 
 ### 10. Types and names
 - `econ-types` gains `Day(u32)` and `Date`; `Month` stays, meaning a calendar month (the index of a monthly statistic), no longer "one tick".
