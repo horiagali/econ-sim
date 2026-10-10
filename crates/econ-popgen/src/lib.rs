@@ -12,12 +12,17 @@
 mod arith;
 mod attributes;
 mod fit;
+mod housing;
 mod jobs;
 mod seed;
 
 pub use attributes::{
     Activity, AttrError, AttrParams, AttributeMargins, EDU_LEVELS, EduLevel, MARGIN_ACTIVITIES,
     PersonAttributes, STATUSES, assign_attributes,
+};
+pub use housing::{
+    HouseholdHousing, HousingError, HousingMargins, HousingParams, NO_TENURE, SIZE_GROUPS, TENURES,
+    assign_housing,
 };
 pub use jobs::{
     EDU_GROUPS, INDUSTRY_GROUPS, JobError, JobMargins, JobParams, KINDS, NOT_EMPLOYED, OCCUPATIONS,

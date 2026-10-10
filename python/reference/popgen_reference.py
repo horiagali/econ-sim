@@ -12,6 +12,8 @@ With `--attributes EDU_ACTIVITY.json` it also runs the second stage (spec
 `society/population-attributes`): education level and activity of every person.
 With `--jobs JOBS.json` as well it runs the third (spec `society/population-jobs`):
 status in employment, occupation and industry group of every employed person.
+With `--housing HOUSING.json` it runs the housing stage (spec
+`society/population-housing`): locality size and tenure of every household.
 """
 from __future__ import annotations
 
@@ -46,6 +48,9 @@ KIND_NONE = 0  # status in employment of a person who is not employed; kinds are
 PATTERN_FLOOR = 1  # persons added to every cell of a pattern table, so no combination is impossible
 JOB_STOP_PPM = 100  # a column fits when it is within this many millionths of the group's weight
 JOB_SWEEPS = 200  # upper bound on balancing passes in the jobs stage; it stops early once the columns fit
+# Housing stage (spec society/population-housing).
+STAGE_HOUSING = 4  # `tick` of the draw context (3 is taken by the scale world)
+TENURE_NONE = 255  # tenure of a record that is not a private household
 ACTIVITY_SWEEPS = 20  # two-way balancing of the activity targets inside an age band
 
 
@@ -544,19 +549,16 @@ def balance(pattern: list[list[int]], row_weights: list[int], col_targets: list[
     Integer two-way balancing in millionths, at most `sweeps` alternating passes
     (columns, then rows), then each row is apportioned to its exact weight.
     Rows with no weight are all zero. With `stop_ppm` >= 0 the passes stop
-    before a column pass if every column is already within that many millionths
-    of the total weight of its target.
+    after a row pass once every column is within that many millionths of the
+    total weight of its target.
     """
     n_k = len(col_targets)
     t = [[v * UNIT for v in row] if w else [0] * n_k for row, w in zip(pattern, row_weights)]
     total = sum(row_weights)
     cols = apportion(total, col_targets)
     for _ in range(sweeps):
-        sums = [sum(row[k] for row in t) for k in range(n_k)]
-        if stop_ppm >= 0 and all(abs(cs - c * UNIT) <= stop_ppm * total for cs, c in zip(sums, cols)):
-            break
         for k in range(n_k):
-            cs = sums[k]
+            cs = sum(row[k] for row in t)
             if cs:
                 for row in t:
                     row[k] = rdiv(row[k] * cols[k] * UNIT, cs)
@@ -564,6 +566,9 @@ def balance(pattern: list[list[int]], row_weights: list[int], col_targets: list[
             rs = sum(row)
             if rs:
                 row[:] = [rdiv(v * w * UNIT, rs) for v in row]
+        if stop_ppm >= 0 and all(abs(sum(row[k] for row in t) - cols[k] * UNIT) <= stop_ppm * total
+                                 for k in range(n_k)):
+            break
     return [apportion(w, row) for row, w in zip(t, row_weights)]
 
 
@@ -912,6 +917,161 @@ def job_fit_errors(pop: dict, counties: list[str], ea: dict, jobs: dict, attrs: 
     return out
 
 
+# --- housing stage -----------------------------------------------------------------------
+
+def assign_housing(pop: dict, counties: list[str], housing: dict, rng_seed: int = 42) -> dict:
+    """Locality size class, urban flag and tenure of every household.
+
+    Returns {"hh_locality_size": [...], "hh_urban": [...], "hh_tenure": [...]},
+    one value per household; records that are not private households have
+    TENURE_NONE. `pop` is not changed.
+    """
+    n_class, n_ten = len(housing["locality_classes"]), len(housing["tenures"])
+    group_from = housing["age_group_from"]
+    if not counties or not n_class or not n_ten or not group_from:
+        raise GenError("EmptyTable")
+    if housing["counties"] != counties or len(housing["size_groups"]) != 2:
+        raise GenError("ShapeMismatch")
+    pl, ht = housing["persons_by_locality"], housing["households_by_tenure"]
+    if len(pl) != len(counties) or any(len(c) != len(group_from) or any(len(r) != n_class for r in c) for c in pl):
+        raise GenError("ShapeMismatch")
+    if len(ht) != len(counties) or any(len(c) != 2 or any(len(r) != n_ten for r in c) for c in ht):
+        raise GenError("ShapeMismatch")
+
+    n_hh = len(pop["hh_weight"])
+    size = [0] * n_hh
+    head_age = [0] * n_hh
+    for i, h in enumerate(pop["household_id"]):
+        size[h] += 1
+        if pop["role"][i] == ROLE_HEAD:
+            head_age[h] = pop["age"][i] // 12
+    group = [max(g for g, lo in enumerate(group_from) if lo <= a) for a in head_age]
+    prio = [Draw(rng_seed, STREAM_POPULATION_GEN, STAGE_HOUSING, h).u64() for h in range(n_hh)]
+    by_county: list[list[int]] = [[] for _ in counties]
+    for h in range(n_hh):
+        by_county[pop["hh_county"][h]].append(h)
+
+    locality = [0] * n_hh
+    tenure = [TENURE_NONE] * n_hh
+    for ci, households in enumerate(by_county):
+        households.sort(key=lambda h: (prio[h], h))
+        # Step 1: locality size. A household counts its members; rows are the
+        # age group of the head, so that old households lean to the classes
+        # where old people live.
+        classes = [sum(row[k] for row in pl[ci]) for k in range(n_class)]
+        if households and not any(classes):
+            raise GenError(f"NoMargin: {counties[ci]}")
+        rows = [[h for h in households if group[h] == g] for g in range(len(group_from))]
+        persons = lambda h: pop["hh_weight"][h] * size[h]  # noqa: E731
+        table = balance([[v + PATTERN_FLOOR for v in row] for row in pl[ci]],
+                        [sum(persons(h) for h in row) for row in rows], classes, JOB_SWEEPS, JOB_STOP_PPM)
+        carry = [0] * n_class
+        for row, targets in zip(rows, table):
+            if row:
+                for h, k in zip(row, deal([persons(h) for h in row], targets, carry)):
+                    locality[h] = k
+        # Step 2: tenure of private households, one-person households first.
+        carry = [0] * n_ten
+        for size_group in range(2):
+            members = [h for h in households if not pop["hh_collective"][h] and (size[h] == 1) == (size_group == 0)]
+            if not members:
+                continue
+            targets = ht[ci][size_group]
+            if not any(targets):
+                targets = [a + b for a, b in zip(*ht[ci])]
+            if not any(targets):
+                raise GenError(f"NoMargin: {counties[ci]}")
+            for h, k in zip(members, deal([pop["hh_weight"][h] for h in members], targets, carry)):
+                tenure[h] = k
+    urban = [int(k >= housing["urban_from_class"]) for k in locality]
+    return {"hh_locality_size": locality, "hh_urban": urban, "hh_tenure": tenure}
+
+
+def housing_hash(h_attrs: dict) -> int:
+    """FNV-1a 64 over the household count (u32, little-endian), then each
+    household's locality size class, urban flag and tenure (one byte each)."""
+    h = 0xCBF29CE484222325
+    data = len(h_attrs["hh_tenure"]).to_bytes(4, "little") + bytes(
+        b for triple in zip(h_attrs["hh_locality_size"], h_attrs["hh_urban"], h_attrs["hh_tenure"]) for b in triple)
+    for b in data:
+        h = ((h ^ b) * 0x100000001B3) & M64
+    return h
+
+
+def housing_totals(pop: dict, housing: dict, h_attrs: dict) -> tuple[dict, dict]:
+    """Weighted persons as {(county, person age group, locality class): n} and weighted
+    private households as {(county, size group, tenure): n}."""
+    group_from = housing["age_group_from"]
+    size = [0] * len(pop["hh_weight"])
+    persons: dict[tuple, int] = {}
+    for i, h in enumerate(pop["household_id"]):
+        size[h] += 1
+        g = max(j for j, lo in enumerate(group_from) if lo <= pop["age"][i] // 12)
+        key = (pop["hh_county"][h], g, h_attrs["hh_locality_size"][h])
+        persons[key] = persons.get(key, 0) + pop["hh_weight"][h]
+    households: dict[tuple, int] = {}
+    for h, w in enumerate(pop["hh_weight"]):
+        if not pop["hh_collective"][h]:
+            key = (pop["hh_county"][h], 0 if size[h] == 1 else 1, h_attrs["hh_tenure"][h])
+            households[key] = households.get(key, 0) + w
+    return persons, households
+
+
+def housing_fit_errors(pop: dict, housing: dict, h_attrs: dict, sample_scale: int, min_cell_records: int = 30) -> dict:
+    """Largest relative error per margin family, by expected synthetic records behind the cell."""
+    got_p, got_h = housing_totals(pop, housing, h_attrs)
+    urban_from = housing["urban_from_class"]
+    want_p = {(c, g, k): v for c, county in enumerate(housing["persons_by_locality"])
+              for g, row in enumerate(county) for k, v in enumerate(row)}
+    want_h = {(c, g, k): v for c, county in enumerate(housing["households_by_tenure"])
+              for g, row in enumerate(county) for k, v in enumerate(row)}
+    families = {
+        "national locality class": (want_p, got_p, lambda k: (k[2],)),
+        "national urban": (want_p, got_p, lambda k: (k[2] >= urban_from,)),
+        "county x locality class": (want_p, got_p, lambda k: (k[0], k[2])),
+        "county x urban": (want_p, got_p, lambda k: (k[0], k[2] >= urban_from)),
+        "national tenure": (want_h, got_h, lambda k: (k[2],)),
+        "national size group x tenure": (want_h, got_h, lambda k: (k[1], k[2])),
+        "county x tenure": (want_h, got_h, lambda k: (k[0], k[2])),
+        "county x size group x tenure": (want_h, got_h, lambda k: k),
+    }
+    out: dict[str, dict[str, float]] = {}
+    for name, (want, have, key) in families.items():
+        w_sum: dict[tuple, int] = {}
+        g_sum: dict[tuple, int] = {}
+        for k, v in want.items():
+            w_sum[key(k)] = w_sum.get(key(k), 0) + v
+        for k, v in have.items():
+            g_sum[key(k)] = g_sum.get(key(k), 0) + v
+        for c, w in w_sum.items():
+            records = w // sample_scale
+            if records < min_cell_records:
+                continue
+            bucket = (">=1000 records" if records >= 1000 else ">=100 records" if records >= 100
+                      else f">={min_cell_records} records")
+            fam = out.setdefault(name, {})
+            fam[bucket] = max(fam.get(bucket, 0.0), round(abs(g_sum.get(c, 0) - w) / w, 5))
+    # Households are placed by the age of their head, so persons by own age and
+    # locality class cannot match the census cell by cell. What should carry
+    # over is where the old live: the share of persons of 65 or more in each class.
+    out["share of 65+ by locality class"] = {"largest difference": round(max(
+        abs(a - b) for a, b in zip(old_share_by_class(housing, want_p), old_share_by_class(housing, got_p))), 5)}
+    return out
+
+
+def old_share_by_class(housing: dict, persons: dict, old_from_years: int = 65) -> list[float]:
+    """Share of persons aged `old_from_years` or more in each locality class, nationally,
+    from {(county, age group, locality class): persons}."""
+    old_groups = {g for g, lo in enumerate(housing["age_group_from"]) if lo >= old_from_years}
+    n_class = len(housing["locality_classes"])
+    everyone, old = [0] * n_class, [0] * n_class
+    for (_c, g, k), v in persons.items():
+        everyone[k] += v
+        if g in old_groups:
+            old[k] += v
+    return [o / e if e else 0.0 for o, e in zip(old, everyone)]
+
+
 def attributes_hash(attrs: dict) -> int:
     """FNV-1a 64 over the person count (u32, little-endian), then each person's
     education level and activity (one byte each)."""
@@ -1103,6 +1263,7 @@ def main() -> int:
     ap.add_argument("--report", action="store_true", help="print fit errors instead of the tables")
     ap.add_argument("--attributes", help="education-and-activity margin file: also run the second stage")
     ap.add_argument("--jobs", help="jobs margin file: also run the third stage (needs --attributes)")
+    ap.add_argument("--housing", help="housing margin file: also run the housing stage")
     a = ap.parse_args()
     check_rng()
     with open(a.margins, encoding="utf-8") as f:
@@ -1133,8 +1294,17 @@ def main() -> int:
         job_attrs = assign_jobs(pop, m["counties"], ea, jobs, attrs, a.seed)
         summary["jobs_hash"] = f"{jobs_hash(job_attrs):016x}"
         summary["seconds"] = round(time.time() - t0, 1)
+    h_attrs = {}
+    if a.housing:
+        with open(a.housing, encoding="utf-8") as f:
+            housing = json.load(f)
+        h_attrs = assign_housing(pop, m["counties"], housing, a.seed)
+        summary["housing_hash"] = f"{housing_hash(h_attrs):016x}"
+        summary["seconds"] = round(time.time() - t0, 1)
     if a.report:
         summary["fit"] = fit_errors(m, pop, a.sample_scale)
+        if h_attrs:
+            summary["housing_fit"] = housing_fit_errors(pop, housing, h_attrs, a.sample_scale)
         if attrs:
             summary["attribute_fit"] = attribute_fit_errors(pop, m["counties"], ea, attrs, a.sample_scale)
         if job_attrs:
@@ -1142,7 +1312,7 @@ def main() -> int:
         print(json.dumps(summary, indent=2))
     else:
         print(json.dumps({"summary": summary, **{k: v for k, v in pop.items() if k != "report"}, **attrs,
-                          **job_attrs}))
+                          **job_attrs, **h_attrs}))
     return 0
 
 
