@@ -4,13 +4,15 @@
 //! econ-cli sim [--ticks N] [--hashes] [--check-golden FILE] [--mutate tax-sign|consume-gross]
 //! econ-cli rng-raw [--pattern entity|tick|grid] [--entities N] [--bytes N] [--seed S]
 //! econ-cli synth-population --margins FILE --sample-scale N [--seed S] --out DIR
+//! econ-cli sim-population --margins FILE --sample-scale N [--seed S] [--ticks N]
 //! ```
 //! Default output of `sim` is CSV: tick,Y,T,YD,C,G,H,GOV_DEFICIT,state_hash
 //! (money in bani). `rng-raw` writes raw `fast_u64` output to stdout for
 //! external test batteries (PractRand: `econ-cli rng-raw | RNG_test stdin64`).
 //! `synth-population` is the data pipeline's `synth_population` stage
 //! (ADR-0012): census margins in, `households.arrow`, `persons.arrow` and
-//! `fit_report.json` out.
+//! `fit_report.json` out. `sim-population` generates the same population and
+//! runs the scale world on it, printing one CSV line per month.
 
 use std::io::Write;
 use std::process::ExitCode;
@@ -21,7 +23,8 @@ use econ_rng::{KeyedRng, Stream};
 fn usage() -> ExitCode {
     eprintln!(
         "usage:\n  econ-cli sim [--ticks N] [--hashes] [--check-golden FILE] [--mutate tax-sign|consume-gross]\n  econ-cli bench-scale [--scales 1000,100,10] [--ticks N]\n  econ-cli bench-save [--scales 100,10]\n  econ-cli rng-raw [--pattern entity|tick|grid] [--entities N] [--bytes N] [--seed S]
-  econ-cli synth-population --margins FILE --sample-scale N [--seed S] --out DIR"
+  econ-cli synth-population --margins FILE --sample-scale N [--seed S] --out DIR
+  econ-cli sim-population --margins FILE --sample-scale N [--seed S] [--ticks N]"
     );
     ExitCode::from(2)
 }
@@ -34,6 +37,7 @@ fn main() -> ExitCode {
         Some("bench-save") => bench_save(&args[1..]),
         Some("rng-raw") => rng_raw(&args[1..]),
         Some("synth-population") => synth_population(&args[1..]),
+        Some("sim-population") => sim_population(&args[1..]),
         _ => usage(),
     }
 }
@@ -107,6 +111,91 @@ fn synth_population(args: &[String]) -> ExitCode {
         r.max_error_ppm,
         r.unfitted_cells
     );
+    ExitCode::SUCCESS
+}
+
+/// Run the scale world on a starting population generated from a margin file.
+/// Households, weights, counties and ages are the census's; jobs, wages and
+/// deposits are still invented (see `ScaleWorld::from_population`).
+/// CSV on stdout: tick,employed,unemployed,wage_bill,consumption,vat,state_hash
+/// (persons are real persons, money in bani).
+fn sim_population(args: &[String]) -> ExitCode {
+    use econ_core::scale_spike::ScaleWorld;
+    use econ_io::popgen::{read_margins, seed_population};
+    use econ_popgen::{GenParams, generate};
+    let mut margins: Option<&String> = None;
+    let mut sample_scale: Option<u32> = None;
+    let mut seed: u64 = 42;
+    let mut ticks: u32 = 12;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--margins" => margins = it.next(),
+            "--sample-scale" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(n) => sample_scale = Some(n),
+                None => return usage(),
+            },
+            "--seed" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(s) => seed = s,
+                None => return usage(),
+            },
+            "--ticks" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(n) => ticks = n,
+                None => return usage(),
+            },
+            _ => return usage(),
+        }
+    }
+    let (Some(margins), Some(sample_scale)) = (margins, sample_scale) else {
+        return usage();
+    };
+    let file = match std::fs::read_to_string(margins)
+        .map_err(|e| format!("{e}"))
+        .and_then(|text| read_margins(&text).map_err(|e| format!("{e:?}")))
+    {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("cannot read margin file {margins}: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let pop = match generate(&file.margins, &GenParams::new(sample_scale, seed)) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("margins rejected: {e:?}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let mut world = match ScaleWorld::from_population(sample_scale, seed, &seed_population(&pop)) {
+        Ok(w) => w,
+        Err(e) => {
+            eprintln!("population rejected: {e:?}");
+            return ExitCode::FAILURE;
+        }
+    };
+    eprintln!(
+        "1:{sample_scale} seed {seed}: {} households, {} persons standing for {} residents",
+        world.n_households(),
+        world.n_persons(),
+        world.real_persons()
+    );
+    println!("tick,employed,unemployed,wage_bill,consumption,vat,state_hash");
+    for tick in 0..ticks {
+        let r = world.step();
+        if !(r.ledger_ok && r.clearing_ok) {
+            eprintln!("tick {tick}: accounting invariant failed");
+            return ExitCode::FAILURE;
+        }
+        println!(
+            "{tick},{},{},{},{},{},{:016x}",
+            r.employed,
+            r.unemployed,
+            r.wage_bill.get(),
+            r.consumption.get(),
+            r.vat.get(),
+            world.state_hash()
+        );
+    }
     ExitCode::SUCCESS
 }
 

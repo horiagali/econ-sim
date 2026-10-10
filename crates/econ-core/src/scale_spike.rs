@@ -15,6 +15,11 @@
 //!
 //! Nothing here hardcodes the scale: record counts and weights come from
 //! `sample_scale` and the (fake) totals.
+//!
+//! [`ScaleWorld::from_population`] builds the same world on a real starting
+//! population (spec `society/population-generator`): households, weights,
+//! counties and ages come from the census; education, jobs, wages and
+//! deposits are still invented.
 
 use econ_ledger::{FlowCode, Instrument, Ledger, Sector, Txn};
 use econ_mech_tax::vat::{VatCategory, VatRate, VatSchedule};
@@ -99,6 +104,42 @@ impl Default for ScaleParams {
             mpc_wealth: 0.005,
         }
     }
+}
+
+/// A starting population as plain columns: what the population generator
+/// (crate `econ-popgen`) produces. `econ-core` does not depend on that crate.
+#[derive(Debug, Clone, Copy)]
+pub struct SeedPopulation<'a> {
+    /// Real households represented by each synthetic household.
+    pub hh_weight: &'a [u32],
+    /// County index of each household.
+    pub hh_county: &'a [u8],
+    /// Household of each person.
+    pub household_id: &'a [u32],
+    /// Age of each person in months.
+    pub age_months: &'a [u16],
+}
+
+/// Why a [`SeedPopulation`] cannot be used.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SeedError {
+    /// Columns of one table differ in length.
+    ColumnLengths,
+    /// A person points at a household that does not exist.
+    UnknownHousehold {
+        /// The person.
+        person: usize,
+    },
+    /// A household is in a county the world does not have.
+    UnknownCounty {
+        /// The household.
+        household: usize,
+    },
+    /// A household has weight 0.
+    ZeroWeight {
+        /// The household.
+        household: usize,
+    },
 }
 
 /// Commands accepted by the spike world.
@@ -284,19 +325,127 @@ impl ScaleWorld {
             w.wage.push(Bani::from_lei(base));
             w.household.push(hh);
         }
-        // Productive IO matrix and consumption shares.
+        w.fake_economy();
+        w.ledger = w.opening_ledger();
+        w
+    }
+
+    /// Build the world on a real starting population. Households, their
+    /// weights and counties, and every person's age come from `pop`.
+    /// Education, employment, industry, wages and deposits are invented by
+    /// the same rules as in [`ScaleWorld::generate`], until the generator
+    /// increments and mechanics that own them exist.
+    ///
+    /// `sample_scale` is the scale `pop` was generated at (it is recorded, not
+    /// used to size anything: weights come from `pop`).
+    ///
+    /// # Errors
+    /// See [`SeedError`].
+    ///
+    /// # Panics
+    /// If `sample_scale` is zero.
+    pub fn from_population(
+        sample_scale: u32,
+        seed: u64,
+        pop: &SeedPopulation<'_>,
+    ) -> Result<Self, SeedError> {
+        assert!(sample_scale > 0, "sample_scale must be > 0");
+        let (n_hh, n_persons) = (pop.hh_weight.len(), pop.household_id.len());
+        if pop.hh_county.len() != n_hh || pop.age_months.len() != n_persons {
+            return Err(SeedError::ColumnLengths);
+        }
+        if let Some(household) = pop.hh_weight.iter().position(|&w| w == 0) {
+            return Err(SeedError::ZeroWeight { household });
+        }
+        if let Some(household) = pop
+            .hh_county
+            .iter()
+            .position(|&c| usize::from(c) >= N_COUNTIES)
+        {
+            return Err(SeedError::UnknownCounty { household });
+        }
+        if let Some(person) = pop.household_id.iter().position(|&h| h as usize >= n_hh) {
+            return Err(SeedError::UnknownHousehold { person });
+        }
+        let rng = KeyedRng::new(seed);
+        let mut w = ScaleWorld {
+            sample_scale,
+            age: Vec::with_capacity(n_persons),
+            county: Vec::with_capacity(n_persons),
+            edu: Vec::with_capacity(n_persons),
+            status: Vec::with_capacity(n_persons),
+            industry: Vec::with_capacity(n_persons),
+            wage: Vec::with_capacity(n_persons),
+            household: pop.household_id.to_vec(),
+            hh_weight: pop.hh_weight.to_vec(),
+            hh_deposits: Vec::with_capacity(n_hh),
+            hh_income: vec![Bani::ZERO; n_hh],
+            gov_vat: Bani::ZERO,
+            ledger: Ledger::new(),
+            io: Vec::new(),
+            consumption_shares: Vec::new(),
+            seed_value: seed,
+            seed: rng,
+            tick: 0,
+            separation_rate: 0.015,
+            params: ScaleParams::default(),
+        };
+        // Draw contexts: tick 0 = per person, 3 = per household (1 and 2 are
+        // the IO matrix and the consumption shares).
+        for h in 0..n_hh {
+            let lei = rng.draw(Stream::PopulationGen, 3, h as u64).below(50_000);
+            w.hh_deposits
+                .push(Bani::from_lei(i64::try_from(lei).expect("small")));
+        }
+        for i in 0..n_persons {
+            let mut d = rng.draw(Stream::PopulationGen, 0, i as u64);
+            let age = u8::try_from(pop.age_months[i] / 12).unwrap_or(u8::MAX);
+            let edu = u8::try_from(d.below(5)).expect("edu");
+            let status = if age < 20 {
+                0
+            } else if age >= 65 {
+                3
+            } else if d.bernoulli(0.92) {
+                1
+            } else {
+                2
+            };
+            w.age.push(age);
+            w.county.push(pop.hh_county[pop.household_id[i] as usize]);
+            w.edu.push(edu);
+            w.status.push(status);
+            w.industry
+                .push(u16::try_from(d.below(N_INDUSTRIES as u64)).expect("ind"));
+            let base = 3_000 + 2_000 * i64::from(edu) + i64::try_from(d.below(2_000)).expect("w");
+            w.wage.push(Bani::from_lei(base));
+        }
+        w.fake_economy();
+        w.ledger = w.opening_ledger();
+        Ok(w)
+    }
+
+    /// Invented input-output matrix (productive) and consumption shares.
+    fn fake_economy(&mut self) {
+        let rng = self.seed;
         let mut io = vec![0.0; N_INDUSTRIES * N_INDUSTRIES];
         for (k, v) in io.iter_mut().enumerate() {
             *v = rng.draw(Stream::PopulationGen, 1, k as u64).uniform() * 0.5 / N_INDUSTRIES as f64;
         }
-        w.io = io;
+        self.io = io;
         let raw: Vec<f64> = (0..N_GOODS)
             .map(|g| 0.5 + rng.draw(Stream::PopulationGen, 2, g as u64).uniform())
             .collect();
         let tot: f64 = raw.iter().sum();
-        w.consumption_shares = raw.iter().map(|x| x / tot).collect();
-        w.ledger = w.opening_ledger();
-        w
+        self.consumption_shares = raw.iter().map(|x| x / tot).collect();
+    }
+
+    /// Real persons represented: the sum of household weights over persons.
+    #[must_use]
+    pub fn real_persons(&self) -> u64 {
+        self.household
+            .iter()
+            .map(|&h| u64::from(self.hh_weight[h as usize]))
+            .sum()
     }
 
     /// Weighted total of household deposits.
@@ -823,6 +972,116 @@ mod tests {
         823_228_305_000,
         9_769_553_421_000,
     );
+
+    /// A small hand-made population: households of 1 to 4 members with
+    /// unequal weights, spread over the counties.
+    fn seed_columns() -> (Vec<u32>, Vec<u8>, Vec<u32>, Vec<u16>) {
+        let (mut weight, mut county, mut household, mut age) = (vec![], vec![], vec![], vec![]);
+        for h in 0..600u32 {
+            weight.push(700 + (h % 7) * 100);
+            county.push(u8::try_from(h as usize % N_COUNTIES).unwrap());
+            for m in 0..=(h % 4) {
+                household.push(h);
+                age.push(u16::try_from((h * 37 + m * 211) % (95 * 12)).unwrap());
+            }
+        }
+        (weight, county, household, age)
+    }
+
+    #[test]
+    fn world_from_a_population_keeps_its_people_and_runs() {
+        let (weight, county, household, age) = seed_columns();
+        let pop = SeedPopulation {
+            hh_weight: &weight,
+            hh_county: &county,
+            household_id: &household,
+            age_months: &age,
+        };
+        let mut w = ScaleWorld::from_population(1000, 42, &pop).unwrap();
+        // Households, weights, counties and ages are the population's own.
+        assert_eq!(w.n_households(), weight.len());
+        assert_eq!(w.n_persons(), household.len());
+        let real: u64 = household
+            .iter()
+            .map(|&h| u64::from(weight[h as usize]))
+            .sum();
+        assert_eq!(w.real_persons(), real);
+        let c = w.to_columns();
+        assert_eq!(c.hh_weight, weight);
+        assert_eq!(c.household, household);
+        for i in 0..household.len() {
+            assert_eq!(u16::from(c.age[i]), age[i] / 12);
+            assert_eq!(c.county[i], county[household[i] as usize]);
+        }
+        // It runs, with unequal weights, and money stays accounted for.
+        let mut last = None;
+        for _ in 0..6 {
+            let r = w.step();
+            assert!(r.ledger_ok && r.clearing_ok);
+            last = Some(r);
+        }
+        let r = last.unwrap();
+        assert!(r.employed > 0 && r.employed + r.unemployed < real);
+        assert!(r.vat > Bani::ZERO);
+        // Same inputs, same world; and it survives a save round trip.
+        let again = ScaleWorld::from_population(1000, 42, &pop).unwrap();
+        assert_ne!(again.state_hash(), w.state_hash());
+        let mut again = again;
+        for _ in 0..6 {
+            again.step();
+        }
+        assert_eq!(again.state_hash(), w.state_hash());
+        assert_eq!(
+            ScaleWorld::from_columns(w.to_columns()).state_hash(),
+            w.state_hash()
+        );
+    }
+
+    #[test]
+    fn bad_populations_are_rejected() {
+        let (weight, county, household, age) = seed_columns();
+        let pop = SeedPopulation {
+            hh_weight: &weight,
+            hh_county: &county,
+            household_id: &household,
+            age_months: &age,
+        };
+        let build = |p: &SeedPopulation<'_>| ScaleWorld::from_population(1000, 1, p).map(|_| ());
+        assert_eq!(
+            build(&SeedPopulation {
+                age_months: &age[1..],
+                ..pop
+            }),
+            Err(SeedError::ColumnLengths)
+        );
+        let mut zero = weight.clone();
+        zero[5] = 0;
+        assert_eq!(
+            build(&SeedPopulation {
+                hh_weight: &zero,
+                ..pop
+            }),
+            Err(SeedError::ZeroWeight { household: 5 })
+        );
+        let mut far = county.clone();
+        far[9] = u8::try_from(N_COUNTIES).unwrap();
+        assert_eq!(
+            build(&SeedPopulation {
+                hh_county: &far,
+                ..pop
+            }),
+            Err(SeedError::UnknownCounty { household: 9 })
+        );
+        let mut lost = household.clone();
+        lost[3] = 600;
+        assert_eq!(
+            build(&SeedPopulation {
+                household_id: &lost,
+                ..pop
+            }),
+            Err(SeedError::UnknownHousehold { person: 3 })
+        );
+    }
 
     #[test]
     fn deterministic_at_fixed_scale() {

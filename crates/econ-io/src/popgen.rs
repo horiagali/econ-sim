@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use arrow_array::{ArrayRef, BooleanArray, UInt8Array, UInt16Array, UInt32Array};
 use arrow_schema::DataType;
+use econ_core::scale_spike::SeedPopulation;
 use econ_popgen::{GenParams, Margins, OPEN, Population};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -91,6 +92,17 @@ pub fn read_margins(json: &str) -> Result<MarginFile, SaveError> {
         },
         provenance: raw.provenance,
     })
+}
+
+/// The columns of a generated population that the simulation starts from.
+#[must_use]
+pub fn seed_population(pop: &Population) -> SeedPopulation<'_> {
+    SeedPopulation {
+        hh_weight: &pop.households.hh_weight,
+        hh_county: &pop.households.hh_county,
+        household_id: &pop.persons.household_id,
+        age_months: &pop.persons.age,
+    }
 }
 
 /// The households table as Arrow IPC bytes.
@@ -222,6 +234,40 @@ mod tests {
         "households": [[60, 100], [40, 60]],
         "provenance": {"note": "test"}
     }"#;
+
+    /// The scale world on the Romanian starting population (Census 2021
+    /// fixture, 1:1000, seed 42), 12 ticks. A change here is a re-golden
+    /// event (DETERMINISM.md): explain it in CHANGELOG-sim.md.
+    #[test]
+    fn golden_romania_12_ticks_at_1_in_1000() {
+        use econ_core::scale_spike::ScaleWorld;
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../python/pipeline/fixtures/census2021_margins_ro.json"
+        );
+        let file = read_margins(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let pop = econ_popgen::generate(&file.margins, &GenParams::new(1000, 42)).unwrap();
+        let mut w = ScaleWorld::from_population(1000, 42, &seed_population(&pop)).unwrap();
+        // Every resident of the census is in the world, at any scale.
+        assert_eq!(w.real_persons(), 19_053_815);
+        assert_eq!(w.n_households(), pop.households.hh_weight.len());
+        let mut last = None;
+        for _ in 0..12 {
+            let r = w.step();
+            assert!(r.ledger_ok && r.clearing_ok);
+            last = Some(r);
+        }
+        let r = last.unwrap();
+        let got = (w.state_hash(), r.employed, r.unemployed, r.vat.get());
+        assert_eq!(
+            got, GOLDEN_ROMANIA_12,
+            "Romanian scale-world golden changed: {got:?}"
+        );
+    }
+
+    /// (state hash, employed, unemployed, VAT in tick 12).
+    const GOLDEN_ROMANIA_12: (u64, u64, u64, i64) =
+        (0xc050_2b54_1f4a_bd0b, 10_577_737, 641_162, 979_111_507_848);
 
     #[test]
     fn margin_file_is_parsed_row_major() {
