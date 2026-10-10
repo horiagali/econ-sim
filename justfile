@@ -10,7 +10,7 @@ default:
     @just --list
 
 # Everything CI runs on every PR. Must be green before a PR is opened.
-check: fmt-check lint test lint-canary docs codegen-check trace pipeline-test diff-sim
+check: fmt-check lint test lint-canary docs codegen-check trace pipeline-test hook-test diff-sim
 
 # Format all Rust code
 fmt:
@@ -96,3 +96,7 @@ mutants crate:
 # Data pipeline unit tests (offline)
 pipeline-test:
     {{python}} -m unittest discover -s python/pipeline/tests
+
+# Unit tests for the protect-paths hook (ADR-0014)
+hook-test:
+    {{python}} -m unittest discover -s scripts/tests

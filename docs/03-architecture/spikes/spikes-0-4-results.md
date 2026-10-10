@@ -27,14 +27,14 @@ Built 2026-10-09 in an autonomous session. All code is in `crates/`,
 
 > Three files (`justfile`, `.github/workflows/ci.yml`, `.claude/settings.json`) could not be written remotely and were delivered in `setup-pending/` with move instructions.
 
-**Exit criterion** ("an agent on Windows runs `just check` green and is blocked from editing `tests/golden/`"): hook verified locally; **Windows run pending**.
+**Exit criterion** ("an agent on Windows runs `just check` green and is blocked from editing `tests/golden/`"): hook verified locally; **passed on a Windows laptop 2026-10-10** (`just check` green, hook blocks Edit/Write and shell writes; see "Windows verification" in the [spikes 5–9 results](spikes-5-6-results.md)).
 
 ## Spike 1 — numeric foundation ✅
 - `econ-types::Bani(i64)`: checked arithmetic (overflow panics in release too: `overflow-checks = true`), one rounding rule (half away from zero), exact `mul_ratio` via `i128`, `mul_rate` guarded to |x| < 2⁵³, largest-remainder `split_largest_remainder` (property-tested: parts always sum exactly).
 - `econ-num`: `math` wrappers on pinned `libm` 0.2.16 with **bit-exact known-answer vectors**; `det_sum` (fixed 4096 chunks, parallel-safe); hand-written partial-pivot LU + `leontief_output` (90×90 residual < 1e-9, bit-reproducible).
 - `econ-rng`: ChaCha8 keyed on (seed, stream, tick, entity) with pinned KAT vectors; order-independence tested.
 
-**Exit criterion** (same hashes on Windows and Linux): Linux done; **CI comparison job will verify Windows**.
+**Exit criterion** (same hashes on Windows and Linux): Linux done; **Windows CI and a Windows laptop produce the same hashes (2026-10-10)**.
 
 ## Spike 2 — ledger + differential SIM ✅
 - `econ-ledger`: sectors × instruments, typed linked `Txn`s applied atomically, flow codes, weighted legs (`per_unit × weight`), invariant checks I-1 (rows sum to zero), I-2 (sign constraints), I-3 (TFM rows zero; columns = Δ net financial assets) computed on a separate path. Property test: random payment sequences never break invariants; a corrupted balance is detected.

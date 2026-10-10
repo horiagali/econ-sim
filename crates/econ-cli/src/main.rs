@@ -3,16 +3,21 @@
 //! ```text
 //! econ-cli sim [--ticks N] [--hashes] [--check-golden FILE] [--mutate tax-sign|consume-gross]
 //! ```
+//! econ-cli rng-raw [--pattern entity|tick|grid] [--entities N] [--bytes N] [--seed S]
+//! ```
 //! Default output of `sim` is CSV: tick,Y,T,YD,C,G,H,GOV_DEFICIT,state_hash
-//! (money in bani).
+//! (money in bani). `rng-raw` writes raw `fast_u64` output to stdout for
+//! external test batteries (PractRand: `econ-cli rng-raw | RNG_test stdin64`).
 
+use std::io::Write;
 use std::process::ExitCode;
 
 use econ_core::sim::{Mutation, SimModel, SimParams};
+use econ_rng::{KeyedRng, Stream};
 
 fn usage() -> ExitCode {
     eprintln!(
-        "usage:\n  econ-cli sim [--ticks N] [--hashes] [--check-golden FILE] [--mutate tax-sign|consume-gross]\n  econ-cli bench-scale [--scales 1000,100,10] [--ticks N]\n  econ-cli bench-save [--scales 100,10]"
+        "usage:\n  econ-cli sim [--ticks N] [--hashes] [--check-golden FILE] [--mutate tax-sign|consume-gross]\n  econ-cli bench-scale [--scales 1000,100,10] [--ticks N]\n  econ-cli bench-save [--scales 100,10]\n  econ-cli rng-raw [--pattern entity|tick|grid] [--entities N] [--bytes N] [--seed S]"
     );
     ExitCode::from(2)
 }
@@ -23,8 +28,61 @@ fn main() -> ExitCode {
         Some("sim") => run_sim(&args[1..]),
         Some("bench-scale") => bench_scale(&args[1..]),
         Some("bench-save") => bench_save(&args[1..]),
+        Some("rng-raw") => rng_raw(&args[1..]),
         _ => usage(),
     }
+}
+
+/// Raw little-endian `fast_u64` output on stdout, until `--bytes` is reached
+/// or the reader closes the pipe. The pattern picks which key varies:
+/// `entity` (one tick, entity = 0, 1, 2, …), `tick` (one entity, tick = 0, 1, …)
+/// or `grid` (the simulation's order: entities 0..N for each tick in turn; N is
+/// `--entities`, e.g. the person count of the scenario).
+fn rng_raw(args: &[String]) -> ExitCode {
+    let mut pattern = "entity";
+    let mut entities: u64 = 0;
+    let mut bytes: Option<u64> = None;
+    let mut seed: u64 = 42;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--pattern" => match it.next().map(String::as_str) {
+                Some(p @ ("entity" | "tick" | "grid")) => pattern = p,
+                _ => return usage(),
+            },
+            "--entities" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(n) => entities = n,
+                None => return usage(),
+            },
+            "--bytes" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(n) => bytes = Some(n),
+                None => return usage(),
+            },
+            "--seed" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(s) => seed = s,
+                None => return usage(),
+            },
+            _ => return usage(),
+        }
+    }
+    if pattern == "grid" && entities == 0 {
+        return usage();
+    }
+    let rng = KeyedRng::new(seed);
+    let words = bytes.map_or(u64::MAX, |b| b.div_ceil(8));
+    let mut out = std::io::BufWriter::with_capacity(1 << 16, std::io::stdout().lock());
+    for i in 0..words {
+        let v = match pattern {
+            "tick" => rng.fast_u64(Stream::Labour, i as u32, 0, 0),
+            "grid" => rng.fast_u64(Stream::Labour, (i / entities) as u32, i % entities, 0),
+            _ => rng.fast_u64(Stream::Labour, 1, i, 0),
+        };
+        if out.write_all(&v.to_le_bytes()).is_err() {
+            break; // the reader closed the pipe
+        }
+    }
+    let _ = out.flush();
+    ExitCode::SUCCESS
 }
 
 fn run_sim(args: &[String]) -> ExitCode {

@@ -40,6 +40,8 @@ jobs:
         run: python scripts/traceability.py
       - name: data pipeline tests
         run: python -m unittest discover -s python/pipeline/tests
+      - name: protect-paths hook tests
+        run: python -m unittest discover -s scripts/tests
       - name: differential SIM test (Rust vs Python reference)
         run: |
           cargo build -q -p econ-cli
