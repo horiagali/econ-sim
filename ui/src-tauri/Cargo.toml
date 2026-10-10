@@ -1,0 +1,19 @@
+[package]
+name = "econ-sim-app"
+version = "0.1.0"
+description = "Tauri 2 desktop host for the econ-sim UI (Spike 8). The simulation core runs in-process."
+edition = "2024"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+econ-core = { path = "../../crates/econ-core" }
+econ-rules = { path = "../../crates/econ-rules" }
+econ-types = { path = "../../crates/econ-types" }
+
+# Not a member of the root workspace (it needs the system WebView libraries to build).
+[workspace]
