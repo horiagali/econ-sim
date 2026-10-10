@@ -182,8 +182,8 @@ impl HouseholdHousing { pub fn state_hash(&self) -> u64; }
 - Margin fixture: `python/pipeline/fixtures/census2021_housing_ro.json`, built by `python/pipeline/normalise_census_housing.py`.
 
 ## Open questions
-- [ ] **Tolerances** (1%, 5%, 15%): to be accepted by the owner.
-- [ ] **Urban = 10,000 inhabitants or more.** Keep the rule, or get the administrative urban/rural split per county from INS (the request that is already planned for ethnicity and religion could include it)?
+- [x] **Tolerances** (1%, 5%, 15%): to be accepted by the owner. Accepted by the owner, 2026-10-10.
+- [x] **Urban = 10,000 inhabitants or more.** Keep the rule, or get the administrative urban/rural split per county from INS (the request that is already planned for ethnicity and religion could include it)? Accepted by the owner, 2026-10-10.
 - [ ] **Tenure independent of age.** The census table used here has tenure by household composition; composition in the seed is rule-made (generator spec), so it is not used beyond "one person or larger". Revisit with the IPUMS seed.
 - [ ] **Six locality classes.** Enough for housing and services, or keep all thirteen census classes?
 - [ ] Should Stages C and D (education, activity, jobs) later be corrected by locality size? Villages have more farmers and fewer graduates than their region's average.

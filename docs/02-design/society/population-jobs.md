@@ -193,8 +193,8 @@ impl PersonJobs { pub fn state_hash(&self) -> u64; }
 - Margin fixture: `python/pipeline/fixtures/census2021_jobs_ro.json`, built by `python/pipeline/normalise_census_jobs.py`.
 
 ## Open questions
-- [ ] **Tolerances** (1%, 10%, 25%): to be accepted by the owner.
-- [ ] **EU-27 patterns for Romania.** Acceptable until Romanian microdata is available? Romania differs most in agriculture, where the census margins already do the work.
+- [x] **Tolerances** (1%, 10%, 25%): to be accepted by the owner. Accepted by the owner, 2026-10-10.
+- [x] **EU-27 patterns for Romania.** Acceptable until Romanian microdata is available? Romania differs most in agriculture, where the census margins already do the work. Accepted by the owner, 2026-10-10.
 - [ ] **Status in employment independent of education** (second simplification). Employers are in reality better educated than own-account farmers; the occupation step recovers part of this. Add an education × status pattern (LFS `lfsa_egaed` has status by education)?
 - [ ] **Armed forces:** the census reports nobody in ISCO group 0 (the military are counted elsewhere). Leave empty, or move a number from public administration by rule?
 - [ ] `employment_status` as its own column, or folded into `activity` as [population-groups](population-groups.md) lists it? Separate keeps Stage C's output and hash fixed.
