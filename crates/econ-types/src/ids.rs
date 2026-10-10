@@ -28,18 +28,6 @@ id_type!(/// One of the ~90 industries.
 id_type!(/// One of Romania's 42 counties (41 + Bucharest).
     CountyId, u8);
 
-/// One simulation tick. 1 tick = 1 month; month 0 is the scenario start.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub struct Month(pub u32);
-
-impl Month {
-    /// The following month.
-    #[must_use]
-    pub fn next(self) -> Self {
-        Month(self.0.checked_add(1).expect("Month overflow"))
-    }
-}
-
 #[cfg(test)]
 mod glossary_tests {
     #[test]
