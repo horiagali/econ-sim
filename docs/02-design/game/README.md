@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [vision/vision, vision/scope]
 research: []
-updated: 2026-10-08
+updated: 2026-10-10
 ---
 
 # Game — Player Role, Core Loop & Time
@@ -30,7 +30,7 @@ updated: 2026-10-08
 - The **rest of the world** is aggregate; split into EU and non-EU is proposed. See [trade & FX](../economy/trade-fx.md).
 
 ## Time
-- **1 tick = 1 month** (working assumption; confirm via ADR, see [research backlog](../../01-research/README.md)).
+- **1 tick = 1 day** (owner decision 2026-10-10, see D5 in the [roadmap](../../roadmap.md); the ADR for the time base is still to be written). Each process runs at its own period: markets and payments daily, wages, taxes and statistics monthly, budgets and school years yearly. Where this or another spec still says "tick" or "month" for a step of the simulation, read it as that process's period until the spec is reworded.
 - Pausable real time with speeds (e.g. 1×, 2×, 4×, max). The player can change any lever while paused.
 - Some sub-systems run less often: demographic transitions monthly; education cohorts yearly (school year); statistics releases monthly or quarterly.
 - **Implementation lags are explicit per lever.** Tax changes apply from the next tick, new benefits after an admin lag, infrastructure after a build period of years. Each lever's lag is listed in [levers](levers.md).
@@ -62,6 +62,6 @@ The detailed order belongs to the architecture docs. The intended causal order w
 11. Invariant checks (SFC, person conservation, no NaN). Statistics recorded; causal trace stored.
 
 ## Open questions
-- [ ] Monthly tick confirmed? Or weekly for prices and markets?
+- [x] Tick length: one day, with mixed rates (2026-10-10).
 - [ ] Start year: 2025 or 2026 (depends on data availability).
 - [ ] Pinned goals or advisors that comment on trends: in v1 or later?

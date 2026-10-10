@@ -4,7 +4,7 @@ title: Economy — System Overview
 status: draft
 owner: horia
 depends_on: [vision/pillars, society/overview]
-updated: 2026-10-09
+updated: 2026-10-10
 ---
 
 # Economy — System Overview
@@ -75,7 +75,7 @@ Accounting ([accounting](accounting.md)) sits under everything: every arrow that
 These need research and an ADR before specs can move past `draft`:
 - [x] **Modelling approach:** hybrid SFC backbone + synthetic population + I-O industries, accepted 2026-10-09. See [ADR-0002](../../03-architecture/decisions/0002-modelling-approach.md) and [ADR-0003](../../03-architecture/decisions/0003-people-representation.md).
 - [x] **Firm representation:** named firms + size-class cohort firms, with ownership vectors ([ADR-0016](../../03-architecture/decisions/0016-firm-representation.md), accepted 2026-10-09).
-- [ ] **Tick length:** month (working assumption) vs quarter.
+- [x] **Tick length:** one day, with each process at its own period (owner decision 2026-10-10; ADR to follow, see D5 in the [roadmap](../roadmap.md)).
 - [ ] **Industry list:** 90 proposed in [industries](industries.md) (electricity split by technology, 2026-10-09); reconcile with P&R 2026.
 - [ ] **Expectations:** anchored-adaptive proposed in [prices-inflation](prices-inflation.md).
 - [ ] **Market clearing:** inventory-buffer disequilibrium (proposed) vs per-tick price equilibrium.
