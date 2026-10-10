@@ -1,0 +1,74 @@
+schema: '2.0'
+stages:
+  normalise_census:
+    cmd: python normalise_census.py
+    deps:
+    - path: data/raw/ro_census2021_households_size.json
+      hash: md5
+      md5: c8ec928d54870906bdc6bb58c390734c
+      size: 8437
+    - path: data/raw/ro_census2021_persons_hhstatus.json
+      hash: md5
+      md5: e6b19c7c858c53eaf7e075d6d272acf9
+      size: 335093
+    - path: jsonstat.py
+      hash: md5
+      md5: 8cd97c2b4cf40e2a6d09d40e0ebb51de
+      size: 1096
+    - path: normalise_census.py
+      hash: md5
+      md5: 6861e544f26406d477062b4ed675d239
+      size: 7852
+    outs:
+    - path: data/derived/census2021_margins_ro.json
+      hash: md5
+      md5: efa246264797cd029ec2f3e7a173df0c
+      size: 18956
+  synth_population:
+    cmd: cargo run -q --release -p econ-cli -- synth-population --margins 
+      data/derived/census2021_margins_ro.json --sample-scale 100 --seed 42 --out
+      data/population
+    deps:
+    - path: ../../crates/econ-io/src/popgen.rs
+      hash: md5
+      md5: c852e413009a2ba91f7cd09005a21c20
+      size: 10687
+    - path: ../../crates/econ-popgen/src
+      hash: md5
+      md5: f4c0a2c92414dba2320e811d4ea686a5.dir
+      size: 39662
+      nfiles: 4
+    - path: data/derived/census2021_margins_ro.json
+      hash: md5
+      md5: efa246264797cd029ec2f3e7a173df0c
+      size: 18956
+    outs:
+    - path: data/population
+      hash: md5
+      md5: 96aa22ae400dbacd45ff4edd91953e60.dir
+      size: 566623
+      nfiles: 3
+  synth:
+    cmd: python synth_counties.py --fixture --scale 100
+    deps:
+    - path: fixtures/marginals_illustrative.json
+      hash: md5
+      md5: 33b75f93adc2bc22f914107dcc03f45c
+      size: 327
+    - path: ipf.py
+      hash: md5
+      md5: 3cf37c4b5a9ce8828a61d6c1bdb2f5ae
+      size: 1980
+    - path: synth_counties.py
+      hash: md5
+      md5: ea808130f5916ab4f0ce7858809ccbfe
+      size: 2757
+    outs:
+    - path: data/derived/population_fixture_1to100.csv
+      hash: md5
+      md5: 0124a14ef36c2b439d79464c59190c7b
+      size: 895772
+    - path: data/derived/population_fixture_1to100.provenance.json
+      hash: md5
+      md5: eefbc6321b71d7f103dc5a0e817cfec9
+      size: 179

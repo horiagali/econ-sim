@@ -15,6 +15,7 @@ path = "src/main.rs"
 econ-types.workspace = true
 econ-core.workspace = true
 econ-io.workspace = true
+econ-popgen.workspace = true
 econ-rng.workspace = true
 
 [lints]

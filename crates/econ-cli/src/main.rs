@@ -2,12 +2,15 @@
 //!
 //! ```text
 //! econ-cli sim [--ticks N] [--hashes] [--check-golden FILE] [--mutate tax-sign|consume-gross]
-//! ```
 //! econ-cli rng-raw [--pattern entity|tick|grid] [--entities N] [--bytes N] [--seed S]
+//! econ-cli synth-population --margins FILE --sample-scale N [--seed S] --out DIR
 //! ```
 //! Default output of `sim` is CSV: tick,Y,T,YD,C,G,H,GOV_DEFICIT,state_hash
 //! (money in bani). `rng-raw` writes raw `fast_u64` output to stdout for
 //! external test batteries (PractRand: `econ-cli rng-raw | RNG_test stdin64`).
+//! `synth-population` is the data pipeline's `synth_population` stage
+//! (ADR-0012): census margins in, `households.arrow`, `persons.arrow` and
+//! `fit_report.json` out.
 
 use std::io::Write;
 use std::process::ExitCode;
@@ -17,7 +20,8 @@ use econ_rng::{KeyedRng, Stream};
 
 fn usage() -> ExitCode {
     eprintln!(
-        "usage:\n  econ-cli sim [--ticks N] [--hashes] [--check-golden FILE] [--mutate tax-sign|consume-gross]\n  econ-cli bench-scale [--scales 1000,100,10] [--ticks N]\n  econ-cli bench-save [--scales 100,10]\n  econ-cli rng-raw [--pattern entity|tick|grid] [--entities N] [--bytes N] [--seed S]"
+        "usage:\n  econ-cli sim [--ticks N] [--hashes] [--check-golden FILE] [--mutate tax-sign|consume-gross]\n  econ-cli bench-scale [--scales 1000,100,10] [--ticks N]\n  econ-cli bench-save [--scales 100,10]\n  econ-cli rng-raw [--pattern entity|tick|grid] [--entities N] [--bytes N] [--seed S]
+  econ-cli synth-population --margins FILE --sample-scale N [--seed S] --out DIR"
     );
     ExitCode::from(2)
 }
@@ -29,8 +33,81 @@ fn main() -> ExitCode {
         Some("bench-scale") => bench_scale(&args[1..]),
         Some("bench-save") => bench_save(&args[1..]),
         Some("rng-raw") => rng_raw(&args[1..]),
+        Some("synth-population") => synth_population(&args[1..]),
         _ => usage(),
     }
+}
+
+/// The pipeline's `synth_population` stage (spec `society/population-generator`):
+/// generate the starting population from a margin file and write its tables.
+/// `--sample-scale` has no default: it comes from the scenario (ADR-0003).
+fn synth_population(args: &[String]) -> ExitCode {
+    use econ_io::popgen::{read_margins, write_population};
+    use econ_popgen::{GenParams, generate};
+    let mut margins: Option<&String> = None;
+    let mut out: Option<&String> = None;
+    let mut sample_scale: Option<u32> = None;
+    let mut seed: u64 = 42;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--margins" => margins = it.next(),
+            "--out" => out = it.next(),
+            "--sample-scale" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(n) => sample_scale = Some(n),
+                None => return usage(),
+            },
+            "--seed" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(s) => seed = s,
+                None => return usage(),
+            },
+            _ => return usage(),
+        }
+    }
+    let (Some(margins), Some(out), Some(sample_scale)) = (margins, out, sample_scale) else {
+        return usage();
+    };
+    let file = match std::fs::read_to_string(margins)
+        .map_err(|e| format!("{e}"))
+        .and_then(|text| read_margins(&text).map_err(|e| format!("{e:?}")))
+    {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("cannot read margin file {margins}: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let params = GenParams::new(sample_scale, seed);
+    let pop = match generate(&file.margins, &params) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("margins rejected: {e:?}");
+            return ExitCode::FAILURE;
+        }
+    };
+    if let Err(e) = write_population(std::path::Path::new(out), &file, &params, &pop) {
+        eprintln!("cannot write to {out}: {e:?}");
+        return ExitCode::FAILURE;
+    }
+    let r = &pop.report;
+    println!(
+        "1:{sample_scale} seed {seed}: {} households, {} persons, state hash {:016x}",
+        pop.households.hh_weight.len(),
+        pop.persons.household_id.len(),
+        pop.state_hash()
+    );
+    println!(
+        "fit: {} sweeps, {}, {} ppm left on checked cells, {} county cells without a record",
+        r.sweeps,
+        if r.converged {
+            "converged"
+        } else {
+            "sweep limit reached"
+        },
+        r.max_error_ppm,
+        r.unfitted_cells
+    );
+    ExitCode::SUCCESS
 }
 
 /// Raw little-endian `fast_u64` output on stdout, until `--bytes` is reached

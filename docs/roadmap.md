@@ -78,7 +78,7 @@ Recorded here so they are not lost; none of this is implemented yet.
 
 **Order of work.**
 1. The follow-ups PR above (RNG, VAT in the scale world, CI).
-2. The population generator.
+2. The population generator. **Done 2026-10-10** (version 1: county, household size, sex and age): spec [`society/population-generator`](02-design/society/population-generator.md), crate `econ-popgen`, pipeline stage `econ-cli synth-population`. Next: its second increment, then wiring the generated population into the simulation in place of the scale world's invented one.
 3. Other follow-ups as they are needed: the firm-unit goods market (before the firms spec locks), the PC model in the differential test, history blocks in saves.
 
 ## Phase 2 — Playable vertical slice

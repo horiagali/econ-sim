@@ -13,6 +13,9 @@
 //! world and checks its state hash against the manifest. Because the core is
 //! deterministic, any past state can be rebuilt from the scenario start plus
 //! the command log (replay).
+//!
+//! [`popgen`] reads the population generator's margin file and writes its
+//! output tables (ADR-0012).
 
 use std::io::{Cursor, Read, Write};
 use std::sync::Arc;
@@ -171,6 +174,8 @@ macro_rules! col {
             .to_vec()
     }};
 }
+
+pub mod popgen;
 
 /// Serialise a world + command log into save bytes (a ZIP archive).
 ///

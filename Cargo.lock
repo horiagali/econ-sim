@@ -218,6 +218,7 @@ version = "0.1.0"
 dependencies = [
  "econ-core",
  "econ-io",
+ "econ-popgen",
  "econ-rng",
  "econ-types",
 ]
@@ -241,6 +242,7 @@ dependencies = [
  "arrow-ipc",
  "arrow-schema",
  "econ-core",
+ "econ-popgen",
  "serde",
  "serde_json",
  "zip",
@@ -274,6 +276,7 @@ dependencies = [
 name = "econ-popgen"
 version = "0.1.0"
 dependencies = [
+ "econ-rng",
  "serde_json",
 ]
 
