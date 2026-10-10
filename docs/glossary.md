@@ -4,7 +4,7 @@ title: Glossary & Variable Registry
 status: draft
 owner: horia
 depends_on: []
-updated: 2026-10-09
+updated: 2026-10-10
 ---
 
 # Glossary & Variable Registry
@@ -67,6 +67,8 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | $K^g_{type,r}$ | `public_capital[type,r]` | Public infrastructure stock | real LCU | state | economy/infrastructure |
 | $\Psi_r$ | `infra_multiplier[r]` | Infrastructure effect on capacity | index | derived | economy/infrastructure |
 | $w_h$ | `hh_weight` | Real households represented by synthetic household *h* (integer; see ADR-0007) | count | state | society/population-groups |
+| — | `hh_size` | Number of persons in synthetic household *h* | count | derived | society/population-generator |
+| — | `hh_collective` | Record stands for people not living in a private household (institutions, homeless); always one member | bool | state | society/population-generator |
 | $n_f$ | `firm_count[f]` | Real firms represented by firm unit *f* (integer; 1 for a named firm). Read from the scenario; never hardcoded (ADR-0016) | count | state | economy/production |
 | — | `sample_scale` | Real people per synthetic person (default 100). Read from the scenario; never hardcoded (ADR-0003) | ratio | parameter | society/population-groups |
 | — | `ideo_econ`, `ideo_social`, `ideo_national` | Person's ideology axes | −1…+1 | state | society/opinion-approval |

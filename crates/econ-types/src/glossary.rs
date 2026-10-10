@@ -75,6 +75,8 @@ pub const VARIABLES: &[Variable] = &[
     Variable { code_name: "public_capital[type,r]", meaning: "Public infrastructure stock", unit: "real LCU", kind: "state", owner: "economy/infrastructure" },
     Variable { code_name: "infra_multiplier[r]", meaning: "Infrastructure effect on capacity", unit: "index", kind: "derived", owner: "economy/infrastructure" },
     Variable { code_name: "hh_weight", meaning: "Real households represented by synthetic household *h* (integer; see ADR-0007)", unit: "count", kind: "state", owner: "society/population-groups" },
+    Variable { code_name: "hh_size", meaning: "Number of persons in synthetic household *h*", unit: "count", kind: "derived", owner: "society/population-generator" },
+    Variable { code_name: "hh_collective", meaning: "Record stands for people not living in a private household (institutions, homeless); always one member", unit: "bool", kind: "state", owner: "society/population-generator" },
     Variable { code_name: "firm_count[f]", meaning: "Real firms represented by firm unit *f* (integer; 1 for a named firm). Read from the scenario; never hardcoded (ADR-0016)", unit: "count", kind: "state", owner: "economy/production" },
     Variable { code_name: "sample_scale", meaning: "Real people per synthetic person (default 100). Read from the scenario; never hardcoded (ADR-0003)", unit: "ratio", kind: "parameter", owner: "society/population-groups" },
     Variable { code_name: "ideo_econ", meaning: "Person's ideology axes", unit: "−1…+1", kind: "state", owner: "society/opinion-approval" },
