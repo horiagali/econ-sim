@@ -1,0 +1,110 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1   # reads rust-toolchain.toml
+        with:
+          components: rustfmt, clippy
+          cache: false
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: fmt
+        run: cargo fmt --all -- --check
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: tests
+        run: cargo test --workspace
+      - name: determinism lint canary
+        run: python scripts/lint_canary.py
+      - name: glossary codegen is up to date
+        run: python scripts/codegen_glossary.py --check
+      - name: acceptance-criteria traceability
+        run: python scripts/traceability.py
+      - name: data pipeline tests
+        run: python -m unittest discover -s python/pipeline/tests
+      - name: differential SIM test (Rust vs Python reference)
+        run: |
+          cargo build -q -p econ-cli
+          python python/reference/diff_sim.py
+      - name: golden run
+        run: cargo run -q -p econ-cli -- sim --ticks 200 --check-golden tests/golden/sim_200.hashes
+      - name: state hashes for cross-platform comparison
+        run: cargo run -q -p econ-cli -- sim --ticks 200 --hashes > hashes-linux.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hashes-linux
+          path: hashes-linux.txt
+
+  windows:
+    # Only when core code changes (ADR-0010 CI budget).
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            core:
+              - 'crates/**'
+              - 'Cargo.*'
+              - 'rust-toolchain.toml'
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        if: steps.changes.outputs.core == 'true'
+        with:
+          cache: false
+      - uses: Swatinem/rust-cache@v2
+        if: steps.changes.outputs.core == 'true'
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: tests
+        if: steps.changes.outputs.core == 'true'
+        run: cargo test --workspace
+      - name: state hashes
+        if: steps.changes.outputs.core == 'true'
+        shell: bash
+        run: cargo run -q -p econ-cli -- sim --ticks 200 --hashes > hashes-windows.txt
+      - uses: actions/upload-artifact@v4
+        if: steps.changes.outputs.core == 'true'
+        with:
+          name: hashes-windows
+          path: hashes-windows.txt
+
+  determinism:
+    # Linux and Windows must produce byte-identical state hashes (ADR-0006).
+    needs: [linux, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: hashes
+      - name: compare
+        run: |
+          if [ ! -f hashes/hashes-windows/hashes-windows.txt ]; then echo "Windows job skipped (no core changes)"; exit 0; fi
+          tr -d '\r' < hashes/hashes-windows/hashes-windows.txt > w.txt
+          diff hashes/hashes-linux/hashes-linux.txt w.txt && echo "identical"
+
+  licences:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check licenses sources bans
