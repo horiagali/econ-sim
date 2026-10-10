@@ -177,6 +177,6 @@ impl Population { pub fn state_hash(&self) -> u64; }
 - [ ] **Household composition is crude.** Heads are drawn at random among adults, so one-person households are not older than average as they are in reality. Fixed by the IPUMS seed, or earlier by using the household-composition table (`cens_21hhcs_r3`).
 - [ ] **Where the generator lives.** Proposed: Rust (`econ-popgen`, under the determinism contract, with golden hashes) called by the pipeline as its `synth_population` stage, with the Python reference for the differential test. The alternative is a Python-only stage; then there would be no golden hashes under the determinism contract.
 - [ ] Is an **integer** raking scheme acceptable instead of textbook floating-point IPF? It is what makes the Rust and Python results identical bit for bit.
-- [ ] `hh_collective`: keep institutional residents as flagged one-person records, or leave them out of version 1?
+- [x] `hh_collective`: institutional residents are kept, as flagged one-person records (owner decision, 2026-10-10).
 - [ ] Next increment after version 1: locality size (urban/rural) and household tenure at county level, or education and activity at region level?
 - [ ] Oversampling of minorities ([population-groups](population-groups.md)) needs ethnicity tables from INS; not in version 1.
