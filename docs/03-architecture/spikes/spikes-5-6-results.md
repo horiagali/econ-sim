@@ -61,12 +61,12 @@ Deviations from ADR-0011, for the owner to confirm: the command log is JSON line
 
 Still to do for the full pipeline: real Census 2021 marginals (INS), the IPUMS 2011 seed sample (private), Polars/DuckDB once tables grow, TypeScript codegen for the UI.
 
-## Spike 8 — UI slice ◐ (built; Windows run pending)
+## Spike 8 — UI slice ✅ (Tauri host measured on Windows 2026-10-10, see "Windows verification")
 - `ui/`: Vite + React 18 + TypeScript, uPlot charts, ECharts county map, nested "why" tree. `src/api.ts` is the only file that knows the transport: Tauri commands in the desktop app, a deterministic mock with the same shapes in a plain browser.
 - `ui/src-tauri/`: Tauri 2 host linking `econ-core` and `econ-rules` in-process. Commands: `run_series` (returns raw little-endian f64 bytes → `ArrayBuffer` in JS, no JSON for big arrays), `county_values`, and `explain` (a real LMDI contribution tree from `behaviour_rule!`).
 - `npm run fetch-geo` downloads county boundaries from geoBoundaries (CC BY 4.0); network policy blocked it in the sandbox.
 - **Measured** in headless Chromium (mock data): 40 uPlot charts × 600 months ready ~330 ms after navigation, ~10 MB JS heap. TypeScript strict build passes; bundle 1.2 MB (415 KB gzipped, mostly ECharts — can be trimmed with per-chart imports).
-- **Not measured:** the Tauri host could not be compiled in the sandbox (no WebView libraries on Linux). The non-Tauri parts of the host were compile-checked from an external crate. The exit criterion (1–5 MB IPC round trip on WebView2, cold start, memory) needs `npm run tauri dev` on Windows.
+- **Not measured:** the Tauri host could not be compiled in the sandbox (no WebView libraries on Linux). The non-Tauri parts of the host were compile-checked from an external crate. The exit criterion (1–5 MB IPC round trip on WebView2, cold start, memory) was measured on Windows on 2026-10-10: see "Tauri host" under "Windows verification" below.
 - Fix made on the way: `behaviour_rule!` now works from crates that don't depend on `econ-num` (it re-exports it).
 
 ## Spike 9 — agent workflow dry run (VAT) ✅ (single-session; two-PR flow untested)
@@ -86,38 +86,83 @@ The tests-first flow from ADR-0014, run end to end on one real mechanic:
 
 **Not tested:** the two-PR split (tests PR merged before implementation PR) and `cargo mutants --in-diff` in CI — both need GitHub. Suggested CI job: `cargo mutants --in-diff <(git diff origin/main)` on PRs touching `crates/econ-mech-*`.
 
-## Windows verification ◐ (2026-10-10; Rust builds blocked on the laptop)
+## Windows verification ✅ (2026-10-10, second laptop)
 
-Run on the owner's Windows 11 Pro laptop (10.0.26200), no admin rights. Everything was installed per-user: rustup with Rust 1.97.0 on the **`x86_64-pc-windows-gnu`** host (the MSVC Build Tools need admin), WinLibs MinGW-w64 GCC 16.2.0 (msvcrt), Python 3.12.14 via `uv`, Node 24.21.0, `gh` 2.102.0, `just` 1.58.0 (prebuilt release; `cargo install just` could not build).
+Run on a Windows 11 Pro laptop (10.0.26200) with admin rights: Intel Core i9-13900H, 32 GB RAM. **Smart App Control is off** on this machine, so cargo build scripts run. Toolchain: rustup 1.29.1 with Rust 1.97.0 on the **`x86_64-pc-windows-msvc`** host (the same as CI), linked with the MSVC 14.51 toolset from Visual Studio Community 2026 (18.10), which was already installed. `just` 1.58.0, `uv` 0.12.16, Node 24.18.0, `gh` 2.96.0. The repo scripts ran on Python 3.14.7 (the `python` on PATH); the calibration environment on Python 3.12.14 (via `uv`).
 
-**Blocked: every Rust build.** Smart App Control is in enforcement mode on this machine and refuses to run some of the unsigned build scripts cargo compiles (`os error 4551`, "An Application Control policy has blocked this file"). It hit `num-traits` and `flatbuffers` in the workspace, `pyo3` in `econ-py`, `erased-serde` in `ui/src-tauri`, and `camino` / `pulldown-cmark` when building `just`. A trivial crate with a build script built and ran, so the verdict is per file, not per toolchain. Turning Smart App Control off needs an administrator and cannot be undone without resetting Windows, so it was left alone. Not run as a result:
+> The Visual Studio 2022 Build Tools were **not** installed: the `winget` install exited twice with code 1602 (elevation prompt dismissed or timed out), and the existing Visual Studio 2026 C++ toolset made them unnecessary.
 
-| Check | Status |
+| Check | Result on Windows |
 |---|---|
-| `just check` | stops at `lint` (clippy cannot build); `fmt-check`, `docs`, `codegen-check`, `trace` and `pipeline-test` pass |
-| `just golden-check`, Windows state hashes | not run on the laptop; covered by CI (below) |
-| `lint-canary`, `diff-sim`, `cargo test --workspace` | not run |
-| `just calib-spike` (calibration timing on Windows) | not run: `uv sync` fails building `econ-py` |
-| `npm run tauri dev` (Spike 8 exit criterion) | not run: the host fails on `erased-serde`'s build script before any Tauri code compiles, so whether Tauri builds on the GNU target is still unknown |
-| PractRand on `fast_u64` | skipped |
+| `just check` (fmt, clippy, 49 Rust tests, lint canary, docs, codegen, traceability, pipeline tests, hook tests, differential SIM test incl. both mutations) | ✅ green on the first run, no changes needed |
+| `just golden-check` | ✅ `golden OK (200 ticks)` |
+| State hashes, laptop vs the committed golden file (generated on Linux) | ✅ identical for all 200 ticks |
+| `just bench-scale` | 0.6 / **4.6** / 47.2 ms per tick at 1:1000 / 1:100 / 1:10 (Linux VM: 6.4 ms at 1:100); 600 ticks at 1:100 in 2.8 s |
+| `just bench-save` | 1.7 MB at 1:100 (save 29 ms, load + verify 16 ms); 16.3 MB at 1:10 (264 ms, 145 ms) — same sizes as Linux |
+| `uv sync` in `python/calib`, `just calib-spike` | ✅ builds `econ-py` (PyO3) and runs; see below |
+| `npm install`, `npm run fetch-geo`, `npm run tauri dev` | ✅ after one fix (missing icon); see below |
+| Protect-paths hook | ✅ blocks Edit/Write and shell writes to protected paths in a live session; reads pass |
+| PractRand on `fast_u64` | ◐ passes to 64 GB in simulation order; fails at 16 GB when only the entity varies; see below |
 
-**Verified in CI (first run, commit `b1869c0`, [run 38039618551](https://github.com/horiagali/econ-sim/actions/runs/38039618551)):** all four jobs pass. `linux` runs fmt, clippy, tests, the lint canary, codegen, traceability, pipeline tests, the differential SIM test and the golden run. `windows` (`windows-latest`, MSVC toolchain) runs `cargo test --workspace` and prints the 200-tick state hashes. `determinism` compares the two hash files and passes, so **Linux and Windows (MSVC) produce the same state hashes for the SIM golden run**. This is the first time the code was built outside the original sandbox.
+**No Windows-vs-Linux difference was found in any simulation result.** The employment and wage-bill columns of `bench-scale`, and every number in the calibration report (Morris μ*, the 106/200 history-matching survivors, the 100-year baseline), equal the Linux values.
 
-**Verified on the Windows laptop:**
-- **Live Eurostat fetch.** `fetch_eurostat.py` downloaded both datasets in `sources.toml` (`demo_r_pjangrp3`: 198 rows, `nama_10r_3gdp`: 3 rows; both parse with the JSON-stat reader) and wrote provenance sidecars whose SHA-256 matches the raw file.
-- **UI without the host.** `npm install`, `npm run fetch-geo` (`ui/public/geo/romania-adm1.geojson`, 1,249,797 bytes, geoBoundaries ADM1, CC BY 4.0) and `npm run build` (TypeScript strict + Vite; bundle 1.24 MB, 416 KB gzipped) all pass.
-- **Protect-paths hook.** Blocks Edit/Write to `tests/golden/`, `crates/*/tests/acceptance/` and `schema/` given Windows paths (backslashes, lower-case drive letter) and lets other paths through.
+### Calibration timing (Spike 5 on Windows)
+120-tick (10-year) runs, single thread, Python 3.12:
 
-**Fixed on the way:**
-- **The hook never blocked.** `.claude/settings.json` ran `python3 hook || python hook`. When `python3` blocked (exit 2), the `||` fallback ran the script again with stdin already consumed; it read no payload and exited 0, so the edit was allowed. The command now picks one interpreter (`command -v python3`) and runs the script once.
-- **First fetch on a fresh Windows machine failed** with `CERTIFICATE_VERIFY_FAILED`. Windows installs root certificates on first use and Python's `ssl` only sees those already installed (35 roots before, 36 after another program contacted the host). `fetch_eurostat.py` now makes one request through the system TLS stack (`curl.exe`) on that error and retries with verification still on. Two unit tests cover the retry; the real failure could not be reproduced again once the root was cached.
-- **`just calib-spike` used `cd … && …`,** which is a parse error in Windows PowerShell 5.1 (the justfile's Windows shell). It now uses `uv --directory python/calib run …`.
-- **The parked justfile and CI were older than the docs:** `trace`, `ac-stubs` and `mutants` recipes were missing although `crates/AGENTS.md` and Spike 9 refer to them, and traceability was in neither `just check` nor CI. Added.
+| Scale | Seconds per run | Runs per hour | Linux VM |
+|---|---|---|---|
+| 1:1000 | 0.068 | ~53,300 | ~36,000 |
+| 1:100 | 0.674 | ~5,340 | ~4,100 |
 
-**Still open:**
-- `.claude/settings.json` matches only `Edit|Write|MultiEdit|NotebookEdit`, so the shell-command check described under Spike 9 never runs. Adding `Bash|PowerShell` to the matcher would enable it, at the cost of blocking any command that names a protected path together with `>` (for example `… --check-golden tests/golden/sim_200.hashes 2>&1`).
-- CI's Windows job uses the MSVC toolchain; the laptop can only use GNU. If the laptop is ever unblocked, a hash difference between the two Windows toolchains would be a determinism finding in its own right.
+The whole spike script takes 26 s. The calibration budget above holds with room to spare.
+
+### Tauri host (Spike 8 exit criterion) ✅
+`ui/src-tauri` compiled for the first time (Tauri 2.12, WebView2). Measured through WebView2's DevTools port on a release build (`npm run tauri build -- --no-bundle`); the app shows 40 uPlot charts × 600 months plus the county map:
+
+| Measure | Result |
+|---|---|
+| Cold start: process launch → all charts rendered | 1.4 s first launch, 0.8 s second |
+| Header timing (release) | `backend=tauri data=392ms render=24ms` |
+| Header timing (`tauri dev`, unoptimised) | `backend=tauri data=7400ms render=40ms` |
+| IPC round trip, payload only (`ipc_probe`, median of 15) | 0.19 MB: 2.5 ms · 1 MB: 8.7 ms · 2 MB: 14.7 ms · **5 MB: 33.4 ms** (≈ 6.6 ms per MB) |
+| `run_series` 40 × 600 (0.18 MB, includes 600 ticks of the 1:1000 world) | 352 ms, almost all simulation time |
+| Memory, app + its WebView2 processes (7 processes) | ~310 MB private (~460 MB summed working sets); the Rust host itself 6 MB private; JS heap 16 MB |
+| Release executable | 9.6 MB |
+
+Reading: binary IPC is cheap enough to send whole chart sets every tick (a 1:100 tick is 4.6 ms; 1 MB of series costs 9 ms). `data=` is dominated by running the simulation inside the command, so real commands should return already-computed history. The debug build is ~20× slower in `data=`; judge UI performance on release builds only. Memory is the WebView2 baseline and should be re-measured when the real UI exists.
+
+### PractRand on the fast RNG ◐ (passes in simulation order; one finding for the owner)
+`econ-cli rng-raw` (new) writes raw `fast_u64` output; PractRand 0.95 (built from source with MSVC) read it with `RNG_test stdin64 -multithreaded`. Stream `Labour`, `k = 0`, seed 42 unless noted:
+
+| Pattern | Varies | Result |
+|---|---|---|
+| `grid --entities 190000` | the simulation's order: entities 0..190,000, tick after tick | **no failure to 64 GB** (2^33 draws, ≈ 45,000 ticks' worth) |
+| `tick` | tick = 0, 1, 2, … for one entity | no failure to 8 GB (not run further) |
+| `entity` | entity = 0, 1, 2, … at one tick | clean to 8 GB, then **FAIL at 16 GB**: `BRank(12):8K(1)`, p ≈ 6e-235 |
+
+Mild "unusual" flags (the lowest PractRand grade) appeared once each in single runs and were gone at the next length, as expected by chance.
+
+**Finding.** With only the entity varying, the output is `mix64(const ^ entity)`: one SplitMix64 mix of a counter that steps by 1. The binary-rank test finds linear structure in it after 2^31 consecutive entities (16 GB). It reproduces with seed 7 (FAIL at 16 GB, p ≈ 1e-189). Two alternatives from `python/reference/rng_quality.py`, fed to PractRand on the same pattern from NumPy (the NumPy version of the current mixer matches `rng-raw` byte for byte):
+
+| Mixer | Change | `entity` pattern |
+|---|---|---|
+| current | `mix64(st ^ entity)` | FAIL at 16 GB |
+| "gamma" | `mix64(st ^ entity·γ)`, one extra multiply | no failure to 64 GB |
+| "double" | `mix64(mix64(st ^ entity))`, one extra mix | no failure to 64 GB |
+
+**What it means.** No simulation run is near the failing regime: it needs ~2 billion consecutive entity IDs inside one (stream, tick, k), and a 1:1 Romania has 19 million persons. In the order the simulation actually draws, the generator passes 64 GB. So this is a margin question, not a known error in results. The owner decides between (a) keeping the mixer and recording the limit in ADR-0006 Amendment 1, or (b) switching to the "gamma" variant, which is a re-golden event (`fast_u64`, `FAST_KAT`) that changes scale-world results such as the benchmark and calibration numbers; the SIM golden run does not use the fast hash (only `scale_spike.rs` does). Nothing was changed.
+
+### Fixed on the way
+- **The Tauri host could not build on Windows:** `tauri-build` needs `icons/icon.ico` to generate the Windows resource file. Added a placeholder icon (`ui/src-tauri/icons/`). Nothing else in the host needed changing.
+- **`ipc_probe` command** added to the host: returns N zero bytes with no computation, so the IPC cost can be measured apart from simulation time.
+- **Protect-paths hook, shell commands.** The old check blocked any command that named a protected path together with `>` (so `… --check-golden tests/golden/sim_200.hashes 2>&1` would have been blocked) and was never enabled. `scripts/hooks/protect_paths.py` now tokenises Bash and PowerShell commands and blocks only when a write targets a protected path: a redirect into it, or `sed -i`, `perl -i`, `mv`, `cp`, `rm`, `tee`, `touch`, `dd of=`, `curl -o`, `find -delete`, `git checkout/restore/rm/mv`, `Set-Content`, `Add-Content`, `Out-File`, `Remove-Item`, `Move-Item`, `Copy-Item`, `New-Item`, … with it as the target, including after `cd` into it, through `bash -c` / `powershell -Command`, and when a parent directory is removed. Reads, copies *out of* a protected path, `2>&1` and quoted text (commit messages, here-documents) pass. `.claude/settings.json` now matches `Bash|PowerShell` too. 12 unit tests covering 128 commands (`just hook-test`, in `just check` and CI). Still a heuristic: a script, a variable holding the path, or `just golden-print`-style tools that write on their own are not seen, so layer 2 (PR review) remains the real guard.
+
+### History: the first laptop (2026-10-10)
+The first Windows laptop had no admin rights and Smart App Control in enforcement mode, which blocked some cargo build scripts (`os error 4551`) on the GNU toolchain, so no Rust build ran there. That session verified the live Eurostat fetch, the UI in browser mode and the hook's Edit/Write path, and fixed: the hook's `python3 || python` fallback (which silently allowed edits), a certificate fallback through `curl.exe` in `fetch_eurostat.py`, `just calib-spike` under PowerShell 5.1, and the missing `trace` / `ac-stubs` / `mutants` recipes. The GNU-vs-MSVC hash comparison it raised was never run and is no longer needed: laptop and CI both use MSVC.
+
+**CI:** the first run (commit `b1869c0`, [run 38039618551](https://github.com/horiagali/econ-sim/actions/runs/38039618551)) passed all four jobs, including `determinism` (Linux and Windows hashes identical). The run for this verification branch is recorded in its pull request.
 
 ## Not done yet (next steps)
-- Windows: `just check`, the golden run, calibration timing and `npm run tauri dev` (Spike 8 exit criterion) — all waiting on a Windows machine where cargo builds are not blocked. The Linux-vs-Windows hash comparison already passes in CI.
 - Follow-ups: model PC in the differential test; history blocks in saves; real firm-unit goods market; real data marginals; wire `tax.vat` into the scale world's consumption.
+- Two-PR tests-first flow and `cargo mutants --in-diff` in CI (Spike 9 leftovers).
+- `ui/src-tauri` is outside the root workspace, so `just check` and CI never compile it; a Windows CI step (`cargo check` in `ui/src-tauri`) would keep it building.
