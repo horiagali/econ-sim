@@ -10,6 +10,8 @@ re-implemented here and checked against the known-answer vectors of `econ-rng`.
 
 With `--attributes EDU_ACTIVITY.json` it also runs the second stage (spec
 `society/population-attributes`): education level and activity of every person.
+With `--jobs JOBS.json` as well it runs the third (spec `society/population-jobs`):
+status in employment, occupation and industry group of every employed person.
 """
 from __future__ import annotations
 
@@ -37,6 +39,13 @@ STATUS_OF_MARGIN = [2, 2, 0, 1, 2, 2]  # margin activity -> employed, unemployed
 STUDENT_MIN_EDU = 1  # in education with upper secondary completed (level index >= 1): student, else pupil
 SCHOOL_AGE = 6  # years; a child (below the minimum working age) of this age or more is a pupil
 MIN_WORKING_AGE = 15  # years; only used to compare the result with the census
+# Third stage (spec society/population-jobs).
+STAGE_JOBS = 2  # `tick` of the draw context
+NOT_EMPLOYED = 255  # occupation and sector of a person who is not employed
+KIND_NONE = 0  # status in employment of a person who is not employed; kinds are 1..4
+PATTERN_FLOOR = 1  # persons added to every cell of a pattern table, so no combination is impossible
+JOB_STOP_PPM = 100  # a column fits when it is within this many millionths of the group's weight
+JOB_SWEEPS = 200  # upper bound on balancing passes in the jobs stage; it stops early once the columns fit
 ACTIVITY_SWEEPS = 20  # two-way balancing of the activity targets inside an age band
 
 
@@ -523,19 +532,39 @@ def band_activity_targets(census: list[list[int]], weights: list[int]) -> list[l
     n_k = len(census[0])
     band = [sum(row[k] for row in census) for k in range(n_k)]
     # A year nobody has in the census, but a synthetic person does, uses the band's shares.
-    t = [[v * UNIT for v in (row if any(row) else band)] if w else [0] * n_k for row, w in zip(census, weights)]
-    cols = apportion(sum(weights), band)
-    for _ in range(ACTIVITY_SWEEPS):
+    return balance([row if any(row) else band for row in census], weights, band)
+
+
+def balance(pattern: list[list[int]], row_weights: list[int], col_targets: list[int],
+            sweeps: int = ACTIVITY_SWEEPS, stop_ppm: int = -1) -> list[list[int]]:
+    """A table with the proportions of `pattern`, whose rows sum exactly to
+    `row_weights` and whose columns follow `col_targets` (apportioned to the
+    total weight) as closely as the rows allow.
+
+    Integer two-way balancing in millionths, at most `sweeps` alternating passes
+    (columns, then rows), then each row is apportioned to its exact weight.
+    Rows with no weight are all zero. With `stop_ppm` >= 0 the passes stop
+    before a column pass if every column is already within that many millionths
+    of the total weight of its target.
+    """
+    n_k = len(col_targets)
+    t = [[v * UNIT for v in row] if w else [0] * n_k for row, w in zip(pattern, row_weights)]
+    total = sum(row_weights)
+    cols = apportion(total, col_targets)
+    for _ in range(sweeps):
+        sums = [sum(row[k] for row in t) for k in range(n_k)]
+        if stop_ppm >= 0 and all(abs(cs - c * UNIT) <= stop_ppm * total for cs, c in zip(sums, cols)):
+            break
         for k in range(n_k):
-            cs = sum(row[k] for row in t)
+            cs = sums[k]
             if cs:
                 for row in t:
                     row[k] = rdiv(row[k] * cols[k] * UNIT, cs)
-        for row, w in zip(t, weights):
+        for row, w in zip(t, row_weights):
             rs = sum(row)
             if rs:
                 row[:] = [rdiv(v * w * UNIT, rs) for v in row]
-    return [apportion(w, row) for row, w in zip(t, weights)]
+    return [apportion(w, row) for row, w in zip(t, row_weights)]
 
 
 def check_attribute_margins(ea: dict) -> None:
@@ -642,6 +671,245 @@ def assign_attributes(pop: dict, counties: list[str], ea: dict, rng_seed: int = 
         elif activity[i] == ACT_PUPIL and edu[i] >= STUDENT_MIN_EDU:
             activity[i] = ACT_STUDENT
     return {"edu_level": edu, "activity": activity}
+
+
+# --- third stage: jobs -----------------------------------------------------------------
+
+def deal(weights: list[int], targets: list[int], carry: list[int]) -> list[int]:
+    """Category of each member of an ordered group, so that the weighted size of
+    every category is proportional to `targets`, for groups that may hold a
+    single person.
+
+    As in `split`, the group's weight is apportioned over the targets and the
+    `carry` of earlier groups is added (updated in place, sums to zero): that is
+    what each category is owed. Each member in turn then goes to the category
+    that is still owed the most (the lowest index on a tie), among those with a
+    target above zero. No category is ever owed more than about one member.
+    """
+    want = [t + c for t, c in zip(apportion(sum(weights), targets), carry)]
+    open_to = [k for k, t in enumerate(targets) if t > 0] or list(range(len(targets)))
+    out = []
+    for w in weights:
+        k = max(open_to, key=lambda j: (want[j], -j))
+        out.append(k)
+        want[k] -= w
+    carry[:] = want
+    return out
+
+
+def check_job_margins(jobs: dict) -> None:
+    n_r, n_b = len(jobs["regions"]), len(jobs["age_bands"])
+    n_kind, n_occ, n_group_cols = len(jobs["kinds"]), len(jobs["occupations"]), len(jobs["industry_groups"])
+    n_group = len(jobs["edu_groups"])
+    if jobs["sexes"] != ["F", "M"]:
+        raise GenError("ShapeMismatch")
+    if not (n_r and n_b and n_kind and n_occ and n_group_cols and n_group and jobs["edu_group_of_level"]):
+        raise GenError("EmptyTable")
+    for name, inner in (("by_industry_group", n_group_cols), ("by_occupation", n_occ)):
+        t = jobs[name]
+        if len(t) != n_r or any(len(r) != 2 or any(len(sx) != n_b for sx in r) for r in t):
+            raise GenError("ShapeMismatch")
+        if any(len(band) != n_kind or any(len(row) != inner for row in band) for r in t for sx in r for band in sx):
+            raise GenError("ShapeMismatch")
+    pe, po = jobs["pattern_edu_occupation"], jobs["pattern_occupation_industry_group"]
+    if len(pe) != 2 or any(len(sx) != n_group or any(len(row) != n_occ for row in sx) for sx in pe):
+        raise GenError("ShapeMismatch")
+    if len(po) != 2 or any(len(sx) != n_occ or any(len(row) != n_group_cols for row in sx) for sx in po):
+        raise GenError("ShapeMismatch")
+    if any(not 0 <= g < n_group for g in jobs["edu_group_of_level"]):
+        raise GenError("ShapeMismatch")
+
+
+def assign_jobs(pop: dict, counties: list[str], ea: dict, jobs: dict, attrs: dict, rng_seed: int = 42) -> dict:
+    """Status in employment, occupation and industry group of every employed person.
+
+    `attrs` is the result of `assign_attributes` (not changed); `ea` gives each
+    county's region. Returns {"employment_status": [...], "occupation": [...],
+    "industry_group": [...]}, one value per person; persons who are not employed have
+    KIND_NONE, NOT_EMPLOYED, NOT_EMPLOYED.
+    """
+    check_job_margins(jobs)
+    regions = jobs["regions"]
+    if ea["regions"] != regions:
+        raise GenError("ShapeMismatch")
+    bands = [(b[0], b[1]) for b in jobs["age_bands"]]
+    n_kind, n_occ, n_group_cols = len(jobs["kinds"]), len(jobs["occupations"]), len(jobs["industry_groups"])
+    group_of_level = jobs["edu_group_of_level"]
+    region_of = []
+    for c in counties:
+        if ea["region_of_county"].get(c) not in regions:
+            raise GenError(f"UnknownCounty: {c}")
+        region_of.append(regions.index(ea["region_of_county"][c]))
+
+    def band_of(year: int) -> int:
+        for i, (lo, hi) in enumerate(bands):
+            if year >= lo and (hi is None or year < hi):
+                return i
+        raise GenError("ShapeMismatch")
+
+    n = len(pop["household_id"])
+    if len(attrs["activity"]) != n or len(attrs["edu_level"]) != n:
+        raise GenError("ShapeMismatch")
+    if any(e >= len(group_of_level) for e in attrs["edu_level"]):
+        raise GenError("ShapeMismatch")
+    employed = [i for i in range(n) if attrs["activity"][i] == ACT_EMPLOYED]
+    weight = {i: pop["hh_weight"][pop["household_id"][i]] for i in employed}
+    prio = {i: Draw(rng_seed, STREAM_POPULATION_GEN, STAGE_JOBS, i).u64() for i in employed}
+    cell: dict[tuple, list[int]] = {}       # (region, sex, band) -> employed persons, in (priority, index) order
+    for i in employed:
+        key = (region_of[pop["hh_county"][pop["household_id"][i]]], pop["sex"][i], band_of(pop["age"][i] // 12))
+        cell.setdefault(key, []).append(i)
+    for members in cell.values():
+        members.sort(key=lambda i: (prio[i], i))
+
+    def targets_for(table: list, r: int, sx: int, b: int, kind: int | None) -> list[int]:
+        """Census counts of a cell; if the census has nobody there, the same
+        region and sex over all age bands; then over all kinds too."""
+        width = len(table[r][sx][b][0])
+        kinds = range(n_kind) if kind is None else [kind]
+        t = [sum(table[r][sx][b][k][c] for k in kinds) for c in range(width)]
+        if not any(t):
+            t = [sum(table[r][sx][bb][k][c] for bb in range(len(bands)) for k in kinds) for c in range(width)]
+        if not any(t):
+            t = [sum(table[r][sx][bb][k][c] for bb in range(len(bands)) for k in range(n_kind)) for c in range(width)]
+        if not any(t):
+            raise GenError(f"NoMargin: {regions[r]}")
+        return t
+
+    status = [KIND_NONE] * n
+    occupation = [NOT_EMPLOYED] * n
+    industry_group = [NOT_EMPLOYED] * n
+
+    # Step 1: status in employment, by region, sex and age band.
+    for r in range(len(regions)):
+        for sx in range(2):
+            carry = [0] * n_kind
+            for b in range(len(bands)):
+                members = cell.get((r, sx, b), [])
+                if not members:
+                    continue
+                by_kind = [sum(row) for row in jobs["by_industry_group"][r][sx][b]]
+                if not any(by_kind):
+                    by_kind = [sum(sum(jobs["by_industry_group"][r][sx][bb][k]) for bb in range(len(bands)))
+                               for k in range(n_kind)]
+                if not any(by_kind):
+                    raise GenError(f"NoMargin: {regions[r]}")
+                for i, k in zip(members, deal([weight[i] for i in members], by_kind, carry)):
+                    status[i] = k + 1
+
+    # Steps 2 and 3, by region, sex and status in employment; the carry runs
+    # through the age bands, and inside a band through the rows of the table.
+    for r in range(len(regions)):
+        for sx in range(2):
+            for kind in range(n_kind):
+                carry_occ = [0] * n_occ
+                carry_group = [0] * n_group_cols
+                for b in range(len(bands)):
+                    members = [i for i in cell.get((r, sx, b), []) if status[i] == kind + 1]
+                    if not members:
+                        continue
+                    # Step 2: occupation, from education. Rows are education levels.
+                    rows = [[i for i in members if attrs["edu_level"][i] == level] for level in range(len(group_of_level))]
+                    pattern = [[v + PATTERN_FLOOR for v in jobs["pattern_edu_occupation"][sx][group_of_level[level]]]
+                               for level in range(len(group_of_level))]
+                    table = balance(pattern, [sum(weight[i] for i in row) for row in rows],
+                                    targets_for(jobs["by_occupation"], r, sx, b, kind), JOB_SWEEPS, JOB_STOP_PPM)
+                    for row, targets in zip(rows, table):
+                        if row:
+                            for i, k in zip(row, deal([weight[i] for i in row], targets, carry_occ)):
+                                occupation[i] = k
+                    # Step 3: industry group, from occupation. Rows are occupations.
+                    rows = [[i for i in members if occupation[i] == occ] for occ in range(n_occ)]
+                    pattern = [[v + PATTERN_FLOOR for v in jobs["pattern_occupation_industry_group"][sx][occ]]
+                               for occ in range(n_occ)]
+                    table = balance(pattern, [sum(weight[i] for i in row) for row in rows],
+                                    targets_for(jobs["by_industry_group"], r, sx, b, kind), JOB_SWEEPS, JOB_STOP_PPM)
+                    for row, targets in zip(rows, table):
+                        if row:
+                            for i, k in zip(row, deal([weight[i] for i in row], targets, carry_group)):
+                                industry_group[i] = k
+    return {"employment_status": status, "occupation": occupation, "industry_group": industry_group}
+
+
+def jobs_hash(job_attrs: dict) -> int:
+    """FNV-1a 64 over the person count (u32, little-endian), then each person's
+    status in employment, occupation and industry group (one byte each)."""
+    h = 0xCBF29CE484222325
+    data = len(job_attrs["industry_group"]).to_bytes(4, "little") + bytes(
+        b for triple in zip(job_attrs["employment_status"], job_attrs["occupation"], job_attrs["industry_group"])
+        for b in triple)
+    for b in data:
+        h = ((h ^ b) * 0x100000001B3) & M64
+    return h
+
+
+def job_totals(pop: dict, counties: list[str], ea: dict, jobs: dict, attrs: dict, job_attrs: dict) -> dict:
+    """Weighted employed persons as {(region, sex, band, kind, occupation, industry group, edu_level): n}."""
+    regions = jobs["regions"]
+    region_of = [regions.index(ea["region_of_county"][c]) for c in counties]
+    bands = jobs["age_bands"]
+    out: dict[tuple, int] = {}
+    for i, h in enumerate(pop["household_id"]):
+        if job_attrs["employment_status"][i] == KIND_NONE:
+            continue
+        year = pop["age"][i] // 12
+        b = next(j for j, (lo, hi) in enumerate(bands) if year >= lo and (hi is None or year < hi))
+        key = (region_of[pop["hh_county"][h]], pop["sex"][i], b, job_attrs["employment_status"][i] - 1,
+               job_attrs["occupation"][i], job_attrs["industry_group"][i], attrs["edu_level"][i])
+        out[key] = out.get(key, 0) + pop["hh_weight"][h]
+    return out
+
+
+def job_fit_errors(pop: dict, counties: list[str], ea: dict, jobs: dict, attrs: dict, job_attrs: dict,
+                   sample_scale: int, min_cell_records: int = 30) -> dict:
+    """Largest relative error per margin family, by expected synthetic records behind the cell."""
+    got = job_totals(pop, counties, ea, jobs, attrs, job_attrs)
+    want_s = {(r, sx, b, k, c): v for r, reg in enumerate(jobs["by_industry_group"]) for sx, sex in enumerate(reg)
+              for b, band in enumerate(sex) for k, row in enumerate(band) for c, v in enumerate(row)}
+    want_o = {(r, sx, b, k, c): v for r, reg in enumerate(jobs["by_occupation"]) for sx, sex in enumerate(reg)
+              for b, band in enumerate(sex) for k, row in enumerate(band) for c, v in enumerate(row)}
+    got_s: dict[tuple, int] = {}
+    got_o: dict[tuple, int] = {}
+    for (r, sx, b, k, occ, grp, _edu), v in got.items():
+        got_s[(r, sx, b, k, grp)] = got_s.get((r, sx, b, k, grp), 0) + v
+        got_o[(r, sx, b, k, occ)] = got_o.get((r, sx, b, k, occ), 0) + v
+    families = {
+        "national kind": (want_s, got_s, lambda k: (k[3],)),
+        "national sex x kind": (want_s, got_s, lambda k: (k[1], k[3])),
+        "region x kind": (want_s, got_s, lambda k: (k[0], k[3])),
+        "region x sex x age band x kind": (want_s, got_s, lambda k: k[:4]),
+        "national industry group": (want_s, got_s, lambda k: (k[4],)),
+        "national sex x industry group": (want_s, got_s, lambda k: (k[1], k[4])),
+        "national kind x industry group": (want_s, got_s, lambda k: (k[3], k[4])),
+        "national age band x industry group": (want_s, got_s, lambda k: (k[2], k[4])),
+        "region x industry group": (want_s, got_s, lambda k: (k[0], k[4])),
+        "region x sex x industry group": (want_s, got_s, lambda k: (k[0], k[1], k[4])),
+        "region x sex x age band x kind x industry group": (want_s, got_s, lambda k: k),
+        "national occupation": (want_o, got_o, lambda k: (k[4],)),
+        "national sex x occupation": (want_o, got_o, lambda k: (k[1], k[4])),
+        "national kind x occupation": (want_o, got_o, lambda k: (k[3], k[4])),
+        "national age band x occupation": (want_o, got_o, lambda k: (k[2], k[4])),
+        "region x occupation": (want_o, got_o, lambda k: (k[0], k[4])),
+        "region x sex x occupation": (want_o, got_o, lambda k: (k[0], k[1], k[4])),
+        "region x sex x age band x kind x occupation": (want_o, got_o, lambda k: k),
+    }
+    out: dict[str, dict[str, float]] = {}
+    for name, (want, have, key) in families.items():
+        w_sum: dict[tuple, int] = {}
+        g_sum: dict[tuple, int] = {}
+        for k, v in want.items():
+            w_sum[key(k)] = w_sum.get(key(k), 0) + v
+        for k, v in have.items():
+            g_sum[key(k)] = g_sum.get(key(k), 0) + v
+        for c, w in w_sum.items():
+            records = w // sample_scale
+            if records < min_cell_records:
+                continue
+            bucket = (">=1000 records" if records >= 1000 else ">=100 records" if records >= 100
+                      else f">={min_cell_records} records")
+            fam = out.setdefault(name, {})
+            fam[bucket] = max(fam.get(bucket, 0.0), round(abs(g_sum.get(c, 0) - w) / w, 5))
+    return out
 
 
 def attributes_hash(attrs: dict) -> int:
@@ -834,6 +1102,7 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--report", action="store_true", help="print fit errors instead of the tables")
     ap.add_argument("--attributes", help="education-and-activity margin file: also run the second stage")
+    ap.add_argument("--jobs", help="jobs margin file: also run the third stage (needs --attributes)")
     a = ap.parse_args()
     check_rng()
     with open(a.margins, encoding="utf-8") as f:
@@ -855,13 +1124,25 @@ def main() -> int:
         attrs = assign_attributes(pop, m["counties"], ea, a.seed)
         summary["attributes_hash"] = f"{attributes_hash(attrs):016x}"
         summary["seconds"] = round(time.time() - t0, 1)
+    job_attrs = {}
+    if a.jobs:
+        if not attrs:
+            ap.error("--jobs needs --attributes")
+        with open(a.jobs, encoding="utf-8") as f:
+            jobs = json.load(f)
+        job_attrs = assign_jobs(pop, m["counties"], ea, jobs, attrs, a.seed)
+        summary["jobs_hash"] = f"{jobs_hash(job_attrs):016x}"
+        summary["seconds"] = round(time.time() - t0, 1)
     if a.report:
         summary["fit"] = fit_errors(m, pop, a.sample_scale)
         if attrs:
             summary["attribute_fit"] = attribute_fit_errors(pop, m["counties"], ea, attrs, a.sample_scale)
+        if job_attrs:
+            summary["job_fit"] = job_fit_errors(pop, m["counties"], ea, jobs, attrs, job_attrs, a.sample_scale)
         print(json.dumps(summary, indent=2))
     else:
-        print(json.dumps({"summary": summary, **{k: v for k, v in pop.items() if k != "report"}, **attrs}))
+        print(json.dumps({"summary": summary, **{k: v for k, v in pop.items() if k != "report"}, **attrs,
+                          **job_attrs}))
     return 0
 
 

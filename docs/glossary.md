@@ -70,6 +70,9 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `hh_size` | Number of persons in synthetic household *h* | count | derived | society/population-generator |
 | — | `edu_level` | Person's highest completed education, in five ISCED 2011 groups: 0–2, 3, 4, 5–6, 7–8 | category (5) | state | society/population-groups |
 | — | `activity` | Person's main activity (child, pupil, student, employed kinds, unemployed, retired, inactive kinds) | category | state | society/population-groups |
+| — | `employment_status` | Person's status in employment: not employed, employee, employer, own-account worker, family worker | category (5) | state | society/population-jobs |
+| — | `occupation` | Person's occupation: ISCO-08 major group (0–9) | category (10) | state | society/population-groups |
+| — | `industry_group` | Broad group of NACE sections a person works in (ten groups); the catalogue industry lies inside it. Not "sector", which means an institutional sector | category (10) | state | society/population-jobs |
 | — | `school_age` | Age from which a child below the minimum working age is a pupil (default 6) | years | parameter | society/population-attributes |
 | — | `hh_collective` | Record stands for people not living in a private household (institutions, homeless); always one member | bool | state | society/population-generator |
 | $n_f$ | `firm_count[f]` | Real firms represented by firm unit *f* (integer; 1 for a named firm). Read from the scenario; never hardcoded (ADR-0016) | count | state | economy/production |

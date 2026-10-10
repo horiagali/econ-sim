@@ -12,6 +12,10 @@ stages:
     cmd: python normalise_census_attributes.py
     deps: [normalise_census_attributes.py, normalise_census.py, jsonstat.py, data/raw/ro_census2021_activity_age.json, data/raw/ro_census2021_activity_education.json, data/raw/ro_census2021_persons_hhstatus.json, data/derived/census2021_margins_ro.json]
     outs: [data/derived/census2021_edu_activity_ro.json]
+  normalise_census_jobs:
+    cmd: python normalise_census_jobs.py
+    deps: [normalise_census_jobs.py, normalise_census_attributes.py, normalise_census.py, jsonstat.py, data/raw/ro_census2021_employment_industry.json, data/raw/ro_census2021_employment_occupation.json, data/raw/eu_lfs2021_occupation_industry.json, data/raw/eu_lfs2021_occupation_education.json, data/derived/census2021_edu_activity_ro.json]
+    outs: [data/derived/census2021_jobs_ro.json]
   # The population generator (spec society/population-generator). It is Rust
   # (crate econ-popgen), run through econ-cli; sample_scale comes from the scenario.
   synth_population:
