@@ -46,3 +46,35 @@ source = "eurostat"
 code = "cens_21ae_r2"              # population by activity status, age group, educational attainment, sex and NUTS 2 region
 filters = { sex = ["F", "M"], unit = ["NR"], geo = ["RO11", "RO12", "RO21", "RO22", "RO31", "RO32", "RO41", "RO42"] }
 licence = "eurostat-reuse"
+
+# Census 2021 round, development regions (NUTS 2), and the EU Labour Force Survey 2021.
+# Inputs of normalise_census_jobs.py (spec society/population-jobs).
+[[dataset]]
+id = "ro_census2021_employment_industry"
+source = "eurostat"
+code = "cens_21empn_r2"            # population by status in employment, age group, economic activity (NACE Rev. 2), sex and NUTS 2 region
+filters = { sex = ["F", "M"], unit = ["NR"], geo = ["RO11", "RO12", "RO21", "RO22", "RO31", "RO32", "RO41", "RO42"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_census2021_employment_occupation"
+source = "eurostat"
+code = "cens_21empo_r2"            # population by status in employment, age group, occupation (ISCO-08), sex and NUTS 2 region
+filters = { sex = ["F", "M"], unit = ["NR"], geo = ["RO11", "RO12", "RO21", "RO22", "RO31", "RO32", "RO41", "RO42"] }
+licence = "eurostat-reuse"
+
+# EU-27 totals, not Romania: most cells of the Romanian tables are not published
+# (too few respondents). Only proportions are used (see normalise_census_jobs.py).
+[[dataset]]
+id = "eu_lfs2021_occupation_industry"
+source = "eurostat"
+code = "lfsa_eisn2"                # employed persons by occupation and economic activity (NACE Rev. 2 sections)
+filters = { geo = ["EU27_2020"], time = ["2021"], age = ["Y_GE15"], sex = ["F", "M"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "eu_lfs2021_occupation_education"
+source = "eurostat"
+code = "lfsa_egised"               # employed persons by occupation and educational attainment level
+filters = { geo = ["EU27_2020"], time = ["2021"], age = ["Y_GE15"], sex = ["F", "M"] }
+licence = "eurostat-reuse"

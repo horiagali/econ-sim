@@ -12,11 +12,16 @@
 mod arith;
 mod attributes;
 mod fit;
+mod jobs;
 mod seed;
 
 pub use attributes::{
     Activity, AttrError, AttrParams, AttributeMargins, EDU_LEVELS, EduLevel, MARGIN_ACTIVITIES,
     PersonAttributes, STATUSES, assign_attributes,
+};
+pub use jobs::{
+    EDU_GROUPS, INDUSTRY_GROUPS, JobError, JobMargins, JobParams, KINDS, NOT_EMPLOYED, OCCUPATIONS,
+    PersonJobs, assign_jobs,
 };
 
 use arith::Int;

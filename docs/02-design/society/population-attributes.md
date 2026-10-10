@@ -118,7 +118,7 @@ None.
 
 ## Interactions
 - **Before:** Stages A and B of the generator; the pipeline's fetch and normalise stages.
-- **After:** the jobs increment (occupation, industry, kind of employment), then income and wealth; [labour market](../economy/labor-market.md), [education](education.md), [social transfers](../economy/social-transfers.md) and [demographics](../economy/demographics.md) read the result.
+- **After:** [Stage D, jobs](population-jobs.md) (status in employment, occupation, industry group), then income and wealth; [labour market](../economy/labor-market.md), [education](education.md), [social transfers](../economy/social-transfers.md) and [demographics](../economy/demographics.md) read the result.
 - Because region totals are fitted, and counties are not, a county's employment rate is its region's rate at its own age and sex structure. County differences inside a region come later, from county employment data.
 
 ## Edge cases & failure modes
