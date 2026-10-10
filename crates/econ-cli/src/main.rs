@@ -4,6 +4,7 @@
 //! econ-cli sim [--ticks N] [--hashes] [--check-golden FILE] [--mutate tax-sign|consume-gross]
 //! econ-cli rng-raw [--pattern entity|tick|grid] [--entities N] [--bytes N] [--seed S]
 //! econ-cli synth-population --margins FILE --sample-scale N [--seed S] --out DIR
+//!                           [--attributes FILE [--jobs FILE]] [--housing FILE]
 //! econ-cli sim-population --margins FILE --sample-scale N [--seed S] [--ticks N]
 //! ```
 //! Default output of `sim` is CSV: tick,Y,T,YD,C,G,H,GOV_DEFICIT,state_hash
@@ -11,7 +12,9 @@
 //! external test batteries (PractRand: `econ-cli rng-raw | RNG_test stdin64`).
 //! `synth-population` is the data pipeline's `synth_population` stage
 //! (ADR-0012): census margins in, `households.arrow`, `persons.arrow` and
-//! `fit_report.json` out. `sim-population` generates the same population and
+//! `fit_report.json` out; each further margin file runs one more stage and adds
+//! its columns (education and activity, jobs, locality size and tenure).
+//! `sim-population` generates the same population and
 //! runs the scale world on it, printing one CSV line per month.
 
 use std::io::Write;
@@ -23,7 +26,7 @@ use econ_rng::{KeyedRng, Stream};
 fn usage() -> ExitCode {
     eprintln!(
         "usage:\n  econ-cli sim [--ticks N] [--hashes] [--check-golden FILE] [--mutate tax-sign|consume-gross]\n  econ-cli bench-scale [--scales 1000,100,10] [--ticks N]\n  econ-cli bench-save [--scales 100,10]\n  econ-cli rng-raw [--pattern entity|tick|grid] [--entities N] [--bytes N] [--seed S]
-  econ-cli synth-population --margins FILE --sample-scale N [--seed S] --out DIR
+  econ-cli synth-population --margins FILE --sample-scale N [--seed S] --out DIR [--attributes FILE [--jobs FILE]] [--housing FILE]
   econ-cli sim-population --margins FILE --sample-scale N [--seed S] [--ticks N]"
     );
     ExitCode::from(2)
@@ -46,10 +49,29 @@ fn main() -> ExitCode {
 /// generate the starting population from a margin file and write its tables.
 /// `--sample-scale` has no default: it comes from the scenario (ADR-0003).
 fn synth_population(args: &[String]) -> ExitCode {
-    use econ_io::popgen::{read_margins, write_population};
-    use econ_popgen::{GenParams, generate};
+    use econ_io::popgen::{
+        Stages, read_attribute_margins, read_housing_margins, read_job_margins, read_margins,
+        write_population,
+    };
+    use econ_popgen::{
+        AttrParams, GenParams, HousingParams, JobParams, assign_attributes, assign_housing,
+        assign_jobs, generate,
+    };
+    /// Read and parse one margin file, or say why not.
+    fn load<T, E: std::fmt::Debug>(
+        path: &str,
+        parse: impl FnOnce(&str) -> Result<T, E>,
+    ) -> Result<T, String> {
+        std::fs::read_to_string(path)
+            .map_err(|e| e.to_string())
+            .and_then(|text| parse(&text).map_err(|e| format!("{e:?}")))
+            .map_err(|e| format!("cannot read margin file {path}: {e}"))
+    }
     let mut margins: Option<&String> = None;
     let mut out: Option<&String> = None;
+    let mut attributes: Option<&String> = None;
+    let mut jobs: Option<&String> = None;
+    let mut housing: Option<&String> = None;
     let mut sample_scale: Option<u32> = None;
     let mut seed: u64 = 42;
     let mut it = args.iter();
@@ -57,6 +79,9 @@ fn synth_population(args: &[String]) -> ExitCode {
         match a.as_str() {
             "--margins" => margins = it.next(),
             "--out" => out = it.next(),
+            "--attributes" => attributes = it.next(),
+            "--jobs" => jobs = it.next(),
+            "--housing" => housing = it.next(),
             "--sample-scale" => match it.next().and_then(|v| v.parse().ok()) {
                 Some(n) => sample_scale = Some(n),
                 None => return usage(),
@@ -71,27 +96,67 @@ fn synth_population(args: &[String]) -> ExitCode {
     let (Some(margins), Some(out), Some(sample_scale)) = (margins, out, sample_scale) else {
         return usage();
     };
-    let file = match std::fs::read_to_string(margins)
-        .map_err(|e| format!("{e}"))
-        .and_then(|text| read_margins(&text).map_err(|e| format!("{e:?}")))
-    {
+    if jobs.is_some() && attributes.is_none() {
+        eprintln!("--jobs needs --attributes: jobs are given to the employed of that stage");
+        return ExitCode::from(2);
+    }
+    let fail = |e: String| {
+        eprintln!("{e}");
+        ExitCode::FAILURE
+    };
+    let file = match load(margins, read_margins) {
         Ok(f) => f,
-        Err(e) => {
-            eprintln!("cannot read margin file {margins}: {e}");
-            return ExitCode::FAILURE;
-        }
+        Err(e) => return fail(e),
     };
     let params = GenParams::new(sample_scale, seed);
     let pop = match generate(&file.margins, &params) {
         Ok(p) => p,
-        Err(e) => {
-            eprintln!("margins rejected: {e:?}");
-            return ExitCode::FAILURE;
-        }
+        Err(e) => return fail(format!("margins rejected: {e:?}")),
     };
-    if let Err(e) = write_population(std::path::Path::new(out), &file, &params, &pop) {
-        eprintln!("cannot write to {out}: {e:?}");
-        return ExitCode::FAILURE;
+    // The stages after the fit: each needs its own margin file.
+    let attributes = match attributes.map(|path| {
+        let ea = load(path, |text| {
+            read_attribute_margins(text, &file.margins.counties)
+        })?;
+        let attrs = assign_attributes(&pop, &ea.margins, &AttrParams::new(seed))
+            .map_err(|e| format!("education-and-activity margins rejected: {e:?}"))?;
+        Ok((ea, attrs))
+    }) {
+        Some(Err(e)) => return fail(e),
+        Some(Ok(done)) => Some(done),
+        None => None,
+    };
+    let jobs = match (jobs, &attributes) {
+        (Some(path), Some((ea, attrs))) => {
+            let done = load(path, |text| read_job_margins(text, &ea.margins)).and_then(|file| {
+                let jobs = assign_jobs(&pop, attrs, &file.margins, &JobParams::new(seed))
+                    .map_err(|e| format!("jobs margins rejected: {e:?}"))?;
+                Ok((file, jobs))
+            });
+            match done {
+                Ok(done) => Some(done),
+                Err(e) => return fail(e),
+            }
+        }
+        _ => None,
+    };
+    let housing = match housing.map(|path| {
+        let file = load(path, read_housing_margins)?;
+        let housing = assign_housing(&pop, &file.margins, &HousingParams::new(seed))
+            .map_err(|e| format!("housing margins rejected: {e:?}"))?;
+        Ok((file, housing))
+    }) {
+        Some(Err(e)) => return fail(e),
+        Some(Ok(done)) => Some(done),
+        None => None,
+    };
+    let stages = Stages {
+        attributes: attributes.as_ref().map(|(f, a)| (a, &f.provenance)),
+        jobs: jobs.as_ref().map(|(f, j)| (j, &f.provenance)),
+        housing: housing.as_ref().map(|(f, h)| (h, &f.provenance)),
+    };
+    if let Err(e) = write_population(std::path::Path::new(out), &file, &params, &pop, &stages) {
+        return fail(format!("cannot write to {out}: {e:?}"));
     }
     let r = &pop.report;
     println!(
@@ -111,6 +176,22 @@ fn synth_population(args: &[String]) -> ExitCode {
         r.max_error_ppm,
         r.unfitted_cells
     );
+    let hashes = [
+        (
+            "education and activity",
+            stages.attributes.map(|(a, _)| a.state_hash()),
+        ),
+        ("jobs", stages.jobs.map(|(j, _)| j.state_hash())),
+        (
+            "locality size and tenure",
+            stages.housing.map(|(h, _)| h.state_hash()),
+        ),
+    ];
+    for (stage, hash) in hashes {
+        if let Some(hash) = hash {
+            println!("{stage}: hash {hash:016x}");
+        }
+    }
     ExitCode::SUCCESS
 }
 

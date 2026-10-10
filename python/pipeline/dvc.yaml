@@ -20,11 +20,12 @@ stages:
     cmd: python normalise_census_housing.py
     deps: [normalise_census_housing.py, normalise_census_attributes.py, normalise_census.py, jsonstat.py, data/raw/ro_census2021_locality_size.json, data/raw/ro_census2021_households_tenure.json, data/derived/census2021_margins_ro.json]
     outs: [data/derived/census2021_housing_ro.json]
-  # The population generator (spec society/population-generator). It is Rust
+  # The population generator (spec society/population-generator) and its stages
+  # C, D and E (education and activity, jobs, locality size and tenure). It is Rust
   # (crate econ-popgen), run through econ-cli; sample_scale comes from the scenario.
   synth_population:
-    cmd: cargo run -q --release -p econ-cli -- synth-population --margins data/derived/census2021_margins_ro.json --sample-scale 100 --seed 42 --out data/population
-    deps: [data/derived/census2021_margins_ro.json, ../../crates/econ-popgen/src, ../../crates/econ-io/src/popgen.rs]
+    cmd: cargo run -q --release -p econ-cli -- synth-population --margins data/derived/census2021_margins_ro.json --attributes data/derived/census2021_edu_activity_ro.json --jobs data/derived/census2021_jobs_ro.json --housing data/derived/census2021_housing_ro.json --sample-scale 100 --seed 42 --out data/population
+    deps: [data/derived/census2021_margins_ro.json, data/derived/census2021_edu_activity_ro.json, data/derived/census2021_jobs_ro.json, data/derived/census2021_housing_ro.json, ../../crates/econ-popgen/src, ../../crates/econ-io/src/popgen.rs]
     outs: [data/population]
   # Spike 7 slice on illustrative marginals; superseded by synth_population.
   synth:

@@ -61,9 +61,9 @@ golden-check:
 bench-scale:
     cargo run -q --release -p econ-cli -- bench-scale
 
-# Starting population from census margins (the pipeline's synth_population stage); writes Arrow tables to `out`
-synth-population sample_scale out="python/pipeline/data/population" margins="python/pipeline/fixtures/census2021_margins_ro.json" seed="42":
-    cargo run -q --release -p econ-cli -- synth-population --margins {{margins}} --sample-scale {{sample_scale}} --seed {{seed}} --out {{out}}
+# Starting population from census margins (the pipeline's synth_population stage), all stages; writes Arrow tables to `out`
+synth-population sample_scale out="python/pipeline/data/population" fixtures="python/pipeline/fixtures" seed="42":
+    cargo run -q --release -p econ-cli -- synth-population --margins {{fixtures}}/census2021_margins_ro.json --attributes {{fixtures}}/census2021_edu_activity_ro.json --jobs {{fixtures}}/census2021_jobs_ro.json --housing {{fixtures}}/census2021_housing_ro.json --sample-scale {{sample_scale}} --seed {{seed}} --out {{out}}
 
 # Run the scale world on the Romanian starting population (census households and ages; jobs and wages still invented)
 sim-romania sample_scale="100" ticks="12" margins="python/pipeline/fixtures/census2021_margins_ro.json":

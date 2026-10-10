@@ -10,6 +10,7 @@
 //! independent reference: the two must agree record for record (AC-POP-07).
 
 mod arith;
+mod assign;
 mod attributes;
 mod fit;
 mod housing;

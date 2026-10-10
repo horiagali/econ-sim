@@ -8,15 +8,15 @@ license.workspace = true
 publish.workspace = true
 
 [features]
-# Gates the acceptance tests (they were written before the generator, ADR-0014).
-default = ["generator"]
+# Each feature gates the acceptance tests of one stage: they were written
+# before the stage (ADR-0014), and its implementation switched the feature on.
+default = ["generator", "attributes", "jobs", "housing"]
 generator = []
-# Off until stage C (education and activity, spec society/population-attributes)
-# is implemented: its acceptance tests need it. The implementation PR adds it to `default`.
+# Stage C: education and activity (spec society/population-attributes).
 attributes = []
-# The same for stage D (jobs, spec society/population-jobs).
+# Stage D: jobs (spec society/population-jobs).
 jobs = []
-# The same for stage E (locality size and tenure, spec society/population-housing).
+# Stage E: locality size and tenure (spec society/population-housing).
 housing = []
 
 [dependencies]
