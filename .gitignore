@@ -4,3 +4,15 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
+target/
+*.profraw
+/out/
+.venv/
+python/pipeline/data/
+ui/node_modules/
+ui/dist/
+ui/src-tauri/target/
+ui/src-tauri/gen/
+ui/public/geo/
+ui/tsconfig.tsbuildinfo
+mutants.out*/

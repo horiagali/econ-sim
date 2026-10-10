@@ -1,0 +1,29 @@
+# Determinism contract (ADR-0006). These are denied workspace-wide via
+# [workspace.lints.clippy] in Cargo.toml. Use the econ_num wrappers instead.
+disallowed-types = [
+  { path = "std::collections::HashMap", reason = "iteration order is random; use BTreeMap, IndexMap or Vec (ADR-0006 rule 5)" },
+  { path = "std::collections::HashSet", reason = "iteration order is random; use BTreeSet or Vec (ADR-0006 rule 5)" },
+  { path = "std::time::Instant", reason = "wall-clock time must not reach simulation state (ADR-0006)" },
+  { path = "std::time::SystemTime", reason = "wall-clock time must not reach simulation state (ADR-0006)" },
+]
+disallowed-methods = [
+  { path = "f64::sin", reason = "platform libm differs; use econ_num::math (ADR-0006 rule 1)" },
+  { path = "f64::cos", reason = "use econ_num::math" },
+  { path = "f64::tan", reason = "use econ_num::math" },
+  { path = "f64::exp", reason = "use econ_num::math::exp" },
+  { path = "f64::exp2", reason = "use econ_num::math" },
+  { path = "f64::ln", reason = "use econ_num::math::ln" },
+  { path = "f64::log", reason = "use econ_num::math::ln" },
+  { path = "f64::log10", reason = "use econ_num::math" },
+  { path = "f64::log2", reason = "use econ_num::math" },
+  { path = "f64::powf", reason = "use econ_num::math::powf" },
+  { path = "f64::powi", reason = "use econ_num::math::powi" },
+  { path = "f64::mul_add", reason = "FMA changes rounding across platforms" },
+  { path = "std::env::var", reason = "environment must not reach simulation state" },
+]
+allow-unwrap-in-tests = true
+allow-dbg-in-tests = true
+
+# Bani's operators are already checked (they panic on overflow), so the
+# arithmetic_side_effects lint (enabled in money crates) need not flag them.
+arithmetic-side-effects-allowed = ["econ_types::bani::Bani", "econ_types::Bani"]

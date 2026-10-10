@@ -1,0 +1,53 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+exclude = ["crates/lint-canary", "crates/econ-py"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[workspace.dependencies]
+econ-types = { path = "crates/econ-types" }
+econ-num = { path = "crates/econ-num" }
+econ-rng = { path = "crates/econ-rng" }
+econ-ledger = { path = "crates/econ-ledger" }
+econ-core = { path = "crates/econ-core" }
+econ-rules = { path = "crates/econ-rules" }
+econ-io = { path = "crates/econ-io" }
+econ-mech-tax = { path = "crates/econ-mech-tax" }
+arrow-array = "=59.0.0"
+arrow-schema = "=59.0.0"
+arrow-ipc = { version = "=59.0.0", features = ["zstd"] }
+zip = { version = "9", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Pinned exactly: any change to these is a re-golden event (ADR-0006).
+rand_chacha = { version = "=0.10.0", default-features = false }
+rand_core = { version = "=0.10.1", default-features = false }
+libm = "=0.2.16"
+proptest = "1.11"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+# Determinism and correctness guardrails (ADR-0006, ADR-0007). The concrete
+# banned types/methods live in clippy.toml.
+disallowed_types = "deny"
+disallowed_methods = "deny"
+float_cmp = "warn"
+dbg_macro = "deny"
+todo = "warn"
+unwrap_used = "warn"
+
+[profile.release]
+debug = 1
+overflow-checks = true   # Bani arithmetic must panic on overflow in every build (ADR-0007)
+
+[profile.dev]
+overflow-checks = true
