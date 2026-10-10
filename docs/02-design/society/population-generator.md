@@ -113,7 +113,7 @@ None. `sample_scale` and `rng_seed` are scenario parameters, set before the game
 - **`sample_scale` = 0, empty tables, tables whose length does not match their dimensions:** rejected. (Counts are unsigned, so a negative count cannot be expressed.)
 
 ## Acceptance tests
-IDs are stable. Tests live in `crates/econ-popgen/tests/acceptance/popgen.rs` (protected; written in a test-authoring session on 2026-10-10, before the generator). They are compiled only with the crate feature `generator`, which the implementation change switches on by default. Golden hashes: `tests/golden/popgen_ro_census2021.hashes`, taken from the Python reference. "The fixture" is the normalised Romanian margin file committed with the pipeline. "Three scales" means 1:1000, 1:100 and 1:10.
+IDs are stable. Tests live in `crates/econ-popgen/tests/acceptance/popgen.rs` (protected; written in a test-authoring session on 2026-10-10, before the generator). They are compiled only with the crate feature `generator`, on by default since the generator was implemented (2026-10-10); all eight pass. Golden hashes: `tests/golden/popgen_ro_census2021.hashes`, taken from the Python reference. "The fixture" is the normalised Romanian margin file committed with the pipeline. "Three scales" means 1:1000, 1:100 and 1:10.
 
 - [ ] **AC-POP-01** `[unit]` At each of the three scales the number of synthetic persons is within 0.5% of census persons ÷ `sample_scale`, and no table is sized by a constant.
 - [ ] **AC-POP-02** `[unit]` At each of the three scales, in every county: Σ `hh_weight` over private households equals the census household count exactly; Σ `hh_weight` × members equals census persons in private households exactly; Σ weights of collective records equals census persons not in private households exactly. The national totals are therefore the same at every scale.
@@ -172,7 +172,8 @@ pub fn generate(margins: &Margins, params: &GenParams) -> Result<Population, Gen
 impl Population { pub fn state_hash(&self) -> u64; }
 ```
 
-- Command line: `econ-cli synth-population --margins FILE --sample-scale N --seed S --out DIR` (the pipeline stage; writes Arrow tables through `econ-io`).
+- Command line: `econ-cli synth-population --margins FILE --sample-scale N --seed S --out DIR` (the pipeline stage; writes `households.arrow`, `persons.arrow` and `fit_report.json` through `econ-io::popgen`). Measured 2026-10-10 on the fixture: 0.75 s at 1:10, against about two minutes for the reference.
+- `ShapeMismatch` also covers dimensions the output columns cannot hold: more than 256 counties (`hh_county` is one byte), or an age band that is empty or too old for `age` in months.
 - Margin file: JSON with the fields of `Margins` plus a `provenance` block.
 - Python reference: `python/reference/popgen_reference.py` (standard library only, exists). It has its own ChaCha8 to reproduce the keyed draws, checked against the known-answer vectors in `econ-rng`. Where this text and the reference disagree on a detail of ordering or tie-breaking, the reference is the definition until the spec is locked.
 - Margin fixture: `python/pipeline/fixtures/census2021_margins_ro.json`, built by `python/pipeline/normalise_census.py` from the two Eurostat tables.

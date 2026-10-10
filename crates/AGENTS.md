@@ -25,7 +25,8 @@ Crate map (ADR-0005):
 | `econ-ledger` | accounts, flow codes, transfers, invariant checks |
 | `econ-rules` | `behaviour_rule!` macro, contribution trees |
 | `econ-mech-tax` | taxation mechanics (VAT so far); acceptance tests in `tests/acceptance/` (protected) |
-| `econ-popgen` | population generator from census margins (spec `society/population-generator`); acceptance tests in `tests/acceptance/` (protected), enabled by the `generator` feature |
+| `econ-popgen` | population generator from census margins (spec `society/population-generator`); acceptance tests in `tests/acceptance/` (protected). Integer arithmetic only; must stay identical, record for record, to `python/reference/popgen_reference.py` (AC-POP-07), so change both together |
 | `econ-core` | `World`, phases, `step`, `TickReport`, SIM mode |
-| `econ-cli` | headless runner: sim, golden checks, benchmarks |
+| `econ-io` | saves, migrations, replay; margin file in and population tables out (`popgen`). Arrow lives here only |
+| `econ-cli` | headless runner: sim, golden checks, benchmarks, `synth-population` |
 | `lint-canary` | NOT a member; must fail clippy (`just lint-canary`) |

@@ -19,6 +19,7 @@ econ-core = { path = "crates/econ-core" }
 econ-rules = { path = "crates/econ-rules" }
 econ-io = { path = "crates/econ-io" }
 econ-mech-tax = { path = "crates/econ-mech-tax" }
+econ-popgen = { path = "crates/econ-popgen" }
 arrow-array = "=59.0.0"
 arrow-schema = "=59.0.0"
 arrow-ipc = { version = "=59.0.0", features = ["zstd"] }

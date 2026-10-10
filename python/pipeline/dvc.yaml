@@ -8,6 +8,13 @@ stages:
     cmd: python normalise_census.py
     deps: [normalise_census.py, jsonstat.py, data/raw/ro_census2021_persons_hhstatus.json, data/raw/ro_census2021_households_size.json]
     outs: [data/derived/census2021_margins_ro.json]
+  # The population generator (spec society/population-generator). It is Rust
+  # (crate econ-popgen), run through econ-cli; sample_scale comes from the scenario.
+  synth_population:
+    cmd: cargo run -q --release -p econ-cli -- synth-population --margins data/derived/census2021_margins_ro.json --sample-scale 100 --seed 42 --out data/population
+    deps: [data/derived/census2021_margins_ro.json, ../../crates/econ-popgen/src, ../../crates/econ-io/src/popgen.rs]
+    outs: [data/population]
+  # Spike 7 slice on illustrative marginals; superseded by synth_population.
   synth:
     cmd: python synth_counties.py --fixture --scale 100
     deps: [synth_counties.py, ipf.py, fixtures/marginals_illustrative.json]

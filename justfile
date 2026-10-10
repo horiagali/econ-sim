@@ -61,6 +61,10 @@ golden-check:
 bench-scale:
     cargo run -q --release -p econ-cli -- bench-scale
 
+# Starting population from census margins (the pipeline's synth_population stage); writes Arrow tables to `out`
+synth-population sample_scale out="python/pipeline/data/population" margins="python/pipeline/fixtures/census2021_margins_ro.json" seed="42":
+    cargo run -q --release -p econ-cli -- synth-population --margins {{margins}} --sample-scale {{sample_scale}} --seed {{seed}} --out {{out}}
+
 # Licence and dependency checks (needs `cargo install cargo-deny`)
 deny:
     cargo deny check

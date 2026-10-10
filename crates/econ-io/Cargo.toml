@@ -9,6 +9,7 @@ publish.workspace = true
 
 [dependencies]
 econ-core.workspace = true
+econ-popgen.workspace = true
 arrow-array.workspace = true
 arrow-schema.workspace = true
 arrow-ipc.workspace = true
