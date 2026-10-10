@@ -18,6 +18,9 @@ attributes = []
 jobs = []
 # Stage E: locality size and tenure (spec society/population-housing).
 housing = []
+# Stage F: wages (spec society/population-wages). Off until the stage is
+# implemented: its acceptance tests need it. The implementation adds it to `default`.
+wages = []
 
 [dependencies]
 econ-rng.workspace = true

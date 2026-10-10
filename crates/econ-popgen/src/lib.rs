@@ -16,6 +16,9 @@ mod fit;
 mod housing;
 mod jobs;
 mod seed;
+mod wages;
+
+pub use wages::{PersonWages, WageError, WageMargins, WageParams, assign_wages};
 
 pub use attributes::{
     Activity, AttrError, AttrParams, AttributeMargins, EDU_LEVELS, EduLevel, MARGIN_ACTIVITIES,

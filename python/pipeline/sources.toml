@@ -94,3 +94,70 @@ source = "eurostat"
 code = "cens_21hhct_r3"            # private households by household composition, tenure status and NUTS 3 region
 filters = { unit = ["NR"], geo = ["RO111", "RO112", "RO113", "RO114", "RO115", "RO116", "RO121", "RO122", "RO123", "RO124", "RO125", "RO126", "RO211", "RO212", "RO213", "RO214", "RO215", "RO216", "RO221", "RO222", "RO223", "RO224", "RO225", "RO226", "RO311", "RO312", "RO313", "RO314", "RO315", "RO316", "RO317", "RO321", "RO322", "RO411", "RO412", "RO413", "RO414", "RO415", "RO421", "RO422", "RO423", "RO424"] }
 licence = "eurostat-reuse"
+
+# Structure of Earnings Survey 2022 (enterprises with 10 employees or more, NACE B to S),
+# national accounts and the minimum wage. Inputs of normalise_earnings.py
+# (spec society/population-wages). The survey gives proportions only; the level
+# is the wage bill of the national accounts in the last quarter of 2021.
+[[dataset]]
+id = "ro_ses2022_earnings_occupation"
+source = "eurostat"
+code = "earn_ses22_48"             # mean monthly earnings by sex, occupation and economic activity
+filters = { geo = ["RO"], unit = ["NAC"], indic_se = ["ERN"], sizeclas = ["GE10"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_ses2022_earnings_age"
+source = "eurostat"
+code = "earn_ses22_20"             # mean monthly earnings by sex, age and economic activity
+filters = { geo = ["RO"], unit = ["NAC"], indic_se = ["ERN"], sizeclas = ["GE10"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_ses2022_earnings_education"
+source = "eurostat"
+code = "earn_ses22_23"             # mean monthly earnings by sex, economic activity and educational attainment
+filters = { geo = ["RO"], unit = ["NAC"], indic_se = ["ERN"], sizeclas = ["GE10"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_ses2022_employees_occupation"
+source = "eurostat"
+code = "earn_ses22_54"             # employees by sex, economic activity and occupation
+filters = { geo = ["RO"], sizeclas = ["GE10"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_ses2022_employees_age"
+source = "eurostat"
+code = "earn_ses22_02"             # employees by sex, age and economic activity
+filters = { geo = ["RO"], sizeclas = ["GE10"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_ses2022_employees_education"
+source = "eurostat"
+code = "earn_ses22_04"             # employees by sex, economic activity and educational attainment
+filters = { geo = ["RO"], sizeclas = ["GE10"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_ses2022_earnings_quantiles"
+source = "eurostat"
+code = "earn_ses22_mdeci"          # monthly earnings by quantiles and contractual working time, NACE B to S excluding O
+filters = { geo = ["RO"], unit = ["NAC"], worktime = ["TOTAL"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_na_wages_2021q4"
+source = "eurostat"
+code = "namq_10_a10"               # gross value added and income by main industry, quarterly
+filters = { geo = ["RO"], time = ["2021-Q4"], unit = ["CP_MNAC"], na_item = ["D11"], s_adj = ["NSA"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_minimum_wage"
+source = "eurostat"
+code = "earn_mw_cur"               # monthly minimum wages, twice a year
+filters = { geo = ["RO"], time = ["2021-S2", "2022-S2"], currency = ["NAC"] }
+licence = "eurostat-reuse"

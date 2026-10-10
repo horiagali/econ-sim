@@ -73,6 +73,9 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `employment_status` | Person's status in employment: not employed, employee, employer, own-account worker, family worker | category (5) | state | society/population-jobs |
 | — | `occupation` | Person's occupation: ISCO-08 major group (0–9) | category (10) | state | society/population-groups |
 | — | `industry_group` | Broad group of NACE sections a person works in (ten groups); the catalogue industry lies inside it. Not "sector", which means an institutional sector | category (10) | state | society/population-jobs |
+| — | `wage` | Person's gross monthly wage as an employee; 0 for everyone else. Integer bani in code | LCU / month | state | society/population-wages |
+| — | `wage_dispersion` | Share of the earnings quantile curve's spread that is left inside a cell when starting wages are set (default 0.5) | ratio | parameter | society/population-wages |
+| — | `wage_floor_share` | The wage floor of an industry group is the minimum wage, or this share of the group's mean wage if that is lower (default 0.8) | ratio | parameter | society/population-wages |
 | — | `school_age` | Age from which a child below the minimum working age is a pupil (default 6) | years | parameter | society/population-attributes |
 | — | `hh_locality_size` | Size class of the locality a household lives in (six classes, from under 2,000 to 200,000 or more inhabitants) | category (6) | state | society/population-housing |
 | — | `hh_urban` | The household's locality is urban (for now: 10,000 inhabitants or more) | bool | derived | society/population-housing |
@@ -138,6 +141,7 @@ Indices: $g$ good, $j$ industry (same set as goods, except that the eight electr
 - **Cohort firm:** a representative firm unit standing for all non-named firms of one size class (micro < 10 employees, small 10–49, medium/large 50+) in an industry, split into domestic and foreign-owned cohorts where the foreign share is material. Its variables are per real firm. See ADR-0016.
 - **Firm count (`firm_count`):** the integer number of real firms a firm unit represents; the firm equivalent of `hh_weight`. Postings with sector-level counterparties are multiplied by it; bankruptcies and entries change it. See ADR-0016 and ADR-0007.
 - **Tick:** one simulation step: one day. Each process runs at its own period (daily, monthly, yearly). See ADR-0017.
+- **Day:** the tick counter: days since the scenario's start date, which is day 0 (`Day` in `econ-types`). The `Calendar` of a scenario turns it into a **date** of the real calendar. **Month** as a type is a calendar month counted from the start date's month: the index of a monthly statistic, not a tick.
 - **Lever:** a variable directly set by the player.
 - **Sample scale (`sample_scale`):** real people per synthetic person; 1 : 100 by default. The research reports call it `scale` (pipeline parameter) and `scale_factor` (save manifest); in this repo both are `sample_scale`. Recorded in every save, history block and export header. See ADR-0003.
 - **Bani (`Bani`):** the money type in code: whole bani (1 RON = 100 bani) as a 64-bit integer with checked arithmetic. Specs still state money in LCU. See ADR-0007.
