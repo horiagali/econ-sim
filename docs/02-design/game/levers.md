@@ -22,7 +22,7 @@ Lag = time from decision to first effect. "Next tick" means the following month.
 | Tax credits | per child, per student, low-income credit | amount | next tick |
 | Capital income tax | rate on interest and dividends (or taxed as income) | 0–60% | next tick |
 | Corporate profit tax | rate; optional reduced rate per industry | 0–60% | next tick |
-| VAT | standard rate + reduced rate + per-good-category assignment (standard / reduced / zero / exempt) | 0–40% | next tick |
+| VAT ([vat](../economy/vat.md)) | standard rate + reduced rate + per-good-category assignment (standard / reduced / zero / exempt) | 0–40% | next tick |
 | Payroll and social contributions | employee and employer rates; ceiling | 0–40% | next tick |
 | Property tax | rate on housing and commercial property value | 0–3%/yr | next tick |
 | Wealth tax | threshold + rate | 0–5%/yr | next tick |

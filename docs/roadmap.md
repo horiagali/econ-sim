@@ -61,7 +61,7 @@ Recorded here so they are not lost; none of this is implemented yet.
 
 **Spec lock order.** Only the owner moves a spec to `locked`. Every spec gets an "API sketch" section before it locks (Spike 9 lesson: tests-first means the test writer picks the API).
 1. [`society/population-groups`](02-design/society/population-groups.md) and [`economy/accounting`](02-design/economy/accounting.md).
-2. VAT: split it out of [`economy/taxation`](02-design/economy/taxation.md) into its own spec file and lock that.
+2. VAT: split it out of [`economy/taxation`](02-design/economy/taxation.md) into its own spec file and lock that. Split done 2026-10-10: [`economy/vat`](02-design/economy/vat.md), ready for the owner's review.
 3. [`economy/households`](02-design/economy/households.md) and [`economy/labor-market`](02-design/economy/labor-market.md), then the rest of taxation (income tax, social contributions).
 4. Firms and [production](02-design/economy/production.md), after the firm-unit goods market exists.
 

@@ -1,4 +1,4 @@
-//! Value-added tax (spec `economy/taxation`, AC-VAT-01..05).
+//! Value-added tax (spec `economy/vat`, AC-VAT-01..05).
 //!
 //! Rates are integer basis points so VAT is exact rational arithmetic
 //! (`Bani::mul_ratio`), never a float multiply.

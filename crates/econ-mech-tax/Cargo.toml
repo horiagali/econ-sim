@@ -1,6 +1,6 @@
 [package]
 name = "econ-mech-tax"
-description = "Taxation mechanics (spec: economy/taxation). Spike 9 pilot: VAT."
+description = "Taxation mechanics (specs: economy/taxation, economy/vat). So far: VAT."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

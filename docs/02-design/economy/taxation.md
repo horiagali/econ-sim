@@ -3,9 +3,9 @@ id: economy/taxation
 title: Taxation
 status: draft
 owner: horia
-depends_on: [society/population-groups, economy/households, economy/production, economy/accounting]
+depends_on: [society/population-groups, economy/households, economy/production, economy/accounting, economy/vat]
 research: []
-updated: 2026-10-09
+updated: 2026-10-10
 ---
 
 # Taxation
@@ -29,7 +29,7 @@ Every tax the head of state can set, its base, how it is computed per person, ho
 | Social contributions | gross wages up to a ceiling | employee and employer rates (pension, health, unemployment); employer part is a labour cost |
 | Corporate profit tax | industry profits (after depreciation and interest) | rate per industry (default uniform); losses carried forward |
 | Micro-enterprise turnover tax | small firms' turnover (optional regime) | rate on turnover; eligibility threshold |
-| VAT | household consumption by good | rate per VAT category (standard, reduced, zero, exempt) assigned per good |
+| VAT | household consumption by good | rate per VAT category (standard, reduced, zero, exempt) assigned per good; own spec: [vat](vat.md) |
 | Excise | quantities of fuel, tobacco, alcohol, carbon content | per unit |
 | Property tax | dwellings and commercial property value | annual rate / 12, per household and industry |
 | Wealth tax | household net worth above a threshold | annual rate / 12 |
@@ -66,13 +66,8 @@ Revenue by tax and by group (who pays what); effective and marginal tax rates fo
 - [ ] At extreme rates (e.g. 90% flat PIT) revenue is lower than at moderate rates (emergent Laffer).
 - [ ] Raising social contributions increases the informal employment share.
 
-### VAT (unit-level, Spike 9 pilot)
-IDs are stable; tests live in `crates/econ-mech-tax/tests/acceptance/vat.rs` (`[unit]` = pure function, `[ledger]` = posts through the ledger).
-- [ ] **AC-VAT-01** `[unit]` VAT on a purchase is `rate × net amount`, rounded half away from zero to whole bani; the gross price is net + VAT.
-- [ ] **AC-VAT-02** `[unit]` Each good's VAT category decides its rate: standard, reduced, zero (0%) or exempt (no VAT).
-- [ ] **AC-VAT-03** `[ledger]` Collecting VAT on a batch of household purchases posts exactly the sum of per-purchase VAT from households to government under flow code `tax.vat`, and all ledger invariants hold.
-- [ ] **AC-VAT-04** `[unit]` A standard rate below the EU minimum of 15% is accepted but flagged as an EU-rule breach (ADR: eu-membership compliance), not rejected.
-- [ ] **AC-VAT-05** `[unit]` Raising the standard rate from 19% to 21% raises the gross price of a standard-rated good by exactly the VAT difference and leaves zero-rated goods unchanged.
+### VAT
+The tax itself (rates, categories, rounding, the ledger posting) has its own spec, [vat](vat.md), with criteria AC-VAT-01 to 05. The VAT expectations in the list above (revenue and CPI after a rate change) stay here, because they depend on prices and demand.
 
 ## Open questions
 - [ ] Separate capital income tax vs taxed with labour income: offer both as a lever?

@@ -95,6 +95,7 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `eu_compliance[area]` | Compliance score per EU rule area | 0–1 | state | economy/eu-membership |
 | — | `eu_absorption_rate` | EU funds reimbursed / available (cumulative) | ratio | derived | economy/eu-funds |
 | — | `formality` | Person's job status: formal / partly declared / informal | category | state | economy/informal-economy |
+| — | `vat_rate_standard`, `vat_rate_reduced` | VAT rates set by the player; integer basis points in code | ratio | parameter | economy/vat |
 | — | `vat_gap` | Share of theoretical VAT not collected | ratio | derived | economy/informal-economy |
 | — | `foreign_share[j]` | Foreign-owned share of industry *j* capital, derived from its firm units' ownership shares (ADR-0016) | 0–1 | derived | economy/foreign-ownership |
 | — | `house_price[c]`, `rent[c]` | House price and rent per m² by county | LCU / m² | state | economy/housing |

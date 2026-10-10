@@ -1,3 +1,3 @@
-//! Taxation mechanics (spec `economy/taxation`). Spike 9 pilot covers VAT only.
+//! Taxation mechanics (spec `economy/taxation`). So far VAT only (spec `economy/vat`).
 
 pub mod vat;
