@@ -1,0 +1,19 @@
+[package]
+name = "econ-mech-tax"
+description = "Taxation mechanics (spec: economy/taxation). Spike 9 pilot: VAT."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+econ-types.workspace = true
+econ-ledger.workspace = true
+
+[[test]]
+name = "acceptance"
+path = "tests/acceptance/main.rs"
+
+[lints]
+workspace = true

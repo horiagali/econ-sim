@@ -1,0 +1,16 @@
+[package]
+name = "econ-rng"
+description = "Keyed, order-independent random numbers (ChaCha8) and distributions on libm."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+rand_chacha.workspace = true
+rand_core.workspace = true
+econ-num.workspace = true
+
+[lints]
+workspace = true

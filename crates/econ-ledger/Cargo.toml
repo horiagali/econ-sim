@@ -1,0 +1,17 @@
+[package]
+name = "econ-ledger"
+description = "Double-entry ledger: sectors, instruments, flow codes, linked transfers and invariant checks."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+econ-types.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

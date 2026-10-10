@@ -1,0 +1,17 @@
+[package]
+name = "econ-num"
+description = "Deterministic numerics: libm wrappers, fixed-order sums, LU solver."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+libm.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

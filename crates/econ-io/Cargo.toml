@@ -1,0 +1,20 @@
+[package]
+name = "econ-io"
+description = "Saves, loading, migrations and replay (ADR-0011). Arrow lives here, never in econ-core."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+econ-core.workspace = true
+arrow-array.workspace = true
+arrow-schema.workspace = true
+arrow-ipc.workspace = true
+zip.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

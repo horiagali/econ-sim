@@ -1,0 +1,8 @@
+[package]
+name = "lint-canary"
+description = "Deliberately breaks the determinism rules. `just lint-canary` checks clippy REJECTS it. Not a workspace member."
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]

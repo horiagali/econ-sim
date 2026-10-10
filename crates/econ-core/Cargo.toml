@@ -1,0 +1,17 @@
+[package]
+name = "econ-core"
+description = "Simulation state, phases and the step API. Spike 2: the Godley-Lavoie SIM model on the real ledger."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+econ-types.workspace = true
+econ-num.workspace = true
+econ-ledger.workspace = true
+econ-rng.workspace = true
+
+[lints]
+workspace = true

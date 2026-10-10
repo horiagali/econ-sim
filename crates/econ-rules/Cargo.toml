@@ -1,0 +1,18 @@
+[package]
+name = "econ-rules"
+description = "behaviour_rule! macro: self-explaining behaviour rules and contribution trees (ADR-0008)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+econ-num.workspace = true
+
+[dev-dependencies]
+econ-rng.workspace = true
+proptest.workspace = true
+
+[lints]
+workspace = true

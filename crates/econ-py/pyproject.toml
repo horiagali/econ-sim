@@ -1,0 +1,12 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "econ-py"
+version = "0.1.0"
+requires-python = ">=3.10"
+description = "Python bindings to the econ-sim core (calibration and analysis)."
+
+[tool.maturin]
+module-name = "econ_py"

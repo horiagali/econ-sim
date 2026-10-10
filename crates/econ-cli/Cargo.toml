@@ -1,0 +1,20 @@
+[package]
+name = "econ-cli"
+description = "Headless runner: SIM model, golden-run checks, scale benchmarks."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "econ-cli"
+path = "src/main.rs"
+
+[dependencies]
+econ-types.workspace = true
+econ-core.workspace = true
+econ-io.workspace = true
+
+[lints]
+workspace = true
