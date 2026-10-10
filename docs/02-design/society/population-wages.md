@@ -1,7 +1,7 @@
 ---
 id: society/population-wages
 title: Population Generator, Stage F — Wages
-status: draft
+status: review
 owner: horia
 depends_on: [society/population-jobs, society/population-attributes, society/population-generator, society/population-groups, adr/0006-determinism-contract, adr/0012-data-pipeline-and-licensing, adr/0014-agent-workflow-guardrails]
 research: [research/population-modelling-deep-research]
@@ -210,9 +210,10 @@ impl PersonWages { pub fn state_hash(&self) -> u64; }
 - Margin fixture: `python/pipeline/fixtures/earnings2021_ro.json`, built by `python/pipeline/normalise_earnings.py`.
 
 ## Open questions
-- [ ] **Tolerances** of AC-POPW-04 (5%, 6%, 8%) and the bands of AC-POPW-05: to be accepted by the owner. They are what the reference achieves, with room.
-- [ ] **`wage_dispersion` = 0.5.** It puts about 7% of employees at the minimum wage. The survey (firms of 10 or more) has its first decile above the minimum wage; counts of employment contracts at the minimum wage in Romania are higher, often quoted near a quarter to a third (not verified here). A value near 1 gives 25% at the minimum and a ninth decile 2.8 times the median. Keep 0.5 (closest to the survey), or raise it?
-- [ ] **Agriculture below the minimum wage** (the third simplification of step 3). Accept until the informal economy and part-time work exist, or treat part of agriculture's census employees as part-time now?
-- [ ] **Proportions from 2022 and from larger firms** (first simplification). Acceptable, or wait for a table by firm size (`earn_ses22_25` has occupation by size class)?
+Accepted by the owner as proposed on 2026-10-10 ("everything's fine"); the spec is at `review` and is locked on the owner's word, with its nine criteria listed as tests owed until the test-authoring session.
+- [x] **Tolerances** of AC-POPW-04 (5%, 6%, 8%) and the bands of AC-POPW-05.
+- [x] **`wage_dispersion` = 0.5,** which puts about 7% of employees at the minimum wage, as the survey of larger firms implies. Counts of contracts at the minimum wage that are often quoted for Romania are higher (not verified here); the parameter is the place to change it if a source is found.
+- [x] **Agriculture below the minimum wage** until the informal economy and part-time work exist (roadmap M15).
+- [x] **Proportions from 2022 and from firms of 10 employees or more.**
 - [ ] **The top of the distribution** is a guess (a Pareto tail fitted to the mean). The highest synthetic wage is about 35,000 lei a month at 1:1000 and 69,000 at 1:10. Tax records would give the real top; needed only if a wealth or top-income tax is to be calibrated closely.
 - [ ] Public sector pay is set by law in grids and is not distinguished here inside the group "public administration, education and health".

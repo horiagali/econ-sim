@@ -1,7 +1,7 @@
 ---
 id: adr/0018-scenario-and-commands
 title: "ADR-0018: Scenario files and player commands"
-status: proposed
+status: accepted
 owner: horia
 depends_on: [adr/0005-simulation-core-architecture, adr/0006-determinism-contract, adr/0011-storage-saves-history, adr/0012-data-pipeline-and-licensing, adr/0017-time-base, game/levers]
 updated: 2026-10-10
@@ -28,7 +28,9 @@ Whatever is chosen has to hold for the determinism contract (same scenario, seed
 3. **Free-form (string key, JSON value) checked at run time.** No generator; errors surface late and replay breaks silently when a name changes.
 
 ## Decision
-Proposed: **scenario option 1, command option 2.** To be accepted by the owner.
+Accepted by the owner on 2026-10-10.
+
+**Chosen: scenario option 1, command option 2.**
 
 ### 1. Scenario
 A scenario is a folder, or the same folder as a ZIP with uncompressed entries, for **one** `sample_scale`:
@@ -108,6 +110,7 @@ pub struct Command {
 - Revisit if a lever's value cannot be expressed in the shapes without contortion, or if scenario build time at 1:10 becomes a nuisance (then option 2 for the population only).
 
 ## Open questions
-- [ ] Registry location: `crates/econ-core/levers.toml` (proposed, next to the code that reads it) or under `docs/` next to the catalogue.
-- [ ] Should a pending command be cancellable before it takes effect? Proposed: yes, by a second command; both stay in the log.
-- [ ] Is the default seed part of the scenario (proposed), with the player able to choose another at "new game"?
+Settled as proposed when the ADR was accepted (2026-10-10):
+- [x] The registry is `crates/econ-core/levers.toml`.
+- [x] A pending command can be cancelled before it takes effect, by a second command; both stay in the log.
+- [x] The default seed is part of the scenario; the player may choose another at "new game".
