@@ -205,9 +205,9 @@ impl PersonAttributes { pub fn state_hash(&self) -> u64; }
 - Margin fixture: `python/pipeline/fixtures/census2021_edu_activity_ro.json`, built by `python/pipeline/normalise_census_attributes.py` from the two Eurostat tables.
 
 ## Open questions
-- [ ] **Tolerances** in the table above (1%, 6%, 15%): to be accepted by the owner. They are what the reference achieves, with a little room.
-- [ ] **Persons in education take the highest levels among the inactive** (step 2). Keep this rule, or deal levels at random among the inactive? Random is simpler and gives some 22-year-old "pupils" who have only primary school.
-- [ ] **Children of 6 to 14 are all pupils.** Good enough until the education mechanic has enrolment data?
-- [ ] **Attributes ignore the household** (first simplification above). Acceptable until the IPUMS seed arrives, or should partners be made alike in education by rule now?
+- [x] **Tolerances** in the table above (1%, 6%, 15%): to be accepted by the owner. They are what the reference achieves, with a little room. Accepted by the owner, 2026-10-10.
+- [x] **Persons in education take the highest levels among the inactive** (step 2). Keep this rule, or deal levels at random among the inactive? Random is simpler and gives some 22-year-old "pupils" who have only primary school. Accepted by the owner, 2026-10-10.
+- [x] **Children of 6 to 14 are all pupils.** Good enough until the education mechanic has enrolment data? Accepted by the owner, 2026-10-10.
+- [x] **Attributes ignore the household** (first simplification above). Acceptable until the IPUMS seed arrives, or should partners be made alike in education by rule now? Accepted by the owner, 2026-10-10.
 - [ ] **County differences inside a region.** Employment by county exists in other sources (INS TEMPO, Eurostat regional labour statistics at NUTS 3). Add it as a later correction?
 - [ ] "Retired" includes people living on capital income. Fine for the starting population, or separate them when income is imputed?
