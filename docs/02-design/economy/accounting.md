@@ -1,14 +1,16 @@
 ---
 id: economy/accounting
 title: Accounting & Stock-Flow Consistency
-status: draft
+status: review
 owner: horia
-depends_on: []
+depends_on: [adr/0007-money-and-ledger, adr/0016-firm-representation, adr/0017-time-base]
 research: []
 updated: 2026-10-10
 ---
 
 # Accounting & Stock-Flow Consistency
+
+> **Accepted by the owner for locking on 2026-10-10.** The status stays `review` only because `just trace` fails a `locked` spec whose criteria do not all have a live test (ADR-0014), and most of these criteria can only be tested once the simulation they describe exists. Treat this spec as locked: it is not changed without the owner. It moves to `locked` when its tests exist, or when the owner changes that rule.
 
 ## Purpose
 Guarantee that money never appears or disappears, that every financial asset has a matching liability, and that every number can be traced to transactions. This is pillars 1 and 2 made concrete, and the main defence against "buggy economy" outcomes.
@@ -17,14 +19,14 @@ Guarantee that money never appears or disappears, that every financial asset has
 National accounts (SNA 2008), flow of funds, and Godley & Lavoie *Monetary Economics* (balance-sheet matrix + transaction-flow matrix; rows and columns sum to zero).
 
 ## Design
-### 1. Balance-sheet matrix (stocks, end of tick)
+### 1. Balance-sheet matrix (stocks, end of day)
 Columns: households (sum of synthetic households × weights; also kept per household), firms (sum of firm units × firm counts, per industry; also kept per firm unit, [ADR-0016](../../03-architecture/decisions/0016-firm-representation.md)), banks, Pillar II pension funds (PF), government, central bank, rest of world. Rows: instruments.
 
 | Instrument | Households | Firms | Banks | PF | Gov | CB | RoW | Σ |
 |---|---|---|---|---|---|---|---|---|
 | Cash | +Hc | | +Hb | | | −H | | 0 |
 | Deposits | +D_h | +D_f | −D | +D_pf | | | | 0 |
-| Gov deposits at CB | | | | | +D_g | −D_g | | 0 |
+| Gov deposits at CB (the government holds no deposits at commercial banks) | | | | | +D_g | −D_g | | 0 |
 | Reserves | | | +R | | | −R | | 0 |
 | Gov bonds | +B_h | | +B_b | +B_pf | −B | +B_cb | +B_row | 0 |
 | Loans | −L_h | −L_f | +L | | | | | 0 |
@@ -39,7 +41,9 @@ Firm equity is split across holders by each unit's ownership vector `ownership[f
 
 Financial rows sum to zero exactly. Real assets are the only source of aggregate net worth.
 
-### 2. Transaction-flow matrix (flows per tick)
+### 2. Transaction-flow matrix (flows per day, summed per month, quarter and year)
+A tick is one day ([ADR-0017](../../03-architecture/decisions/0017-time-base.md)). The matrix below holds for the flows of any day and so for any sum of days; the ledger keeps running totals for the open month, quarter and year.
+
 Rows: consumption, government purchases, investment, exports, imports, intermediate purchases (by industry pair), wages, profits and dividends, interest (by instrument), taxes (by type), transfers (by programme), subsidies, depreciation, central bank profits to government, plus "changes in" each financial stock. Each **column** (sector budget constraint) sums to zero; each **row** sums to zero.
 
 ### 3. Implementation rules
@@ -52,13 +56,16 @@ Rows: consumption, government purchases, investment, exports, imports, intermedi
 - **Clearing accounts.** Flows between two weighted records (households ↔ cohort firms, cohort ↔ cohort) go through per-industry clearing accounts: `wage_clearing[j]` for wages, `sales_clearing[j]` for sales, and a dividend clearing account. Payers post totals (per-unit amount × weight), receivers are paid per unit × their own weight, and each clearing account nets to zero every tick ([ADR-0007](../../03-architecture/decisions/0007-money-and-ledger.md), [ADR-0016](../../03-architecture/decisions/0016-firm-representation.md)).
 - **Dividends** are paid pro rata to each firm unit's ownership vector: state share → government revenue, foreign share → RoW (primary-income outflow), domestic private share → households and pension funds.
 
-### 4. Invariant checks (every tick)
-1. Each financial instrument row sums to exactly 0 (integer money, no tolerance; see [ADR-0007](../../03-architecture/decisions/0007-money-and-ledger.md)).
-2. For each sector: Δnet worth = saving + capital transfers + revaluations.
-3. Sum of sector net lending = 0 (incl. RoW).
-4. GDP by production = GDP by expenditure = GDP by income (up to statistical rounding of zero).
-5. No negative cash or deposit balance except where an overdraft instrument exists.
-6. Every clearing account nets to exactly zero (I-8 in [ADR-0007](../../03-architecture/decisions/0007-money-and-ledger.md)).
+### 4. Invariant checks (every day)
+The list and its numbering are those of [ADR-0007](../../03-architecture/decisions/0007-money-and-ledger.md), which the code and the other specs cite.
+1. **I-1:** every posting is balanced.
+2. **I-2:** account-type constraints hold: no negative cash or deposit balance except where an overdraft instrument exists.
+3. **I-3:** each financial instrument row of the balance sheet sums to exactly 0 (integer money, no tolerance); transaction-flow rows and columns sum to zero; for each sector Δstock = Σ flows + revaluations, so Δnet worth = saving + capital transfers + revaluations and the sum of sector net lending, including the rest of the world, is 0.
+4. **I-4:** independent balance assertions match, computed by a different code path (for example, bank deposit liabilities = sum of weighted household and firm deposits).
+5. **I-5:** postings are immutable and replay byte for byte.
+6. **I-6:** explanation sums equal the observed change ([ADR-0008](../../03-architecture/decisions/0008-explainability-architecture.md)).
+7. **I-7:** GDP by production, by expenditure and by income agree exactly in bani.
+8. **I-8:** every clearing account nets to exactly zero at the end of the day.
 
 A failed check halts the simulation in debug builds and logs the offending reason codes.
 
@@ -128,7 +135,8 @@ impl Ledger {
 | Flow codes beyond consumption, government purchases, wages, income tax, VAT and opening | 3 | every mechanic, as it arrives |
 
 ## Open questions
-- [ ] **The invariant lists differ.** Section 4 here numbers six checks; [ADR-0007](../../03-architecture/decisions/0007-money-and-ledger.md) numbers eight (I-1 to I-8) and is what the code and other specs cite. Replace section 4 with the list of the ADR before locking?
-- [ ] **Lock now or after the first full tick?** Most of the Design section is not built (table above). Locking now fixes the target; the criteria can only be tested as the pieces arrive.
-- [ ] Do government deposits sit at the central bank only (proposed) or also at commercial banks?
+Answers accepted by the owner on 2026-10-10.
+- [x] **The invariant lists differed.** Section 4 is now the list of [ADR-0007](../../03-architecture/decisions/0007-money-and-ledger.md), I-1 to I-8.
+- [x] **Lock now or after the first full tick?** Now. The spec is the target; the table "Not built yet" says what the code still owes, and each criterion is tested when the pieces it needs exist. The API sketch may grow as that table is worked off; the Design section may not change without the owner.
+- [x] Government deposits sit at the central bank only.
 - [x] Integer money vs float → integer bani ([ADR-0007](../../03-architecture/decisions/0007-money-and-ledger.md), accepted).

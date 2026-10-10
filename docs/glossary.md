@@ -101,7 +101,7 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `eu_compliance[area]` | Compliance score per EU rule area | 0–1 | state | economy/eu-membership |
 | — | `eu_absorption_rate` | EU funds reimbursed / available (cumulative) | ratio | derived | economy/eu-funds |
 | — | `formality` | Person's job status: formal / partly declared / informal | category | state | economy/informal-economy |
-| — | `vat_rate_standard`, `vat_rate_reduced` | VAT rates set by the player; integer basis points in code | ratio | parameter | economy/vat |
+| — | `vat_rate_standard`, `vat_rate_reduced`, `vat_rate_reduced_2` | VAT rates set by the player: the standard rate and two reduced rates; integer basis points in code | ratio | parameter | economy/vat |
 | — | `vat_gap` | Share of theoretical VAT not collected | ratio | derived | economy/informal-economy |
 | — | `foreign_share[j]` | Foreign-owned share of industry *j* capital, derived from its firm units' ownership shares (ADR-0016) | 0–1 | derived | economy/foreign-ownership |
 | — | `house_price[c]`, `rent[c]` | House price and rent per m² by county | LCU / m² | state | economy/housing |
@@ -137,7 +137,7 @@ Indices: $g$ good, $j$ industry (same set as goods, except that the eight electr
 - **Named firm:** a real company (real name) modelled as its own firm unit with a firm count of 1; 0–5 per industry, chosen by a threshold (≥ 5% of industry output or employment, top ~20 exporter, or SOE with ≥ 1% of output). Defined in the `firms` data file, never in code. See ADR-0016.
 - **Cohort firm:** a representative firm unit standing for all non-named firms of one size class (micro < 10 employees, small 10–49, medium/large 50+) in an industry, split into domestic and foreign-owned cohorts where the foreign share is material. Its variables are per real firm. See ADR-0016.
 - **Firm count (`firm_count`):** the integer number of real firms a firm unit represents; the firm equivalent of `hh_weight`. Postings with sector-level counterparties are multiplied by it; bankruptcies and entries change it. See ADR-0016 and ADR-0007.
-- **Tick:** one simulation step.
+- **Tick:** one simulation step: one day. Each process runs at its own period (daily, monthly, yearly). See ADR-0017.
 - **Lever:** a variable directly set by the player.
 - **Sample scale (`sample_scale`):** real people per synthetic person; 1 : 100 by default. The research reports call it `scale` (pipeline parameter) and `scale_factor` (save manifest); in this repo both are `sample_scale`. Recorded in every save, history block and export header. See ADR-0003.
 - **Bani (`Bani`):** the money type in code: whole bani (1 RON = 100 bani) as a 64-bit integer with checked arithmetic. Specs still state money in LCU. See ADR-0007.

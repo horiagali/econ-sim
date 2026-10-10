@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [game/overview, vision/pillars]
 research: []
-updated: 2026-10-08
+updated: 2026-10-10
 ---
 
 # Information, Graphs & Causal Explanations
@@ -41,6 +41,30 @@ For any indicator and time window, show a decomposition of its change into contr
 ## Notifications
 Threshold-based alerts (inflation over target, a bank under capital minimum, debt-service spike, a group's approval collapsing, a project completed, shortages from price caps). Informational, not scripted events.
 
+## When each view arrives
+Milestones are those of the [roadmap](../../roadmap.md). The statistics behind a view are built in M6 (alpha) or with the system's own milestone; the screen comes in M8 (alpha app) or with the system. Everything above is in v1.
+
+| View | alpha (M6 statistics, M8 screen) | Completed by |
+|---|---|---|
+| 1 Overview dashboard | all listed indicators; approval in its first version | M14 (approval in full) |
+| 2 Time-series graphs | every recorded variable; filters by county, region, age, sex, education, activity, occupation, industry group, income class; player decisions marked | M14 (identity and interest-group filters); each system adds its series |
+| 3 Group explorer | size, income, taxes, transfers, spending basket, wealth and debt, personal inflation, unemployment, approval (first version), sample size, change since a date | M14 (ideology, interest groups, crime, health, approval drivers) |
+| 4 Industry and supply chain | output, price, unit-cost breakdown, margins, employment, investment, utilisation, exports and imports per industry | M9 (ownership, company pages, supply-chain graph) |
+| 5 Budget | all | — |
+| 6 Prices | all | — |
+| 7 Finance | all; bank capital and bad loans as numbers | M10 (minimum-capital status, bailouts) |
+| 8 Trade and currency | all | — |
+| 9 Map | any alpha indicator by county or region | each system adds layers |
+| 10 Projects | — | M11; EU co-financing M18 |
+| 11 EU | — | M18 |
+| 12 Housing | — | M13 |
+| 13 Environment | — | M19 |
+| 14 Governance | — | M15 (informal economy, VAT gap), M16 (capacity, corruption) |
+| "Why did this change?" | headline indicators of view 1, with drill-down | every milestone adds its own indicators; all of them by M22 |
+| Notifications | inflation, unemployment, deficit, debt service, approval | each system adds its alerts; event log in M22 |
+
+A daily tick ([ADR-0017](../../03-architecture/decisions/0017-time-base.md)) changes what a graph can show: fast series (exchange rate, interest rates, prices, electricity) have daily points for recent years; everything has monthly points.
+
 ## Later: imperfect information
 - Statistics published with **lags** (e.g. GDP quarterly, a month late) and **revisions**.
 - **Measurement noise** that depends on statistics-office funding.
@@ -48,6 +72,7 @@ Threshold-based alerts (inflation over target, a bank under capital minimum, deb
 - Hidden variables (true inflation expectations, bank asset quality) only estimated.
 
 ## Open questions
-- [ ] Counterfactual "what if I hadn't done X" runs: valuable for learning, but doubles compute. v1 or later?
-- [ ] Forecasts or advisor projections shown to the player?
-- [ ] How much history to keep (full monthly history per person for decades is large; proposal: full history for aggregates and built-in groups, snapshots for persons)?
+Proposed answers (2026-10-10), for the owner to change.
+- [x] Counterfactual "what if I hadn't done X" runs and policy attribution: after v1. The core can already fork a world in memory ([ADR-0011](../../03-architecture/decisions/0011-storage-saves-history.md)), so nothing blocks it later.
+- [x] Forecasts or advisor projections: after v1.
+- [x] How much history to keep: as in [ADR-0011](../../03-architecture/decisions/0011-storage-saves-history.md) and [ADR-0017](../../03-architecture/decisions/0017-time-base.md): aggregates and the group cube, monthly, plus daily points for fast series; no per-person history (rebuilt by replay).

@@ -24,7 +24,7 @@ updated: 2026-10-10
 ## The country: Romania
 - v1 recreates **Romania**: its population, regions, industries, institutions, tax and benefit system, central bank, currency (leu, RON), EU membership and diaspora.
 - **Geography:** the 41 counties + Bucharest (42 units) are the finest level for people, housing, schools, hospitals and infrastructure. The 8 **development regions** (Nord-Vest, Centru, Nord-Est, Sud-Est, Sud-Muntenia, București-Ilfov, Sud-Vest Oltenia, Vest) are the level for labour markets and industry capacity. Urban vs rural is a household attribute.
-- **Start date:** the most recent year with full data (proposed: start in 2025 or 2026, calibrated to the latest official statistics).
+- **Start date: 1 December 2021,** the reference date of the census the population is built from (owner decision 2026-10-10). Law, budgets and balance sheets are those of that date.
 - All starting data (population, I-O tables, tax rules, budgets, balance sheets) lives in data files, not code, so another country could be added later.
 - "Plausible over precise" still applies: we aim for Romania's real shape and magnitudes, not decimal-exact reproduction.
 - The **rest of the world** is aggregate; split into EU and non-EU is proposed. See [trade & FX](../economy/trade-fx.md).
@@ -63,5 +63,5 @@ The detailed order belongs to the architecture docs. The intended causal order w
 
 ## Open questions
 - [x] Tick length: one day, with mixed rates (2026-10-10).
-- [ ] Start year: 2025 or 2026 (depends on data availability).
+- [x] Start date: 1 December 2021 (2026-10-10).
 - [ ] Pinned goals or advisors that comment on trends: in v1 or later?

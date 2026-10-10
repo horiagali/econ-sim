@@ -5,14 +5,16 @@ status: draft
 owner: horia
 depends_on: [game/overview]
 research: []
-updated: 2026-10-09
+updated: 2026-10-10
 ---
 
 # Player Levers — Catalogue
 
 **Single list of everything the head of state can do in v1.** The spec that owns each lever defines its exact effect; this page is the menu. When a spec adds or removes a lever, update this table in the same change.
 
-Lag = time from decision to first effect. "Next tick" means the following month.
+Lag = time from decision to first effect. A tick is one day ([ADR-0017](../../03-architecture/decisions/0017-time-base.md)). In the tables below, written before that decision, "next tick" means **the first day of the following month** for law (taxes, benefits, budgets, regulation) and **the next day** for market operations of the central bank (policy rate, QE, monetary financing, FX intervention); "N ticks" means N months.
+
+Changing a lever costs nothing in v1 (owner decision 2026-10-10); a cost for frequent reversals may come later.
 
 ## Taxation ([taxation](../economy/taxation.md))
 | Lever | Form | Range | Lag |
@@ -22,7 +24,7 @@ Lag = time from decision to first effect. "Next tick" means the following month.
 | Tax credits | per child, per student, low-income credit | amount | next tick |
 | Capital income tax | rate on interest and dividends (or taxed as income) | 0–60% | next tick |
 | Corporate profit tax | rate; optional reduced rate per industry | 0–60% | next tick |
-| VAT ([vat](../economy/vat.md)) | standard rate + reduced rate + per-good-category assignment (standard / reduced / zero / exempt) | 0–40% | next tick |
+| VAT ([vat](../economy/vat.md)) | standard rate + two reduced rates + per-good-category assignment (standard / reduced / second reduced / zero / exempt) | 0–40% | next tick |
 | Payroll and social contributions | employee and employer rates; ceiling | 0–40% | next tick |
 | Property tax | rate on housing and commercial property value | 0–3%/yr | next tick |
 | Wealth tax | threshold + rate | 0–5%/yr | next tick |
@@ -170,9 +172,45 @@ Each generation technology is its own industry (`power_nuclear`, `power_hydro`, 
 | Procurement transparency | open-contracting reform | months to years |
 | E-government digitalisation | project | years |
 
+## World settings (v1 stand-ins for the outside world)
+The outside world is not simulated in v1 and does not move by itself (owner decision 2026-10-10): each value below is constant until the player moves its slider. They are sandbox controls, not policy: the head of state does not set the oil price. A world that moves by itself comes after v1.
+
+| Setting | Form | Used by |
+|---|---|---|
+| Foreign prices | growth per year of import prices, EU and non-EU | [trade & FX](../economy/trade-fx.md), [prices](../economy/prices-inflation.md) |
+| Oil, gas and coal prices | level per fuel | [energy](../economy/energy.md), [prices](../economy/prices-inflation.md) |
+| Foreign demand | growth per year of demand for Romanian exports, EU and non-EU | [trade & FX](../economy/trade-fx.md) |
+| Foreign interest rates | ECB rate, risk-free rate abroad | [money & banking](../economy/money-banking.md), [trade & FX](../economy/trade-fx.md) |
+| Wages abroad | level relative to Romania's at the start | [demographics](../economy/demographics.md) (emigration) |
+| EU carbon price | per tonne | [environment](../economy/environment.md), [energy](../economy/energy.md) |
+| Weather | normal by default; trigger a drought, flood or heatwave year | [environment](../economy/environment.md) |
+
+## When each lever arrives
+Milestones are those of the [roadmap](../../roadmap.md). `alpha` is M4, the first playable core. Everything in this catalogue is in v1.
+
+| Section | alpha (M4) | Later milestone |
+|---|---|---|
+| Taxation | brackets, allowance, credits, capital income tax, corporate tax (one rate), VAT, contributions, property tax, wealth tax, excise on fuel, tobacco and alcohol | reduced corporate rate per industry (M9); carbon excise (M19) |
+| Spending and public services | all four | — |
+| Social transfers | state pension, unemployment benefit, child benefit, minimum income | housing benefit (M13); student finance, charity drive (M14) |
+| Labour and markets | minimum wage | price caps (M9); immigration policy (M14) |
+| Industry and ownership | — | all (M9) |
+| Projects | — | all (M11); power plants (M12) |
+| Energy | — | all (M12) |
+| Money and finance | inflation target, policy rate, reserve requirement, QE, monetary financing | bank capital requirement, deposit insurance, bank bailout (M10) |
+| Trade and currency | exchange rate regime (float, managed float, peg), FX intervention | export promotion (M18); ERM II and euro (M20) |
+| EU | — | all (M18) |
+| Euro | — | all (M20) |
+| Informal economy | — | all (M15) |
+| Foreign investment | — | all (M17) |
+| Housing | — | all (M13) |
+| Environment | — | all (M19) |
+| State capacity | — | all (M16) |
+| World settings | foreign prices, fuel prices, foreign demand, foreign interest rates, wages abroad (M3, with the mechanics that read them) | EU carbon price, weather (M19) |
+
 ## Not in v1 (for reference)
-Central bank independence, laws needing parliament, military budget, foreign diplomacy, sanctions, statistics-office funding and polls (see [information](information.md)).
+Central bank independence, laws needing parliament, military budget, foreign diplomacy, sanctions, statistics-office funding and polls (see [information](information.md)); an outside world that moves by itself; a cost for changing levers.
 
 ## Open questions
-- [ ] Are any levers missing that you specifically want (e.g. rent control, working-hours law, retirement savings mandates, environmental regulations, CO₂ cap)?
-- [ ] Should levers have a direct "admin cost" or "reform cost" to stop the player flipping them every month?
+- [ ] Are any levers missing that you specifically want (e.g. working-hours law, retirement savings mandates, a CO₂ cap)? Rent control is in Housing.
+- [x] Should levers have a direct "admin cost" or "reform cost" to stop the player flipping them every month? Not in v1 (owner, 2026-10-10).

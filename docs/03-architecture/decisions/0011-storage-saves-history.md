@@ -4,7 +4,7 @@ title: "ADR-0011: Storage, saves and history"
 status: accepted
 owner: horia
 depends_on: [adr/0005-simulation-core-architecture, adr/0006-determinism-contract]
-updated: 2026-10-09
+updated: 2026-10-10
 ---
 
 # ADR-0011: Storage, saves and history
@@ -69,3 +69,6 @@ Accepted by the owner on 2026-10-09.
 - [ ] Save size and load time at 1:100 and 1:10 (Spike 6).
 - [ ] Autosave frequency and how many autosaves to keep within Steam Cloud quotas.
 - [ ] Whether the aggregation cube dimensions (county × status × age band × sex × education) are the right ones for the UI.
+
+## Amendment 1 (2026-10-10): daily tick
+[ADR-0017](0017-time-base.md) makes one tick one day. A save records the date and the day number. Fast macro series (exchange rate, interest rates and yields, goods price indices, electricity price, reserves) also keep daily points for the current and the two previous years; "monthly forever" and the cube are unchanged. The save-corpus test steps each golden save 31 days instead of 12 ticks.

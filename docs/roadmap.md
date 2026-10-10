@@ -91,7 +91,7 @@ This section replaces the old "Phase 2" list and orders the open items of Phase 
 2. **Systems (M9–M20): the rest of scope,** one system at a time on top of a game that already runs.
 3. **Finish (M21–M23):** calibration of the whole, the complete app, release.
 
-**How every mechanic is built** (unchanged, ADR-0014): spec to `draft` with acceptance criteria and API sketch, data and Python reference, owner locks the spec, tests in a test-authoring session, then Rust. The owner's steps (answer open questions, lock, switch on test authoring) are the pacing item, so milestones list them.
+**How every mechanic is built** (unchanged, ADR-0014): spec to `draft` with acceptance criteria and API sketch, data and Python reference, owner accepts the spec (`review`), tests in a test-authoring session, then Rust; the spec is `locked` once every criterion has a live test (see D12). The owner's steps (answer open questions, lock, switch on test authoring) are the pacing item, so milestones list them.
 
 **Milestones at a glance.** Sizes are relative: S is like one population stage, L is many of them.
 
@@ -109,7 +109,7 @@ This section replaces the old "Phase 2" list and orders the open items of Phase 
 | M8 | Alpha app | play the core | L |
 | | **Part 2 — Systems** | | |
 | M9 | Firms in depth and state ownership | see real companies; subsidise, nationalise, privatise | L |
-| M10 | Financial stability and sovereign debt | live through a bank failure or a debt crisis | M |
+| M10 | Bank regulation and backstops | set bank rules; push the economy hard without breaking it | S |
 | M11 | Infrastructure and the project system | build roads, schools, hospitals | M |
 | M12 | Energy | build and close power plants, steer the mix | L |
 | M13 | Housing market | watch prices and rents by county, act on them | M |
@@ -143,7 +143,7 @@ This section replaces the old "Phase 2" list and orders the open items of Phase 
 - goods tagged with VAT category, excise class, energy content and emissions factor;
 - money always in the national currency unit with one conversion point, so a change of currency (M20) is an event, not a rewrite;
 - a formal-or-informal flag on jobs and sales, all formal at first;
-- an exogenous-world input table (foreign prices, demand, rates, EU carbon price, weather) read each tick;
+- an outside-world input table (foreign prices, demand, rates, EU carbon price, weather) read by the mechanics: constants with sliders in v1 (D8), a moving world later without touching the mechanics;
 - every rule and parameter states its period in calendar time (per day, month, year), never "per tick", and every process is registered with the period it runs at (D5). Law, lags and build times are dates, not tick counts.
 
 A thin UI does not wait for M8. From the end of M2 a minimal window (time controls, a dozen charts) is kept running on the real core, so each later milestone is seen, not only tested.
@@ -155,23 +155,23 @@ A thin UI does not wait for M8. From the end of M2 a minimal window (time contro
 ### M0 — Decisions
 Mostly owner time. Nothing here is code; all of it unblocks code.
 - [ ] **D1 Order.** Confirm the three parts and the order of M9–M20, or reorder.
-- [ ] **D2 Lever list.** Go through [levers](02-design/game/levers.md) and tag every lever with the milestone that brings it (`alpha` or M9–M20), or `later`. Starting proposal in "Levers by milestone" below. Answer its open questions: missing levers, and D9.
-- [ ] **D3 Indicator list.** The same for what the player sees: go through [information](02-design/game/information.md) and tag each view and indicator.
-- [ ] **D4 Start date.** The population is the census of 1 December 2021; the game overview proposes starting in 2025 or 2026. Choose: start in December 2021, or age the population and update balance sheets to a later date (more data work, in M1).
+- [x] **D2 Lever list.** Tagged by milestone in [levers](02-design/game/levers.md) ("When each lever arrives"), 2026-10-10. The owner changes it there.
+- [x] **D3 Indicator list.** Tagged by milestone in [information](02-design/game/information.md) ("When each view arrives"), 2026-10-10.
+- [x] **D4 Start date: 1 December 2021,** the census reference date (owner, 2026-10-10). No roll-forward of the population. Law, budget and balance sheets are collected as of that date. The years 2022 to 2025 are then real history to compare a run against (M21).
 - [x] **D5 Tick length: one tick = one day** (owner, 2026-10-10; replaces the month every spec assumed). An hour was considered and dropped: only electricity needs hours, and nobody sets policy by the hour. Still to do:
-  - [ ] ADR for the time base: a daily clock with **mixed rates**. Each process declares its period and runs on the calendar: markets, prices, payments, hiring and firing daily; wages, taxes, benefits and statistics monthly; budgets and school years yearly. Electricity uses a 24-hour demand and generation profile inside the day, with no hourly clock. The player runs day by day or skips by week or month.
-  - [ ] In the same ADR: real calendar (proposed: months of 28 to 31 days and leap years, since law and data refer to real dates) or a simplified one (30-day months); what a save stores as history (daily for fast series, monthly for the rest); the effect on the determinism streams (`WORDS_PER_TICK`, ADR-0006).
+  - [x] [ADR-0017](03-architecture/decisions/0017-time-base.md), accepted 2026-10-10: a daily clock on the real calendar; each process at its own period (daily, staggered over the month per household and firm, monthly on fixed dates, yearly); electricity with 24 hourly slots inside its daily step; weekends ignored; daily history for three years, monthly forever.
   - [ ] Reword specs from "per tick" and "next tick" to calendar time as each is locked; the spike numbers (Spike 4: per monthly tick) are re-measured in M2.
 - [ ] **D6 Market clearing and expectations:** the two open core decisions in the [economy overview](02-design/economy/README.md) (inventory buffers; anchored-adaptive expectations). ADR or a line in each spec.
 - [ ] **D7 Scenario and command format** (ADR): what a scenario file holds (tables, parameters, law in force, seed, `sample_scale`), and how a lever change is written as a command with an effective tick. The save format of ADR-0011 already has a command log.
-- [ ] **D8 The outside world over time.** Foreign prices, demand, interest rates, the EU carbon price and weather: a fixed smooth path, random shocks from a seeded process, or both with a switch. A sandbox with no shocks is dull; shocks the player cannot explain break the explainability pillar.
-- [ ] **D9 Cost of changing a lever.** None, an administrative cost, or a credibility cost for frequent reversals. Without one, the best play is to retune everything monthly.
-- [ ] **D10 Extreme states.** The sandbox has no game over, so the simulation must keep running through a sovereign default, a bank run, hyperinflation, mass emigration. Decide for each what happens instead of a crash (M10 builds it).
+- [x] **D8 The outside world: not simulated in v1** (owner, 2026-10-10). Foreign prices, fuel prices, foreign demand, foreign interest rates, wages abroad, the EU carbon price and weather are constants that the player can move with sliders ("World settings" in [levers](02-design/game/levers.md)). A world that moves by itself comes after v1. Step 3 of the calibration workflow of ADR-0009 (fitting processes for exogenous series) is postponed with it.
+- [x] **D9 Cost of changing a lever: none in v1** (owner, 2026-10-10).
+- [x] **D10 Extreme states: not modelled in v1** (owner, 2026-10-10). No dynamics of sovereign default, bank runs or hyperinflation. What stays: the simulation must not crash or break an invariant under any lever setting (tested in M7 and M21), which needs simple backstops (M10).
 - [ ] **D11 Language of the app:** English only, or English and Romanian. Cheap if decided before M8, costly after M22.
-- [ ] **Lock** [population-groups](02-design/society/population-groups.md), [accounting](02-design/economy/accounting.md) and [vat](02-design/economy/vat.md) (first two steps of the lock order above).
+- [ ] **[population-groups](02-design/society/population-groups.md) and [accounting](02-design/economy/accounting.md): accepted by the owner for locking on 2026-10-10,** but still at `review`. `just trace` fails a `locked` spec unless every criterion has a live test (ADR-0014), and ten of their criteria need a running simulation. **D12 (owner):** keep that rule, so that a spec is accepted first and becomes `locked` when its tests exist (what is done now); or relax it, so that a spec can be locked before its tests, with the untested criteria listed as owed.
+- [ ] **[vat](02-design/economy/vat.md):** the spec now has two reduced rates (19%, 9% and 5% on the start date) and is at `review`. Owed: a test-authoring session for AC-VAT-06, then the code change, then the lock.
 - [ ] Owner review pass over the open questions of the alpha specs (households, labour market, taxation, production, prices, money-banking, monetary policy, fiscal policy, trade-fx, social transfers, demographics). The other specs are reviewed when their milestone starts.
 
-**Exit:** D1–D11 recorded, the time-base ADR accepted; three specs locked; every lever and indicator tagged.
+**Exit:** D1, D6, D7, D11 and D12 answered; VAT tests and code done. (D2 to D5 and D8 to D10 are recorded; ADR-0017 accepted; two specs accepted for locking.)
 
 ### M1 — Complete starting state
 Everything the simulation needs at tick 0, from data files, consistent with the accounting matrix. Continues the population generator. Data for the systems of Part 2 is collected in their own milestones; here the tables only get the columns listed under "Built in from M1".
@@ -180,12 +180,11 @@ Everything the simulation needs at tick 0, from data files, consistent with the 
 - [ ] **Industry catalogue and input-output table:** reconcile the 90 industries of [industries](02-design/economy/industries.md) with the Eurostat supply-use and input-output tables; output, value added, wages, imports and exports per industry and foreign bloc.
 - [ ] **Firm table** ([ADR-0016](03-architecture/decisions/0016-firm-representation.md)): cohort firm units by industry and size class from business statistics, with ownership shares per unit. Each employed person gets an employer unit. Named firms come in M9.
 - [ ] **Sector balance sheets:** government (debt by instrument and maturity, deposits), banks (loans, deposits, bonds, reserves, equity), central bank (FX reserves, bonds, reserves, cash), rest of world. From the financial accounts; made to sum to zero with the household and firm sides.
-- [ ] **Law in force as data:** tax rates and brackets, contribution rates, benefit rules, pension formula, minimum wage, VAT categories per good, at the start date of D4.
+- [ ] **Law in force as data:** tax rates and brackets, contribution rates, benefit rules, pension formula, minimum wage, VAT categories per good, on 1 December 2021 (D4).
 - [ ] **Budget as data:** spending by ministry line, public employment and wages.
 - [ ] **Scenario builder:** one command turns pipeline outputs into a scenario file; a fit and consistency report (every stock has a counterpart; flows of the first month reproduce the national accounts within a tolerance).
-- [ ] If D4 picks a later start date: roll the 2021 population forward.
 
-**Owner:** D4 first; accept tolerances per stage as before; test-authoring sessions per stage.
+**Owner:** accept tolerances per stage as before; test-authoring sessions per stage.
 **Exit:** `just build-scenario` produces a Romania scenario at 1:1000, 1:100 and 1:10 whose opening balance sheet passes the invariants and whose totals match the published aggregates within the agreed tolerances.
 
 ### M2 — Real economy loop (headless)
@@ -212,14 +211,14 @@ Closes the loop: after this, every sector of the [economy overview](02-design/ec
 - [ ] **Monetary policy:** policy rate and its pass-through, reserves, QE, monetary financing, inflation target and credibility.
 - [ ] **Trade and exchange rate:** exports and imports per good with two foreign blocs, floating rate, managed float and peg, FX intervention, reserves. EU rules reduced to constants until M18 (tariffs fixed, no capital controls).
 - [ ] **Investment and capital:** firm investment, depreciation, credit demand, productivity growth. Needed for the policy rate to matter and for long runs to grow.
-- [ ] **The outside world** as decided in D8: the input table and its generator.
+- [ ] **The outside world** as decided in D8: a table of constants read by the mechanics, each changeable by a world-settings command.
 - [ ] PC model added to the differential test (open follow-up of Spike 2).
 
 **Owner:** lock the specs above, one or two at a time.
 **Exit:** the full transaction matrix balances every tick; a 50-year quiet baseline is stable; government debt, the current account and bank balance sheets move for reasons that can be read off the ledger.
 
 ### M4 — Lever system and alpha levers
-- [ ] **Lever system:** every lever is a typed command with validation, range, effective tick and lag (and the cost of D9); commands are logged and replayable (ADR-0011); a lever registry generated from the specs so the UI and the tests share one list.
+- [ ] **Lever system:** every lever and world setting is a typed command with validation, range, effective date and lag; commands are logged and replayable (ADR-0011); a lever registry generated from the specs so the UI and the tests share one list.
 - [ ] Wire every lever tagged `alpha` in D2 to its mechanic.
 - [ ] **Policy-scenario test suite** (qualitative: direction, rough size, timing): rate hike, income-tax cut, VAT rise, deficit spending, monetary financing, devaluation, minimum-wage rise, pension rise, oil-price shock. One test file per scenario, written tests-first. Every later milestone adds its own scenarios to this suite.
 - [ ] Headless "play" from a command file: scenario plus dated lever changes in, time series out.
@@ -282,14 +281,14 @@ Specs: [production](02-design/economy/production.md), [state-enterprises](02-des
 
 **Exit:** nationalising a firm moves equity through the ledger at the right value; a price cap below cost produces a shortage that the "why" panel names.
 
-### M10 — Financial stability and sovereign debt
-Specs: [money-banking](02-design/economy/money-banking.md), [fiscal-policy](02-design/economy/fiscal-policy.md), [monetary-policy](02-design/economy/monetary-policy.md). Builds the outcomes decided in D10.
-- [ ] Bank losses, capital shortfall, failure; deposit insurance; bank bailout or nationalisation; capital requirement lever.
-- [ ] Bond market stress: yields that respond to debt and credibility, failed auctions, default and restructuring as states the simulation survives.
-- [ ] High-inflation regime: wage and price indexation, flight from the currency.
-- [ ] Open question to settle here: one aggregate bank (scope says so for v1) or three or four, so that a single failure is possible without the whole system failing.
+### M10 — Bank regulation and backstops
+Specs: [money-banking](02-design/economy/money-banking.md), [fiscal-policy](02-design/economy/fiscal-policy.md). Small in v1, because crises are not modelled (D10).
+- [ ] Levers: bank capital requirement, deposit insurance coverage, bank bailout (a capital injection for equity).
+- [ ] Backstops, so that no lever setting stops the simulation: a bank below its minimum capital stops new lending until profits or a bailout restore it; government bonds that find no buyer at the current yield are placed at a higher yield, up to a cap, then with the central bank (booked as monetary financing and shown as such); a household or firm that cannot pay defaults by the rule of [accounting](02-design/economy/accounting.md), with the loss booked to the creditor.
+- [ ] Each backstop raises a notification, so the player sees that a limit was hit.
+- [ ] After v1: failure of a bank, runs, sovereign default and restructuring, high-inflation dynamics; and whether there are several banks.
 
-**Exit:** each extreme state of D10 can be provoked by levers, runs for 10 years afterwards with invariants intact, and can be recovered from.
+**Exit:** every extreme-lever run of M7 ends with invariants intact and with the backstops that fired listed in the event log.
 
 ### M11 — Infrastructure and the project system
 Spec: [infrastructure](02-design/economy/infrastructure.md).
@@ -368,7 +367,7 @@ Specs: [eu-membership](02-design/economy/eu-membership.md), [eu-funds](02-design
 ### M19 — Environment and weather
 Spec: [environment](02-design/economy/environment.md).
 - [ ] Emissions by industry and household from the factors on goods; the EU carbon price for covered sectors; air pollution by county into health (M14).
-- [ ] Weather from the outside-world table (D8): droughts on agriculture and hydro, floods on capital, heatwaves on demand and health.
+- [ ] Weather from the world settings (D8): normal by default; the player triggers a drought, flood or heatwave year. Droughts hit agriculture and hydro, floods capital, heatwaves demand and health.
 - [ ] Levers: the environment block (phase-out schedule, carbon tax, vehicle tax, green subsidies, irrigation and flood defence through M11, afforestation, logging limits).
 - [ ] Environment screen and map layers.
 
@@ -388,7 +387,8 @@ Spec: [euro](02-design/economy/euro.md). Last, because it touches money, trade, 
 ## Part 3 — Finish
 
 ### M21 — Whole-game calibration and balance
-- [ ] Full calibration with every system on; history matching over the years since the start date where data exists.
+- [ ] Full calibration with every system on.
+- [ ] History check: set the world settings to the real path of 2022 to 2025 (energy prices, foreign rates and demand) and the levers to what Romania did; the run should give the direction and rough size of what happened (inflation peak, deficit, wages).
 - [ ] Interaction tests: pairs of systems that were built apart (energy shock with a bank under stress; EU procedure during a housing bust).
 - [ ] Long runs: 100 years quiet; many seeds; no drift in any stock without a cause.
 - [ ] Balance: no lever that is free money; no lever with no visible effect; every lever's cost and benefit show up within its stated lag.
@@ -402,7 +402,7 @@ Spec: [euro](02-design/economy/euro.md). Last, because it touches money, trade, 
 - [ ] Navigation that scales to about 150 levers: search, favourites, a "what changed" list of the player's own decisions over time.
 - [ ] Notifications and an event log for what the simulation did (a bank failed, a plant opened, a procedure started).
 - [ ] Onboarding: a guided first session; glossary tooltips on every term; the "why" panel as the main teacher.
-- [ ] Scenario start options: seed, `sample_scale`, shocks on or off.
+- [ ] Scenario start options: seed, `sample_scale`. A world-settings panel, kept apart from the policy levers.
 - [ ] Performance of the UI with full history (decades of monthly data for every indicator).
 
 **Exit:** someone who has not seen the project plays 20 game-years and can explain why inflation moved.
@@ -415,28 +415,8 @@ Spec: [euro](02-design/economy/euro.md). Last, because it touches money, trade, 
 
 ---
 
-### Levers by milestone (input to D2)
-From [levers](02-design/game/levers.md). The owner edits this, then the tags move into that file and this table is deleted.
-
-| Area | Alpha (M4) | Arrives with |
-|---|---|---|
-| Taxes | income tax brackets and allowance, tax credits, capital income tax, corporate tax, VAT rates and categories, employee and employer contributions, property tax, wealth tax, excise on fuel, tobacco and alcohol | reduced corporate rate per industry (M9); carbon excise (M19) |
-| Spending | budget per ministry, public wages, public headcount, borrowing and maturity mix | research grants (M9) |
-| Transfers | pension age, formula and indexation; unemployment benefit; child benefit; minimum income | housing benefit (M13); student finance, charity drives (M14) |
-| Labour and prices | minimum wage | price caps (M9); immigration quotas (M14) |
-| Money | policy rate, inflation target, reserve requirement, QE, monetary financing | bank capital requirement, deposit insurance, bank bailout (M10) |
-| Currency and trade | regime (float, managed, peg), FX intervention | export promotion (M18); ERM II and euro (M20) |
-| Industry and ownership | none | all (M9) |
-| Projects | none | M11 |
-| Energy | none | M12 |
-| Housing | none | M13 |
-| Informal economy | none | M15 |
-| State capacity | none | M16 |
-| Foreign investment | none | M17 |
-| EU | none | M18 |
-| Environment | none | M19 |
-
-### After v1 (unchanged)
+### After v1
+- [ ] An outside world that moves by itself (shocks, cycles); a cost for changing levers; crises (bank failure, sovereign default, hyperinflation). Postponed by D8 to D10.
 - [ ] Imperfect information: statistics lags, noise, paid polls.
 - [ ] Scenarios with goals.
 - [ ] Politics layer: approval with behavioural effects, parties, elections. Central bank independence.

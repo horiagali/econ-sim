@@ -91,3 +91,6 @@ With the fast tier (plus a consumption-loop change made at the same time) a 1:10
 - [ ] clippy's disallowed lists fire only for paths that resolve; verify every path when first configured (Spike 1).
 - [ ] Same hashes on the owner's Windows laptop and on Linux CI (Spike 1 exit criterion).
 - [ ] Whether the hand LU stays accurate enough if the IO table grows well past 80 sectors.
+
+## Amendment 2 (2026-10-10): the tick is a day
+[ADR-0017](0017-time-base.md) makes one tick one day. The `tick` in every keyed draw is the day number; the stream layout, `WORDS_PER_TICK` and the fast tier are unchanged, so no golden changes.
