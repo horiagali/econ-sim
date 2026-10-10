@@ -12,6 +12,9 @@ econ-types.workspace = true
 econ-num.workspace = true
 econ-ledger.workspace = true
 econ-rng.workspace = true
+# Spike wiring only: the scale world calls the VAT mechanic directly. In the real
+# core, mechanics crates depend on econ-core (ADR-0005), not the other way round.
+econ-mech-tax.workspace = true
 
 [lints]
 workspace = true

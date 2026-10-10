@@ -38,25 +38,28 @@ fn run_scale<'py>(
         sep = get("separation_rate", sep)?;
     }
     // The simulation itself runs without the GIL.
-    let (u, wb, c) = py.detach(|| {
+    let (u, wb, c, vat) = py.detach(|| {
         let mut w = ScaleWorld::generate(sample_scale, seed);
         w.set_params(p, sep);
         let mut u = Vec::with_capacity(ticks as usize);
         let mut wb = Vec::with_capacity(ticks as usize);
         let mut c = Vec::with_capacity(ticks as usize);
+        let mut vat = Vec::with_capacity(ticks as usize);
         for _ in 0..ticks {
             let r = w.step();
             #[allow(clippy::cast_precision_loss)]
             u.push(r.unemployed as f64 / (r.employed + r.unemployed).max(1) as f64);
             wb.push(r.wage_bill.get());
             c.push(r.consumption.get());
+            vat.push(r.vat.get());
         }
-        (u, wb, c)
+        (u, wb, c, vat)
     });
     let out = PyDict::new(py);
     out.set_item("unemployment_rate", u)?;
     out.set_item("wage_bill_bani", wb)?;
     out.set_item("consumption_bani", c)?;
+    out.set_item("vat_bani", vat)?;
     Ok(out)
 }
 

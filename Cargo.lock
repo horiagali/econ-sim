@@ -227,6 +227,7 @@ name = "econ-core"
 version = "0.1.0"
 dependencies = [
  "econ-ledger",
+ "econ-mech-tax",
  "econ-num",
  "econ-rng",
  "econ-types",

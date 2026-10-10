@@ -28,7 +28,7 @@ use econ_core::scale_spike::{ScaleColumns, ScaleCommand, ScaleParams, ScaleWorld
 use serde::{Deserialize, Serialize};
 
 /// Current save format version.
-pub const SAVE_FORMAT_VERSION: u32 = 2;
+pub const SAVE_FORMAT_VERSION: u32 = 3;
 /// Engine version written into saves.
 pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -78,6 +78,10 @@ pub struct Manifest {
     /// (absent in older saves → defaults).
     #[serde(default)]
     pub params: Option<[f64; 4]>,
+    /// VAT collected by government so far, bani (added in format v3; see
+    /// migration `v2_to_v3`).
+    #[serde(default)]
+    pub gov_vat: Option<i64>,
     /// State hash of the saved world (hex).
     pub state_hash: String,
     /// Names of migrations applied on load, in order.
@@ -264,6 +268,7 @@ pub fn save_to_bytes(world: &ScaleWorld, log: &[LogEntry]) -> Result<Vec<u8>, Sa
             c.params.mpc_income,
             c.params.mpc_wealth,
         ]),
+        gov_vat: Some(c.gov_vat),
         state_hash: format!("{:016x}", world.state_hash()),
         migrations_applied: vec![],
         checksums: entries.iter().map(|(n, b)| (n.clone(), fnv64(b))).collect(),
@@ -307,7 +312,10 @@ pub struct Loaded {
 /// One migration step: (from version, name, function).
 type Migration = (u32, &'static str, fn(Manifest) -> Manifest);
 
-const MIGRATIONS: &[Migration] = &[(1, "v1_to_v2_add_separation_rate", v1_to_v2)];
+const MIGRATIONS: &[Migration] = &[
+    (1, "v1_to_v2_add_separation_rate", v1_to_v2),
+    (2, "v2_to_v3_add_gov_vat", v2_to_v3),
+];
 
 fn v1_to_v2(mut m: Manifest) -> Manifest {
     // v1 saves predate the adjustable separation rate; it was fixed at 1.5%.
@@ -315,6 +323,15 @@ fn v1_to_v2(mut m: Manifest) -> Manifest {
         m.separation_rate = Some(0.015);
     }
     m.save_format_version = 2;
+    m
+}
+
+fn v2_to_v3(mut m: Manifest) -> Manifest {
+    // v2 saves predate VAT in the scale world: government had collected nothing.
+    if m.gov_vat.is_none() {
+        m.gov_vat = Some(0);
+    }
+    m.save_format_version = 3;
     m
 }
 
@@ -391,6 +408,7 @@ pub fn load_from_bytes(bytes: &[u8]) -> Result<Loaded, SaveError> {
         hh_weight: col!(h, "hh_weight", UInt32Array),
         hh_deposits: col!(h, "hh_deposits", Int64Array),
         hh_income: col!(h, "hh_income", Int64Array),
+        gov_vat: manifest.gov_vat.unwrap_or(0),
         io: col!(io, "a", Float64Array),
         consumption_shares: col!(sh, "share", Float64Array),
     };
@@ -500,6 +518,7 @@ mod tests {
         };
         m.save_format_version = 1;
         m.separation_rate = None;
+        m.gov_vat = None;
         let mut entries = Vec::new();
         for (name, _) in m.checksums.clone() {
             let mut v = Vec::new();
@@ -510,8 +529,12 @@ mod tests {
         let loaded = load_from_bytes(&v1).unwrap();
         assert_eq!(
             loaded.manifest.migrations_applied,
-            vec!["v1_to_v2_add_separation_rate".to_string()]
+            vec![
+                "v1_to_v2_add_separation_rate".to_string(),
+                "v2_to_v3_add_gov_vat".to_string()
+            ]
         );
-        assert_eq!(loaded.manifest.save_format_version, 2);
+        assert_eq!(loaded.manifest.save_format_version, 3);
+        assert_eq!(loaded.manifest.gov_vat, Some(0));
     }
 }
