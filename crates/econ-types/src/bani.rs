@@ -47,11 +47,24 @@ impl Bani {
 
     /// Exact `self * num / den`, rounded half away from zero, via `i128`.
     ///
+    /// When the product fits in `i64` the same result is computed in 64-bit
+    /// arithmetic (128-bit division is several times slower, which shows in
+    /// per-household loops).
+    ///
     /// # Panics
     /// If `den == 0` or the result does not fit in `i64`.
+    #[inline]
     #[allow(clippy::arithmetic_side_effects)] // i64×i64 fits in i128; final conversion is checked
     pub fn mul_ratio(self, num: i64, den: i64) -> Bani {
         assert!(den != 0, "mul_ratio: zero denominator");
+        if den > 0
+            && let Some(p) = self.0.checked_mul(num)
+        {
+            let q = p / den;
+            let r = (p % den).abs();
+            // r < den, so `den - r` cannot overflow; r >= den - r  ⇔  2r >= den
+            return Bani(if r >= den - r { q + p.signum() } else { q });
+        }
         let p = i128::from(self.0) * i128::from(num);
         let d = i128::from(den);
         Bani(round_div_i128(p, d))
@@ -261,6 +274,25 @@ mod tests {
             let parts = split_largest_remainder(Bani(total), &weights);
             prop_assert_eq!(parts.len(), weights.len());
             prop_assert_eq!(parts.iter().sum::<Bani>(), Bani(total));
+        }
+
+        #[test]
+        /// The 64-bit fast path and the `i128` path give the same result,
+        /// including where the product is close to overflowing `i64`.
+        fn mul_ratio_fast_path_matches_i128(
+            a in prop_oneof![any::<i64>(), -4_000_000_000i64..4_000_000_000],
+            n in prop_oneof![any::<i64>(), -4_000_000_000i64..4_000_000_000, -20_000i64..20_000],
+            d in prop_oneof![1i64..=i64::MAX, 1i64..20_000, 9_999i64..12_101],
+        ) {
+            let p = i128::from(a) * i128::from(n);
+            let wide = {
+                let q = p / i128::from(d);
+                let r = (p % i128::from(d)).abs();
+                if r * 2 >= i128::from(d) { q + p.signum() } else { q }
+            };
+            prop_assume!(i64::try_from(wide).is_ok());
+            prop_assert_eq!(i128::from(Bani(a).mul_ratio(n, d).0), wide);
+            prop_assert_eq!(i64::try_from(wide).unwrap(), round_div_i128(p, i128::from(d)));
         }
 
         #[test]

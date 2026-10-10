@@ -4,7 +4,7 @@ title: "ADR-0014: AI-agent workflow and repo guardrails"
 status: accepted
 owner: horia
 depends_on: [adr/0001-docs-first-ai-driven, research/tech-stack-deep-research]
-updated: 2026-10-09
+updated: 2026-10-10
 ---
 
 # ADR-0014: AI-agent workflow and repo guardrails
@@ -44,7 +44,7 @@ Accepted by the owner on 2026-10-09.
 1. A **PreToolUse hook** denies agent edits to `tests/golden/**`, `crates/*/tests/acceptance/**` and `schema/**` unless the session is in test-authoring mode.
 2. A CI job fails any PR that touches both rule code and its acceptance tests, unless it carries a label the owner adds by hand.
 3. A CI check fails if test or assertion counts fall, or if `#[ignore]` or skip markers appear.
-4. Agent permissions deny `gh pr merge`; only the owner merges.
+4. ~~Agent permissions deny `gh pr merge`; only the owner merges.~~ **Changed by the owner on 2026-10-10:** the deny rule was removed from `.claude/settings.json`. An agent may merge a pull request when the owner tells it to and CI is green; it still never merges on its own initiative, and `git push --force` stays denied.
 
 On Free a red check is only a signal: the owner refuses to merge it.
 

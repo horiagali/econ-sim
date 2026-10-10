@@ -36,8 +36,8 @@ Spikes are throwaway-quality prototypes that settle the decisions hardest to cha
 | 1 ✅ (Windows laptop, Windows CI and Linux CI hashes all match, 2026-10-10) | Numeric foundation: `Bani`, rounding, splits, keyed ChaCha8 + known-answer vectors, `det_sum`, `libm` wrappers, clippy deny config | Same hashes on Windows laptop and Linux CI; clippy rejects `f64::exp` and `HashMap` in core | ADR-0006, 0007 |
 | 2 ✅ (PC model pending) | Ledger + differential SIM: typed transfers, invariants I-1 to I-7, core "SIM mode", independent Python SIM then PC | Exact match in bani for 200 ticks; a mutated posting sign is caught by the differential test | ADR-0007, 0010 |
 | 3 ✅ | Explainability: `behaviour_rule!` on price, wage and consumption rules; `explain()` tree; Σ = Δ and μ tests | A nested tree sums exactly; log-linear aggregation question settled | ADR-0008, 0009 (part) |
-| 4 ✅ 6.4 ms/tick at 1:100 | Performance and market clearing at variable scale: fake weighted population, labour and goods matching, 80×80 LU, cube | Tick time at 1:1000, 1:100, 1:10; 50-year run ≤ ~30 s at 1:100; 3-scale test passes | ADR-0003, 0005, 0011 |
-| 5 ✅ ~36k runs/h at 1:1000 | Calibration loop: `econ-py`, 600-tick runs from Python, Morris on ~10 parameters, one history-matching wave, 100-year quiet baseline | Runs per hour measured; full calibration budget known | ADR-0009 |
+| 4 ✅ 6.4 ms/tick at 1:100 (9.9 ms on the Windows laptop with VAT wired in, 2026-10-10) | Performance and market clearing at variable scale: fake weighted population, labour and goods matching, 80×80 LU, cube | Tick time at 1:1000, 1:100, 1:10; 50-year run ≤ ~30 s at 1:100; 3-scale test passes | ADR-0003, 0005, 0011 |
+| 5 ✅ ~36k runs/h at 1:1000 (~27k on the Windows laptop with VAT wired in) | Calibration loop: `econ-py`, 600-tick runs from Python, Morris on ~10 parameters, one history-matching wave, 100-year quiet baseline | Runs per hour measured; full calibration budget known | ADR-0009 |
 | 6 ✅ 1.7 MB at 1:100 | Saves and replay: ZIP + manifest + Arrow tables + command log, one migration, history block | Load, replay and state-hash check pass; save size at 1:100 and 1:10 recorded | ADR-0011 |
 | 7 ✅ offline slice; live Eurostat fetch verified 2026-10-10 | Data pipeline slice: glossary codegen, Eurostat fetch with provenance tags, DVC with a private remote, population for 2–3 counties from the IPUMS seed via IPF | Scenario builds end to end; provenance listed in the report; no raw restricted microdata tracked by Git | ADR-0012, 0003 |
 | 8 ✅ 5 MB IPC round trip 33 ms, cold start 1.4 s, ~310 MB (see "Windows verification" in the [spikes 5–9 results](03-architecture/spikes/spikes-5-6-results.md)) | UI slice: Tauri 2 + React, 40 uPlot charts × 600 months, ECharts county map from geoBoundaries, one nested "why" tooltip | 1–5 MB IPC round trip measured on WebView2; cold start and memory acceptable | ADR-0013 |
@@ -45,13 +45,41 @@ Spikes are throwaway-quality prototypes that settle the decisions hardest to cha
 
 Results: [spikes 0–4](03-architecture/spikes/spikes-0-4-results.md), [spikes 5–6](03-architecture/spikes/spikes-5-6-results.md).
 
-After the spikes:
+## Phase 1b — headless prototype
+The spikes are done; this phase turns them into a simulation core that runs from a scenario with no UI. (Phase 2 stays the playable vertical slice.)
+
+- [x] Follow-ups from the Windows verification (2026-10-10): fast RNG switched to the "gamma" mixer ([ADR-0006](03-architecture/decisions/0006-determinism-contract.md) Amendment 1), `tax.vat` wired into the scale world through the ledger, Tauri host checked in Windows CI.
 - [ ] Simulation core runs from a scenario, no UI; outputs Arrow/CSV and plots.
 - [ ] Automated acceptance tests from each spec (tests-first two-PR flow).
 - [ ] SFC invariants I-1 to I-7 every tick ([ADR-0007](03-architecture/decisions/0007-money-and-ledger.md)).
 - [ ] Person-conservation check every tick.
 - [ ] CI runs the tiny scenario at three population scales.
 - [ ] Policy-scenario test suite (rate hike, tax cut, deficit spending, devaluation, oil shock, student-grant rise, power-plant build).
+
+### Owner decisions for Phase 1b (2026-10-10)
+Recorded here so they are not lost; none of this is implemented yet.
+
+**Spec lock order.** Only the owner moves a spec to `locked`. Every spec gets an "API sketch" section before it locks (Spike 9 lesson: tests-first means the test writer picks the API).
+1. [`society/population-groups`](02-design/society/population-groups.md) and [`economy/accounting`](02-design/economy/accounting.md).
+2. VAT: split it out of [`economy/taxation`](02-design/economy/taxation.md) into its own spec file and lock that.
+3. [`economy/households`](02-design/economy/households.md) and [`economy/labor-market`](02-design/economy/labor-market.md), then the rest of taxation (income tax, social contributions).
+4. Firms and [production](02-design/economy/production.md), after the firm-unit goods market exists.
+
+**Data** (keeps [ADR-0012](03-architecture/decisions/0012-data-pipeline-and-licensing.md)).
+- The IPUMS 2011 seed sample lives in the private DVC store, never in git.
+- Census 2021 tables (INS) and EU-SILC aggregates are the IPF margins.
+- The owner applies for IPUMS International access and writes to INS in parallel. INS microdata is optional.
+
+**First real mechanic: the population generator from census marginals**, built through the tests-first two-PR flow. Its acceptance criteria:
+- margins within a set tolerance at 1:1000, 1:100 and 1:10;
+- total weight independent of the scale;
+- golden hashes;
+- a Python reference with a differential test.
+
+**Order of work.**
+1. The follow-ups PR above (RNG, VAT in the scale world, CI).
+2. The population generator.
+3. Other follow-ups as they are needed: the firm-unit goods market (before the firms spec locks), the PC model in the differential test, history blocks in saves.
 
 ## Phase 2 — Playable vertical slice
 - [ ] Minimal UI: dashboard, levers, time controls, graphs, group explorer, map.

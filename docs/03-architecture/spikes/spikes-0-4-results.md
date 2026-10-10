@@ -22,7 +22,7 @@ Built 2026-10-09 in an autonomous session. All code is in `crates/`,
 | Licence policy | `deny.toml` (`just deny`) |
 | Task runner | `justfile` (`just check` = fmt, clippy, tests, canary, docs, differential test) |
 | CI: Linux every PR; Windows when core changes; Linux-vs-Windows hash comparison; cargo-deny | `.github/workflows/ci.yml` |
-| Claude Code hook blocking edits to `tests/golden/**`, `crates/*/tests/acceptance/**`, `schema/**` (unless `ECON_TEST_AUTHORING=1`); `gh pr merge` denied | `.claude/settings.json`, `scripts/hooks/protect_paths.py` |
+| Claude Code hook blocking edits to `tests/golden/**`, `crates/*/tests/acceptance/**`, `schema/**` (unless `ECON_TEST_AUTHORING=1`); `gh pr merge` was denied until the owner removed that rule on 2026-10-10 (ADR-0014) | `.claude/settings.json`, `scripts/hooks/protect_paths.py` |
 | Rules for agents | `DETERMINISM.md`, `crates/AGENTS.md`, `python/AGENTS.md`, root `AGENTS.md` (Phase 1) |
 
 > Three files (`justfile`, `.github/workflows/ci.yml`, `.claude/settings.json`) could not be written remotely and were delivered in `setup-pending/` with move instructions.
