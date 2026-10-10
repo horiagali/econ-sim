@@ -5,10 +5,12 @@ uniformity, bit balance, neighbour avalanche, neighbour bit correlation, serial
 correlation, low-p Bernoulli co-occurrence and a 2-D serial test along each
 input axis (entity, tick, k, seed). Pass = p-values not tiny, |z| < ~4.5.
 
-Also compares two stronger variants ("gamma", "double") that were candidates
-if the current mixer had failed. Needs numpy + scipy; ~5 min.
-PractRand/TestU01 were not reachable from the sandbox; for an extra check pipe
-raw output into PractRand on a desktop.
+The current mixer ("cur") multiplies the entity by the SplitMix64 gamma before
+the last mix. Also runs the mixer used before 2026-10-10 ("old", no multiply)
+and a double-mix candidate ("double"). This battery passes "old" too: its
+defect only shows in a binary-rank test over ~2^20 consecutive entities (the
+Rust test `fast_draws_binary_rank_over_consecutive_entities`) and in PractRand
+BRank at 16 GB (`econ-cli rng-raw | RNG_test stdin64`). Needs numpy + scipy; ~5 min.
 """
 import numpy as np, sys
 from scipy import stats
@@ -25,10 +27,10 @@ def fast(seed,stream,tick,entity,k,variant="cur"):
     st=seed^U(0xD1B54A32D192ED03)
     st=mix(st^stream)
     st=mix(st^((tick<<U(32))|k))
-    if variant=="cur": return mix(st^entity)
-    if variant=="gamma": return mix(st^(entity*G))
+    if variant=="cur": return mix(st^(entity*G))
+    if variant=="old": return mix(st^entity)
     if variant=="double": return mix(mix(st^entity))
-assert int(fast(42,0,7,123456,0))==744824335102330087, int(fast(42,0,7,123456,0))
+assert int(fast(42,0,7,123456,0))==16733015585576584871, int(fast(42,0,7,123456,0))
 print("KAT ok")
 
 def battery(name, out_fn):
@@ -69,7 +71,7 @@ def battery(name, out_fn):
     for k_,v in res.items(): print(f"  {k_:22s} {v:.4g}")
     return res
 
-for variant in ["cur","gamma","double"]:
+for variant in ["cur","old","double"]:
     battery(f"{variant}: sequence over entity (seed42,tick7,k0)", lambda e: fast(42,0,7,e,0,variant))
     battery(f"{variant}: sequence over tick (entity 5)", lambda e: fast(42,0,e&U(0xffffffff),5,0,variant))
     battery(f"{variant}: sequence over k (entity 5)", lambda e: fast(42,0,3,5,e&U(0xffffffff),variant))

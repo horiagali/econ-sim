@@ -56,6 +56,11 @@ impl KeyedRng {
     /// One fast counter-based draw: a pure function of
     /// `(seed, stream, tick, entity, k)` built from SplitMix64 mixing.
     ///
+    /// The entity id is multiplied by the odd constant [`GAMMA`] before the
+    /// last mix (the "gamma" mixer, ADR-0006 Amendment 1). Without it,
+    /// consecutive entity ids at one tick fail a binary-rank test
+    /// (`fast_draws_binary_rank_over_consecutive_entities`).
+    ///
     /// Use for hot single draws (one Bernoulli per person per tick); it is
     /// ~100× cheaper than setting up a ChaCha context. Use [`KeyedRng::draw`]
     /// when a context needs many draws. Finding of Spike 4 (ADR-0006
@@ -65,7 +70,7 @@ impl KeyedRng {
         let mut st = self.seed ^ 0xD1B5_4A32_D192_ED03;
         st = mix64(st ^ u64::from(stream as u32));
         st = mix64(st ^ (u64::from(tick) << 32 | u64::from(k)));
-        mix64(st ^ entity)
+        mix64(st ^ entity.wrapping_mul(GAMMA))
     }
 
     /// Fast uniform in `[0, 1)` (see [`KeyedRng::fast_u64`]).
@@ -93,9 +98,12 @@ impl KeyedRng {
     }
 }
 
+/// The SplitMix64 increment (2^64 / golden ratio, odd).
+const GAMMA: u64 = 0x9E37_79B9_7F4A_7C15;
+
 /// SplitMix64: a fixed, documented key-derivation step.
 fn splitmix64(state: &mut u64) -> u64 {
-    *state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    *state = state.wrapping_add(GAMMA);
     let mut z = *state;
     z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
     z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
@@ -104,7 +112,7 @@ fn splitmix64(state: &mut u64) -> u64 {
 
 /// SplitMix64 finalizer (a bijective 64-bit mixer).
 fn mix64(z: u64) -> u64 {
-    let mut z = z.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    let mut z = z.wrapping_add(GAMMA);
     z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
     z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
     z ^ (z >> 31)
@@ -210,7 +218,72 @@ mod tests {
         );
     }
 
-    const FAST_KAT: u64 = 744_824_335_102_330_087;
+    const FAST_KAT: u64 = 16_733_015_585_576_584_871;
+
+    /// Rank over GF(2) of the `n`×`n` bit matrix whose rows are consecutive
+    /// `n`-bit slices of `words` (64 bits per word, `n` a multiple of 64).
+    fn gf2_rank(words: &[u64], n: usize) -> usize {
+        let w = n / 64;
+        let mut m: Vec<u64> = words[..n * w].to_vec();
+        let mut rank = 0;
+        for col in 0..n {
+            let (cw, cb) = (col / 64, col % 64);
+            let Some(piv) = (rank..n).find(|&r| (m[r * w + cw] >> cb) & 1 == 1) else {
+                continue;
+            };
+            if piv != rank {
+                for j in 0..w {
+                    m.swap(rank * w + j, piv * w + j);
+                }
+            }
+            let (head, tail) = m.split_at_mut((rank + 1) * w);
+            let pivot = &head[rank * w..];
+            for row in tail.chunks_exact_mut(w) {
+                if (row[cw] >> cb) & 1 == 1 {
+                    // bits below `col` are already zero in both rows
+                    for j in cw..w {
+                        row[j] ^= pivot[j];
+                    }
+                }
+            }
+            rank += 1;
+        }
+        rank
+    }
+
+    fn entity_rank_deficiency(seed: u64, first_entity: u64) -> usize {
+        const N: usize = 8192;
+        let r = KeyedRng::new(seed);
+        let words: Vec<u64> = (0..(N * N / 64) as u64)
+            .map(|e| r.fast_u64(Stream::Labour, 1, first_entity + e, 0))
+            .collect();
+        N - gf2_rank(&words, N)
+    }
+
+    /// Regression test for the entity-only pattern (ADR-0006 Amendment 1,
+    /// revised 2026-10-10): the outputs for entity = 0, 1, 2, … at one tick,
+    /// laid out as an 8192×8192 bit matrix, must have (almost) full rank.
+    /// The mixer without the gamma multiply loses 32–35 here (and fails
+    /// PractRand `BRank` at 16 GB); a random matrix loses 0–2.
+    #[test]
+    fn fast_draws_binary_rank_over_consecutive_entities() {
+        let d = entity_rank_deficiency(42, 0);
+        assert!(d <= 4, "rank deficiency {d}");
+    }
+
+    /// More seeds and a high starting entity (slow in debug builds):
+    /// `cargo test --release -p econ-rng -- --ignored`.
+    #[test]
+    #[ignore = "slow; the default test covers one seed"]
+    fn fast_draws_binary_rank_more_seeds() {
+        for (seed, first) in [(7u64, 0u64), (42, 1 << 30), (1, 1 << 40)] {
+            let d = entity_rank_deficiency(seed, first);
+            assert!(
+                d <= 4,
+                "seed {seed}, first entity {first}: rank deficiency {d}"
+            );
+        }
+    }
 
     /// Lag-1 correlation of fast uniforms along one input axis, as a z-score.
     fn lag1_z(f: impl Fn(u64) -> f64, n: u64) -> f64 {
