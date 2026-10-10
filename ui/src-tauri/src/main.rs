@@ -87,9 +87,16 @@ fn explain(indicator: String) -> Node {
     n
 }
 
+/// `bytes` zero bytes with no computation: isolates the IPC round-trip cost
+/// (Spike 8 exit criterion, measured for 1–5 MB payloads).
+#[tauri::command]
+fn ipc_probe(bytes: u32) -> tauri::ipc::Response {
+    tauri::ipc::Response::new(vec![0u8; bytes as usize])
+}
+
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![run_series, county_values, explain])
+        .invoke_handler(tauri::generate_handler![run_series, county_values, explain, ipc_probe])
         .run(tauri::generate_context!())
         .expect("error while running the econ-sim app");
 }
