@@ -78,7 +78,7 @@ Recorded here so they are not lost; none of this is implemented yet.
 
 **Order of work.**
 1. The follow-ups PR above (RNG, VAT in the scale world, CI).
-2. The population generator. **Done 2026-10-10** (version 1: county, household size, sex and age): spec [`society/population-generator`](02-design/society/population-generator.md), crate `econ-popgen`, pipeline stage `econ-cli synth-population`. Second increment (education and activity, spec [`society/population-attributes`](02-design/society/population-attributes.md)): spec, data and Python reference done 2026-10-10; acceptance tests and Rust code to follow. Then wiring the generated population into the simulation in place of the scale world's invented one.
+2. The population generator. **Done 2026-10-10** (version 1: county, household size, sex and age): spec [`society/population-generator`](02-design/society/population-generator.md), crate `econ-popgen`, pipeline stage `econ-cli synth-population`. Second increment (education and activity, spec [`society/population-attributes`](02-design/society/population-attributes.md)): spec, data and Python reference done 2026-10-10; acceptance tests and Rust code to follow. **Wired into the simulation 2026-10-10:** `ScaleWorld::from_population` builds the scale world on the generated households, weights, counties and ages (`just sim-romania 100`); education, jobs, wages and deposits are still invented there. The invented population of `ScaleWorld::generate` stays for the benchmarks and its golden.
 3. Other follow-ups as they are needed: the firm-unit goods market (before the firms spec locks), the PC model in the differential test, history blocks in saves.
 
 ## Phase 2 — Playable vertical slice

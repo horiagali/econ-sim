@@ -3,6 +3,10 @@
 Every change to a golden hash or snapshot needs an entry here with the reason
 (ADR-0010). Newest first.
 
+## 2026-10-10 — Scale world on the Romanian population: new golden
+- **New golden:** `golden_romania_12_ticks_at_1_in_1000` in `crates/econ-io/src/popgen.rs` pins the state hash, employment, unemployment and VAT after 12 ticks of the scale world built by `ScaleWorld::from_population` on the Census 2021 fixture (1:1000, seed 42). Reason: initial baseline for the first run of the simulation on generated households instead of invented ones.
+- **Unchanged:** `golden_12_ticks_at_1_in_1000` (the invented population) and every other golden. `ScaleWorld::generate` draws the same numbers in the same order; the input-output matrix and consumption shares only moved into a helper.
+
 ## 2026-10-10 — Population generator: first golden hashes
 - Added `tests/golden/popgen_ro_census2021.hashes`: state hash of the starting population generated from the Census 2021 margin fixture at 1:1000, 1:100 and 1:10 (seed 42, default parameters). Reason: initial baseline for AC-POP-06. The values come from the Python reference (`python/reference/popgen_reference.py`), written before the Rust generator.
 

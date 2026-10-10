@@ -28,5 +28,5 @@ Crate map (ADR-0005):
 | `econ-popgen` | population generator from census margins (spec `society/population-generator`); acceptance tests in `tests/acceptance/` (protected). Integer arithmetic only; must stay identical, record for record, to `python/reference/popgen_reference.py` (AC-POP-07), so change both together |
 | `econ-core` | `World`, phases, `step`, `TickReport`, SIM mode |
 | `econ-io` | saves, migrations, replay; margin file in and population tables out (`popgen`). Arrow lives here only |
-| `econ-cli` | headless runner: sim, golden checks, benchmarks, `synth-population` |
+| `econ-cli` | headless runner: sim, golden checks, benchmarks, `synth-population`, `sim-population` (scale world on a generated population) |
 | `lint-canary` | NOT a member; must fail clippy (`just lint-canary`) |
