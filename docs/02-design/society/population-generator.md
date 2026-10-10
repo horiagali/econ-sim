@@ -110,10 +110,10 @@ None. `sample_scale` and `rng_seed` are scenario parameters, set before the game
 - **Cells too small to be represented** (fewer than one synthetic record): no record exists, so the cell's weighted total is 0 and its people are carried by the same sex and age band in other counties (step 7). Such cells are counted in the fit report, not treated as failures.
 - **Zero targets:** apportionment never creates a record in a zero cell, so raking never divides by zero. With a future observed seed, records in a zero-target cell get weight 0 and are dropped.
 - **Raking does not converge** within `max_sweeps`: not an error by itself; the fit report says so and the acceptance tolerances decide.
-- **`sample_scale` = 0, empty tables, negative counts:** rejected.
+- **`sample_scale` = 0, empty tables, tables whose length does not match their dimensions:** rejected. (Counts are unsigned, so a negative count cannot be expressed.)
 
 ## Acceptance tests
-IDs are stable. Tests live in `crates/econ-popgen/tests/acceptance/` (protected; written in a test-authoring session). "The fixture" is the normalised Romanian margin file committed with the pipeline. "Three scales" means 1:1000, 1:100 and 1:10.
+IDs are stable. Tests live in `crates/econ-popgen/tests/acceptance/popgen.rs` (protected; written in a test-authoring session on 2026-10-10, before the generator). They are compiled only with the crate feature `generator`, which the implementation change switches on by default. Golden hashes: `tests/golden/popgen_ro_census2021.hashes`, taken from the Python reference. "The fixture" is the normalised Romanian margin file committed with the pipeline. "Three scales" means 1:1000, 1:100 and 1:10.
 
 - [ ] **AC-POP-01** `[unit]` At each of the three scales the number of synthetic persons is within 0.5% of census persons ÷ `sample_scale`, and no table is sized by a constant.
 - [ ] **AC-POP-02** `[unit]` At each of the three scales, in every county: Σ `hh_weight` over private households equals the census household count exactly; Σ `hh_weight` × members equals census persons in private households exactly; Σ weights of collective records equals census persons not in private households exactly. The national totals are therefore the same at every scale.
@@ -122,7 +122,7 @@ IDs are stable. Tests live in `crates/econ-popgen/tests/acceptance/` (protected;
 - [ ] **AC-POP-05** `[unit]` Same margins, scale and seed give identical tables (equal state hash). A different seed changes who lives with whom but none of the totals in AC-POP-02.
 - [ ] **AC-POP-06** `[golden]` The state hash of the fixture population at each of the three scales equals the committed golden value.
 - [ ] **AC-POP-07** `[diff]` On the fixture at 1:1000 and 1:200 the Rust generator and the independent Python reference produce identical households and persons, record for record.
-- [ ] **AC-POP-08** `[unit]` Inconsistent margins, `sample_scale` = 0, an empty table or a negative count are rejected with a named error and produce no output.
+- [ ] **AC-POP-08** `[unit]` Inconsistent margins, `sample_scale` = 0, an empty table or a table whose length does not match its dimensions are rejected with a named error and produce no output.
 
 **Tolerances for AC-POP-03.** Relative error of the weighted total against the census, by how many synthetic records stand behind the cell (census count ÷ `sample_scale`). The same rule applies at every scale and to every margin: national sex, age band and household size class; county × sex; county × broad age (0–14, 15–64, 65+); county × size class; county × sex × age band.
 
@@ -147,22 +147,26 @@ The errors that remain are mostly not raking errors. They come from step 7: a co
 For the test writer and the implementer (Spike 9 lesson). Names may change before lock; shapes should not.
 
 ```rust
-// crate econ-popgen (depends on econ-types, econ-rng, econ-num; no I/O)
+// crate econ-popgen (no I/O). The skeleton in crates/econ-popgen/src/lib.rs is the definition.
+pub const OPEN: u16 = u16::MAX;              // open end of the last age band / size class
+pub enum Sex { F = 0, M = 1 }
+pub enum Role { Head = 0, Partner = 1, Child = 2, Other = 3 }
 pub struct Margins {
     pub counties: Vec<String>,               // NUTS 3 codes, in table order
     pub age_bands: Vec<(u16, u16)>,          // [from, to) in years; last band open
-    pub size_classes: Vec<(u8, u8)>,         // [min, max] members; last class open
+    pub size_classes: Vec<(u16, u16)>,       // [min, max] members; last class open
     pub persons_private: Vec<u64>,           // [county][sex][age_band], row-major
     pub persons_collective: Vec<u64>,        // same shape
     pub households: Vec<u64>,                // [county][size_class]
 }
-pub struct GenParams { pub sample_scale: u32, pub rng_seed: u64, pub max_household_size: u8,  // defaults: 15,
-                       pub raking_tolerance_ppm: u32, pub max_sweeps: u32, pub min_cell_records: u32 }  // 100, 50, 30
+pub struct GenParams { pub sample_scale: u32, pub rng_seed: u64, pub max_household_size: u16,
+                       pub raking_tolerance_ppm: u32, pub max_sweeps: u32, pub min_cell_records: u32 }
+impl GenParams { pub fn new(sample_scale: u32, rng_seed: u64) -> Self; }   // defaults 15, 1000, 50, 30
 pub struct Households { pub hh_weight: Vec<u32>, pub hh_county: Vec<u8>, pub hh_collective: Vec<bool> }
 pub struct Persons { pub household_id: Vec<u32>, pub age: Vec<u16>, pub sex: Vec<Sex>, pub role: Vec<Role> }
 pub struct FitReport { pub sweeps: u32, pub converged: bool, pub max_error_ppm: u32, pub unfitted_cells: u32 }
 pub struct Population { pub households: Households, pub persons: Persons, pub report: FitReport }
-pub enum GenError { InconsistentMargins { county: String }, ZeroScale, EmptyTable, NegativeCount }
+pub enum GenError { InconsistentMargins { county: String }, ZeroScale, EmptyTable, ShapeMismatch }
 
 pub fn generate(margins: &Margins, params: &GenParams) -> Result<Population, GenError>;
 impl Population { pub fn state_hash(&self) -> u64; }

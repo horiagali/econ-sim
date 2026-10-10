@@ -25,6 +25,7 @@ Crate map (ADR-0005):
 | `econ-ledger` | accounts, flow codes, transfers, invariant checks |
 | `econ-rules` | `behaviour_rule!` macro, contribution trees |
 | `econ-mech-tax` | taxation mechanics (VAT so far); acceptance tests in `tests/acceptance/` (protected) |
+| `econ-popgen` | population generator from census margins (spec `society/population-generator`); acceptance tests in `tests/acceptance/` (protected), enabled by the `generator` feature |
 | `econ-core` | `World`, phases, `step`, `TickReport`, SIM mode |
 | `econ-cli` | headless runner: sim, golden checks, benchmarks |
 | `lint-canary` | NOT a member; must fail clippy (`just lint-canary`) |
