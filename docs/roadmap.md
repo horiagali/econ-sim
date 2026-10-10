@@ -33,7 +33,7 @@ Spikes are throwaway-quality prototypes that settle the decisions hardest to cha
 | # | Spike | Exit criterion | Settles |
 |---|---|---|---|
 | 0 ✅ (Windows run pending) | Repo hygiene: `@AGENTS.md` import, justfile, toolchain pin, empty workspace, cargo-deny, CI skeleton, PreToolUse hook | An agent on Windows runs `just check` green and is blocked from editing `tests/golden/` | ADR-0014, 0010 |
-| 1 ✅ (Windows hashes pending) | Numeric foundation: `Bani`, rounding, splits, keyed ChaCha8 + known-answer vectors, `det_sum`, `libm` wrappers, clippy deny config | Same hashes on Windows laptop and Linux CI; clippy rejects `f64::exp` and `HashMap` in core | ADR-0006, 0007 |
+| 1 ✅ (Linux and Windows hashes match in CI, 2026-10-10; Windows laptop run pending) | Numeric foundation: `Bani`, rounding, splits, keyed ChaCha8 + known-answer vectors, `det_sum`, `libm` wrappers, clippy deny config | Same hashes on Windows laptop and Linux CI; clippy rejects `f64::exp` and `HashMap` in core | ADR-0006, 0007 |
 | 2 ✅ (PC model pending) | Ledger + differential SIM: typed transfers, invariants I-1 to I-7, core "SIM mode", independent Python SIM then PC | Exact match in bani for 200 ticks; a mutated posting sign is caught by the differential test | ADR-0007, 0010 |
 | 3 ✅ | Explainability: `behaviour_rule!` on price, wage and consumption rules; `explain()` tree; Σ = Δ and μ tests | A nested tree sums exactly; log-linear aggregation question settled | ADR-0008, 0009 (part) |
 | 4 ✅ 6.4 ms/tick at 1:100 | Performance and market clearing at variable scale: fake weighted population, labour and goods matching, 80×80 LU, cube | Tick time at 1:1000, 1:100, 1:10; 50-year run ≤ ~30 s at 1:100; 3-scale test passes | ADR-0003, 0005, 0011 |

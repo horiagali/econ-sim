@@ -95,13 +95,15 @@ Run on the owner's Windows 11 Pro laptop (10.0.26200), no admin rights. Everythi
 | Check | Status |
 |---|---|
 | `just check` | stops at `lint` (clippy cannot build); `fmt-check`, `docs`, `codegen-check`, `trace` and `pipeline-test` pass |
-| `just golden-check`, Windows state hashes | not run — **no Windows-vs-Linux hash comparison exists yet** |
+| `just golden-check`, Windows state hashes | not run on the laptop; covered by CI (below) |
 | `lint-canary`, `diff-sim`, `cargo test --workspace` | not run |
 | `just calib-spike` (calibration timing on Windows) | not run: `uv sync` fails building `econ-py` |
 | `npm run tauri dev` (Spike 8 exit criterion) | not run: the host fails on `erased-serde`'s build script before any Tauri code compiles, so whether Tauri builds on the GNU target is still unknown |
 | PractRand on `fast_u64` | skipped |
 
-**Verified on Windows:**
+**Verified in CI (first run, commit `b1869c0`, [run 38039618551](https://github.com/horiagali/econ-sim/actions/runs/38039618551)):** all four jobs pass. `linux` runs fmt, clippy, tests, the lint canary, codegen, traceability, pipeline tests, the differential SIM test and the golden run. `windows` (`windows-latest`, MSVC toolchain) runs `cargo test --workspace` and prints the 200-tick state hashes. `determinism` compares the two hash files and passes, so **Linux and Windows (MSVC) produce the same state hashes for the SIM golden run**. This is the first time the code was built outside the original sandbox.
+
+**Verified on the Windows laptop:**
 - **Live Eurostat fetch.** `fetch_eurostat.py` downloaded both datasets in `sources.toml` (`demo_r_pjangrp3`: 198 rows, `nama_10r_3gdp`: 3 rows; both parse with the JSON-stat reader) and wrote provenance sidecars whose SHA-256 matches the raw file.
 - **UI without the host.** `npm install`, `npm run fetch-geo` (`ui/public/geo/romania-adm1.geojson`, 1,249,797 bytes, geoBoundaries ADM1, CC BY 4.0) and `npm run build` (TypeScript strict + Vite; bundle 1.24 MB, 416 KB gzipped) all pass.
 - **Protect-paths hook.** Blocks Edit/Write to `tests/golden/`, `crates/*/tests/acceptance/` and `schema/` given Windows paths (backslashes, lower-case drive letter) and lets other paths through.
@@ -117,5 +119,5 @@ Run on the owner's Windows 11 Pro laptop (10.0.26200), no admin rights. Everythi
 - CI's Windows job uses the MSVC toolchain; the laptop can only use GNU. If the laptop is ever unblocked, a hash difference between the two Windows toolchains would be a determinism finding in its own right.
 
 ## Not done yet (next steps)
-- Windows: `just check`, the golden run, calibration timing and `npm run tauri dev` (Spike 8 exit criterion) — all waiting on Smart App Control being turned off on the laptop, or on another Windows machine. The CI `windows` and `determinism` jobs can supply the hash comparison without the laptop.
+- Windows: `just check`, the golden run, calibration timing and `npm run tauri dev` (Spike 8 exit criterion) — all waiting on a Windows machine where cargo builds are not blocked. The Linux-vs-Windows hash comparison already passes in CI.
 - Follow-ups: model PC in the differential test; history blocks in saves; real firm-unit goods market; real data marginals; wire `tax.vat` into the scale world's consumption.
