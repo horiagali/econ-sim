@@ -18,4 +18,4 @@ stages:
   synth:
     cmd: python synth_counties.py --fixture --scale 100
     deps: [synth_counties.py, ipf.py, fixtures/marginals_illustrative.json]
-    outs: [data/derived]
+    outs: [data/derived/population_fixture_1to100.csv, data/derived/population_fixture_1to100.provenance.json]

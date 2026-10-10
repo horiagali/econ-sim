@@ -12,7 +12,7 @@ Builds the starting scenario from public data. Standard library only for now
 | Codegen | `scripts/codegen_glossary.py` (repo root) — glossary → `crates/econ-types/src/glossary.rs` | checked in CI |
 
 `data/` is git-ignored. `dvc.yaml` describes the same stages for DVC
-(`uv tool install dvc`, then `dvc repro`), so raw downloads can be cached
+(`uv tool install dvc`, then `dvc repro` from this folder; offline, skip the download with `dvc repro -s normalise_census synth_population`), so raw downloads can be cached
 and versioned outside git.
 
 ```powershell
