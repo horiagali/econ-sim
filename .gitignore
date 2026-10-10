@@ -16,3 +16,6 @@ ui/src-tauri/gen/
 ui/public/geo/
 ui/tsconfig.tsbuildinfo
 mutants.out*/
+
+# Local, per-machine Claude Code settings (e.g. the test-authoring switch)
+.claude/settings.local.json

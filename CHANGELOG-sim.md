@@ -3,6 +3,9 @@
 Every change to a golden hash or snapshot needs an entry here with the reason
 (ADR-0010). Newest first.
 
+## 2026-10-10 — Population generator: first golden hashes
+- Added `tests/golden/popgen_ro_census2021.hashes`: state hash of the starting population generated from the Census 2021 margin fixture at 1:1000, 1:100 and 1:10 (seed 42, default parameters). Reason: initial baseline for AC-POP-06. The values come from the Python reference (`python/reference/popgen_reference.py`), written before the Rust generator.
+
 ## 2026-10-10 — Scale world: gamma mixer and VAT (owner decision)
 Both change scale-world results on purpose. `tests/golden/sim_200.hashes` is **unchanged** (the SIM model uses neither the fast hash nor the scale world).
 - **Fast-hash mixer:** `fast_u64` now ends with `mix64(st ^ entity·γ)` instead of `mix64(st ^ entity)`. Reason: the old mixer fails PractRand `BRank` at 16 GB when only the entity varies, and shows a rank deficiency of 32–35 in the first 2^20 consecutive entities (ADR-0006 Amendment 1, revised). `FAST_KAT` changed from 744824335102330087 to 16733015585576584871 (also in `python/reference/rng_quality.py`).
