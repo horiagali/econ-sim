@@ -15,9 +15,11 @@ mod attributes;
 mod fit;
 mod housing;
 mod jobs;
+mod pensions;
 mod seed;
 mod wages;
 
+pub use pensions::{PensionError, PensionMargins, PensionParams, PersonPensions, assign_pensions};
 pub use wages::{PersonWages, WageError, WageMargins, WageParams, assign_wages};
 
 pub use attributes::{

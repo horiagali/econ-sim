@@ -161,3 +161,25 @@ source = "eurostat"
 code = "earn_mw_cur"               # monthly minimum wages, twice a year
 filters = { geo = ["RO"], time = ["2021-S2", "2022-S2"], currency = ["NAC"] }
 licence = "eurostat-reuse"
+
+# Pensions. Inputs of normalise_pensions.py (spec society/population-pensions).
+[[dataset]]
+id = "ro_pensions_expenditure_2021"
+source = "eurostat"
+code = "spr_exp_pens"              # expenditure on pensions by type of pension and means-testing
+filters = { geo = ["RO"], time = ["2021"], unit = ["MIO_NAC"], spdepm = ["TOTAL"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_pension_gender_gap"
+source = "eurostat"
+code = "ilc_pnp13"                 # average gender pension gap by age group (EU-SILC)
+filters = { geo = ["RO"], time = ["2021"], age = ["Y_GE65"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_pension_replacement_ratio"
+source = "eurostat"
+code = "ilc_pnp3"                  # aggregate replacement ratio for pensions by sex (EU-SILC)
+filters = { geo = ["RO"], time = ["2021"] }
+licence = "eurostat-reuse"

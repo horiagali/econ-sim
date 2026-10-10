@@ -76,6 +76,9 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `wage` | Person's gross monthly wage as an employee; 0 for everyone else. Integer bani in code | LCU / month | state | society/population-wages |
 | — | `wage_dispersion` | Share of the earnings quantile curve's spread that is left inside a cell when starting wages are set (default 0.5) | ratio | parameter | society/population-wages |
 | — | `wage_floor_share` | The wage floor of an industry group is the minimum wage, or this share of the group's mean wage if that is lower (default 0.8) | ratio | parameter | society/population-wages |
+| — | `pension` | Person's gross monthly pension; 0 for everyone who is not retired. Integer bani in code | LCU / month | state | society/population-pensions |
+| — | `pension_earnings_link` | How much of the earnings gap between education groups starting pensions keep (default 0.5) | ratio | parameter | society/population-pensions |
+| — | `pension_dispersion` | Share of the pension quantile curve's spread that is used when starting pensions are set (default 1) | ratio | parameter | society/population-pensions |
 | — | `school_age` | Age from which a child below the minimum working age is a pupil (default 6) | years | parameter | society/population-attributes |
 | — | `hh_locality_size` | Size class of the locality a household lives in (six classes, from under 2,000 to 200,000 or more inhabitants) | category (6) | state | society/population-housing |
 | — | `hh_urban` | The household's locality is urban (for now: 10,000 inhabitants or more) | bool | derived | society/population-housing |

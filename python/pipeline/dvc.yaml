@@ -24,6 +24,10 @@ stages:
     cmd: python normalise_earnings.py
     deps: [normalise_earnings.py, normalise_census_jobs.py, normalise_census.py, jsonstat.py, data/raw/ro_ses2022_earnings_occupation.json, data/raw/ro_ses2022_earnings_age.json, data/raw/ro_ses2022_earnings_education.json, data/raw/ro_ses2022_employees_occupation.json, data/raw/ro_ses2022_employees_age.json, data/raw/ro_ses2022_employees_education.json, data/raw/ro_ses2022_earnings_quantiles.json, data/raw/ro_na_wages_2021q4.json, data/raw/ro_minimum_wage.json]
     outs: [data/derived/earnings2021_ro.json]
+  normalise_pensions:
+    cmd: python normalise_pensions.py
+    deps: [normalise_pensions.py, normalise_earnings.py, normalise_census_jobs.py, normalise_census.py, jsonstat.py, data/raw/ro_pensions_expenditure_2021.json, data/raw/ro_pension_gender_gap.json, data/raw/ro_pension_replacement_ratio.json, data/raw/ro_ses2022_earnings_education.json, data/derived/earnings2021_ro.json, data/derived/census2021_edu_activity_ro.json]
+    outs: [data/derived/pensions2021_ro.json]
   # The population generator (spec society/population-generator) and its stages
   # C, D and E (education and activity, jobs, locality size and tenure). It is Rust
   # (crate econ-popgen), run through econ-cli; sample_scale comes from the scenario.

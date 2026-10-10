@@ -21,6 +21,8 @@ housing = []
 # Stage F: wages (spec society/population-wages). Off until the stage is
 # implemented: its acceptance tests need it. The implementation adds it to `default`.
 wages = []
+# Stage G: pensions (spec society/population-pensions). Off until implemented, as above.
+pensions = []
 
 [dependencies]
 econ-rng.workspace = true

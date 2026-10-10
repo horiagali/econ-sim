@@ -14,6 +14,9 @@ With `--jobs JOBS.json` as well it runs the third (spec `society/population-jobs
 status in employment, occupation and industry group of every employed person.
 With `--housing HOUSING.json` it runs the housing stage (spec
 `society/population-housing`): locality size and tenure of every household.
+With `--wages EARNINGS.json` (and the two before it) it runs the wage stage
+(spec `society/population-wages`); with `--pensions PENSIONS.json` the pension
+stage (spec `society/population-pensions`).
 """
 from __future__ import annotations
 
@@ -59,6 +62,11 @@ BANI_PER_LEU = 100
 WAGE_SWEEPS = 20  # passes of scaling to the survey's proportions
 WAGE_DISPERSION_PPM = 500_000  # share of the quantile curve's spread that is left inside a cell
 WAGE_FLOOR_SHARE_PPM = 800_000  # the floor of a group is at most this share of its mean wage
+# Pension stage (spec society/population-pensions).
+STAGE_PENSIONS = 6  # `tick` of the draw context
+PENSION_SWEEPS = 20  # passes of scaling to the proportions
+PENSION_DISPERSION_PPM = 1_000_000  # the quantile curve is that of all pensioners: used in full
+PENSION_EARNINGS_LINK_PPM = 500_000  # how much of the earnings gap between education groups pensions keep
 
 
 # --- keyed ChaCha8 (ADR-0006) ------------------------------------------------
@@ -1088,6 +1096,59 @@ def curve_at(curve: dict, rank: int) -> int:
     return values[k] + (values[k + 1] - values[k]) * (rank - ranks[k]) // (ranks[k + 1] - ranks[k])
 
 
+def spread(w: list[int], sex: list[int], dims: list[tuple[list[int], list[int]]], rel_sex: list[int],
+           curve: dict, dispersion_ppm: int, bill: int, floor: int, sweeps: int) -> list[int]:
+    """Amounts for the members of one group, in bani: the group pays `bill`, nobody gets less than `floor`.
+
+    `w` and `sex` are the members' weights and sexes, in keyed-random order.
+    Each member gets a place on the quantile curve from their rank (compressed
+    by `dispersion_ppm`). The amounts are then scaled, table by table, until
+    the two sexes' means stand to each other as `rel_sex` says and, inside each
+    sex, the means of the cells of every table of `dims` (the cell of each
+    member, the proportion of each cell) stand to each other as the table says.
+    A last scale sets the level.
+    """
+    total_w = sum(w)
+    # A place on the quantile curve from the rank (the midpoint of the member's own weight).
+    x, before = [], 0
+    for wi in w:
+        rank = (2 * before + wi) * UNIT // (2 * total_w)
+        x.append((UNIT * UNIT + dispersion_ppm * (curve_at(curve, rank) - UNIT)) // UNIT)
+        before += wi
+
+    # The mean each sex is to have (the group's mean is UNIT) is fixed first,
+    # so that every table asks for the same thing.
+    sex_w = [sum(wi for s, wi in zip(sex, w) if s == k) for k in range(2)]
+    sex_norm = sum(sw * r for sw, r in zip(sex_w, rel_sex))
+    sex_mean = [rdiv(r * total_w * UNIT, sex_norm) for r in rel_sex]
+    for _ in range(sweeps):
+        for cells, targets in dims:
+            weight_of, sum_of = [0] * len(targets), [0] * len(targets)
+            for c, wi, xi in zip(cells, w, x):
+                weight_of[c] += wi
+                sum_of[c] += wi * xi
+            width = len(targets) // 2
+            norm = [sum(wc * t for wc, t in zip(weight_of[k * width:(k + 1) * width], targets[k * width:]))
+                    for k in range(2)]
+            x = [rdiv(xi * targets[c] * weight_of[c] * sex_w[s] * sex_mean[s], sum_of[c] * norm[s])
+                 if sum_of[c] else xi for c, s, xi in zip(cells, sex, x)]
+
+    # The level: the group pays its bill, nobody is below the floor.
+    def paid(level: int) -> int:
+        return sum(wi * max(rdiv(level * xi, UNIT), floor) for wi, xi in zip(w, x))
+
+    lo, hi = 0, rdiv(2 * bill, total_w) + 1
+    while paid(hi) < bill:
+        hi *= 2
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if paid(mid) >= bill:
+            hi = mid
+        else:
+            lo = mid + 1
+    return [max(rdiv(lo * xi, UNIT), floor) for xi in x]
+
+
 def check_wage_margins(earn: dict) -> None:
     n_g, n_occ, n_age, n_edu = (len(earn["industry_groups"]), len(earn["occupations"]),
                                 len(earn["age_group_from"]), len(earn["edu_groups"]))
@@ -1157,20 +1218,7 @@ def assign_wages(pop: dict, earn: dict, attrs: dict, job_attrs: dict, rng_seed: 
         w = [pop["hh_weight"][pop["household_id"][i]] for i in members]
         total_w = sum(w)
 
-        # A place on the quantile curve from the rank (the midpoint of the person's own weight).
-        x, before = [], 0
-        for wi in w:
-            rank = (2 * before + wi) * UNIT // (2 * total_w)
-            x.append((UNIT * UNIT + dispersion_ppm * (curve_at(curve, rank) - UNIT)) // UNIT)
-            before += wi
-
-        # Scale, category by category, to the survey's proportions. The mean
-        # each sex is to have (the group's mean is UNIT) is fixed first, so
-        # that the three tables ask for the same thing.
         sex = [pop["sex"][i] for i in members]
-        sex_w = [sum(wi for s, wi in zip(sex, w) if s == k) for k in range(2)]
-        sex_norm = sum(sw * r for sw, r in zip(sex_w, earn["rel_sex"][g]))
-        sex_mean = [rdiv(r * total_w * UNIT, sex_norm) for r in earn["rel_sex"][g]]
         years = [pop["age"][i] // 12 for i in members]
         dims = [
             ([s * n_occ + job_attrs["occupation"][i] for s, i in zip(sex, members)],
@@ -1180,35 +1228,10 @@ def assign_wages(pop: dict, earn: dict, attrs: dict, job_attrs: dict, rng_seed: 
             ([s * n_edu + edu_group[attrs["edu_level"][i]] for s, i in zip(sex, members)],
              [v for row in earn["rel_education"][g] for v in row]),
         ]
-        for _ in range(sweeps):
-            for cells, targets in dims:
-                weight_of, sum_of = [0] * len(targets), [0] * len(targets)
-                for c, wi, xi in zip(cells, w, x):
-                    weight_of[c] += wi
-                    sum_of[c] += wi * xi
-                width = len(targets) // 2
-                norm = [sum(wc * t for wc, t in zip(weight_of[k * width:(k + 1) * width], targets[k * width:]))
-                        for k in range(2)]
-                x = [rdiv(xi * targets[c] * weight_of[c] * sex_w[s] * sex_mean[s], sum_of[c] * norm[s])
-                     if sum_of[c] else xi for c, s, xi in zip(cells, sex, x)]
-
-        # The level: the group pays its wage bill, nobody is below the floor.
         floor = min(earn["minimum_wage"] * BANI_PER_LEU, rdiv(floor_share_ppm * bill, total_w * UNIT))
-
-        def paid(level: int) -> int:
-            return sum(wi * max(rdiv(level * xi, UNIT), floor) for wi, xi in zip(w, x))
-
-        lo, hi = 0, rdiv(2 * bill, total_w) + 1
-        while paid(hi) < bill:
-            hi *= 2
-        while lo < hi:
-            mid = (lo + hi) // 2
-            if paid(mid) >= bill:
-                hi = mid
-            else:
-                lo = mid + 1
-        for i, xi in zip(members, x):
-            wage[i] = max(rdiv(lo * xi, UNIT), floor)
+        amounts = spread(w, sex, dims, earn["rel_sex"][g], curve, dispersion_ppm, bill, floor, sweeps)
+        for i, amount in zip(members, amounts):
+            wage[i] = amount
     return wage
 
 
@@ -1305,6 +1328,137 @@ def wage_fit(pop: dict, earn: dict, attrs: dict, job_attrs: dict, wage: list[int
         "share_at_or_below_minimum_wage": round(sum(wt for v, wt in pairs if v <= floor) / total_w, 4),
         "max_lei": max(v for v, _ in pairs) / BANI_PER_LEU,
     }
+    return out
+
+
+# --- pension stage ---------------------------------------------------------------------------
+
+def check_pension_margins(pens: dict) -> None:
+    n_edu = len(pens["edu_groups"])
+    curve = pens["quantile_curve"]
+    if not (n_edu and pens["edu_group_of_level"] and len(curve["rank"]) >= 2):
+        raise GenError("EmptyTable")
+    if pens["sexes"] != ["F", "M"] or len(pens["rel_sex"]) != 2 or min(pens["rel_sex"]) <= 0:
+        raise GenError("ShapeMismatch")
+    t = pens["rel_education"]
+    if len(t) != 2 or any(len(row) != n_edu or min(row) <= 0 for row in t):
+        raise GenError("ShapeMismatch")
+    ranks, values = curve["rank"], curve["value"]
+    if (len(values) != len(ranks) or ranks[0] != 0 or ranks[-1] != UNIT
+            or any(a >= b for a, b in zip(ranks, ranks[1:])) or values[0] <= 0
+            or any(a > b for a, b in zip(values, values[1:]))):
+        raise GenError("ShapeMismatch")
+    if any(not 0 <= e < n_edu for e in pens["edu_group_of_level"]):
+        raise GenError("ShapeMismatch")
+
+
+def pension_education_targets(pens: dict, earnings_link_ppm: int) -> list[int]:
+    """The proportions between education groups that pensions are to have, [sex][group] flattened:
+    the earnings proportions pulled towards 1."""
+    return [(UNIT * UNIT + earnings_link_ppm * (v - UNIT)) // UNIT for row in pens["rel_education"] for v in row]
+
+
+def assign_pensions(pop: dict, pens: dict, attrs: dict, rng_seed: int = 42,
+                    dispersion_ppm: int = PENSION_DISPERSION_PPM, earnings_link_ppm: int = PENSION_EARNINGS_LINK_PPM,
+                    sweeps: int = PENSION_SWEEPS) -> list[int]:
+    """Gross monthly pension of every person, in bani; 0 for everyone who is not retired.
+
+    `pens` is the pension margin file; `attrs` the result of the
+    education-and-activity stage (not changed). The retired are one group:
+    `spread` gives each a place on the pension quantile curve, makes women's
+    and men's means stand as the gender pension gap says and, inside each sex,
+    the education groups as weakened earnings proportions say, and sets the
+    level so that the pension bill is paid with nobody below the minimum pension.
+    """
+    check_pension_margins(pens)
+    n = len(pop["household_id"])
+    if len(attrs["activity"]) != n or len(attrs["edu_level"]) != n:
+        raise GenError("ShapeMismatch")
+    edu_group, n_edu = pens["edu_group_of_level"], len(pens["edu_groups"])
+    if any(e >= len(edu_group) for e in attrs["edu_level"]):
+        raise GenError("ShapeMismatch")
+    pension = [0] * n
+    members = [i for i in range(n) if attrs["activity"][i] == ACT_RETIRED]
+    if not members:
+        return pension
+    bill = pens["pension_bill"] * BANI_PER_LEU
+    if bill <= 0:
+        raise GenError("NoMargin")
+    prio = {i: Draw(rng_seed, STREAM_POPULATION_GEN, STAGE_PENSIONS, i).u64() for i in members}
+    members.sort(key=lambda i: (prio[i], i))
+    w = [pop["hh_weight"][pop["household_id"][i]] for i in members]
+    sex = [pop["sex"][i] for i in members]
+    dims = [([s * n_edu + edu_group[attrs["edu_level"][i]] for s, i in zip(sex, members)],
+             pension_education_targets(pens, earnings_link_ppm))]
+    # The minimum pension, or the mean pension if the bill cannot pay even that to everyone.
+    floor = min(pens["minimum_pension"] * BANI_PER_LEU, bill // sum(w))
+    amounts = spread(w, sex, dims, pens["rel_sex"], pens["quantile_curve"], dispersion_ppm, bill, floor, sweeps)
+    for i, amount in zip(members, amounts):
+        pension[i] = amount
+    return pension
+
+
+def pensions_hash(pension: list[int]) -> int:
+    """FNV-1a 64 over the person count (u32, little-endian), then each person's pension in bani (u64, little-endian)."""
+    return wages_hash(pension)
+
+
+def pension_fit(pop: dict, pens: dict, attrs: dict, pension: list[int], sample_scale: int,
+                wage: list[int] | None = None, earnings_link_ppm: int = PENSION_EARNINGS_LINK_PPM) -> dict:
+    """How the pensions fit: the bill, the gap between the sexes, the education
+    proportions, the share at the minimum and, given wages, the replacement ratio."""
+    retired = [i for i, a in enumerate(attrs["activity"]) if a == ACT_RETIRED]
+    weight = {i: pop["hh_weight"][pop["household_id"][i]] for i in retired}
+    total_w = sum(weight.values())
+    paid = sum(weight[i] * pension[i] for i in retired)
+    bill = pens["pension_bill"] * BANI_PER_LEU
+    floor = pens["minimum_pension"] * BANI_PER_LEU
+    edu_group, n_edu = pens["edu_group_of_level"], len(pens["edu_groups"])
+    sex_w, sex_paid = [0, 0], [0, 0]
+    cell_w, cell_paid = [0] * (2 * n_edu), [0] * (2 * n_edu)
+    for i in retired:
+        s = pop["sex"][i]
+        c = s * n_edu + edu_group[attrs["edu_level"][i]]
+        sex_w[s] += weight[i]
+        sex_paid[s] += weight[i] * pension[i]
+        cell_w[c] += weight[i]
+        cell_paid[c] += weight[i] * pension[i]
+    targets = pension_education_targets(pens, earnings_link_ppm)
+    worst_edu = 0.0
+    for c in range(2 * n_edu):
+        s = c // n_edu
+        if cell_w[c] // sample_scale < 100:
+            continue
+        norm = sum(wc * t for wc, t in zip(cell_w[s * n_edu:(s + 1) * n_edu], targets[s * n_edu:]))
+        want = targets[c] * sex_w[s] / norm                      # the cell's mean over the mean of its sex
+        got = (cell_paid[c] / cell_w[c]) / (sex_paid[s] / sex_w[s])
+        worst_edu = max(worst_edu, abs(got - want) / want)
+    pairs = [(pension[i], weight[i]) for i in retired]
+    median = weighted_quantile(pairs, 500_000)
+    out = {
+        "retired": total_w,
+        "bill_relative_error": round(abs(paid - bill) / bill, 8),
+        "mean_lei": round(paid / total_w / BANI_PER_LEU, 2),
+        "median_lei": median / BANI_PER_LEU,
+        "p90_lei": weighted_quantile(pairs, 900_000) / BANI_PER_LEU,
+        "max_lei": max(v for v, _ in pairs) / BANI_PER_LEU,
+        "women_over_men": round((sex_paid[0] / sex_w[0]) / (sex_paid[1] / sex_w[1]), 4),
+        "target_women_over_men": round(pens["rel_sex"][0] / pens["rel_sex"][1], 4),
+        "education_worst_relative_error_100_records": round(worst_edu, 4),
+        "tertiary_over_low_education": round(
+            (sum(cell_paid[k] for k in (n_edu - 1, 2 * n_edu - 1)) / sum(cell_w[k] for k in (n_edu - 1, 2 * n_edu - 1)))
+            / (sum(cell_paid[k] for k in (0, n_edu)) / sum(cell_w[k] for k in (0, n_edu))), 3),
+        "share_at_minimum": round(sum(wt for v, wt in pairs if v <= floor) / total_w, 4),
+        "target_share_at_minimum": pens["totals"]["share_at_minimum"],
+    }
+    if wage:
+        old = [(pension[i], weight[i]) for i in retired if 65 * 12 <= pop["age"][i] < 75 * 12]
+        workers = [(wage[i], pop["hh_weight"][pop["household_id"][i]]) for i in range(len(wage))
+                   if wage[i] > 0 and 50 * 12 <= pop["age"][i] < 60 * 12]
+        if old and workers:
+            out["replacement_ratio_gross"] = round(
+                weighted_quantile(old, 500_000) / weighted_quantile(workers, 500_000), 4)
+            out["survey_replacement_ratio"] = pens["replacement_ratio"] / UNIT
     return out
 
 
@@ -1501,6 +1655,7 @@ def main() -> int:
     ap.add_argument("--jobs", help="jobs margin file: also run the third stage (needs --attributes)")
     ap.add_argument("--housing", help="housing margin file: also run the housing stage")
     ap.add_argument("--wages", help="earnings margin file: also run the wage stage (needs --attributes and --jobs)")
+    ap.add_argument("--pensions", help="pension margin file: also run the pension stage (needs --attributes)")
     ap.add_argument("--wage-dispersion-ppm", type=int, default=WAGE_DISPERSION_PPM, help=argparse.SUPPRESS)
     a = ap.parse_args()
     check_rng()
@@ -1541,6 +1696,15 @@ def main() -> int:
         wage = assign_wages(pop, earn, attrs, job_attrs, a.seed, a.wage_dispersion_ppm)
         summary["wages_hash"] = f"{wages_hash(wage):016x}"
         summary["seconds"] = round(time.time() - t0, 1)
+    pension = []
+    if a.pensions:
+        if not attrs:
+            ap.error("--pensions needs --attributes")
+        with open(a.pensions, encoding="utf-8") as f:
+            pens = json.load(f)
+        pension = assign_pensions(pop, pens, attrs, a.seed)
+        summary["pensions_hash"] = f"{pensions_hash(pension):016x}"
+        summary["seconds"] = round(time.time() - t0, 1)
     h_attrs = {}
     if a.housing:
         with open(a.housing, encoding="utf-8") as f:
@@ -1558,10 +1722,13 @@ def main() -> int:
             summary["job_fit"] = job_fit_errors(pop, m["counties"], ea, jobs, attrs, job_attrs, a.sample_scale)
         if wage:
             summary["wage_fit"] = wage_fit(pop, earn, attrs, job_attrs, wage, a.sample_scale)
+        if pension:
+            summary["pension_fit"] = pension_fit(pop, pens, attrs, pension, a.sample_scale, wage)
         print(json.dumps(summary, indent=2))
     else:
         print(json.dumps({"summary": summary, **{k: v for k, v in pop.items() if k != "report"}, **attrs,
-                          **job_attrs, **h_attrs, **({"wage": wage} if wage else {})}))
+                          **job_attrs, **h_attrs, **({"wage": wage} if wage else {}),
+                          **({"pension": pension} if pension else {})}))
     return 0
 
 
