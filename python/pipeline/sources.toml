@@ -14,3 +14,19 @@ source = "eurostat"
 code = "nama_10r_3gdp"             # GDP at current market prices by NUTS 3 region
 filters = { geo = ["RO111", "RO113", "RO321"], time = ["2022"], unit = ["MIO_EUR"] }
 licence = "eurostat-reuse"
+
+# Census 2021 round (reference date 1 December 2021), all 42 counties. Inputs of
+# normalise_census.py and the population generator (spec society/population-generator).
+[[dataset]]
+id = "ro_census2021_persons_hhstatus"
+source = "eurostat"
+code = "cens_21cobhs_r3"           # population by country of birth, age group, household status and NUTS 3 region
+filters = { c_birth = ["TOTAL"], unit = ["NR"], geo = ["RO111", "RO112", "RO113", "RO114", "RO115", "RO116", "RO121", "RO122", "RO123", "RO124", "RO125", "RO126", "RO211", "RO212", "RO213", "RO214", "RO215", "RO216", "RO221", "RO222", "RO223", "RO224", "RO225", "RO226", "RO311", "RO312", "RO313", "RO314", "RO315", "RO316", "RO317", "RO321", "RO322", "RO411", "RO412", "RO413", "RO414", "RO415", "RO421", "RO422", "RO423", "RO424"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_census2021_households_size"
+source = "eurostat"
+code = "cens_21hhcs_r3"            # private households by household composition, size and NUTS 3 region
+filters = { hhcomp = ["TOTAL"], geo = ["RO111", "RO112", "RO113", "RO114", "RO115", "RO116", "RO121", "RO122", "RO123", "RO124", "RO125", "RO126", "RO211", "RO212", "RO213", "RO214", "RO215", "RO216", "RO221", "RO222", "RO223", "RO224", "RO225", "RO226", "RO311", "RO312", "RO313", "RO314", "RO315", "RO316", "RO317", "RO321", "RO322", "RO411", "RO412", "RO413", "RO414", "RO415", "RO421", "RO422", "RO423", "RO424"] }
+licence = "eurostat-reuse"

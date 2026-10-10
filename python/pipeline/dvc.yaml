@@ -4,6 +4,10 @@ stages:
     cmd: python fetch_eurostat.py
     deps: [fetch_eurostat.py, sources.toml]
     outs: [data/raw]
+  normalise_census:
+    cmd: python normalise_census.py
+    deps: [normalise_census.py, jsonstat.py, data/raw/ro_census2021_persons_hhstatus.json, data/raw/ro_census2021_households_size.json]
+    outs: [data/derived/census2021_margins_ro.json]
   synth:
     cmd: python synth_counties.py --fixture --scale 100
     deps: [synth_counties.py, ipf.py, fixtures/marginals_illustrative.json]
