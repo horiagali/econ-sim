@@ -16,6 +16,8 @@ generator = []
 attributes = []
 # The same for stage D (jobs, spec society/population-jobs).
 jobs = []
+# The same for stage E (locality size and tenure, spec society/population-housing).
+housing = []
 
 [dependencies]
 econ-rng.workspace = true

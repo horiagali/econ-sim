@@ -74,6 +74,9 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `occupation` | Person's occupation: ISCO-08 major group (0–9) | category (10) | state | society/population-groups |
 | — | `industry_group` | Broad group of NACE sections a person works in (ten groups); the catalogue industry lies inside it. Not "sector", which means an institutional sector | category (10) | state | society/population-jobs |
 | — | `school_age` | Age from which a child below the minimum working age is a pupil (default 6) | years | parameter | society/population-attributes |
+| — | `hh_locality_size` | Size class of the locality a household lives in (six classes, from under 2,000 to 200,000 or more inhabitants) | category (6) | state | society/population-housing |
+| — | `hh_urban` | The household's locality is urban (for now: 10,000 inhabitants or more) | bool | derived | society/population-housing |
+| — | `hh_tenure` | How a private household holds its dwelling: owner, tenant, other | category | state | society/population-groups |
 | — | `hh_collective` | Record stands for people not living in a private household (institutions, homeless); always one member | bool | state | society/population-generator |
 | $n_f$ | `firm_count[f]` | Real firms represented by firm unit *f* (integer; 1 for a named firm). Read from the scenario; never hardcoded (ADR-0016) | count | state | economy/production |
 | — | `sample_scale` | Real people per synthetic person (default 100). Read from the scenario; never hardcoded (ADR-0003) | ratio | parameter | society/population-groups |
