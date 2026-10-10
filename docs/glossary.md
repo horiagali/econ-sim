@@ -68,6 +68,9 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | $\Psi_r$ | `infra_multiplier[r]` | Infrastructure effect on capacity | index | derived | economy/infrastructure |
 | $w_h$ | `hh_weight` | Real households represented by synthetic household *h* (integer; see ADR-0007) | count | state | society/population-groups |
 | — | `hh_size` | Number of persons in synthetic household *h* | count | derived | society/population-generator |
+| — | `edu_level` | Person's highest completed education, in five ISCED 2011 groups: 0–2, 3, 4, 5–6, 7–8 | category (5) | state | society/population-groups |
+| — | `activity` | Person's main activity (child, pupil, student, employed kinds, unemployed, retired, inactive kinds) | category | state | society/population-groups |
+| — | `school_age` | Age from which a child below the minimum working age is a pupil (default 6) | years | parameter | society/population-attributes |
 | — | `hh_collective` | Record stands for people not living in a private household (institutions, homeless); always one member | bool | state | society/population-generator |
 | $n_f$ | `firm_count[f]` | Real firms represented by firm unit *f* (integer; 1 for a named firm). Read from the scenario; never hardcoded (ADR-0016) | count | state | economy/production |
 | — | `sample_scale` | Real people per synthetic person (default 100). Read from the scenario; never hardcoded (ADR-0003) | ratio | parameter | society/population-groups |

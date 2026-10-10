@@ -11,6 +11,9 @@ publish.workspace = true
 # Gates the acceptance tests (they were written before the generator, ADR-0014).
 default = ["generator"]
 generator = []
+# Off until stage C (education and activity, spec society/population-attributes)
+# is implemented: its acceptance tests need it. The implementation PR adds it to `default`.
+attributes = []
 
 [dependencies]
 econ-rng.workspace = true
