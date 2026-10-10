@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [society/overview, economy/accounting, adr/0003-people-representation]
 research: [research/people-model-approaches]
-updated: 2026-10-09
+updated: 2026-10-10
 ---
 
 # Population Model — Synthetic Population & Groups
@@ -94,13 +94,64 @@ See the [research backlog](../../01-research/README.md). The pipeline lives in `
 | `rng_seed` | per save | Determinism |
 
 ## Acceptance tests
-- [ ] Starting population matches census totals by county, age, sex, ethnicity and religion within 1%.
-- [ ] Person conservation holds exactly every tick for 100 years.
-- [ ] Two runs with the same seed and inputs produce identical results.
-- [ ] National unemployment computed from persons equals the labour-market aggregate exactly.
-- [ ] Changing `sample_scale` from 1 : 100 to 1 : 200 changes national indicators by less than sampling error.
+IDs are stable (added 2026-10-10 so the tests-first flow can cite them). The starting population has its own specs and criteria: [population-generator](population-generator.md) (AC-POP, all passing) and [population-attributes](population-attributes.md) (AC-POPA).
+
+- [ ] **AC-PG-01** `[unit]` Starting population matches census totals by county, age, sex, ethnicity and religion within 1%.
+- [ ] **AC-PG-02** `[sim]` Person conservation holds exactly every tick for 100 years.
+- [ ] **AC-PG-03** `[sim]` Two runs with the same seed and inputs produce identical results.
+- [ ] **AC-PG-04** `[sim]` National unemployment computed from persons equals the labour-market aggregate exactly.
+- [ ] **AC-PG-05** `[sim]` Changing `sample_scale` from 1 : 100 to 1 : 200 changes national indicators by less than sampling error.
+
+## API sketch
+For the test writer and the implementer. **A proposal:** of what follows, only the columns marked "exists" are in code today (crate `econ-popgen`); the tables move into `World` in `econ-core` when the generated population replaces the invented one of the scale world ([ADR-0005](../../03-architecture/decisions/0005-simulation-core-architecture.md)).
+
+```rust
+// crate econ-core: two of the column tables of World. One Vec per attribute; ids index them; nothing is sized by a constant.
+pub struct Households {
+    pub hh_weight: Vec<u32>,            // exists
+    pub hh_county: Vec<CountyId>,       // exists (as u8)
+    pub hh_collective: Vec<bool>,       // exists
+    // hh_urban, hh_tenure, balance-sheet columns (Vec<Bani> each), ...: one increment or mechanic at a time
+}
+pub struct Persons {
+    pub household_id: Vec<HouseholdId>, // exists (as u32)
+    pub age: Vec<u16>,                  // months; exists
+    pub sex: Vec<Sex>,                  // exists
+    pub role: Vec<Role>,                // exists
+    pub edu_level: Vec<EduLevel>,       // specified (population-attributes)
+    pub activity: Vec<Activity>,        // specified (population-attributes)
+    // occupation, industry, wage, identity, opinion, ...: later
+}
+impl World {
+    pub fn person_weight(&self, p: PersonId) -> u32;       // the weight of the household the person lives in
+    pub fn hh_size(&self, h: HouseholdId) -> u32;
+}
+
+// A group is a filter, never a stored table.
+pub enum Filter {
+    County(CountyId), Region(u8), AgeYears(RangeInclusive<u16>), Sex(Sex),
+    EduAtLeast(EduLevel), Activity(Activity), /* one variant per attribute as it arrives */
+    All(Vec<Filter>), Any(Vec<Filter>), Not(Box<Filter>),
+}
+pub struct Mask { /* one bit per person */ }
+pub struct GroupSize { pub persons: u64 /* weighted */, pub sample: u32 /* synthetic */, pub uncertain: bool /* sample < min_group_sample */ }
+impl World {
+    pub fn mask(&self, filter: &Filter) -> Mask;
+    pub fn group_size(&self, mask: &Mask) -> GroupSize;
+    pub fn group_sum(&self, mask: &Mask, per_person: &[Bani]) -> Bani;    // weighted, exact
+}
+
+// Invariants 1 to 3, checked every tick.
+pub struct PersonFlows { pub births: u64, pub deaths: u64, pub immigrants: u64, pub emigrants: u64 }   // weighted
+pub enum PopulationError { PersonsNotConserved { .. }, WealthNotConserved { .. }, OrphanPerson(PersonId), ZeroWeight(HouseholdId) }
+pub fn check_population(before: u64, world: &World, flows: &PersonFlows) -> Result<(), Vec<PopulationError>>;
+```
+
+Interest groups count a person with their membership intensity, so `group_size` and `group_sum` for them take an intensity column as well ([interest-groups](interest-groups.md)).
 
 ## Open questions
+- [ ] **AC-PG-01 and the generator disagree.** It asks for 1% on every total, including ethnicity and religion. The accepted tolerances of the generator are 1%, 4% and 5% by cell size, with exact county totals, and it has no ethnicity or religion yet (those tables come from INS). Replace AC-PG-01 with a reference to the criteria of the generator specs before locking?
+- [ ] **"Initial population (data pipeline)" is out of date:** it describes one raking step over all attributes and a pipeline in `tools/`. The generator specs now define it stage by stage, and the pipeline is in `python/pipeline`. Shorten that section to a pointer?
 - [ ] Default scale 1 : 100 or finer (1 : 50) if performance allows?
 - [ ] Household formation in v1: simple rates (proposed), or partner matching?
 - [ ] Do we let the player inspect individual synthetic persons ("meet a citizen")? Fun and explainable, but they are statistical stand-ins.

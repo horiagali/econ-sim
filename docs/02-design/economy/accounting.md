@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: []
 research: []
-updated: 2026-10-09
+updated: 2026-10-10
 ---
 
 # Accounting & Stock-Flow Consistency
@@ -70,12 +70,65 @@ National accounts (GDP three ways, sector balances, current account), per-sector
 - Defaults (firm, household, bank, government): write-downs are booked as losses to creditors with a reason code. Never silently zero a balance.
 
 ## Acceptance tests
-- [ ] All invariant checks pass for 100 simulated years under random lever changes (fuzz test).
-- [ ] GDP measured three ways agrees every tick.
-- [ ] Sum of sector financial balances is 0 every tick.
-- [ ] A transfer with an unknown reason code fails at test time.
-- [ ] Wage, sales and dividend clearing accounts net to exactly zero every tick at 1:1000, 1:100 and 1:10.
+IDs are stable (added 2026-10-10 so the tests-first flow can cite them). Tests go in `crates/econ-ledger/tests/acceptance/` (protected; to be written in a test-authoring session). None exists there yet; the unit tests inside the ledger crate cover parts of AC-ACC-03 today.
+
+- [ ] **AC-ACC-01** `[sim]` All invariant checks pass for 100 simulated years under random lever changes (fuzz test).
+- [ ] **AC-ACC-02** `[sim]` GDP measured three ways agrees every tick.
+- [ ] **AC-ACC-03** `[ledger]` Sum of sector financial balances is 0 every tick.
+- [ ] **AC-ACC-04** `[unit]` A transfer with an unknown reason code fails at test time.
+- [ ] **AC-ACC-05** `[sim]` Wage, sales and dividend clearing accounts net to exactly zero every tick at 1:1000, 1:100 and 1:10.
+
+## API sketch
+For the test writer and the implementer. The ledger exists as crate `econ-ledger` (Spike 2); this is its API today, then what the Design section still asks for.
+
+```rust
+// crate econ-ledger, as implemented
+pub enum Sector { Households, Firms, Banks, Government, CentralBank, RestOfWorld }
+pub enum Instrument { Cash, Deposits, Loans, Bonds }
+pub struct FlowCode(pub u16);                 // the "reason"; append-only numbering, e.g. TAX_VAT = 3002
+impl FlowCode { pub fn name(self) -> &'static str; pub fn is_flow(self) -> bool; }
+
+pub struct Leg { pub payer: Sector, pub payee: Sector, pub instrument: Instrument, pub amount: Bani, pub code: FlowCode }
+pub struct Txn { /* legs */ }                 // linked legs: applied completely or not at all
+impl Txn {
+    pub fn new() -> Self;
+    pub fn leg(self, payer: Sector, payee: Sector, instrument: Instrument, amount: Bani, code: FlowCode) -> Self;
+    pub fn weighted_leg(self, payer: Sector, payee: Sector, instrument: Instrument,
+                        per_unit: Bani, weight: u32, code: FlowCode) -> Self;   // per-unit amount x hh_weight or firm_count
+}
+pub enum LedgerError { NonPositiveAmount(Leg), SelfTransfer(Leg), WouldGoNegative { sector, instrument, balance } }
+pub enum InvariantError { RowNotZero { .. }, NegativeBalance { .. }, FlowRowNotZero { .. }, ColumnMismatch { .. } }
+
+pub struct Ledger { /* balances, this tick's flows */ }
+impl Ledger {
+    pub fn new() -> Self;
+    pub fn allow_negative(&mut self, sector: Sector, instrument: Instrument);   // declare the issuer or debtor
+    pub fn begin_tick(&mut self, tick: u32);
+    pub fn commit(&mut self, txn: Txn) -> Result<(), LedgerError>;              // the only way a balance changes
+    pub fn balance(&self, sector: Sector, instrument: Instrument) -> Bani;
+    pub fn net_financial_assets(&self, sector: Sector) -> Bani;
+    pub fn flows(&self) -> &TickFlows;                                          // by flow code and sector
+    pub fn check_invariants(&self) -> Result<(), Vec<InvariantError>>;          // I-1, I-2, I-3 of ADR-0007
+}
+```
+
+`transfer(from, to, instrument, amount, reason)` in the Design section is one `Txn` leg; the reason is a `FlowCode`.
+
+**Not built yet** (each is in the Design section above; the API grows when the mechanic that needs it arrives):
+
+| Missing | Design section | Needed by |
+|---|---|---|
+| Pension funds as a sector | 1 | social transfers |
+| Instruments: government deposits at the central bank, reserves, central bank advances, equity, pension fund claims, foreign assets | 1 | banks, central bank, firms, trade |
+| Real assets and net worth (the last two rows of the balance sheet) | 1 | investment, housing |
+| Sub-ledgers per household and per firm unit | 3 | households, firms (the scale world keeps household deposits in its own columns today) |
+| Clearing accounts and their check (I-8) | 3, 4 | the firm-unit goods market |
+| Revaluation flows | 3 | housing, trade |
+| Checks I-4 to I-7 of [ADR-0007](../../03-architecture/decisions/0007-money-and-ledger.md) (independent balances, replay, explanation sums, GDP three ways) | 4 | the first full tick |
+| Flow codes beyond consumption, government purchases, wages, income tax, VAT and opening | 3 | every mechanic, as it arrives |
 
 ## Open questions
+- [ ] **The invariant lists differ.** Section 4 here numbers six checks; [ADR-0007](../../03-architecture/decisions/0007-money-and-ledger.md) numbers eight (I-1 to I-8) and is what the code and other specs cite. Replace section 4 with the list of the ADR before locking?
+- [ ] **Lock now or after the first full tick?** Most of the Design section is not built (table above). Locking now fixes the target; the criteria can only be tested as the pieces arrive.
 - [ ] Do government deposits sit at the central bank only (proposed) or also at commercial banks?
 - [x] Integer money vs float → integer bani ([ADR-0007](../../03-architecture/decisions/0007-money-and-ledger.md), accepted).
