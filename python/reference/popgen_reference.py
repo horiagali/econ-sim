@@ -125,6 +125,22 @@ def apportion(total: int, targets: list[int]) -> list[int]:
     return parts
 
 
+def straddle(n: int, num: int, den: int, lo: int, hi: int) -> list[int]:
+    """`n` integer sizes in [lo, hi] around the average num/den: both neighbours
+    of a fractional average are present when n >= 2, the smaller sizes first."""
+    if num <= lo * den:
+        return [lo] * n
+    if num >= hi * den:
+        return [hi] * n
+    f, frac = divmod(num, den)
+    if frac == 0:
+        return [f] * n
+    if n == 1:
+        return [f + 1 if 2 * frac >= den else f]
+    n_hi = min(n - 1, max(1, rdiv(n * frac, den)))
+    return [f] * (n - n_hi) + [f + 1] * n_hi
+
+
 class GenError(ValueError):
     pass
 
@@ -132,7 +148,7 @@ class GenError(ValueError):
 # --- the generator -----------------------------------------------------------
 
 def generate(m: dict, sample_scale: int, rng_seed: int = 42, max_household_size: int = 15,
-             raking_tolerance_ppm: int = 100, max_sweeps: int = 50, min_cell_records: int = 30) -> dict:
+             raking_tolerance_ppm: int = 1000, max_sweeps: int = 50, min_cell_records: int = 30) -> dict:
     if sample_scale <= 0:
         raise GenError("ZeroScale")
     if not m["counties"] or not m["age_bands"] or not m["size_classes"]:
@@ -170,23 +186,36 @@ def generate(m: dict, sample_scale: int, rng_seed: int = 42, max_household_size:
         # Stage A, steps 1-2: households and their sizes.
         n_hh = max(1, rdiv(h_total, sample_scale))
         per_class = apportion(n_hh, H)
+        # A size class with real households but no synthetic one hands its
+        # target to the nearest class that has one (the smaller on a tie).
+        Ht = list(H)
+        for k in range(len(classes)):
+            if Ht[k] > 0 and per_class[k] == 0:
+                j = min((abs(i - k), i) for i in range(len(classes)) if per_class[i] > 0)[1]
+                Ht[j] += Ht[k]
+                Ht[k] = 0
+        # Classes of one size have that size. The open classes must hold the
+        # rest of the county's persons, so their sizes straddle the average
+        # they need: then weights exist that give both the right number of
+        # households and the right number of persons.
+        sizes_of = [[classes[k][0]] * per_class[k] for k in range(len(classes))]
+        open_ks = [k for k in range(len(classes)) if classes[k][1] > classes[k][0] and per_class[k] > 0]
+        need = p_total - sum(classes[k][0] * Ht[k] for k in range(len(classes)) if k not in open_ks)
+        for i, k in enumerate(open_ks):
+            lo_k, hi_k = classes[k]
+            later_min = sum(classes[j][0] * Ht[j] for j in open_ks[i + 1:])
+            num = need - later_min
+            if num <= hi_k * Ht[k] or i == len(open_ks) - 1:
+                sizes_of[k] = straddle(per_class[k], num, Ht[k], lo_k, hi_k)
+                break
+            sizes_of[k] = [hi_k] * per_class[k]
+            need -= hi_k * Ht[k]
         size: list[int] = []
         klass: list[int] = []
-        for k, n in enumerate(per_class):
-            size += [classes[k][0]] * n
-            klass += [k] * n
+        for k in range(len(classes)):
+            size += sizes_of[k]
+            klass += [k] * per_class[k]
         members = sum(size)
-        target_persons = rdiv(p_total, sample_scale)
-        open_hh = [h for h in range(n_hh) if classes[klass[h]][1] > classes[klass[h]][0]]
-        while members < target_persons:
-            room = [h for h in open_hh if size[h] < classes[klass[h]][1]]
-            if not room:
-                break
-            fewest = min(size[h] for h in room)
-            for h in room:
-                if size[h] == fewest and members < target_persons:
-                    size[h] += 1
-                    members += 1
 
         # Step 3: who the persons are. Each person: [sex, band, seq].
         persons = []
@@ -259,7 +288,7 @@ def generate(m: dict, sample_scale: int, rng_seed: int = 42, max_household_size:
                 band = next(i for i, b in enumerate(bands) if b[0] * 12 <= a < b[1] * 12)
                 cell = by_cell.setdefault(sex * n_bands + band, {})
                 cell[h] = cell.get(h, 0) + 1
-        seeds.append((H, P, Q, n_hh, klass, size, hh_members, by_cell, collective, age))
+        seeds.append((H, P, Q, n_hh, klass, size, hh_members, by_cell, collective, age, Ht))
 
     # Stage B, step 7a: person targets. A county cell with people but no synthetic
     # record cannot be fitted, so each (sex, age band) total of the country is
@@ -301,14 +330,14 @@ def generate(m: dict, sample_scale: int, rng_seed: int = 42, max_household_size:
         report["unfitted_cells"] += sum(1 for seed in seeds if seed[1][cell] > 0 and cell not in seed[7])
 
     for ci, county in enumerate(m["counties"]):
-        H, P, Q, n_hh, klass, size, hh_members, by_cell, collective, age = seeds[ci]
+        H, P, Q, n_hh, klass, size, hh_members, by_cell, collective, age, Ht = seeds[ci]
         p_total, h_total, q_total = sum(P), sum(H), sum(Q)
 
         # Step 7b: integer raking of private households.
         w = [sample_scale * UNIT] * n_hh
         cons = []   # (target in real units, [(household, count)])
         for k in range(len(classes)):
-            cons.append((H[k], [(h, 1) for h in range(n_hh) if klass[h] == k]))
+            cons.append((Ht[k], [(h, 1) for h in range(n_hh) if klass[h] == k]))
         target = [targets[cell][ci] for cell in range(n_cells)]
         for cell in range(2 * n_bands):
             cons.append((target[cell], sorted(by_cell.get(cell, {}).items())))

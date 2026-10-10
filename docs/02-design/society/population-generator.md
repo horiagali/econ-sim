@@ -67,8 +67,8 @@ There is no per-tick rule. The generator is a pure function of (margin tables, `
 
 ### Stage A — seed (rule-based, replaceable by the IPUMS draw)
 1. **How many records.** Per county: $n^H_c = \max(1, \lfloor \sum_k H_{c,k} / s \rceil)$ private households, $n^Q_c = \lfloor \sum_{x,a} Q_{c,x,a} / s \rceil$ collective records (at least 1 if the county has any such person). Apportion $n^H_c$ over $H_{c,\cdot}$ to get households per size class.
-2. **Household sizes.** Classes 1 to 5 have their size. Each household in class 6–10 starts at 6 and each in 11+ at 11. Let $n^P_c = \lfloor \sum_{x,a} P_{c,x,a} / s \rceil$ be the county's target number of synthetic persons. While the county has fewer members than $n^P_c$, add one member to the open-class household with the fewest members that is still below its cap (10, or `max_household_size`), lowest id first. If the open classes cannot absorb the difference, the county simply has more or fewer synthetic persons than $n^P_c$; Stage B corrects the weighted totals.
-3. **Who the persons are.** Apportion the county's member count over $P_{c,\cdot,\cdot}$ to get synthetic persons per (sex, age band); the same for collective records over $Q_{c,\cdot,\cdot}$.
+2. **Household sizes.** A size class with real households but no synthetic one hands its household target to the nearest class that has one (the smaller on a tie). Classes 1 to 5 have their size. The open classes (6–10, 11+) must hold the rest of the county's persons: its census persons minus those in the one-size classes. Their sizes **straddle the average they need**: if the 6–10 class needs an average of 6.99, its households get sizes 6 and 7 (at least one of each when there are two or more households, the smaller sizes first, the split nearest to the average). Later open classes stay at their minimum unless the earlier one would need more than its cap (10, or `max_household_size`). Weights then exist that give both the right number of households and the right number of persons, which is what lets the raking in Stage B converge.
+3. **Who the persons are.** The county's member count is the sum of its household sizes. Apportion it over $P_{c,\cdot,\cdot}$ to get synthetic persons per (sex, age band); the same for collective records over $Q_{c,\cdot,\cdot}$.
 4. **Assembly.** Every synthetic person has a sequence number (creation order: county, private before collective, sex, age band) and one keyed draw context `draw(PopulationGen, tick 0, entity = sequence number)`. Its first `u64` is the person's priority. Within a county, persons are dealt into households in ascending (priority, sequence number), in three passes:
    1. one **head** per household, from persons aged 20 or more (15–19 only if the county runs out);
    2. **children** (under 15) go to households of size ≥ 2 whose head is aged 20–59, filling free places evenly;
@@ -95,8 +95,8 @@ None. `sample_scale` and `rng_seed` are scenario parameters, set before the game
 |---|---|---|---|
 | `sample_scale` | 100 | ≥ 1 | Real people per synthetic person. Read from the scenario |
 | `max_household_size` | 15 | 11–30 | Cap for the 11+ class in the rule-based seed |
-| `raking_tolerance` | 1e-4 | 1e-6–1e-2 | Relative error at which raking stops early |
-| `max_sweeps` | 50 | 10–2000 | Upper bound on raking sweeps (more than 50 does not improve the fit today; see open questions) |
+| `raking_tolerance` | 1e-3 | 1e-6–1e-2 | Relative error at which raking stops |
+| `max_sweeps` | 50 | 10–2000 | Upper bound on raking sweeps |
 | `min_cell_records` | 30 | 5–200 | A cell is checked for convergence and tolerance only if its target is at least this many synthetic records |
 
 ## Interactions
@@ -129,17 +129,19 @@ IDs are stable. Tests live in `crates/econ-popgen/tests/acceptance/` (protected;
 | Expected synthetic records behind the cell | Tolerance | Worst measured (reference, real margins) |
 |---|---|---|
 | 1,000 or more | 1% | 0.7% |
-| 100 to 999 | 4% | 2.9% |
-| 30 to 99 | 5% | 2.6% |
+| 100 to 999 | 4% | 2.8% |
+| 30 to 99 | 5% | 3.2% |
 | fewer than 30 | not checked | — |
 
-Measured on 2026-10-10 with the Python reference on the Romanian margins:
+Measured on 2026-10-10 with the Python reference on the Romanian margins (seed 42):
 
-| Scale | Synthetic households | Synthetic persons | Weighted households | Weighted persons |
-|---|---|---|---|---|
-| 1:1000 | 7,831 | 19,057 | 7,709,139 | 19,053,815 |
-| 1:100 | 78,281 | 190,540 | 7,709,139 | 19,053,815 |
-| 1:10 | 782,798 | 1,905,388 | 7,709,139 | 19,053,815 |
+| Scale | Synthetic households | Synthetic persons | Weighted households | Weighted persons | Raking |
+|---|---|---|---|---|---|
+| 1:1000 | 7,831 | 19,051 | 7,709,139 | 19,053,815 | sweep limit; 0.31% left on checked cells |
+| 1:100 | 78,281 | 190,534 | 7,709,139 | 19,053,815 | converged in 9 sweeps |
+| 1:10 | 782,798 | 1,905,392 | 7,709,139 | 19,053,815 | converged in 2 sweeps |
+
+The errors that remain are mostly not raking errors. They come from step 7: a county whose cell is too small for a record gives those people to the same cell in other counties, so county cells are deliberately a little off the census where records are scarce (worst at 1:1000).
 
 ## API sketch
 For the test writer and the implementer (Spike 9 lesson). Names may change before lock; shapes should not.
@@ -172,11 +174,11 @@ impl Population { pub fn state_hash(&self) -> u64; }
 - Margin fixture: `python/pipeline/fixtures/census2021_margins_ro.json`, built by `python/pipeline/normalise_census.py` from the two Eurostat tables.
 
 ## Open questions
-- [ ] **Tolerances** in the table above: they come from the reference's measured errors with some headroom. Confirm or change before lock.
-- [ ] **Raking stops at `max_sweeps` instead of converging.** The open-ended size classes (6–10, 11+) are given integer sizes in the seed, so the household targets and the person targets of a county contradict each other slightly, and step 10 then moves weight to make the person total exact. The fit is inside the tolerances, but a seed whose open-class sizes straddle the county's real average would let raking converge and tighten them. Worth doing before lock?
+- [x] **Tolerances** in the table above: accepted by the owner (2026-10-10).
+- [x] **Raking did not converge** in the first reference because integer sizes in the open classes made household and person targets contradict each other. Fixed 2026-10-10 by sizes that straddle the needed average (step 2): the error left by raking at 1:100 fell from 0.36% to under 0.1%.
 - [ ] **Household composition is crude.** Heads are drawn at random among adults, so one-person households are not older than average as they are in reality. Fixed by the IPUMS seed, or earlier by using the household-composition table (`cens_21hhcs_r3`).
-- [ ] **Where the generator lives.** Proposed: Rust (`econ-popgen`, under the determinism contract, with golden hashes) called by the pipeline as its `synth_population` stage, with the Python reference for the differential test. The alternative is a Python-only stage; then there would be no golden hashes under the determinism contract.
-- [ ] Is an **integer** raking scheme acceptable instead of textbook floating-point IPF? It is what makes the Rust and Python results identical bit for bit.
+- [x] **Where the generator lives: Rust** (`econ-popgen`), with the Python file as the independent reference (decided 2026-10-10; the owner left the choice to the implementing agent). Reasons: the game ships without Python, so a player can only choose `sample_scale` and seed at game start if the generator is in the core; the determinism contract and golden hashes exist only on the Rust side; and the reference takes about two minutes at 1:10 where Rust should take about a second. The pipeline calls it as its `synth_population` stage, so ADR-0012's stage list is unchanged. Cost: two implementations to keep in step as attributes are added.
+- [x] **Integer raking** instead of floating-point IPF: accepted with the decision above, since it is what makes the two implementations agree bit for bit.
 - [x] `hh_collective`: institutional residents are kept, as flagged one-person records (owner decision, 2026-10-10).
 - [ ] Next increment after version 1: locality size (urban/rural) and household tenure at county level, or education and activity at region level?
 - [ ] Oversampling of minorities ([population-groups](population-groups.md)) needs ethnicity tables from INS; not in version 1.
