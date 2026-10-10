@@ -10,8 +10,14 @@
 //! independent reference: the two must agree record for record (AC-POP-07).
 
 mod arith;
+mod attributes;
 mod fit;
 mod seed;
+
+pub use attributes::{
+    Activity, AttrError, AttrParams, AttributeMargins, EDU_LEVELS, EduLevel, MARGIN_ACTIVITIES,
+    PersonAttributes, STATUSES, assign_attributes,
+};
 
 use arith::Int;
 use econ_rng::KeyedRng;

@@ -30,3 +30,19 @@ source = "eurostat"
 code = "cens_21hhcs_r3"            # private households by household composition, size and NUTS 3 region
 filters = { hhcomp = ["TOTAL"], geo = ["RO111", "RO112", "RO113", "RO114", "RO115", "RO116", "RO121", "RO122", "RO123", "RO124", "RO125", "RO126", "RO211", "RO212", "RO213", "RO214", "RO215", "RO216", "RO221", "RO222", "RO223", "RO224", "RO225", "RO226", "RO311", "RO312", "RO313", "RO314", "RO315", "RO316", "RO317", "RO321", "RO322", "RO411", "RO412", "RO413", "RO414", "RO415", "RO421", "RO422", "RO423", "RO424"] }
 licence = "eurostat-reuse"
+
+# Census 2021 round, development regions (NUTS 2). Inputs of
+# normalise_census_attributes.py (spec society/population-attributes).
+[[dataset]]
+id = "ro_census2021_activity_age"
+source = "eurostat"
+code = "cens_21a_r2"               # population by current activity status, single year of age, sex and NUTS 2 region
+filters = { sex = ["F", "M"], unit = ["NR"], geo = ["RO11", "RO12", "RO21", "RO22", "RO31", "RO32", "RO41", "RO42"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_census2021_activity_education"
+source = "eurostat"
+code = "cens_21ae_r2"              # population by activity status, age group, educational attainment, sex and NUTS 2 region
+filters = { sex = ["F", "M"], unit = ["NR"], geo = ["RO11", "RO12", "RO21", "RO22", "RO31", "RO32", "RO41", "RO42"] }
+licence = "eurostat-reuse"
