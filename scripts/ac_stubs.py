@@ -5,7 +5,7 @@ Finds lines like `- [ ] **AC-VAT-01** [unit] text` in a spec and writes a
 Rust test file with one `#[ignore]`d test per criterion that does not exist
 yet. Existing tests are never overwritten.
 
-Usage: python scripts/ac_stubs.py docs/02-design/economy/taxation.md VAT crates/econ-mech-tax/tests/acceptance/vat.rs
+Usage: python scripts/ac_stubs.py docs/02-design/economy/vat.md VAT crates/econ-mech-tax/tests/acceptance/vat.rs
 """
 import re
 import sys

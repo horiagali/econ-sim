@@ -9,7 +9,7 @@
 //! 3. wages via per-industry wage clearing accounts (integer bani, weighted),
 //! 4. household consumption over 83 goods, with VAT carved out of what
 //!    households spend and posted to government through the ledger
-//!    (`tax.vat`, spec `economy/taxation`),
+//!    (`tax.vat`, spec `economy/vat`),
 //! 5. a 90×90 Leontief solve for gross output,
 //! 6. an aggregation cube (county × activity × age band × education).
 //!

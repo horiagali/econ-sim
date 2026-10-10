@@ -57,6 +57,7 @@ Accounting ([accounting](accounting.md)) sits under everything: every arrow that
 | [money-banking](money-banking.md) | Credit creation, interest rates, bank solvency |
 | [monetary-policy](monetary-policy.md) | Central bank rule and tools |
 | [taxation](taxation.md) | Every tax: base, rates, brackets, compliance |
+| [vat](vat.md) | VAT itself: rates, categories, rounding, the ledger posting |
 | [social-transfers](social-transfers.md) | Pensions, benefits, student finance, charity drives |
 | [fiscal-policy](fiscal-policy.md) | Budget, spending, subsidies, deficit, debt, bond market |
 | [trade-fx](trade-fx.md) | Exports, imports, tariffs, exchange rate, capital flows |
