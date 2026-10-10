@@ -4,7 +4,7 @@ title: "ADR-0006: Determinism contract"
 status: accepted
 owner: horia
 depends_on: [adr/0005-simulation-core-architecture]
-updated: 2026-10-09
+updated: 2026-10-10
 ---
 
 # ADR-0006: Determinism contract
@@ -56,11 +56,26 @@ Accepted by the owner on 2026-10-09.
 
 **Concurrency.** Start single-threaded. Parallelism is added later behind a feature flag and must keep the same hashes.
 
+## Amendment 1 (Spike 4) — accepted by owner 2026-10-10: two-tier randomness
+Setting up a ChaCha8 context per person per draw made a 1:100 tick take 240 ms. Two tiers, both pure functions of `(seed, stream, tick, entity, k)`, so order- and thread-independence are unchanged:
+
+| Tier | API | Use for |
+|---|---|---|
+| Fast | `KeyedRng::fast_u64` / `fast_uniform` / `fast_bernoulli` (SplitMix64 mixing; `k` = draw index within the context) | per-agent, per-tick draws in hot loops: separations, matching priorities, consumption noise, demographic events |
+| ChaCha8 | `KeyedRng::draw(...)` → `Draw` | everything else: population generation, shocks, weather, any context needing many or correlated draws (normals, shuffles) |
+
+When unsure, use ChaCha8; moving a call site to the fast tier needs a benchmark showing it matters.
+
+**Quality evidence (2026-10-10).** A NumPy re-implementation (`python/reference/rng_quality.py`, checked against `FAST_KAT`) ran a battery of 4M-draw sequences along each input axis (entity, tick, k, seed): 16-bit uniformity, per-bit balance, neighbour avalanche, 64×64 neighbour bit correlation, serial correlation at lags 1/2/1024, low-p Bernoulli co-occurrence of neighbours and a 2-D serial test. All passed; flipping any entity bit flips each output bit with probability 0.5 ± 0.004 (sampling noise). Two stronger variants were tested and gave no improvement, so the mixer is unchanged. `fast_draws_neighbours_independent` in `econ-rng` keeps a fast subset as a regression test. PractRand/TestU01 were not reachable from the build sandbox — optional extra check on a desktop.
+
+With the fast tier (plus a consumption-loop change made at the same time) a 1:100 tick takes 6.4 ms. See [spike results](../spikes/spikes-0-4-results.md).
+
 ## Consequences
 - Easier: golden-run tests, exact replay, reproducing any player's bug from a save, common random numbers across calibration points ([ADR-0009](0009-calibration-and-stability.md)).
 - Harder: agents cannot use standard maths functions, `HashMap` or the default RNGs in state code; clippy tells them so.
 - Harder: dependency bumps of `libm`, `rand_*` or the toolchain may change hashes and need a reviewed re-golden.
 - This contract is never relaxed. It is extended when parallelism is added.
+- Changing either tier's algorithm or `FAST_KAT` is a re-golden event.
 - Revisit the RNG only if `rand_chacha` is deprecated (fallback: a self-written Philox generator checked against Random123 vectors).
 
 ## Open questions / to verify

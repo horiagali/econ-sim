@@ -4,13 +4,13 @@ This file is the entry point for any AI agent (Claude, Codex, Cursor, …) worki
 
 ## Project in one paragraph
 
-A country-management sandbox focused on a realistic economic simulation. The player is head of state of **Romania** (recreated from real data) and sets policy (tax brackets, spending, transfers, subsidies, interest rates, trade, nationalisation, infrastructure and power plants, …). The simulation propagates effects through a **weighted synthetic population** of households and persons (the most important system), ~90 industries linked by supply chains, banks, government, central bank and the rest of the world. v1 is economy + people only: no politics layer, no military. Phase 0 is **design and research only — do not write game code unless a task explicitly asks for it.**
+A country-management sandbox focused on a realistic economic simulation. The player is head of state of **Romania** (recreated from real data) and sets policy (tax brackets, spending, transfers, subsidies, interest rates, trade, nationalisation, infrastructure and power plants, …). The simulation propagates effects through a **weighted synthetic population** of households and persons (the most important system), ~90 industries linked by supply chains, banks, government, central bank and the rest of the world. v1 is economy + people only: no politics layer, no military. **Phase 1 (technical spikes) started 2026-10-09:** code lives in `crates/` (Rust) and `python/` (reference models, tooling). Spikes settle architecture decisions; see the roadmap.
 
 ## Before you start any task
 
 1. Read `docs/INDEX.md` to see what exists and its status.
 2. Read only the docs relevant to your task plus their `depends_on` docs. Don't load the whole repo.
-3. Check `docs/glossary.md` for variable names. **Never invent a new name for something that already has one.** If you need a new variable, add it to the glossary in the same change.
+3. Check `docs/glossary.md` for variable names. **Never invent a new name for something that already has one.** If you need a new variable, add it to the glossary in the same change and run `just codegen` (the glossary generates `crates/econ-types/src/glossary.rs`).
 
 ## Tech stack (accepted)
 
@@ -19,6 +19,11 @@ See [ADR-0004](docs/03-architecture/decisions/0004-tech-stack-overview.md): Rust
 - **Money moves only through the ledger** ([ADR-0007](docs/03-architecture/decisions/0007-money-and-ledger.md)): `Bani(i64)`, typed transfers with a flow code; never write a balance directly.
 - **Behaviour rules use `behaviour_rule!`** ([ADR-0008](docs/03-architecture/decisions/0008-explainability-architecture.md)); opaque rules need a counted waiver.
 - **Never hardcode the population scale** ([ADR-0003](docs/03-architecture/decisions/0003-people-representation.md)): read `sample_scale` and per-record weights from the scenario; no population-sized constants.
+
+## Commands (need `just`; install with `winget install Casey.Just` or `cargo install just`)
+- `just check` — everything CI runs (fmt, clippy, tests, lint canary, docs index, differential SIM test). Must pass before you say you're done.
+- `just test` · `just lint` · `just fmt` · `just docs-index` · `just golden-check` · `just bench-scale`
+- Code rules: [crates/AGENTS.md](crates/AGENTS.md) and [DETERMINISM.md](DETERMINISM.md).
 
 ## Doc conventions
 
@@ -47,6 +52,7 @@ See `docs/00-vision/pillars.md`. The short version:
 
 ## Don't
 
-- Don't write implementation code during Phase 0 (prototype snippets inside research notes are fine).
+- Don't write mechanic code before its spec is at least `draft` and has acceptance tests.
+- Don't edit protected test paths (`tests/golden/**`, `crates/*/tests/acceptance/**`, `schema/**`); a hook blocks it (ADR-0014).
 - Don't edit `locked` specs without being asked.
-- Don't create new top-level folders without an ADR.
+- Don't create new top-level folders without an ADR (`crates/`, `python/`, `tests/`, `scripts/`, `ui/` are sanctioned by ADR-0005/0010/0013/0014).

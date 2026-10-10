@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [society/population-groups, economy/households, economy/production, economy/accounting]
 research: []
-updated: 2026-10-08
+updated: 2026-10-09
 ---
 
 # Taxation
@@ -65,6 +65,14 @@ Revenue by tax and by group (who pays what); effective and marginal tax rates fo
 - [ ] Raising VAT from 21% to 25% raises CPI once and revenue by less than proportionally (demand response).
 - [ ] At extreme rates (e.g. 90% flat PIT) revenue is lower than at moderate rates (emergent Laffer).
 - [ ] Raising social contributions increases the informal employment share.
+
+### VAT (unit-level, Spike 9 pilot)
+IDs are stable; tests live in `crates/econ-mech-tax/tests/acceptance/vat.rs` (`[unit]` = pure function, `[ledger]` = posts through the ledger).
+- [ ] **AC-VAT-01** `[unit]` VAT on a purchase is `rate × net amount`, rounded half away from zero to whole bani; the gross price is net + VAT.
+- [ ] **AC-VAT-02** `[unit]` Each good's VAT category decides its rate: standard, reduced, zero (0%) or exempt (no VAT).
+- [ ] **AC-VAT-03** `[ledger]` Collecting VAT on a batch of household purchases posts exactly the sum of per-purchase VAT from households to government under flow code `tax.vat`, and all ledger invariants hold.
+- [ ] **AC-VAT-04** `[unit]` A standard rate below the EU minimum of 15% is accepted but flagged as an EU-rule breach (ADR: eu-membership compliance), not rejected.
+- [ ] **AC-VAT-05** `[unit]` Raising the standard rate from 19% to 21% raises the gross price of a standard-rated good by exactly the VAT difference and leaves zero-rated goods unchanged.
 
 ## Open questions
 - [ ] Separate capital income tax vs taxed with labour income: offer both as a lever?

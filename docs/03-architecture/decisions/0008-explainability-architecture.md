@@ -56,7 +56,7 @@ A rule that cannot be decomposed needs an explicit `shape: opaque` waiver. CI co
 
 **Explanations must sum exactly.** Σ contributions = Δ indicator holds exactly (in bani) for L1 and within 1e-9 relative for L2. This is invariant I-6 and a test.
 
-**Open semantic question (recorded, not decided).** How to aggregate log-linear contributions across agents of different sizes: LMDI weights in levels, or weighted mean log contributions. It may differ per indicator. Spike 3 settles it, and this ADR is amended with the result before it is accepted.
+**Log-linear aggregation (settled by Spike 3, 2026-10-09).** For indicators that are sums of levels, aggregate per-agent LMDI contributions in levels: they sum exactly to the change in the total (tested on 1,000 weighted agents). Weighted-mean log contributions are used only for indices and averages (CPI, average wage growth), never for totals. See [spike results](../spikes/spikes-0-4-results.md).
 
 ## Consequences
 - Easier: every indicator has a "why" from the first mechanic; explanations, docs and calibration parameter lists cannot drift from the code, because the macro generates all of them.
@@ -66,7 +66,7 @@ A rule that cannot be decomposed needs an explicit `shape: opaque` waiver. CI co
 - Revisit if the macro becomes a compile-time or ergonomics burden for agents.
 
 ## Open questions / to verify
-- [ ] Log-linear aggregation across agents of different size: LMDI vs weighted mean log contributions (Spike 3).
+- [x] Log-linear aggregation across agents of different size: LMDI in levels for totals (Spike 3).
 - [ ] Which indicators get L3 shift-share decompositions, and how groups are chosen for them.
 - [ ] Maximum lever groups for L4 (6 proposed) and whether results are cached per save.
-- [ ] Spike 3 exit criterion: a nested tree for one indicator sums exactly; μ metadata test runs on 3 rules.
+- [x] Spike 3 exit criterion: a nested tree sums exactly; stability multiplier tested (2026-10-09).
