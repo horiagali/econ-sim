@@ -1,0 +1,9 @@
+{
+  "version": "2.0", "class": "dataset", "label": "fixture",
+  "id": ["geo", "time"], "size": [2, 2],
+  "dimension": {
+    "geo": {"category": {"index": {"RO111": 0, "RO113": 1}}},
+    "time": {"category": {"index": {"2022": 0, "2023": 1}}}
+  },
+  "value": {"0": 10, "1": 11, "2": 20, "3": 21}
+}

@@ -1,0 +1,10 @@
+# DVC pipeline (ADR-0012). Run from python/pipeline: `dvc repro`.
+stages:
+  fetch:
+    cmd: python fetch_eurostat.py
+    deps: [fetch_eurostat.py, sources.toml]
+    outs: [data/raw]
+  synth:
+    cmd: python synth_counties.py --fixture --scale 100
+    deps: [synth_counties.py, ipf.py, fixtures/marginals_illustrative.json]
+    outs: [data/derived]

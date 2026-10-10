@@ -1,0 +1,6 @@
+{
+  "_note": "ILLUSTRATIVE numbers for testing the pipeline — NOT official Romanian statistics.",
+  "county": {"RO111_Bihor": 540000, "RO113_Cluj": 690000, "RO321_Bucuresti": 1720000},
+  "age": {"0-14": 440000, "15-24": 300000, "25-49": 1110000, "50-64": 560000, "65+": 540000},
+  "sex": {"F": 1550000, "M": 1400000}
+}

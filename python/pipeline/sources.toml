@@ -1,0 +1,16 @@
+# Datasets to fetch. Each carries a licence tag kept in provenance (ADR-0012).
+# Eurostat dissemination API, JSON-stat 2.0.
+
+[[dataset]]
+id = "ro_pop_county_age_sex"
+source = "eurostat"
+code = "demo_r_pjangrp3"           # population on 1 January by age group, sex and NUTS 3 region
+filters = { geo = ["RO111", "RO113", "RO321"], time = ["2023"], unit = ["NR"] }
+licence = "eurostat-reuse"          # commercial reuse allowed with attribution; non-EU data excluded
+
+[[dataset]]
+id = "ro_gdp_nuts3"
+source = "eurostat"
+code = "nama_10r_3gdp"             # GDP at current market prices by NUTS 3 region
+filters = { geo = ["RO111", "RO113", "RO321"], time = ["2022"], unit = ["MIO_EUR"] }
+licence = "eurostat-reuse"
