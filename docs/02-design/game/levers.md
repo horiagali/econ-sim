@@ -131,12 +131,21 @@ Each generation technology is its own industry (`power_nuclear`, `power_hydro`, 
 | Leave the euro | announce exit; bank holiday and capital controls allowed during exit; new currency floats | immediate crisis, years of aftermath |
 
 ## Informal economy ([informal-economy](../economy/informal-economy.md))
+The tools against the undeclared economy. Each has a cost or a side effect; see the spec.
+
 | Lever | Form | Lag |
 |---|---|---|
-| Tax administration & labour inspection budget | amount | months |
-| Digitalisation | e-invoicing, electronic receipts, cash payment limit | project / next tick |
-| Penalties | fine multiplier | next tick |
+| Labour inspection budget | amount per year; raises the chance that an undeclared job is found | months |
+| Tax audit budget | amount per year; raises the chance that undeclared sales are found | months |
+| Penalties | fine as a multiple of the evaded tax | next tick |
+| E-invoicing | off / firms above a size / all firms | project, 1–3 years |
+| Connected cash registers | off / on | project, 1–2 years |
+| Cash payment limit | amount per transaction | next tick |
+| Lower wedge on low wages | reduced contributions up to a wage level | next tick |
+| Day-labourer scheme | flat tax per day of casual work | next tick |
+| Simplified regime for small firms | turnover tax up to a ceiling | next tick |
 | Tax amnesty | one-off | next tick |
+| Information campaign | budget | months |
 
 ## Foreign investment ([foreign-ownership](../economy/foreign-ownership.md))
 | Lever | Form | Lag |
@@ -201,7 +210,7 @@ Milestones are those of the [roadmap](../../roadmap.md). `alpha` is M4, the firs
 | Trade and currency | exchange rate regime (float, managed float, peg), FX intervention | export promotion (M18); ERM II and euro (M20) |
 | EU | — | all (M18) |
 | Euro | — | all (M20) |
-| Informal economy | — | all (M15) |
+| Informal economy | labour inspection budget, tax audit budget, penalties | the rest (M15) |
 | Foreign investment | — | all (M17) |
 | Housing | — | all (M13) |
 | Environment | — | all (M19) |

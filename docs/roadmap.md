@@ -179,7 +179,7 @@ Everything the simulation needs at tick 0, from data files, consistent with the 
 - [ ] **Income and wealth of persons and households**, as further generator stages:
   - [ ] **Wages** (stage F, spec [`society/population-wages`](02-design/society/population-wages.md)): spec, data, Python reference and Rust skeleton done 2026-10-10. Levels are the national accounts' wage bill of 2021-Q4 by industry group; proportions by sex, occupation, age and education come from the Structure of Earnings Survey 2022. Open questions accepted by the owner 2026-10-10. Owed: a test-authoring session (to be done together with the other owed tests), then the Rust code.
   - [ ] **Pensions** (stage G, spec [`society/population-pensions`](02-design/society/population-pensions.md)): spec, data, Python reference and Rust skeleton done 2026-10-10. The level is the pension expenditure of 2021; the gap between women and men and the share at the minimum pension are measured; the shape above the minimum and the link to education are assumptions marked low confidence. Owed: owner review, a test-authoring session, then the Rust code. Benefits other than pensions need no stage: the transfer mechanics compute them from the law in force (M3).
-  - [ ] **Income of the self-employed:** not a stage yet. The national accounts' mixed income (15 billion lei a month) is three times the mean wage per census self-employed person, because it includes subsistence farming, own building and undeclared activity. Needs a research note and a decision on subsistence farming first (numbers in the open questions of the pensions spec).
+  - [ ] **Self-employment, farm and informal income** (the next stage): mixed income of the national accounts (15 billion lei a month) split into farm income, declared self-employment income and informal income, and every wage split into a declared and an undeclared part. The size of the informal economy is mapped in the research note [`informal-economy-romania`](01-research/notes/informal-economy-romania.md) (2026-10-10) and the representation is in the reworked [informal-economy](02-design/economy/informal-economy.md) spec. Still to collect before the stage can be specified: envelope wages by industry (Eurobarometer), household farm output for own use, declared self-employment income.
   - [ ] Wealth: deposits, debts and dwelling value by household. Candidate sources to verify: sector financial accounts for the totals, EU-SILC aggregates for the shape.
 - [ ] **Remaining person attributes needed by the core:** split of the employed's industry group into the catalogue industry; split of "other inactive"; enrolment.
 - [ ] **Industry catalogue and input-output table:** reconcile the 90 industries of [industries](02-design/economy/industries.md) with the Eurostat supply-use and input-output tables; output, value added, wages, imports and exports per industry and foreign bloc.
@@ -224,7 +224,7 @@ Closes the loop: after this, every sector of the [economy overview](02-design/ec
 
 ### M4 — Lever system and alpha levers
 - [ ] **Lever system:** every lever and world setting is a typed command with validation, range, effective date and lag; commands are logged and replayable (ADR-0011); a lever registry generated from the specs so the UI and the tests share one list.
-- [ ] Wire every lever tagged `alpha` in D2 to its mechanic.
+- [ ] Wire every lever tagged `alpha` in D2 to its mechanic. Since 2026-10-10 that includes three tools against the informal economy (labour inspection budget, tax audit budget, penalties), with a first version of detection: taxes are computed on declared amounts from the start (M3), because the starting state carries the split.
 - [ ] **Policy-scenario test suite** (qualitative: direction, rough size, timing): rate hike, income-tax cut, VAT rise, deficit spending, monetary financing, devaluation, minimum-wage rise, pension rise, oil-price shock. One test file per scenario, written tests-first. Every later milestone adds its own scenarios to this suite.
 - [ ] Headless "play" from a command file: scenario plus dated lever changes in, time series out.
 
@@ -336,7 +336,7 @@ Specs: [identity](02-design/society/identity.md), [interest-groups](02-design/so
 **Exit:** for any filter of people the game shows how they live, what they pay and get, how much they approve and why; a rise in the health budget shows up in life expectancy over a decade.
 
 ### M15 — Informal economy
-Spec: [informal-economy](02-design/economy/informal-economy.md).
+Spec: [informal-economy](02-design/economy/informal-economy.md). The split into declared and undeclared is in the starting state (M1), taxes use it from M3 and three enforcement levers are in the alpha (M4); this milestone is the behaviour and the rest of the tools.
 - [ ] Undeclared work and envelope wages by industry and firm size; unreported sales and the VAT gap; the choice to evade as a rule of taxes, enforcement and penalties.
 - [ ] Data: published estimates of undeclared work and the VAT gap.
 - [ ] Levers: tax administration and inspection budget, digitalisation, penalties, amnesty.

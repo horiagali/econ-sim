@@ -30,7 +30,8 @@ All statistics are exact and current. *(Later: imperfect data, see below.)*
 11. **EU view.** Rule compliance, fiscal-rule path, procedures, EU funds envelope vs absorbed, money at risk of loss, net EU balance.
 12. **Housing view.** Prices, rents, price-to-income, vacancies and construction by county.
 13. **Environment view.** Emissions by sector, carbon costs, air quality map, weather events and damage.
-14. **Governance view.** Administrative capacity by ministry, corruption, money lost to inefficiency, informal economy and VAT gap.
+14. **Governance view.** Administrative capacity by ministry, corruption, money lost to inefficiency.
+15. **Informal economy view** ([informal-economy](../economy/informal-economy.md)). Every indicator of output, income and employment as *declared* and as *total*; the difference by county and locality size (map layers), by industry group and for any group of people; the VAT gap; revenue lost by tax and recovered by detection; people whose work builds no pension rights.
 
 ## "Why did this change?" (causal panel)
 For any indicator and time window, show a decomposition of its change into contributions, ordered by size. Example for a food price change over 6 months: input costs (+1.2%), wages (+0.4%), energy (−0.3%), demand pressure (+0.6%), VAT change (+0.8%), import prices via FX (+0.5%).
@@ -59,7 +60,8 @@ Milestones are those of the [roadmap](../../roadmap.md). The statistics behind a
 | 11 EU | — | M18 |
 | 12 Housing | — | M13 |
 | 13 Environment | — | M19 |
-| 14 Governance | — | M15 (informal economy, VAT gap), M16 (capacity, corruption) |
+| 14 Governance | — | M16 |
+| 15 Informal economy | declared and total for the headline indicators; informal shares by county and industry group; revenue lost (M6 statistics, M8 screen) | M15 (the rest) |
 | "Why did this change?" | headline indicators of view 1, with drill-down | every milestone adds its own indicators; all of them by M22 |
 | Notifications | inflation, unemployment, deficit, debt service, approval | each system adds its alerts; event log in M22 |
 

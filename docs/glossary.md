@@ -109,6 +109,15 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `formality` | Person's job status: formal / partly declared / informal | category | state | economy/informal-economy |
 | — | `vat_rate_standard`, `vat_rate_reduced`, `vat_rate_reduced_2` | VAT rates set by the player: the standard rate and two reduced rates; integer basis points in code | ratio | parameter | economy/vat |
 | — | `vat_gap` | Share of theoretical VAT not collected | ratio | derived | economy/informal-economy |
+| — | `wage_declared` | The part of a person's `wage` that is on the contract; tax and contributions are due on it | LCU / month | state | economy/informal-economy |
+| — | `informal_income` | Person's monthly income from undeclared activity outside a job | LCU / month | state | economy/informal-economy |
+| — | `self_employment_income`, `self_employment_declared` | Income of an employer or own-account worker, and its declared part | LCU / month | state | economy/informal-economy |
+| — | `hh_farm_land` | Agricultural land a household owns or uses | ha | state | society/population-groups |
+| — | `hh_subsistence_income` | Value of what a household grows and consumes itself (in kind, untaxed) | LCU / month | state | economy/informal-economy |
+| — | `undeclared_sales_share[f]`, `undeclared_wage_share[f]` | Share of firm unit *f*'s sales not reported for VAT and profit tax, and of its wage bill paid outside contracts | ratio | state | economy/informal-economy |
+| — | `informal_employment_share` | Share of employed persons whose job is partly declared or informal | ratio | derived | economy/informal-economy |
+| — | `undeclared_labour_share` | Share of private-sector labour income that is not declared | ratio | derived | economy/informal-economy |
+| — | `revenue_lost` | Tax not collected because of undeclared wages, income and sales, by tax | LCU / month | derived | economy/informal-economy |
 | — | `foreign_share[j]` | Foreign-owned share of industry *j* capital, derived from its firm units' ownership shares (ADR-0016) | 0–1 | derived | economy/foreign-ownership |
 | — | `house_price[c]`, `rent[c]` | House price and rent per m² by county | LCU / m² | state | economy/housing |
 | — | `ets_price` | EU ETS carbon allowance price | EUR / tCO₂ | exogenous | economy/environment |
