@@ -61,14 +61,23 @@ Setting up a ChaCha8 context per person per draw made a 1:100 tick take 240 ms. 
 
 | Tier | API | Use for |
 |---|---|---|
-| Fast | `KeyedRng::fast_u64` / `fast_uniform` / `fast_bernoulli` (SplitMix64 mixing; `k` = draw index within the context) | per-agent, per-tick draws in hot loops: separations, matching priorities, consumption noise, demographic events |
+| Fast | `KeyedRng::fast_u64` / `fast_uniform` / `fast_bernoulli` (SplitMix64 mixing, entity multiplied by the SplitMix64 gamma; `k` = draw index within the context) | per-agent, per-tick draws in hot loops: separations, matching priorities, consumption noise, demographic events |
 | ChaCha8 | `KeyedRng::draw(...)` → `Draw` | everything else: population generation, shocks, weather, any context needing many or correlated draws (normals, shuffles) |
 
 When unsure, use ChaCha8; moving a call site to the fast tier needs a benchmark showing it matters.
 
-**Quality evidence (2026-10-10).** A NumPy re-implementation (`python/reference/rng_quality.py`, checked against `FAST_KAT`) ran a battery of 4M-draw sequences along each input axis (entity, tick, k, seed): 16-bit uniformity, per-bit balance, neighbour avalanche, 64×64 neighbour bit correlation, serial correlation at lags 1/2/1024, low-p Bernoulli co-occurrence of neighbours and a 2-D serial test. All passed; flipping any entity bit flips each output bit with probability 0.5 ± 0.004 (sampling noise). Two stronger variants were tested and gave no improvement, so the mixer is unchanged. `fast_draws_neighbours_independent` in `econ-rng` keeps a fast subset as a regression test. PractRand/TestU01 were not reachable from the build sandbox — optional extra check on a desktop.
+**Quality evidence (2026-10-10).** A NumPy re-implementation (`python/reference/rng_quality.py`, checked against `FAST_KAT`) ran a battery of 4M-draw sequences along each input axis (entity, tick, k, seed): 16-bit uniformity, per-bit balance, neighbour avalanche, 64×64 neighbour bit correlation, serial correlation at lags 1/2/1024, low-p Bernoulli co-occurrence of neighbours and a 2-D serial test. All passed; flipping any entity bit flips each output bit with probability 0.5 ± 0.004 (sampling noise). Two stronger variants were tested and gave no improvement in this battery, so the mixer was left unchanged at the time. `fast_draws_neighbours_independent` in `econ-rng` keeps a fast subset as a regression test. PractRand/TestU01 were not reachable from the build sandbox.
 
-With the fast tier (plus a consumption-loop change made at the same time) a 1:100 tick takes 6.4 ms. See [spike results](../spikes/spikes-0-4-results.md).
+**Revision (owner decision, 2026-10-10): the "gamma" mixer.** PractRand 0.95, run on a desktop through `econ-cli rng-raw`, found what the battery above could not:
+
+- The original last step was `mix64(st ^ entity)`. With only the entity varying (entity = 0, 1, 2, … at one tick) it **fails PractRand `BRank` at 16 GB** (p ≈ 1e-235 with seed 42, 1e-189 with seed 7).
+- The defect is not far out: the first 2^20 consecutive entities, laid out as an 8192×8192 bit matrix, already have a rank deficiency of 32–35 (a random matrix: 0–2). PractRand reports it late only because it first tries a matrix that large at 16 GB. A 1:10 population (1.9 million persons) is inside that range.
+- In the order the simulation draws (190,000 entities per tick, tick after tick) the original mixer passed 64 GB, and no effect on results was observed. The change is made for margin and because the fix is one multiply.
+- **The fast tier now ends with `mix64(st ^ entity·γ)`**, γ = `0x9E3779B97F4A7C15` (the "gamma" variant of `rng_quality.py`). It passes PractRand to 64 GB on the entity-only pattern and has rank deficiency 0–1 on the matrix above.
+- Regression tests in `econ-rng`: `fast_draws_binary_rank_over_consecutive_entities` (the 8192×8192 rank check; it fails on the original mixer) and a new `FAST_KAT`. `rng_quality.py` now has the gamma mixer as `cur` and the original as `old`.
+- This was a re-golden event for everything that uses the fast tier (the scale world); see `CHANGELOG-sim.md`. The SIM golden run does not use it and is unchanged.
+
+With the fast tier (plus a consumption-loop change made at the same time) a 1:100 tick took 6.4 ms (the gamma multiply does not change this measurably). See [spike results](../spikes/spikes-0-4-results.md).
 
 ## Consequences
 - Easier: golden-run tests, exact replay, reproducing any player's bug from a save, common random numbers across calibration points ([ADR-0009](0009-calibration-and-stability.md)).

@@ -102,7 +102,7 @@ Run on a Windows 11 Pro laptop (10.0.26200) with admin rights: Intel Core i9-139
 | `uv sync` in `python/calib`, `just calib-spike` | ✅ builds `econ-py` (PyO3) and runs; see below |
 | `npm install`, `npm run fetch-geo`, `npm run tauri dev` | ✅ after one fix (missing icon); see below |
 | Protect-paths hook | ✅ blocks Edit/Write and shell writes to protected paths in a live session; reads pass |
-| PractRand on `fast_u64` | ◐ passes to 64 GB in simulation order; fails at 16 GB when only the entity varies; see below |
+| PractRand on `fast_u64` | found a defect when only the entity varies; mixer changed, see below |
 
 **No Windows-vs-Linux difference was found in any simulation result.** The employment and wage-bill columns of `bench-scale`, and every number in the calibration report (Morris μ*, the 106/200 history-matching survivors, the 100-year baseline), equal the Linux values.
 
@@ -131,26 +131,43 @@ The whole spike script takes 26 s. The calibration budget above holds with room 
 
 Reading: binary IPC is cheap enough to send whole chart sets every tick (a 1:100 tick is 4.6 ms; 1 MB of series costs 9 ms). `data=` is dominated by running the simulation inside the command, so real commands should return already-computed history. The debug build is ~20× slower in `data=`; judge UI performance on release builds only. Memory is the WebView2 baseline and should be re-measured when the real UI exists.
 
-### PractRand on the fast RNG ◐ (passes in simulation order; one finding for the owner)
-`econ-cli rng-raw` (new) writes raw `fast_u64` output; PractRand 0.95 (built from source with MSVC) read it with `RNG_test stdin64 -multithreaded`. Stream `Labour`, `k = 0`, seed 42 unless noted:
+### PractRand on the fast RNG → mixer changed (owner decision 2026-10-10)
+`econ-cli rng-raw` writes raw `fast_u64` output; PractRand 0.95 (built from source with MSVC) read it with `RNG_test stdin64 -multithreaded`. Stream `Labour`, `k = 0`, seed 42 unless noted.
+
+**Original mixer** (`mix64(st ^ entity)`):
 
 | Pattern | Varies | Result |
 |---|---|---|
-| `grid --entities 190000` | the simulation's order: entities 0..190,000, tick after tick | **no failure to 64 GB** (2^33 draws, ≈ 45,000 ticks' worth) |
+| `grid --entities 190000` | the simulation's order: entities 0..190,000, tick after tick | no failure to 64 GB |
 | `tick` | tick = 0, 1, 2, … for one entity | no failure to 8 GB (not run further) |
-| `entity` | entity = 0, 1, 2, … at one tick | clean to 8 GB, then **FAIL at 16 GB**: `BRank(12):8K(1)`, p ≈ 6e-235 |
+| `entity` | entity = 0, 1, 2, … at one tick | clean to 8 GB, then **FAIL at 16 GB**: `BRank(12):8K(1)`, p ≈ 6e-235; same with seed 7 (p ≈ 1e-189) |
 
-Mild "unusual" flags (the lowest PractRand grade) appeared once each in single runs and were gone at the next length, as expected by chance.
+**Where the defect starts.** A direct check shows it long before 16 GB: the first 2^20 consecutive entities at one tick, laid out as an 8192×8192 bit matrix, have a rank deficiency of 32–35 (a random matrix: 0–2). Smaller matrices (up to 7168) look normal. PractRand reports it only at 16 GB because that is when it first tries an 8K matrix. So the defect is within the range of a 1:10 population (1.9 million persons), not billions of entities away. It is a linear relation among bits across about a million outputs; no effect on simulation results was observed, and the simulation-order run passed 64 GB.
 
-**Finding.** With only the entity varying, the output is `mix64(const ^ entity)`: one SplitMix64 mix of a counter that steps by 1. The binary-rank test finds linear structure in it after 2^31 consecutive entities (16 GB). It reproduces with seed 7 (FAIL at 16 GB, p ≈ 1e-189). Two alternatives from `python/reference/rng_quality.py`, fed to PractRand on the same pattern from NumPy (the NumPy version of the current mixer matches `rng-raw` byte for byte):
+> An earlier version of this section said the failure "needs about 2 billion consecutive entity IDs". That was wrong: it confused where PractRand reports the defect with where the defect exists.
 
-| Mixer | Change | `entity` pattern |
+**Decision: switch to the "gamma" mixer**, `mix64(st ^ entity·γ)` (one extra multiply; [ADR-0006](../decisions/0006-determinism-contract.md) Amendment 1, revised):
+
+| Mixer | `entity` pattern, PractRand | 8192×8192 rank deficiency |
 |---|---|---|
-| current | `mix64(st ^ entity)` | FAIL at 16 GB |
-| "gamma" | `mix64(st ^ entity·γ)`, one extra multiply | no failure to 64 GB |
-| "double" | `mix64(mix64(st ^ entity))`, one extra mix | no failure to 64 GB |
+| original | FAIL at 16 GB | 32–35 |
+| gamma (now in `econ-rng`) | no failure and no anomaly to 64 GB (Rust output, seeds 42 and 7); simulation order also clean to 64 GB | 0–1 |
+| "double" (`mix64(mix64(st ^ entity))`, not chosen) | no failure to 64 GB (NumPy) | not measured |
 
-**What it means.** No simulation run is near the failing regime: it needs ~2 billion consecutive entity IDs inside one (stream, tick, k), and a 1:1 Romania has 19 million persons. In the order the simulation actually draws, the generator passes 64 GB. So this is a margin question, not a known error in results. The owner decides between (a) keeping the mixer and recording the limit in ADR-0006 Amendment 1, or (b) switching to the "gamma" variant, which is a re-golden event (`fast_u64`, `FAST_KAT`) that changes scale-world results such as the benchmark and calibration numbers; the SIM golden run does not use the fast hash (only `scale_spike.rs` does). Nothing was changed.
+The rank check is now a unit test (`fast_draws_binary_rank_over_consecutive_entities`), verified to fail on the original mixer.
+
+### VAT in the scale world (2026-10-10)
+The first real mechanic wired into the scale world, as decided after the Windows verification:
+
+- Household spending is at purchaser prices. For each household and VAT category (a fake assignment of the 83 goods: about 60% of spending standard at 21%, 30% reduced at 11%, 10% untaxed), VAT is carved out so that it is exactly `rate × net` rounded to whole bani (AC-VAT-01); rounding leaves at most one ban per purchase unspent.
+- The scale world now has a sector ledger. Each tick posts three aggregated legs (ADR-0007 storage rule): wages firms → households, net consumption households → firms, and **`tax.vat` (3002) households → government**. Per-household amounts are multiplied by `hh_weight` before they are summed.
+- Checked every tick: ledger invariants I-1 to I-3, and (I-4) the ledger's household balance equals the weighted sum of the deposit column and its government balance equals VAT collected so far.
+- VAT is about 13.3% of household spending. The government's VAT balance is saved (save format 3, migration `v2_to_v3_add_gov_vat`).
+- A scale-world golden now exists as a unit test (`golden_12_ticks_at_1_in_1000`: state hash and aggregates after 12 ticks).
+
+**Cost.** Exact per-household VAT needs six integer divisions per household. A 1:100 tick went from 4.7 ms to 9.9 ms on the Windows laptop (1.1 ms at 1:1000, 101 ms at 1:10), and calibration from ~53,000 to ~27,000 runs/hour at 1:1000 (~2,500 at 1:100). `Bani::mul_ratio` gained an exact 64-bit fast path on the way (without it the tick was 16 ms). 600 ticks at 1:100 take 5.9 s, well inside the Spike 4 budget (≤ ~30 s). The 4.6 ms and ~53,300 runs/hour figures above were measured before this change.
+
+**Layering note.** `econ-core` now depends on `econ-mech-tax` for this spike wiring. ADR-0005 intends the opposite direction (mechanics crates on top of the core's `World` and `Phase` trait), so this dependency goes away when the real core replaces the scale world.
 
 ### Fixed on the way
 - **The Tauri host could not build on Windows:** `tauri-build` needs `icons/icon.ico` to generate the Windows resource file. Added a placeholder icon (`ui/src-tauri/icons/`). Nothing else in the host needed changing.
@@ -163,6 +180,6 @@ The first Windows laptop had no admin rights and Smart App Control in enforcemen
 **CI:** the first run (commit `b1869c0`, [run 38039618551](https://github.com/horiagali/econ-sim/actions/runs/38039618551)) passed all four jobs, including `determinism` (Linux and Windows hashes identical). The run for this verification branch is recorded in its pull request.
 
 ## Not done yet (next steps)
-- Follow-ups: model PC in the differential test; history blocks in saves; real firm-unit goods market; real data marginals; wire `tax.vat` into the scale world's consumption.
+- Follow-ups: model PC in the differential test; history blocks in saves; real firm-unit goods market; real data marginals. (`tax.vat` in the scale world: done 2026-10-10, see above.)
 - Two-PR tests-first flow and `cargo mutants --in-diff` in CI (Spike 9 leftovers).
-- `ui/src-tauri` is outside the root workspace, so `just check` and CI never compile it; a Windows CI step (`cargo check` in `ui/src-tauri`) would keep it building.
+- `ui/src-tauri` is outside the root workspace, so `just check` does not compile it. The Windows CI job now runs `cargo check --locked` on it whenever `crates/` or `ui/src-tauri/` change, which also means its `Cargo.lock` must be updated when the core's dependencies change.
