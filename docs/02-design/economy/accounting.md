@@ -1,7 +1,7 @@
 ---
 id: economy/accounting
 title: Accounting & Stock-Flow Consistency
-status: review
+status: locked
 owner: horia
 depends_on: [adr/0007-money-and-ledger, adr/0016-firm-representation, adr/0017-time-base]
 research: []
@@ -9,8 +9,6 @@ updated: 2026-10-10
 ---
 
 # Accounting & Stock-Flow Consistency
-
-> **Accepted by the owner for locking on 2026-10-10.** The status stays `review` only because `just trace` fails a `locked` spec whose criteria do not all have a live test (ADR-0014), and most of these criteria can only be tested once the simulation they describe exists. Treat this spec as locked: it is not changed without the owner. It moves to `locked` when its tests exist, or when the owner changes that rule.
 
 ## Purpose
 Guarantee that money never appears or disappears, that every financial asset has a matching liability, and that every number can be traced to transactions. This is pillars 1 and 2 made concrete, and the main defence against "buggy economy" outcomes.
@@ -85,6 +83,14 @@ IDs are stable (added 2026-10-10 so the tests-first flow can cite them). Tests g
 - [ ] **AC-ACC-04** `[unit]` A transfer with an unknown reason code fails at test time.
 - [ ] **AC-ACC-05** `[sim]` Wage, sales and dividend clearing accounts net to exactly zero every tick at 1:1000, 1:100 and 1:10.
 
+### Tests owed
+The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-ACC-01: the lever system and every sector on the real `World` (roadmap M4)
+- AC-ACC-02: production, incomes and spending on the real `World` (roadmap M3)
+- AC-ACC-03: testable on the ledger as it is; next test-authoring session
+- AC-ACC-04: testable on the ledger as it is; next test-authoring session
+- AC-ACC-05: clearing accounts, with the firm-unit goods market (roadmap M2)
+
 ## API sketch
 For the test writer and the implementer. The ledger exists as crate `econ-ledger` (Spike 2); this is its API today, then what the Design section still asks for.
 
@@ -135,7 +141,7 @@ impl Ledger {
 | Flow codes beyond consumption, government purchases, wages, income tax, VAT and opening | 3 | every mechanic, as it arrives |
 
 ## Open questions
-Answers accepted by the owner on 2026-10-10.
+Answers accepted by the owner on 2026-10-10, when the spec was locked.
 - [x] **The invariant lists differed.** Section 4 is now the list of [ADR-0007](../../03-architecture/decisions/0007-money-and-ledger.md), I-1 to I-8.
 - [x] **Lock now or after the first full tick?** Now. The spec is the target; the table "Not built yet" says what the code still owes, and each criterion is tested when the pieces it needs exist. The API sketch may grow as that table is worked off; the Design section may not change without the owner.
 - [x] Government deposits sit at the central bank only.

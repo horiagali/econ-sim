@@ -29,7 +29,7 @@ See [ADR-0004](docs/03-architecture/decisions/0004-tech-stack-overview.md): Rust
 
 - **One mechanic per file.** Keep files focused; split if a spec exceeds ~400 lines.
 - **Frontmatter is mandatory** (see `docs/templates/`). Fields: `id`, `title`, `status`, `owner`, `depends_on`, `updated`.
-- **Status lifecycle:** `stub` → `researching` → `draft` → `review` → `locked`. Only a human moves a doc to `locked`. A `locked` spec is what code is built against; changing it needs an ADR or an explicit human request.
+- **Status lifecycle:** `stub` → `researching` → `draft` → `review` → `locked`. Only a human moves a doc to `locked`. A `locked` spec is what code is built against; changing it needs an ADR or an explicit human request. A locked spec lists every criterion that has no live test yet under a "Tests owed" heading (`- AC-XXX-NN: what it waits for`); `just trace` checks the list, and the line is removed when the test is written.
 - **Equations** go in fenced `math` blocks or inline LaTeX, using glossary symbols. State units and the time step.
 - **Every mechanic must list:** state variables, inputs, outputs, update rule, player levers, tuning parameters, edge cases, and acceptance tests (observable behaviours we can check in a running sim).
 - **Separate fact from design.** Real-world evidence lives in `01-research/` with sources. Game design choices live in `02-design/` and link to the research that justifies them. Mark simplifications explicitly as `> **Simplification:** …`.

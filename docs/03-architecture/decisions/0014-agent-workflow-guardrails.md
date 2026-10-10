@@ -71,3 +71,8 @@ On Free a red check is only a signal: the owner refuses to merge it.
 - [ ] How "test-authoring mode" is signalled to the hook (environment variable, session flag or branch name).
 - [ ] Spike 0 exit criterion: an agent session on Windows runs `just check` green and is blocked from editing `tests/golden/`.
 - [ ] Spike 9 exit criterion: one real mechanic (e.g. VAT) goes spec → tests → implementation with no hand edits to protected paths.
+
+## Amendment 1 (2026-10-10): a spec may be locked before its tests
+Step 5 failed CI for any criterion of a `locked` spec without a live test. The first specs the owner wanted to lock (population-groups, accounting) have criteria that need a running simulation, so they could not be locked at the point where locking is useful: before tests and code are written against them.
+
+Owner decision: a spec may be locked first. Each criterion without a live test must then be listed in the spec under a "Tests owed" heading, one line per criterion with what it waits for (`- AC-XXX-NN: reason`). `scripts/traceability.py` fails when a criterion of a locked spec has neither a live test nor such a line, when a listed criterion has a live test (the line must be removed), or when a line names a criterion the spec does not define. The debt is therefore visible in the spec and in the output of `just trace`, and cannot grow silently. Everything else in this ADR is unchanged: tests are still written in a test-authoring session, before the code.

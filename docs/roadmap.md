@@ -91,7 +91,7 @@ This section replaces the old "Phase 2" list and orders the open items of Phase 
 2. **Systems (M9–M20): the rest of scope,** one system at a time on top of a game that already runs.
 3. **Finish (M21–M23):** calibration of the whole, the complete app, release.
 
-**How every mechanic is built** (unchanged, ADR-0014): spec to `draft` with acceptance criteria and API sketch, data and Python reference, owner accepts the spec (`review`), tests in a test-authoring session, then Rust; the spec is `locked` once every criterion has a live test (see D12). The owner's steps (answer open questions, lock, switch on test authoring) are the pacing item, so milestones list them.
+**How every mechanic is built** (unchanged, ADR-0014): spec to `draft` with acceptance criteria and API sketch, data and Python reference, owner locks the spec, tests in a test-authoring session, then Rust. Criteria that cannot be tested yet are listed in the locked spec as owed (D12). The owner's steps (answer open questions, lock, switch on test authoring) are the pacing item, so milestones list them.
 
 **Milestones at a glance.** Sizes are relative: S is like one population stage, L is many of them.
 
@@ -167,11 +167,12 @@ Mostly owner time. Nothing here is code; all of it unblocks code.
 - [x] **D9 Cost of changing a lever: none in v1** (owner, 2026-10-10).
 - [x] **D10 Extreme states: not modelled in v1** (owner, 2026-10-10). No dynamics of sovereign default, bank runs or hyperinflation. What stays: the simulation must not crash or break an invariant under any lever setting (tested in M7 and M21), which needs simple backstops (M10).
 - [ ] **D11 Language of the app:** English only, or English and Romanian. Cheap if decided before M8, costly after M22.
-- [ ] **[population-groups](02-design/society/population-groups.md) and [accounting](02-design/economy/accounting.md): accepted by the owner for locking on 2026-10-10,** but still at `review`. `just trace` fails a `locked` spec unless every criterion has a live test (ADR-0014), and ten of their criteria need a running simulation. **D12 (owner):** keep that rule, so that a spec is accepted first and becomes `locked` when its tests exist (what is done now); or relax it, so that a spec can be locked before its tests, with the untested criteria listed as owed.
+- [x] **Locked 2026-10-10:** [population-groups](02-design/society/population-groups.md) and [accounting](02-design/economy/accounting.md).
+- [x] **D12 Lock rule relaxed** (owner, 2026-10-10; [ADR-0014](03-architecture/decisions/0014-agent-workflow-guardrails.md) Amendment 1): a spec can be locked before its tests; each criterion without a live test is listed in the spec under "Tests owed", and `just trace` checks that list. Ten criteria of the two specs are owed.
 - [ ] **[vat](02-design/economy/vat.md):** the spec now has two reduced rates (19%, 9% and 5% on the start date) and is at `review`. Owed: a test-authoring session for AC-VAT-06, then the code change, then the lock.
 - [ ] Owner review pass over the open questions of the alpha specs (households, labour market, taxation, production, prices, money-banking, monetary policy, fiscal policy, trade-fx, social transfers, demographics). The other specs are reviewed when their milestone starts.
 
-**Exit:** D1, D6, D7, D11 and D12 answered; VAT tests and code done. (D2 to D5 and D8 to D10 are recorded; ADR-0017 accepted; two specs accepted for locking.)
+**Exit:** D1, D6, D7 and D11 answered; VAT tests and code done, then locked. (D2 to D5, D8 to D10 and D12 are recorded; ADR-0017 accepted; two specs locked.)
 
 ### M1 — Complete starting state
 Everything the simulation needs at tick 0, from data files, consistent with the accounting matrix. Continues the population generator. Data for the systems of Part 2 is collected in their own milestones; here the tables only get the columns listed under "Built in from M1".

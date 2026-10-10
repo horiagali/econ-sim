@@ -1,7 +1,7 @@
 ---
 id: society/population-groups
 title: Population Model — Synthetic Population & Groups
-status: review
+status: locked
 owner: horia
 depends_on: [society/overview, economy/accounting, adr/0003-people-representation, adr/0017-time-base]
 research: [research/people-model-approaches]
@@ -11,8 +11,6 @@ updated: 2026-10-10
 # Population Model — Synthetic Population & Groups
 
 > This is the most important and most expensive part of the game. The representation is chosen in [ADR-0003](../../03-architecture/decisions/0003-people-representation.md) after the [research note](../../01-research/notes/people-model-approaches.md).
-
-> **Accepted by the owner for locking on 2026-10-10.** The status stays `review` only because `just trace` fails a `locked` spec whose criteria do not all have a live test (ADR-0014), and most of these criteria can only be tested once the simulation they describe exists. Treat this spec as locked: it is not changed without the owner. It moves to `locked` when its tests exist, or when the owner changes that rule.
 
 ## Purpose
 Represent Romania's population (~19 million people) in fine detail, so that every policy lands on concrete people with their own job, income, wealth, family, culture, religion, ideology and interests, and so that aggregates (GDP, unemployment, approval) are sums over people.
@@ -104,6 +102,14 @@ IDs are stable (added 2026-10-10 so the tests-first flow can cite them). The sta
 - [ ] **AC-PG-04** `[sim]` National unemployment computed from persons equals the labour-market aggregate exactly.
 - [ ] **AC-PG-05** `[sim]` Changing `sample_scale` from 1 : 100 to 1 : 200 changes national indicators by less than sampling error.
 
+### Tests owed
+The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-PG-01: a test that runs the generator stages together and cites this ID; next test-authoring session
+- AC-PG-02: births, deaths and migration (demographics, roadmap M5)
+- AC-PG-03: the real `World` and its tick loop (roadmap M2)
+- AC-PG-04: the labour market on the real `World` (roadmap M2)
+- AC-PG-05: the real `World` run at two scales (roadmap M2)
+
 ## API sketch
 For the test writer and the implementer. **A proposal:** of what follows, only the columns marked "exists" are in code today (crate `econ-popgen`, as separate result tables of its stages); the tables move into `World` in `econ-core` when the generated population replaces the invented one of the scale world ([ADR-0005](../../03-architecture/decisions/0005-simulation-core-architecture.md)).
 
@@ -158,7 +164,7 @@ pub fn check_population(before: u64, world: &World, flows: &PersonFlows) -> Resu
 Interest groups count a person with their membership intensity, so `group_size` and `group_sum` for them take an intensity column as well ([interest-groups](interest-groups.md)).
 
 ## Open questions
-Answers accepted by the owner on 2026-10-10.
+Answers accepted by the owner on 2026-10-10, when the spec was locked.
 - [x] **AC-PG-01 and the generator disagreed.** AC-PG-01 now points to the criteria of the generator specs.
 - [x] **"Initial population" was out of date.** Shortened to a pointer.
 - [x] Default scale: 1 : 100, as in [ADR-0003](../../03-architecture/decisions/0003-people-representation.md). A finer default is a performance question for later; nothing in this spec depends on it.
