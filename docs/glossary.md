@@ -168,6 +168,7 @@ Indices: $g$ good, $j$ industry (same set as goods, except that the eight electr
 - **Firm count (`firm_count`):** the integer number of real firms a firm unit represents; the firm equivalent of `hh_weight`. Postings with sector-level counterparties are multiplied by it; bankruptcies and entries change it. See ADR-0016 and ADR-0007.
 - **Tick:** one simulation step: one day. Each process runs at its own period (daily, monthly, yearly). See ADR-0017.
 - **Day:** the tick counter: days since the scenario's start date, which is day 0 (`Day` in `econ-types`). The `Calendar` of a scenario turns it into a **date** of the real calendar. **Month** as a type is a calendar month counted from the start date's month: the index of a monthly statistic, not a tick.
+- **Period:** how often a process runs: daily, staggered (once a month for each household or firm unit, on its own day 1 to 28: `hh_stagger_day`, `unit_stagger_day`), on a fixed day of the month, at month end, quarterly or yearly (`Period` in `econ-core`). See ADR-0017.
 - **Lever:** a variable directly set by the player.
 - **Sample scale (`sample_scale`):** real people per synthetic person; 1 : 100 by default. The research reports call it `scale` (pipeline parameter) and `scale_factor` (save manifest); in this repo both are `sample_scale`. Recorded in every save, history block and export header. See ADR-0003.
 - **Bani (`Bani`):** the money type in code: whole bani (1 RON = 100 bani) as a 64-bit integer with checked arithmetic. Specs still state money in LCU. See ADR-0007.

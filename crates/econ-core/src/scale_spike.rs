@@ -823,7 +823,7 @@ impl ScaleWorld {
 
 /// Days of the month on which households take their monthly decisions
 /// (ADR-0017, staggering): 1 to 28, which every month has.
-pub const STAGGER_DAYS: u8 = 28;
+pub use crate::schedule::STAGGER_DAYS;
 
 /// Who takes their monthly decisions on which day of the month (ADR-0017).
 #[derive(Debug, Clone)]

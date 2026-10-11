@@ -10,6 +10,7 @@
 
 mod hash;
 pub mod scale_spike;
+pub mod schedule;
 pub mod sim;
 
 pub use hash::StateHasher;

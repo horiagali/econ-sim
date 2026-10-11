@@ -34,6 +34,8 @@ pub enum Stream {
     FirmDynamics = 5,
     /// Weather shocks.
     Weather = 6,
+    /// Stagger days of households and firm units (ADR-0017).
+    Schedule = 7,
 }
 
 /// Number of 32-bit words reserved per (tick, entity, stream).
