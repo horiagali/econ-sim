@@ -83,6 +83,9 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `hh_locality_size` | Size class of the locality a household lives in (six classes, from under 2,000 to 200,000 or more inhabitants) | category (6) | state | society/population-housing |
 | — | `hh_urban` | The household's locality is urban (for now: 10,000 inhabitants or more) | bool | derived | society/population-housing |
 | — | `hh_tenure` | How a private household holds its dwelling: owner, tenant, other | category | state | society/population-groups |
+| — | `hh_cash`, `hh_deposits` | Currency and bank deposits of a household. Integer bani in code | LCU | state | society/population-wealth |
+| — | `hh_dwelling_value` | Market value of the dwelling a household owns; 0 if it does not own its home | LCU | state | society/population-wealth |
+| — | `hh_mortgage`, `hh_consumer_debt` | Housing loan and consumer loans a household owes | LCU | state | society/population-wealth |
 | — | `hh_collective` | Record stands for people not living in a private household (institutions, homeless); always one member | bool | state | society/population-generator |
 | $n_f$ | `firm_count[f]` | Real firms represented by firm unit *f* (integer; 1 for a named firm). Read from the scenario; never hardcoded (ADR-0016) | count | state | economy/production |
 | — | `sample_scale` | Real people per synthetic person (default 100). Read from the scenario; never hardcoded (ADR-0003) | ratio | parameter | society/population-groups |

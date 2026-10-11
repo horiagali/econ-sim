@@ -183,3 +183,27 @@ source = "eurostat"
 code = "ilc_pnp3"                  # aggregate replacement ratio for pensions by sex (EU-SILC)
 filters = { geo = ["RO"], time = ["2021"] }
 licence = "eurostat-reuse"
+
+# Household wealth. Inputs of normalise_wealth.py (spec society/population-wealth).
+[[dataset]]
+id = "ro_household_balance_sheet_2021q4"
+source = "eurostat"
+code = "nasq_10_f_bs"              # financial balance sheets, quarterly
+filters = { geo = ["RO"], time = ["2021-Q4"], sector = ["S14_S15"], unit = ["MIO_NAC"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_household_dwellings_2021"
+source = "eurostat"
+code = "nama_10_nfa_bs"            # capital stocks by sector and asset type
+filters = { geo = ["RO"], time = ["2021"], sector = ["S14_S15"], unit = ["CP_MNAC"], asset10 = ["N111N"] }
+licence = "eurostat-reuse"
+
+# Hungary, not Romania: no survey gives the distribution of wealth in Romania.
+# Only proportions are used, and only as a check (see normalise_wealth.py).
+[[dataset]]
+id = "hu_wealth_pattern_2020"
+source = "eurostat"
+code = "icw_res_01"                # share of households and economic resources by income, consumption and wealth quantiles (experimental)
+filters = { geo = ["HU"], time = ["2020"], quant_expn = ["TOTAL"], indic_ewb = ["WLTH_NET"] }
+licence = "eurostat-reuse"

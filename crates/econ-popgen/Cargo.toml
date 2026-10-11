@@ -23,6 +23,8 @@ housing = []
 wages = []
 # Stage G: pensions (spec society/population-pensions). Off until implemented, as above.
 pensions = []
+# Stage H: household wealth (spec society/population-wealth). Off until implemented, as above.
+wealth = []
 
 [dependencies]
 econ-rng.workspace = true

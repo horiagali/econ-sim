@@ -18,9 +18,13 @@ mod jobs;
 mod pensions;
 mod seed;
 mod wages;
+mod wealth;
 
 pub use pensions::{PensionError, PensionMargins, PensionParams, PersonPensions, assign_pensions};
 pub use wages::{PersonWages, WageError, WageMargins, WageParams, assign_wages};
+pub use wealth::{
+    BorrowerRule, Curve, HouseholdWealth, WealthError, WealthMargins, WealthParams, assign_wealth,
+};
 
 pub use attributes::{
     Activity, AttrError, AttrParams, AttributeMargins, EDU_LEVELS, EduLevel, MARGIN_ACTIVITIES,

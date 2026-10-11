@@ -67,6 +67,11 @@ STAGE_PENSIONS = 6  # `tick` of the draw context
 PENSION_SWEEPS = 20  # passes of scaling to the proportions
 PENSION_DISPERSION_PPM = 1_000_000  # the quantile curve is that of all pensioners: used in full
 PENSION_EARNINGS_LINK_PPM = 500_000  # how much of the earnings gap between education groups pensions keep
+# Wealth stage (spec society/population-wealth).
+STAGE_WEALTH = 7  # `tick` of the draw context
+WEALTH_SWEEPS = 20  # passes of scaling to the proportions
+TENURE_OWNER = 0  # `hh_tenure` of an owner household
+WEALTH_COLUMNS = ["hh_cash", "hh_deposits", "hh_dwelling_value", "hh_mortgage", "hh_consumer_debt"]
 
 
 # --- keyed ChaCha8 (ADR-0006) ------------------------------------------------
@@ -1462,6 +1467,226 @@ def pension_fit(pop: dict, pens: dict, attrs: dict, pension: list[int], sample_s
     return out
 
 
+# --- wealth stage ----------------------------------------------------------------------------
+
+def check_wealth_margins(wealth: dict) -> None:
+    if not wealth["rel_locality"]:
+        raise GenError("EmptyTable")
+    if any(v <= 0 for v in wealth["rel_locality"]) or any(v < 0 for v in wealth["totals"].values()):
+        raise GenError("ShapeMismatch")
+    for name in ("liquid_curve", "dwelling_curve", "loan_curve"):
+        ranks, values = wealth[name]["rank"], wealth[name]["value"]
+        if len(ranks) < 2:
+            raise GenError("EmptyTable")
+        if (len(values) != len(ranks) or ranks[0] != 0 or ranks[-1] != UNIT
+                or any(a >= b for a, b in zip(ranks, ranks[1:])) or values[0] <= 0
+                or any(a > b for a, b in zip(values, values[1:]))):
+            raise GenError("ShapeMismatch")
+    for kind in ("mortgage", "consumer"):
+        b = wealth[kind]
+        if not (0 <= b["share"] <= UNIT and 0 <= b["income_link"] <= UNIT and b["age_from"] < b["age_to"]):
+            raise GenError("ShapeMismatch")
+    if any(not 0 <= v <= UNIT for v in wealth["income_link"].values()):
+        raise GenError("ShapeMismatch")
+
+
+def mixed_order(members: list[int], weight: list[int], income: list[int], draw_ppm: dict, link_ppm: int,
+                bonus: dict | None = None) -> list[int]:
+    """`members` from the lowest to the highest key, where the key mixes a member's rank by
+    income (the midpoint of its own weight, in millionths) with its keyed draw:
+    `link_ppm` of the first, the rest of the second, plus an optional bonus."""
+    total = sum(weight[h] for h in members)
+    key, before = {}, 0
+    for h in sorted(members, key=lambda h: (income[h], h)):
+        rank = (2 * before + weight[h]) * UNIT // (2 * total)
+        key[h] = link_ppm * rank + (UNIT - link_ppm) * draw_ppm[h] + (bonus[h] if bonus else 0)
+        before += weight[h]
+    return sorted(members, key=lambda h: (key[h], h))
+
+
+def assign_wealth(pop: dict, wealth: dict, h_attrs: dict, wage: list[int] | None = None,
+                  pension: list[int] | None = None, rng_seed: int = 42, sweeps: int = WEALTH_SWEEPS) -> dict:
+    """Cash, deposits, dwelling value, housing loan and consumer loan of every household, in bani.
+
+    `wealth` is the wealth margin file; `h_attrs` the result of the housing
+    stage; `wage` and `pension` the results of those stages (a household's
+    income is their sum over its members; without them every income is 0 and
+    places are by the keyed draw alone). Records that are not private
+    households have nothing.
+
+    1. Dwellings: owner households, placed on the dwelling curve by income and
+       draw, scaled to the proportions between locality classes and to the
+       national value of owned dwellings.
+    2. Money: private households, placed on the liquid curve; the national
+       cash and deposits. A household's money is cash and deposits in the
+       national proportion.
+    3. Housing loans: the owner households of borrowing age with the highest
+       keys (income, draw, a bonus in towns) up to the share that borrows;
+       the largest balances go to the most valuable homes.
+    4. Consumer loans: likewise among all private households of borrowing age.
+    """
+    check_wealth_margins(wealth)
+    n_hh, n = len(pop["hh_weight"]), len(pop["household_id"])
+    if len(h_attrs["hh_tenure"]) != n_hh or len(h_attrs["hh_locality_size"]) != n_hh:
+        raise GenError("ShapeMismatch")
+    if any(col is not None and len(col) != n for col in (wage, pension)):
+        raise GenError("ShapeMismatch")
+    n_class = len(wealth["rel_locality"])
+    if any(k >= n_class for k in h_attrs["hh_locality_size"]):
+        raise GenError("ShapeMismatch")
+    weight = pop["hh_weight"]
+    income, head_years = [0] * n_hh, [0] * n_hh
+    for i, h in enumerate(pop["household_id"]):
+        income[h] += (wage[i] if wage else 0) + (pension[i] if pension else 0)
+        if pop["role"][i] == ROLE_HEAD:
+            head_years[h] = pop["age"][i] // 12
+    private = [h for h in range(n_hh) if not pop["hh_collective"][h]]
+    out = {name: [0] * n_hh for name in WEALTH_COLUMNS}
+    if not private:
+        return out
+    # Four keyed draws per household, in millionths, in this order.
+    draws = {name: {} for name in ("dwelling", "liquid", "mortgage", "consumer")}
+    for h in private:
+        d = Draw(rng_seed, STREAM_POPULATION_GEN, STAGE_WEALTH, h)
+        for name in draws:
+            draws[name][h] = ((d.u64() >> 44) * UNIT) >> 20
+    totals = {k: v * BANI_PER_LEU for k, v in wealth["totals"].items()}
+    both = [UNIT, UNIT]            # `spread` without a split by sex: everyone is in its first group
+    locality = h_attrs["hh_locality_size"]
+    urban_from = h_attrs.get("urban_from_class", n_class // 2)
+
+    def place(members: list[int], dims: list, curve: dict, bill: int) -> list[int]:
+        if not members or bill <= 0:
+            return [0] * len(members)
+        return spread([weight[h] for h in members], [0] * len(members), dims, both, curve, UNIT, bill, 0, sweeps)
+
+    # 1. Dwellings of owner households.
+    owners = [h for h in private if h_attrs["hh_tenure"][h] == TENURE_OWNER]
+    order = mixed_order(owners, weight, income, draws["dwelling"], wealth["income_link"]["dwelling"]) if owners else []
+    dims = [([locality[h] for h in order], wealth["rel_locality"] * 2)]
+    for h, v in zip(order, place(order, dims, wealth["dwelling_curve"], totals["dwellings"])):
+        out["hh_dwelling_value"][h] = v
+
+    # 2. Money of private households.
+    order = mixed_order(private, weight, income, draws["liquid"], wealth["income_link"]["liquid"])
+    liquid_total = totals["cash"] + totals["deposits"]
+    for h, v in zip(order, place(order, [], wealth["liquid_curve"], liquid_total)):
+        out["hh_cash"][h] = v * totals["cash"] // liquid_total if liquid_total else 0
+        out["hh_deposits"][h] = v - out["hh_cash"][h]
+
+    # 3 and 4. Loans: who borrows, then how much.
+    total_w = sum(weight[h] for h in private)
+
+    def borrowers(pool: list[int], rule: dict, draw_ppm: dict) -> list[int]:
+        eligible = [h for h in pool if rule["age_from"] <= head_years[h] < rule["age_to"]]
+        if not eligible:
+            return []
+        bonus = {h: rule["urban_bonus"] * UNIT if locality[h] >= urban_from else 0 for h in eligible}
+        ranked = mixed_order(eligible, weight, income, draw_ppm, rule["income_link"], bonus)
+        target, got, chosen = rule["share"] * total_w // UNIT, 0, []
+        for h in reversed(ranked):                 # from the highest key down
+            if got >= target:
+                break
+            chosen.append(h)
+            got += weight[h]
+        return chosen
+
+    chosen = sorted(borrowers(owners, wealth["mortgage"], draws["mortgage"]),
+                    key=lambda h: (out["hh_dwelling_value"][h], h))
+    for h, v in zip(chosen, place(chosen, [], wealth["loan_curve"], totals["housing_loans"])):
+        out["hh_mortgage"][h] = v
+    chosen = list(reversed(borrowers(private, wealth["consumer"], draws["consumer"])))   # lowest key first
+    for h, v in zip(chosen, place(chosen, [], wealth["loan_curve"], totals["consumer_loans"])):
+        out["hh_consumer_debt"][h] = v
+    return out
+
+
+def wealth_hash(w_attrs: dict) -> int:
+    """FNV-1a 64 over the household count (u32, little-endian), then each household's cash, deposits,
+    dwelling value, housing loan and consumer loan in bani (u64, little-endian, in that order)."""
+    h = 0xCBF29CE484222325
+    n_hh = len(w_attrs[WEALTH_COLUMNS[0]])
+    data = n_hh.to_bytes(4, "little") + b"".join(
+        w_attrs[name][i].to_bytes(8, "little") for i in range(n_hh) for name in WEALTH_COLUMNS)
+    for b in data:
+        h = ((h ^ b) * 0x100000001B3) & M64
+    return h
+
+
+def quintile_shares(pairs: list[tuple[int, int, int]]) -> list[float]:
+    """Share of the amount held by each fifth of the weight; `pairs` are (sort key, weight, amount)."""
+    pairs = sorted(pairs)
+    total_w = sum(wt for _, wt, _ in pairs)
+    total = sum(wt * amount for _, wt, amount in pairs)
+    shares, seen = [0.0] * 5, 0
+    for _, wt, amount in pairs:
+        left = wt
+        while left:                                 # a record may straddle two fifths
+            q = min(4, seen * 5 // total_w)
+            room = (q + 1) * total_w // 5 - seen if q < 4 else left
+            part = min(left, max(room, 1))
+            shares[q] += part * amount
+            seen += part
+            left -= part
+    return [round(s / total, 4) if total else 0.0 for s in shares]
+
+
+def wealth_fit(pop: dict, wealth: dict, h_attrs: dict, w_attrs: dict, wage: list[int] | None = None,
+               pension: list[int] | None = None) -> dict:
+    """How the wealth fits: totals, who holds what, and the shares of net wealth by fifth
+    against the neighbour's pattern."""
+    n_hh = len(pop["hh_weight"])
+    weight = pop["hh_weight"]
+    private = [h for h in range(n_hh) if not pop["hh_collective"][h]]
+    total_w = sum(weight[h] for h in private)
+    income = [0] * n_hh
+    for i, h in enumerate(pop["household_id"]):
+        income[h] += (wage[i] if wage else 0) + (pension[i] if pension else 0)
+    want = {"hh_cash": "cash", "hh_deposits": "deposits", "hh_dwelling_value": "dwellings",
+            "hh_mortgage": "housing_loans", "hh_consumer_debt": "consumer_loans"}
+    out: dict = {"total_relative_error": {}, "share_of_households_with": {}}
+    for name, key in want.items():
+        got = sum(weight[h] * w_attrs[name][h] for h in private)
+        target = wealth["totals"][key] * BANI_PER_LEU
+        out["total_relative_error"][name] = round(abs(got - target) / target, 8) if target else 0.0
+        out["share_of_households_with"][name] = round(
+            sum(weight[h] for h in private if w_attrs[name][h] > 0) / total_w, 4)
+    liquid = {h: w_attrs["hh_cash"][h] + w_attrs["hh_deposits"][h] for h in private}
+    net = {h: liquid[h] + w_attrs["hh_dwelling_value"][h] - w_attrs["hh_mortgage"][h] - w_attrs["hh_consumer_debt"][h]
+           for h in private}
+    out["net_wealth_share_by_wealth_fifth"] = quintile_shares([(net[h], weight[h], net[h]) for h in private])
+    out["net_wealth_share_by_income_fifth"] = quintile_shares([(income[h], weight[h], net[h]) for h in private])
+    out["pattern_by_wealth_fifth"] = [v / UNIT for v in wealth["pattern"]["net_wealth_share_by_wealth_quintile"]]
+    out["pattern_by_income_fifth"] = [v / UNIT for v in wealth["pattern"]["net_wealth_share_by_income_quintile"]]
+    out["liquid_share_by_liquid_fifth"] = quintile_shares([(liquid[h], weight[h], liquid[h]) for h in private])
+    by_liquid = sorted(private, key=lambda h: (liquid[h], h), reverse=True)
+    top, seen = 0, 0
+    for h in by_liquid:
+        if seen * 10 >= total_w:
+            break
+        top += weight[h] * liquid[h]
+        seen += weight[h]
+    out["liquid_share_of_top_tenth"] = round(top / sum(weight[h] * liquid[h] for h in private), 4)
+    owners = [h for h in private if w_attrs["hh_dwelling_value"][h] > 0]
+    n_class = len(wealth["rel_locality"])
+    cls_w, cls_v = [0] * n_class, [0] * n_class
+    for h in owners:
+        k = h_attrs["hh_locality_size"][h]
+        cls_w[k] += weight[h]
+        cls_v[k] += weight[h] * w_attrs["hh_dwelling_value"][h]
+    out["mean_dwelling_lei_by_locality_class"] = [round(v / w / BANI_PER_LEU) if w else 0 for v, w in zip(cls_v, cls_w)]
+    out["mean_lei"] = {
+        "liquid_per_household": round(sum(weight[h] * liquid[h] for h in private) / total_w / BANI_PER_LEU),
+        "median_liquid": weighted_quantile([(liquid[h], weight[h]) for h in private], 500_000) / BANI_PER_LEU,
+        "dwelling_per_owner": round(sum(cls_v) / sum(cls_w) / BANI_PER_LEU) if owners else 0,
+    }
+    negative = sum(weight[h] for h in private if net[h] < 0)
+    out["share_with_negative_net_wealth"] = round(negative / total_w, 4)
+    underwater = sum(weight[h] for h in private if w_attrs["hh_mortgage"][h] > w_attrs["hh_dwelling_value"][h])
+    out["share_with_loan_above_home_value"] = round(underwater / total_w, 4)
+    return out
+
+
 def attributes_hash(attrs: dict) -> int:
     """FNV-1a 64 over the person count (u32, little-endian), then each person's
     education level and activity (one byte each)."""
@@ -1656,6 +1881,8 @@ def main() -> int:
     ap.add_argument("--housing", help="housing margin file: also run the housing stage")
     ap.add_argument("--wages", help="earnings margin file: also run the wage stage (needs --attributes and --jobs)")
     ap.add_argument("--pensions", help="pension margin file: also run the pension stage (needs --attributes)")
+    ap.add_argument("--wealth", help="wealth margin file: also run the wealth stage (needs --housing; "
+                                     "uses the wages and pensions if those stages ran)")
     ap.add_argument("--wage-dispersion-ppm", type=int, default=WAGE_DISPERSION_PPM, help=argparse.SUPPRESS)
     a = ap.parse_args()
     check_rng()
@@ -1712,8 +1939,20 @@ def main() -> int:
         h_attrs = assign_housing(pop, m["counties"], housing, a.seed)
         summary["housing_hash"] = f"{housing_hash(h_attrs):016x}"
         summary["seconds"] = round(time.time() - t0, 1)
+    w_attrs = {}
+    if a.wealth:
+        if not h_attrs:
+            ap.error("--wealth needs --housing")
+        with open(a.wealth, encoding="utf-8") as f:
+            wealth = json.load(f)
+        w_attrs = assign_wealth(pop, wealth, dict(h_attrs, urban_from_class=housing["urban_from_class"]),
+                                wage or None, pension or None, a.seed)
+        summary["wealth_hash"] = f"{wealth_hash(w_attrs):016x}"
+        summary["seconds"] = round(time.time() - t0, 1)
     if a.report:
         summary["fit"] = fit_errors(m, pop, a.sample_scale)
+        if w_attrs:
+            summary["wealth_fit"] = wealth_fit(pop, wealth, h_attrs, w_attrs, wage or None, pension or None)
         if h_attrs:
             summary["housing_fit"] = housing_fit_errors(pop, housing, h_attrs, a.sample_scale)
         if attrs:
@@ -1728,7 +1967,7 @@ def main() -> int:
     else:
         print(json.dumps({"summary": summary, **{k: v for k, v in pop.items() if k != "report"}, **attrs,
                           **job_attrs, **h_attrs, **({"wage": wage} if wage else {}),
-                          **({"pension": pension} if pension else {})}))
+                          **({"pension": pension} if pension else {}), **w_attrs}))
     return 0
 
 
