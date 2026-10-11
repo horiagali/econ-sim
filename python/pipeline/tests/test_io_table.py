@@ -92,7 +92,9 @@ class TestNormaliseIo(unittest.TestCase):
 
     def test_the_catalogue_of_the_fixture_is_the_catalogue_of_the_spec(self):
         m = json.loads(FIXTURE.read_text(encoding="utf-8"))
-        in_spec = set(re.findall(r"^\| `([a-z_]+)` \|", SPEC.read_text(encoding="utf-8"), re.M))
+        # The catalogue's tables come before the section on the input-output table, which has a table of its own.
+        catalogue_text = SPEC.read_text(encoding="utf-8").split("## The input-output table")[0]
+        in_spec = set(re.findall(r"^\| `([a-z_]+)` \|", catalogue_text, re.M))
         out = nio.catalogue_output(m)
         self.assertEqual(set(out), in_spec)
         self.assertEqual(len(out), 90)
