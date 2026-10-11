@@ -3,6 +3,10 @@
 Every change to a golden hash or snapshot needs an entry here with the reason
 (ADR-0010). Newest first.
 
+## 2026-10-11 — Population stages F to J: first golden hashes
+- Added `tests/golden/popgen_ro_census2021_wages.hashes` (AC-POPW-07), `popgen_ro_census2021_pensions.hashes` (AC-POPP-07), `popgen_ro_census2021_wealth.hashes` (AC-POPH2-07), `popgen_ro_census2021_incomes.hashes` (AC-POPI-07) and `popgen_ro_census2021_employers.hashes` (AC-POPE-06): the wage, pension, wealth, income and employer hash of the Census 2021 fixture population at 1:1000, 1:200, 1:100 and 1:10 (seed 42, default parameters, every earlier stage run). Reason: initial baseline for the five stages. The values are those of the five specs, reproduced on the day with the Python reference (`python/reference/popgen_reference.py`); the Rust stages do not exist yet.
+- **Unchanged:** every other golden. The stages change nothing before them (AC-POPW-02, AC-POPP-02, AC-POPH2-02, AC-POPI-02, AC-POPE-02).
+
 ## 2026-10-10 — Population stages C, D and E: first golden hashes
 - Added `tests/golden/popgen_ro_census2021_attributes.hashes` (AC-POPA-06), `popgen_ro_census2021_jobs.hashes` (AC-POPJ-06) and `popgen_ro_census2021_housing.hashes` (AC-POPH-06): the attribute, jobs and housing hash of the Census 2021 fixture population at 1:1000, 1:200, 1:100 and 1:10 (seed 42, default parameters). Reason: initial baseline for the three stages. The values are those of the three specs, reproduced on the day with the Python reference (`python/reference/popgen_reference.py`); the Rust stages do not exist yet.
 - **Unchanged:** `tests/golden/popgen_ro_census2021.hashes` and every other golden. The stages do not change the population (AC-POPA-02, AC-POPJ-02, AC-POPH-02).

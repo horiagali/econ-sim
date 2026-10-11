@@ -10,5 +10,34 @@ mod attributes;
 mod housing;
 #[cfg(feature = "jobs")]
 mod jobs;
-#[cfg(any(feature = "attributes", feature = "jobs", feature = "housing"))]
+#[cfg(any(
+    feature = "attributes",
+    feature = "jobs",
+    feature = "housing",
+    feature = "wages",
+    feature = "pensions",
+    feature = "wealth",
+    feature = "incomes",
+    feature = "employers"
+))]
 mod support;
+
+// Stages F to J, likewise: off until each stage is implemented.
+#[cfg(feature = "employers")]
+mod employers;
+#[cfg(feature = "incomes")]
+mod incomes;
+#[cfg(feature = "pensions")]
+mod pensions;
+#[cfg(any(
+    feature = "wages",
+    feature = "pensions",
+    feature = "wealth",
+    feature = "incomes",
+    feature = "employers"
+))]
+mod support_fj;
+#[cfg(feature = "wages")]
+mod wages;
+#[cfg(feature = "wealth")]
+mod wealth;
