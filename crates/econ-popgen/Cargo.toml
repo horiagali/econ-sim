@@ -27,6 +27,8 @@ pensions = []
 wealth = []
 # Stage I: declared and undeclared income (spec society/population-incomes). Off until implemented, as above.
 incomes = []
+# Stage J: industry and employer (spec society/population-employers). Off until implemented, as above.
+employers = []
 
 [dependencies]
 econ-rng.workspace = true

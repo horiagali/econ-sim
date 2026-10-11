@@ -228,11 +228,18 @@ def build(sizes_doc: dict, foreign_doc: dict, io: dict) -> dict:
             "value_added": round(u["value_added"]), "wages": round(u["wages"]),
             "ownership": {"state": state, "domestic_private": UNIT - state - foreign_ppm, "foreign": foreign_ppm},
         })
+    # The catalogue's industries in a fixed order, each with its industry group (that of its table industries).
+    group_of: dict[str, int] = {}
+    for entry in io["catalogue"]:
+        for part in entry["parts"]:
+            group_of.setdefault(part["id"], io["industry_group_of"][pos[entry["industry"]]])
+    industries = [{"id": cid, "industry_group": group_of[cid]} for cid in sorted(group_of)]
     total = lambda key: sum(u[key] for u in out_units)  # noqa: E731
     by_controller = {c: sum(u["value_added"] for u in out_units if u["controller"] == c)
                      for c in ("domestic", "foreign", "state")}
     return {
         "year": 2021, "unit": "lei a year", "sizes": [*SIZES, "public"],
+        "industries": industries,
         "units": out_units,
         "size_structure_guessed_for": guessed,
         "totals": {"units": len(out_units), "firms": total("firm_count"), "persons_employed": total("persons_employed"),

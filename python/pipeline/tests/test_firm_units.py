@@ -34,7 +34,7 @@ def foreign_doc(home=40.0):
                      ("C29_C30", "AV_MEUR", "DE"): 60.0})
 
 
-IO = {"exchange_rate": 5.0, "industries": [{"code": "C29"}], "output": [1_000_000_000],
+IO = {"exchange_rate": 5.0, "industries": [{"code": "C29"}], "industry_group_of": [1], "output": [1_000_000_000],
       "compensation": [200_000_000], "operating_surplus": [90_000_000], "other_taxes_less_subsidies": [10_000_000],
       "catalogue": [{"industry": "C29", "parts": [{"id": "car_parts", "share": 600_000}, {"id": "cars", "share": 400_000}]}]}
 
@@ -68,6 +68,7 @@ class TestNormaliseFirms(unittest.TestCase):
         self.assertEqual(units["cars.micro.domestic"]["firm_count"], 24)   # 40% of the 60 micro firms
         self.assertAlmostEqual(m["totals"]["wages"], 200_000_000, delta=10)
         self.assertEqual(m["size_structure_guessed_for"], [])
+        self.assertEqual(m["industries"], [{"id": "car_parts", "industry_group": 1}, {"id": "cars", "industry_group": 1}])
 
     def test_little_foreign_control_does_not_split_a_cohort(self):
         m = nf.build(sizes_doc(), foreign_doc(home=95.0), IO)              # 5% foreign: below the threshold

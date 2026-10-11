@@ -79,6 +79,11 @@ KIND_EMPLOYER, KIND_OWN_ACCOUNT, KIND_FAMILY_WORKER = 2, 3, 4
 AGRICULTURE = 0  # industry group
 INFORMAL_AGES = (15, 75)  # years: who can have informal income outside a job
 INCOME_COLUMNS = ["wage_declared", "self_employment_income", "self_employment_declared", "informal_income"]
+# Employer stage (spec society/population-employers).
+STAGE_EMPLOYERS = 10  # `tick` of the draw context
+NO_INDUSTRY = 255  # `industry` of a person who is not employed
+NO_EMPLOYER = 65535  # `employer` of a person who is not employed
+EMPLOYER_WAGE_LINK_PPM = 500_000  # how closely an employee's place among employers follows the wage
 WEALTH_COLUMNS = ["hh_cash", "hh_deposits", "hh_dwelling_value", "hh_mortgage", "hh_consumer_debt"]
 
 
@@ -1935,6 +1940,125 @@ def income_fit(pop: dict, inc: dict, attrs: dict, job_attrs: dict, h_attrs: dict
     }
 
 
+# --- employer stage ---------------------------------------------------------------------------
+
+def assign_employers(pop: dict, firms: dict, job_attrs: dict, wage: list[int] | None = None, rng_seed: int = 42,
+                     wage_link_ppm: int = EMPLOYER_WAGE_LINK_PPM) -> dict:
+    """The catalogue industry and the firm unit of every employed person.
+
+    `firms` is the firm-unit file (its `industries`, each with an industry
+    group, and its `units`); `job_attrs` the result of the jobs stage; `wage`
+    that of the wage stage (without it employees are placed by the draw).
+    Returns {"industry": [...], "employer": [...]}: indices into
+    `firms["industries"]` and `firms["units"]`; NO_INDUSTRY and NO_EMPLOYER
+    for persons who are not employed.
+
+    Per industry group. Employees: the group's units from the lowest to the
+    highest pay per person, the employees from the lowest to the highest key
+    (wage mixed with the draw); `split` gives each unit its share of them by
+    persons employed, so better-paid employees are in better-paying units.
+    Employers, own-account and family workers: `deal` over the group's
+    domestic micro units (all its cohort units if it has none), by persons employed.
+    """
+    industries, units = firms["industries"], firms["units"]
+    if not industries or not units:
+        raise GenError("EmptyTable")
+    n = len(pop["household_id"])
+    status, group = job_attrs["employment_status"], job_attrs["industry_group"]
+    if len(status) != n or len(group) != n or (wage is not None and len(wage) != n):
+        raise GenError("ShapeMismatch")
+    index_of = {ind["id"]: k for k, ind in enumerate(industries)}
+    if len(industries) > NO_INDUSTRY or len(units) > NO_EMPLOYER or any(u["industry"] not in index_of for u in units):
+        raise GenError("ShapeMismatch")
+    unit_industry = [index_of[u["industry"]] for u in units]
+    n_groups = 1 + max(ind["industry_group"] for ind in industries)
+    units_of: list[list[int]] = [[] for _ in range(n_groups)]
+    for k, ind in enumerate(unit_industry):
+        units_of[industries[ind]["industry_group"]].append(k)
+    pw = [pop["hh_weight"][h] for h in pop["household_id"]]
+    pay = wage if wage is not None else [0] * n
+    industry, employer = [NO_INDUSTRY] * n, [NO_EMPLOYER] * n
+    employed = [i for i in range(n) if status[i] != KIND_NONE]
+    if any(group[i] >= n_groups or not units_of[group[i]] for i in employed):
+        raise GenError("NoMargin")
+    prio = {i: Draw(rng_seed, STREAM_POPULATION_GEN, STAGE_EMPLOYERS, i).u64() for i in employed}
+    draw_ppm = {i: ((v >> 44) * UNIT) >> 20 for i, v in prio.items()}
+    for g in range(n_groups):
+        employees = [i for i in employed if group[i] == g and status[i] == KIND_EMPLOYEE]
+        if employees:
+            # Units from the lowest to the highest pay per person.
+            order_u = sorted(units_of[g], key=lambda k: (units[k]["wages"] * UNIT // max(units[k]["persons_employed"], 1), k))
+            targets = [units[k]["persons_employed"] for k in order_u]
+            if not any(targets):
+                targets = [1] * len(order_u)
+            order = mixed_order(employees, pw, pay, draw_ppm, wage_link_ppm)
+            for i, c in zip(order, split([pw[i] for i in order], targets, [0] * len(targets))):
+                employer[i], industry[i] = order_u[c], unit_industry[order_u[c]]
+        own = sorted((i for i in employed if group[i] == g and status[i] != KIND_EMPLOYEE), key=lambda i: (prio[i], i))
+        if own:
+            micro = [k for k in units_of[g] if units[k]["size"] == "micro" and units[k]["controller"] == "domestic"]
+            pool = micro or [k for k in units_of[g] if units[k]["kind"] == "cohort"] or units_of[g]
+            targets = [units[k]["persons_employed"] for k in pool]
+            if not any(targets):
+                targets = [1] * len(pool)
+            for i, c in zip(own, deal([pw[i] for i in own], targets, [0] * len(targets))):
+                employer[i], industry[i] = pool[c], unit_industry[pool[c]]
+    return {"industry": industry, "employer": employer}
+
+
+def employers_hash(e_attrs: dict) -> int:
+    """FNV-1a 64 over the person count (u32, little-endian), then each person's industry (one byte)
+    and employer (u16, little-endian)."""
+    h = 0xCBF29CE484222325
+    data = len(e_attrs["industry"]).to_bytes(4, "little") + b"".join(
+        bytes([ind]) + emp.to_bytes(2, "little") for ind, emp in zip(e_attrs["industry"], e_attrs["employer"]))
+    for b in data:
+        h = ((h ^ b) * 0x100000001B3) & M64
+    return h
+
+
+def employer_fit(pop: dict, firms: dict, job_attrs: dict, e_attrs: dict, wage: list[int] | None = None) -> dict:
+    """How the placement fits: each unit's share of its industry group's employees against its
+    share of persons employed, and pay by size of employer."""
+    units, industries = firms["units"], firms["industries"]
+    n = len(e_attrs["employer"])
+    pw = [pop["hh_weight"][h] for h in pop["household_id"]]
+    status = job_attrs["employment_status"]
+    group_of_unit = [next(ind["industry_group"] for ind in industries if ind["id"] == u["industry"]) for u in units]
+    n_groups = 1 + max(group_of_unit)
+    got, paid = [0] * len(units), [0] * len(units)
+    for i in range(n):
+        if status[i] == KIND_EMPLOYEE:
+            got[e_attrs["employer"][i]] += pw[i]
+            paid[e_attrs["employer"][i]] += pw[i] * (wage[i] if wage else 0)
+    worst = 0.0
+    for g in range(n_groups):
+        ks = [k for k in range(len(units)) if group_of_unit[k] == g]
+        total_got, total_want = sum(got[k] for k in ks), sum(units[k]["persons_employed"] for k in ks)
+        if total_got and total_want:
+            worst = max(worst, max(abs(got[k] / total_got - units[k]["persons_employed"] / total_want) for k in ks))
+    by_size = {}
+    for size in firms["sizes"]:
+        ks = [k for k in range(len(units)) if units[k]["size"] == size]
+        w = sum(got[k] for k in ks)
+        by_size[size] = {"employees": w, "mean_wage_lei": round(sum(paid[k] for k in ks) / w / BANI_PER_LEU) if w and wage else 0}
+    self_employed = [i for i in range(n) if status[i] not in (KIND_NONE, KIND_EMPLOYEE)]
+    in_micro = sum(pw[i] for i in self_employed if units[e_attrs["employer"][i]]["size"] == "micro")
+    by_industry: dict[int, int] = {}
+    for i in range(n):
+        if status[i] != KIND_NONE:
+            by_industry[e_attrs["industry"][i]] = by_industry.get(e_attrs["industry"][i], 0) + pw[i]
+    top = sorted(by_industry.items(), key=lambda kv: -kv[1])[:5]
+    return {
+        "largest_gap_of_a_unit_share_in_its_group": round(worst, 4),
+        "employees_and_pay_by_size": by_size,
+        "self_employed_in_micro_units": round(in_micro / sum(pw[i] for i in self_employed), 4) if self_employed else 0.0,
+        "units_with_employees": sum(1 for v in got if v > 0),
+        "industries_with_workers": len(by_industry),
+        "largest_industries": [(industries[k]["id"], v) for k, v in top],
+    }
+
+
 def attributes_hash(attrs: dict) -> int:
     """FNV-1a 64 over the person count (u32, little-endian), then each person's
     education level and activity (one byte each)."""
@@ -2132,6 +2256,7 @@ def main() -> int:
     ap.add_argument("--wealth", help="wealth margin file: also run the wealth stage (needs --housing; "
                                      "uses the wages and pensions if those stages ran)")
     ap.add_argument("--incomes", help="income margin file: also run the income-split stage (needs --wages and --housing)")
+    ap.add_argument("--firms", help="firm-unit file: also run the employer stage (needs --jobs; uses the wages if that stage ran)")
     ap.add_argument("--wage-dispersion-ppm", type=int, default=WAGE_DISPERSION_PPM, help=argparse.SUPPRESS)
     a = ap.parse_args()
     check_rng()
@@ -2188,6 +2313,15 @@ def main() -> int:
         h_attrs = assign_housing(pop, m["counties"], housing, a.seed)
         summary["housing_hash"] = f"{housing_hash(h_attrs):016x}"
         summary["seconds"] = round(time.time() - t0, 1)
+    e_attrs = {}
+    if a.firms:
+        if not job_attrs:
+            ap.error("--firms needs --attributes and --jobs")
+        with open(a.firms, encoding="utf-8") as f:
+            firms = json.load(f)
+        e_attrs = assign_employers(pop, firms, job_attrs, wage or None, a.seed)
+        summary["employers_hash"] = f"{employers_hash(e_attrs):016x}"
+        summary["seconds"] = round(time.time() - t0, 1)
     i_attrs = {}
     if a.incomes:
         if not (wage and h_attrs):
@@ -2209,6 +2343,8 @@ def main() -> int:
         summary["seconds"] = round(time.time() - t0, 1)
     if a.report:
         summary["fit"] = fit_errors(m, pop, a.sample_scale)
+        if e_attrs:
+            summary["employer_fit"] = employer_fit(pop, firms, job_attrs, e_attrs, wage or None)
         if i_attrs:
             summary["income_fit"] = income_fit(pop, inc, attrs, job_attrs, h_attrs, wage, i_attrs)
         if w_attrs:
@@ -2227,7 +2363,7 @@ def main() -> int:
     else:
         print(json.dumps({"summary": summary, **{k: v for k, v in pop.items() if k != "report"}, **attrs,
                           **job_attrs, **h_attrs, **({"wage": wage} if wage else {}),
-                          **({"pension": pension} if pension else {}), **w_attrs, **i_attrs}))
+                          **({"pension": pension} if pension else {}), **w_attrs, **i_attrs, **e_attrs}))
     return 0
 
 

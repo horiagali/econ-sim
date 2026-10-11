@@ -12,6 +12,7 @@
 mod arith;
 mod assign;
 mod attributes;
+mod employers;
 mod fit;
 mod housing;
 mod incomes;
@@ -21,6 +22,10 @@ mod seed;
 mod wages;
 mod wealth;
 
+pub use employers::{
+    EmployerError, EmployerParams, FirmUnit, FirmUnits, NO_EMPLOYER, NO_INDUSTRY, PersonEmployers,
+    UnitSize, assign_employers,
+};
 pub use incomes::{
     IncomeError, IncomeMargins, IncomeParams, InformalPropensity, OtherIncomes,
     assign_other_incomes,
