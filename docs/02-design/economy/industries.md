@@ -226,6 +226,22 @@ Romania 2021 in the table: output 2,237 billion lei, value added 1,072, compensa
 
 The exception for electricity (below) is not in the data yet: the table has one industry that sells one product.
 
+## The firm units (data, 2026-10-11)
+The starting firm table ([ADR-0016](../../03-architecture/decisions/0016-firm-representation.md)) is `python/pipeline/fixtures/firm_units2021_ro.json` (`normalise_firms.py`): 349 units over the 90 industries, standing for about one million firms.
+
+| Kind of unit | What it is |
+|---|---|
+| `<industry>.micro.domestic`, `.small.`, `.large.` | cohort firms by size class: under 10 persons employed, 10 to 49, 50 or more |
+| `<industry>.<size>.foreign` | the foreign-controlled part of a size class, where it is at least 10% of the class |
+| `<industry>.public` | non-market public producers: public administration, defence, public education, health and care |
+
+Each unit has a firm count, persons employed, its part of the industry's output, value added and wage bill (which add up to the input-output table), and an ownership vector.
+
+- **Measured:** enterprises, persons employed and value added by size class and two-digit activity (structural business statistics 2021); the share of value added under foreign control by activity (foreign affiliates statistics 2021: 68% in manufacturing, 30% of all value added); the public share of education, health and care (what the wages of their market part leave of the industry's wage bill: 98%, 90% and 72%).
+- **Guessed** (listed in the file): the size structure of agriculture, forestry, fishing, oil refining, membership organisations and households as employers, which the business statistics do not cover or do not publish; that foreign control sits in the largest firms first, and that a foreign-controlled cohort has a tenth as many firms for its size; a size class's share of wages (the mean of its shares of persons and of value added).
+
+> **Simplification:** a catalogue industry inherits the size structure and the foreign share of the table industry it is part of (all six farm industries look alike; all eleven energy industries look alike). No named firms yet: Dacia is inside `cars.large.foreign`. State-owned companies that sell on the market are not marked yet either. Both come with roadmap M9. Persons employed are those of the statistics and of a guess for public units; the generator's own employed persons are placed in units by a later stage.
+
 ## Open questions
 - [ ] Get P&R 2026's sector list (the owner's reference for granularity) and reconcile.
 - [x] Split electricity generation by technology into separate industries (owner decision 2026-10-09): 8 generation industries plus `power_grid` and `power_supply`; see above and [energy](energy.md).

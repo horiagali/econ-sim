@@ -262,3 +262,19 @@ source = "eurostat"
 code = "nasq_10_f_bs"              # financial balance sheets, quarterly
 filters = { geo = ["RO"], time = ["2021-Q4"], unit = ["MIO_NAC"] }
 licence = "eurostat-reuse"
+
+# Enterprises by size class and activity, 2021. Input of normalise_firms.py
+# (ADR-0016; spec economy/industries).
+[[dataset]]
+id = "ro_enterprises_by_size_2021"
+source = "eurostat"
+code = "sbs_sc_ovw"                # enterprise statistics by size class and NACE Rev. 2 activity
+filters = { geo = ["RO"], time = ["2021"], indic_sbs = ["ENT_NR", "EMP_NR", "SAL_NR", "AV_MEUR", "WAGE_MEUR"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_foreign_controlled_2021"
+source = "eurostat"
+code = "fats_activ"                # foreign-controlled enterprises by activity and country of control
+filters = { geo = ["RO"], time = ["2021"], indic_sbs = ["AV_MEUR", "EMP_NR"] }
+licence = "eurostat-reuse"

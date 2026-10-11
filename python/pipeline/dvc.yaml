@@ -44,6 +44,10 @@ stages:
     cmd: python normalise_balance_sheets.py
     deps: [normalise_balance_sheets.py, normalise_census.py, jsonstat.py, data/raw/ro_balance_sheets_2021q4.json]
     outs: [data/derived/balance_sheets2021q4_ro.json]
+  normalise_firms:
+    cmd: python normalise_firms.py
+    deps: [normalise_firms.py, normalise_census.py, jsonstat.py, data/raw/ro_enterprises_by_size_2021.json, data/raw/ro_foreign_controlled_2021.json, data/derived/io_table2021_ro.json]
+    outs: [data/derived/firm_units2021_ro.json]
   # The population generator (spec society/population-generator) and its stages
   # C, D and E (education and activity, jobs, locality size and tenure). It is Rust
   # (crate econ-popgen), run through econ-cli; sample_scale comes from the scenario.
