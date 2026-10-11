@@ -25,6 +25,8 @@ wages = []
 pensions = []
 # Stage H: household wealth (spec society/population-wealth). Off until implemented, as above.
 wealth = []
+# Stage I: declared and undeclared income (spec society/population-incomes). Off until implemented, as above.
+incomes = []
 
 [dependencies]
 econ-rng.workspace = true

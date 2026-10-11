@@ -71,6 +71,14 @@ PENSION_EARNINGS_LINK_PPM = 500_000  # how much of the earnings gap between educ
 STAGE_WEALTH = 7  # `tick` of the draw context
 WEALTH_SWEEPS = 20  # passes of scaling to the proportions
 TENURE_OWNER = 0  # `hh_tenure` of an owner household
+# Income-split stage (spec society/population-incomes).
+STAGE_INCOMES = 8  # `tick` of the draw context of persons
+STAGE_SUBSISTENCE = 9  # `tick` of the draw context of households
+INCOME_SWEEPS = 20
+KIND_EMPLOYER, KIND_OWN_ACCOUNT, KIND_FAMILY_WORKER = 2, 3, 4
+AGRICULTURE = 0  # industry group
+INFORMAL_AGES = (15, 75)  # years: who can have informal income outside a job
+INCOME_COLUMNS = ["wage_declared", "self_employment_income", "self_employment_declared", "informal_income"]
 WEALTH_COLUMNS = ["hh_cash", "hh_deposits", "hh_dwelling_value", "hh_mortgage", "hh_consumer_debt"]
 
 
@@ -1687,6 +1695,246 @@ def wealth_fit(pop: dict, wealth: dict, h_attrs: dict, w_attrs: dict, wage: list
     return out
 
 
+# --- income-split stage ----------------------------------------------------------------------
+
+def check_income_margins(inc: dict) -> None:
+    n_g = len(inc["industry_groups"])
+    if not n_g or len(inc["quantile_curve"]["rank"]) < 2:
+        raise GenError("EmptyTable")
+    prop = inc["informal_propensity"]
+    if len(inc["undeclared_wage_share"]) != n_g or len(prop["employee_by_industry_group"]) != n_g or len(inc["rel_kind"]) != 3:
+        raise GenError("ShapeMismatch")
+    shares = [*inc["undeclared_wage_share"], inc["fully_informal_share"], inc["envelope_declared_share"],
+              inc["low_wage_link"], inc["informal_recipient_share"], inc["subsistence_household_share"],
+              inc["self_employment_declared"], inc["farm_declared"], inc["self_employment_education_link"],
+              inc["subsistence_dispersion"]]
+    if any(not 0 <= v <= UNIT for v in shares) or min(inc["rel_kind"]) <= 0:
+        raise GenError("ShapeMismatch")
+    amounts = [inc[k] for k in ("farm_income", "farm_in_kind", "self_employment_income", "informal_income")]
+    if min(amounts) < 0 or inc["farm_in_kind"] > inc["farm_income"]:
+        raise GenError("ShapeMismatch")
+    ranks, values = inc["quantile_curve"]["rank"], inc["quantile_curve"]["value"]
+    if (len(values) != len(ranks) or ranks[0] != 0 or ranks[-1] != UNIT
+            or any(a >= b for a, b in zip(ranks, ranks[1:])) or values[0] <= 0
+            or any(a > b for a, b in zip(values, values[1:]))):
+        raise GenError("ShapeMismatch")
+
+
+def take_from_top(ranked: list[int], weight, target: int) -> list[int]:
+    """The members with the highest keys (the end of `ranked`), until their weight reaches `target`."""
+    chosen, got = [], 0
+    for i in reversed(ranked):
+        if got >= target:
+            break
+        chosen.append(i)
+        got += weight[i]
+    return chosen
+
+
+def assign_other_incomes(pop: dict, inc: dict, attrs: dict, job_attrs: dict, h_attrs: dict, wage: list[int],
+                         rng_seed: int = 42, sweeps: int = INCOME_SWEEPS) -> dict:
+    """The declared part of every wage, the income of the self-employed and its declared part,
+    informal income outside a job (per person, bani a month) and what a household grows for
+    itself (`hh_subsistence_income`, per household, bani a month).
+
+    `inc` is the income margin file; the other arguments are results of earlier stages (not changed).
+
+    A. Wages: in each industry group a share of the wage bill is undeclared. Jobs with no
+       contract come first, taken with low wages first (mixed with the draw) until they hold
+       their part of it. Then envelope jobs, taken by the draw alone until the rest is reached:
+       the minimum wage, or a share of the true wage if that is more, is declared; a job that
+       pays no more than the minimum wage has no contract instead.
+    B. Self-employment outside farming: the employers, own-account and family workers of the
+       other industry groups share its total, placed by education and draw.
+    C. Farm income in cash: the same three kinds in agriculture share it.
+    D. Farm income in kind: rural private households, those with a farm worker or a retired
+       member first, up to the share that farms for itself.
+    E. Informal income: persons aged 15 to 74, picked by a propensity that depends on what they
+       do, up to the share that has such income; they share what is left of mixed income.
+    """
+    check_income_margins(inc)
+    n, n_hh = len(pop["household_id"]), len(pop["hh_weight"])
+    columns = (attrs["activity"], attrs["edu_level"], job_attrs["employment_status"], job_attrs["industry_group"], wage)
+    if any(len(c) != n for c in columns) or len(h_attrs["hh_urban"]) != n_hh:
+        raise GenError("ShapeMismatch")
+    n_g = len(inc["industry_groups"])
+    status, group = job_attrs["employment_status"], job_attrs["industry_group"]
+    if any(k != KIND_NONE and g >= n_g for k, g in zip(status, group)):
+        raise GenError("ShapeMismatch")
+    pw = [pop["hh_weight"][h] for h in pop["household_id"]]
+    out = {"wage_declared": list(wage), "self_employment_income": [0] * n, "self_employment_declared": [0] * n,
+           "informal_income": [0] * n, "hh_subsistence_income": [0] * n_hh}
+    lo, hi = INFORMAL_AGES[0] * 12, INFORMAL_AGES[1] * 12
+    working = [i for i in range(n) if status[i] != KIND_NONE or lo <= pop["age"][i] < hi]
+    draws = [{}, {}, {}, {}]     # wage split, self-employment place, informal pick, informal place
+    for i in working:
+        d = Draw(rng_seed, STREAM_POPULATION_GEN, STAGE_INCOMES, i)
+        for k in range(4):
+            draws[k][i] = ((d.u64() >> 44) * UNIT) >> 20
+    curve, both = inc["quantile_curve"], [UNIT, UNIT]
+    bani = lambda lei: lei * BANI_PER_LEU  # noqa: E731
+
+    # A. The declared part of wages.
+    minimum = bani(inc["minimum_wage"])
+    for g in range(n_g):
+        members = [i for i in range(n) if status[i] == KIND_EMPLOYEE and group[i] == g]
+        undeclared = sum(pw[i] * wage[i] for i in members) * inc["undeclared_wage_share"][g] // UNIT
+        if not members or undeclared == 0:
+            continue
+        order = mixed_order(members, pw, wage, draws[0], inc["low_wage_link"])
+        without_contract, got, k = undeclared * inc["fully_informal_share"] // UNIT, 0, 0
+        while k < len(order) and got < without_contract:
+            out["wage_declared"][order[k]] = 0
+            got += pw[order[k]] * wage[order[k]]
+            k += 1
+        for i in sorted(order[k:], key=lambda i: (draws[0][i], i)):
+            if got >= undeclared:
+                break
+            # An envelope needs a wage above the minimum; at or below it the job has no contract.
+            declared = max(minimum, wage[i] * inc["envelope_declared_share"] // UNIT)
+            if declared >= wage[i]:
+                declared = 0
+            out["wage_declared"][i] = declared
+            got += pw[i] * (wage[i] - declared)
+
+    # B and C. Income of the self-employed, outside farming and in it.
+    kinds = {KIND_EMPLOYER: 0, KIND_OWN_ACCOUNT: 1, KIND_FAMILY_WORKER: 2}
+    for farm, bill, declared_ppm in ((False, bani(inc["self_employment_income"]), inc["self_employment_declared"]),
+                                     (True, bani(inc["farm_income"] - inc["farm_in_kind"]), inc["farm_declared"])):
+        members = [i for i in range(n) if status[i] in kinds and (group[i] == AGRICULTURE) == farm]
+        if not members or bill <= 0:
+            continue
+        order = mixed_order(members, pw, attrs["edu_level"], draws[1], inc["self_employment_education_link"])
+        dims = [([kinds[status[i]] for i in order], inc["rel_kind"] * 2)]
+        amounts = spread([pw[i] for i in order], [0] * len(order), dims, both, curve, UNIT, bill, 0, sweeps)
+        for i, amount in zip(order, amounts):
+            out["self_employment_income"][i] = amount
+            out["self_employment_declared"][i] = amount * declared_ppm // UNIT
+
+    # D. What rural households grow for themselves.
+    farm_worker, retired = [False] * n_hh, [False] * n_hh
+    for i, h in enumerate(pop["household_id"]):
+        farm_worker[h] |= status[i] != KIND_NONE and group[i] == AGRICULTURE
+        retired[h] |= attrs["activity"][i] == ACT_RETIRED
+    rural = [h for h in range(n_hh) if not pop["hh_collective"][h] and not h_attrs["hh_urban"][h]]
+    if rural and inc["farm_in_kind"] > 0:
+        pick, place = {}, {}
+        for h in rural:
+            d = Draw(rng_seed, STREAM_POPULATION_GEN, STAGE_SUBSISTENCE, h)
+            pick[h], place[h] = (((d.u64() >> 44) * UNIT) >> 20 for _ in range(2))
+        bonus = inc["subsistence_bonus"]
+        key = {h: pick[h] + (bonus["farm_worker"] if farm_worker[h] else bonus["retired"] if retired[h] else 0)
+               for h in rural}
+        ranked = sorted(rural, key=lambda h: (key[h], h))
+        weight = pop["hh_weight"]
+        target = inc["subsistence_household_share"] * sum(weight[h] for h in rural) // UNIT
+        chosen = sorted(take_from_top(ranked, weight, target), key=lambda h: (place[h], h))
+        if chosen:
+            amounts = spread([weight[h] for h in chosen], [0] * len(chosen), [], both, curve,
+                             inc["subsistence_dispersion"], bani(inc["farm_in_kind"]), 0, sweeps)
+            for h, amount in zip(chosen, amounts):
+                out["hh_subsistence_income"][h] = amount
+
+    # E. Informal income outside a job.
+    prop = inc["informal_propensity"]
+    by_activity = {ACT_UNEMPLOYED: prop["unemployed"], ACT_INACTIVE_OTHER: prop["inactive_other"],
+                   ACT_RETIRED: prop["retired"], ACT_STUDENT: prop["student"], ACT_PUPIL: prop["student"]}
+    by_kind = {KIND_EMPLOYER: prop["employer"], KIND_OWN_ACCOUNT: prop["own_account"],
+               KIND_FAMILY_WORKER: prop["family_worker"]}
+    eligible = [i for i in range(n) if lo <= pop["age"][i] < hi]
+    if eligible and inc["informal_income"] > 0:
+        def propensity(i: int) -> int:
+            if status[i] == KIND_EMPLOYEE:
+                return prop["employee_by_industry_group"][group[i]]
+            return by_kind[status[i]] if status[i] in by_kind else by_activity.get(attrs["activity"][i], 0)
+        key = {i: propensity(i) * draws[2][i] for i in eligible}
+        ranked = sorted(eligible, key=lambda i: (key[i], i))
+        target = inc["informal_recipient_share"] * sum(pw[i] for i in eligible) // UNIT
+        chosen = [i for i in take_from_top(ranked, pw, target) if key[i] > 0]
+        chosen.sort(key=lambda i: (draws[3][i], i))
+        if chosen:
+            amounts = spread([pw[i] for i in chosen], [0] * len(chosen), [], both, curve, UNIT,
+                             bani(inc["informal_income"]), 0, sweeps)
+            for i, amount in zip(chosen, amounts):
+                out["informal_income"][i] = amount
+    return out
+
+
+def incomes_hash(i_attrs: dict) -> int:
+    """FNV-1a 64 over the person count (u32, little-endian) and each person's declared wage,
+    self-employment income, its declared part and informal income (u64, little-endian, in that
+    order), then the household count (u32) and each household's subsistence income (u64)."""
+    h = 0xCBF29CE484222325
+    n = len(i_attrs["informal_income"])
+    data = n.to_bytes(4, "little") + b"".join(
+        i_attrs[name][i].to_bytes(8, "little") for i in range(n) for name in INCOME_COLUMNS)
+    data += len(i_attrs["hh_subsistence_income"]).to_bytes(4, "little") + b"".join(
+        v.to_bytes(8, "little") for v in i_attrs["hh_subsistence_income"])
+    for b in data:
+        h = ((h ^ b) * 0x100000001B3) & M64
+    return h
+
+
+def income_fit(pop: dict, inc: dict, attrs: dict, job_attrs: dict, h_attrs: dict, wage: list[int],
+               i_attrs: dict, public_group: int = 8) -> dict:
+    """How the income split fits: totals, the undeclared share of wages by industry group,
+    who is informal, and the undeclared share of private labour income against the anchors."""
+    n, n_hh = len(wage), len(pop["hh_weight"])
+    pw = [pop["hh_weight"][h] for h in pop["household_id"]]
+    status, group = job_attrs["employment_status"], job_attrs["industry_group"]
+    n_g = len(inc["industry_groups"])
+    lei = lambda bani_sum: round(bani_sum / BANI_PER_LEU)  # noqa: E731
+    bill, undeclared = [0] * n_g, [0] * n_g
+    formal = partly = informal = 0
+    for i in range(n):
+        if status[i] != KIND_EMPLOYEE:
+            continue
+        bill[group[i]] += pw[i] * wage[i]
+        undeclared[group[i]] += pw[i] * (wage[i] - i_attrs["wage_declared"][i])
+        if i_attrs["wage_declared"][i] == wage[i]:
+            formal += pw[i]
+        elif i_attrs["wage_declared"][i] == 0:
+            informal += pw[i]
+        else:
+            partly += pw[i]
+    employees = formal + partly + informal
+    self_emp = sum(pw[i] * i_attrs["self_employment_income"][i] for i in range(n))
+    self_declared = sum(pw[i] * i_attrs["self_employment_declared"][i] for i in range(n))
+    informal_income = sum(pw[i] * i_attrs["informal_income"][i] for i in range(n))
+    in_kind = sum(pop["hh_weight"][h] * i_attrs["hh_subsistence_income"][h] for h in range(n_hh))
+    mixed = self_emp + informal_income + in_kind
+    private_wages = sum(b for g, b in enumerate(bill) if g != public_group)
+    hidden = sum(undeclared) + (self_emp - self_declared) + informal_income
+    lo, hi = INFORMAL_AGES[0] * 12, INFORMAL_AGES[1] * 12
+    adults = sum(pw[i] for i in range(n) if lo <= pop["age"][i] < hi)
+    recipients = [i for i in range(n) if i_attrs["informal_income"][i] > 0]
+    rural = [h for h in range(n_hh) if not pop["hh_collective"][h] and not h_attrs["hh_urban"][h]]
+    growers = [h for h in rural if i_attrs["hh_subsistence_income"][h] > 0]
+    self_employed = [i for i in range(n) if i_attrs["self_employment_income"][i] > 0]
+    by_activity: dict[int, int] = {}
+    for i in recipients:
+        by_activity[attrs["activity"][i]] = by_activity.get(attrs["activity"][i], 0) + pw[i]
+    return {
+        "mixed_income_relative_error": round(abs(mixed - inc["mixed_income"] * BANI_PER_LEU)
+                                             / (inc["mixed_income"] * BANI_PER_LEU), 8),
+        "undeclared_wage_share_by_group": [round(u / b, 4) if b else 0.0 for u, b in zip(undeclared, bill)],
+        "target_by_group": [v / UNIT for v in inc["undeclared_wage_share"]],
+        "undeclared_share_of_all_wages": round(sum(undeclared) / sum(bill), 4),
+        "employees_formal_partly_informal": [round(x / employees, 4) for x in (formal, partly, informal)],
+        "self_employment_mean_lei": lei(self_emp / sum(pw[i] for i in self_employed)) if self_employed else 0,
+        "self_employment_declared_share": round(self_declared / self_emp, 4) if self_emp else 0.0,
+        "informal_recipients_share_of_15_to_74": round(sum(pw[i] for i in recipients) / adults, 4),
+        "informal_income_mean_lei": lei(informal_income / sum(pw[i] for i in recipients)) if recipients else 0,
+        "informal_recipients_by_activity": {k: round(v / sum(by_activity.values()), 3) for k, v in sorted(by_activity.items())},
+        "rural_households_growing_food": round(sum(pop["hh_weight"][h] for h in growers)
+                                               / sum(pop["hh_weight"][h] for h in rural), 4) if rural else 0.0,
+        "subsistence_mean_lei": lei(in_kind / sum(pop["hh_weight"][h] for h in growers)) if growers else 0,
+        "undeclared_share_of_private_labour_income": round(hidden / (private_wages + self_emp + informal_income), 4),
+        "undeclared_income_billion_lei_a_year": round(hidden * 12 / BANI_PER_LEU / 1e9, 1),
+        "anchors": {k: v / UNIT for k, v in inc["anchors"].items()},
+    }
+
+
 def attributes_hash(attrs: dict) -> int:
     """FNV-1a 64 over the person count (u32, little-endian), then each person's
     education level and activity (one byte each)."""
@@ -1883,6 +2131,7 @@ def main() -> int:
     ap.add_argument("--pensions", help="pension margin file: also run the pension stage (needs --attributes)")
     ap.add_argument("--wealth", help="wealth margin file: also run the wealth stage (needs --housing; "
                                      "uses the wages and pensions if those stages ran)")
+    ap.add_argument("--incomes", help="income margin file: also run the income-split stage (needs --wages and --housing)")
     ap.add_argument("--wage-dispersion-ppm", type=int, default=WAGE_DISPERSION_PPM, help=argparse.SUPPRESS)
     a = ap.parse_args()
     check_rng()
@@ -1939,6 +2188,15 @@ def main() -> int:
         h_attrs = assign_housing(pop, m["counties"], housing, a.seed)
         summary["housing_hash"] = f"{housing_hash(h_attrs):016x}"
         summary["seconds"] = round(time.time() - t0, 1)
+    i_attrs = {}
+    if a.incomes:
+        if not (wage and h_attrs):
+            ap.error("--incomes needs --wages and --housing")
+        with open(a.incomes, encoding="utf-8") as f:
+            inc = json.load(f)
+        i_attrs = assign_other_incomes(pop, inc, attrs, job_attrs, h_attrs, wage, a.seed)
+        summary["incomes_hash"] = f"{incomes_hash(i_attrs):016x}"
+        summary["seconds"] = round(time.time() - t0, 1)
     w_attrs = {}
     if a.wealth:
         if not h_attrs:
@@ -1951,6 +2209,8 @@ def main() -> int:
         summary["seconds"] = round(time.time() - t0, 1)
     if a.report:
         summary["fit"] = fit_errors(m, pop, a.sample_scale)
+        if i_attrs:
+            summary["income_fit"] = income_fit(pop, inc, attrs, job_attrs, h_attrs, wage, i_attrs)
         if w_attrs:
             summary["wealth_fit"] = wealth_fit(pop, wealth, h_attrs, w_attrs, wage or None, pension or None)
         if h_attrs:
@@ -1967,7 +2227,7 @@ def main() -> int:
     else:
         print(json.dumps({"summary": summary, **{k: v for k, v in pop.items() if k != "report"}, **attrs,
                           **job_attrs, **h_attrs, **({"wage": wage} if wage else {}),
-                          **({"pension": pension} if pension else {}), **w_attrs}))
+                          **({"pension": pension} if pension else {}), **w_attrs, **i_attrs}))
     return 0
 
 

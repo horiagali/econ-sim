@@ -32,6 +32,10 @@ stages:
     cmd: python normalise_wealth.py
     deps: [normalise_wealth.py, normalise_census.py, jsonstat.py, data/raw/ro_household_balance_sheet_2021q4.json, data/raw/ro_household_dwellings_2021.json, data/raw/hu_wealth_pattern_2020.json]
     outs: [data/derived/household_wealth2021_ro.json]
+  normalise_incomes:
+    cmd: python normalise_incomes.py
+    deps: [normalise_incomes.py, normalise_census_jobs.py, normalise_census.py, jsonstat.py, data/raw/ro_household_mixed_income_2021q4.json, data/raw/ro_household_mixed_income_2021.json, data/raw/ro_na_agriculture_2021.json, data/derived/earnings2021_ro.json]
+    outs: [data/derived/other_incomes2021_ro.json]
   # The population generator (spec society/population-generator) and its stages
   # C, D and E (education and activity, jobs, locality size and tenure). It is Rust
   # (crate econ-popgen), run through econ-cli; sample_scale comes from the scenario.

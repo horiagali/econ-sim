@@ -207,3 +207,26 @@ source = "eurostat"
 code = "icw_res_01"                # share of households and economic resources by income, consumption and wealth quantiles (experimental)
 filters = { geo = ["HU"], time = ["2020"], quant_expn = ["TOTAL"], indic_ewb = ["WLTH_NET"] }
 licence = "eurostat-reuse"
+
+# Mixed income of households and the surplus of agriculture. Inputs of
+# normalise_incomes.py (spec society/population-incomes).
+[[dataset]]
+id = "ro_household_mixed_income_2021q4"
+source = "eurostat"
+code = "nasq_10_nf_tr"             # non-financial transactions, quarterly
+filters = { geo = ["RO"], time = ["2021-Q4"], unit = ["CP_MNAC"], na_item = ["B3G"], sector = ["S14_S15"], direct = ["RECV"], s_adj = ["NSA"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_household_mixed_income_2021"
+source = "eurostat"
+code = "nasa_10_nf_tr"             # non-financial transactions, annual
+filters = { geo = ["RO"], time = ["2021"], unit = ["CP_MNAC"], na_item = ["B3G"], sector = ["S14_S15"], direct = ["RECV"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_na_agriculture_2021"
+source = "eurostat"
+code = "nama_10_a10"               # gross value added and income by main industry, annual
+filters = { geo = ["RO"], time = ["2021"], unit = ["CP_MNAC"], nace_r2 = ["A"], na_item = ["B1G", "D1"] }
+licence = "eurostat-reuse"

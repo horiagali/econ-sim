@@ -14,12 +14,17 @@ mod assign;
 mod attributes;
 mod fit;
 mod housing;
+mod incomes;
 mod jobs;
 mod pensions;
 mod seed;
 mod wages;
 mod wealth;
 
+pub use incomes::{
+    IncomeError, IncomeMargins, IncomeParams, InformalPropensity, OtherIncomes,
+    assign_other_incomes,
+};
 pub use pensions::{PensionError, PensionMargins, PensionParams, PersonPensions, assign_pensions};
 pub use wages::{PersonWages, WageError, WageMargins, WageParams, assign_wages};
 pub use wealth::{
