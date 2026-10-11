@@ -278,3 +278,11 @@ source = "eurostat"
 code = "fats_activ"                # foreign-controlled enterprises by activity and country of control
 filters = { geo = ["RO"], time = ["2021"], indic_sbs = ["AV_MEUR", "EMP_NR"] }
 licence = "eurostat-reuse"
+
+# Fixed assets by sector, 2021. Input of normalise_firm_balance_sheets.py.
+[[dataset]]
+id = "ro_capital_stock_2021"
+source = "eurostat"
+code = "nama_10_nfa_bs"            # capital stocks by sector and asset type
+filters = { geo = ["RO"], time = ["2021"], unit = ["CP_MNAC"], asset10 = ["N11N", "N111N"] }
+licence = "eurostat-reuse"

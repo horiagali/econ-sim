@@ -242,6 +242,10 @@ Each unit has a firm count, persons employed, its part of the industry's output,
 
 > **Simplification:** a catalogue industry inherits the size structure and the foreign share of the table industry it is part of (all six farm industries look alike; all eleven energy industries look alike). No named firms yet: Dacia is inside `cars.large.foreign`. State-owned companies that sell on the market are not marked yet either. Both come with roadmap M9. Persons employed are those of the statistics and of a guess for public units; the generator's own employed persons are placed in units by a later stage.
 
+**Opening balance sheets** (`fixtures/firm_balance_sheets2021_ro.json`, `normalise_firm_balance_sheets.py`): the 332 cohort units outside finance share the balance sheet of non-financial corporations at the end of 2021 (deposits 189 billion lei, loans owed 391, equity issued 715, trade credit and other accounts 692 receivable and 871 payable) and 2,492 billion lei of fixed assets (corporations' 2,279, plus the 213 of households' business capital, which goes to the domestic micro units). The totals are measured; each column sums to them exactly.
+
+> **Simplification:** how a total is spread over units is an educated guess, listed in the file: capital, loans and equity follow a unit's operating surplus, money and trade credit follow its output; per leu of capital, micro firms borrow less than half of what large ones do and foreign-controlled firms most; only large units issue bonds. Public units have no sheet here (their assets and debts are the government's), nor have the units of banking and insurance (theirs are the financial sectors' own).
+
 ## Open questions
 - [ ] Get P&R 2026's sector list (the owner's reference for granularity) and reconcile.
 - [x] Split electricity generation by technology into separate industries (owner decision 2026-10-09): 8 generation industries plus `power_grid` and `power_supply`; see above and [energy](energy.md).
