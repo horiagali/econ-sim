@@ -4,7 +4,7 @@ title: Roadmap
 status: draft
 owner: horia
 depends_on: [vision/scope]
-updated: 2026-10-10
+updated: 2026-10-11
 ---
 
 # Roadmap
@@ -161,7 +161,7 @@ Mostly owner time. Nothing here is code; all of it unblocks code.
 - [x] **D5 Tick length: one tick = one day** (owner, 2026-10-10; replaces the month every spec assumed). An hour was considered and dropped: only electricity needs hours, and nobody sets policy by the hour. Still to do:
   - [x] [ADR-0017](03-architecture/decisions/0017-time-base.md), accepted 2026-10-10: a daily clock on the real calendar; each process at its own period (daily, staggered over the month per household and firm, monthly on fixed dates, yearly); electricity with 24 hourly slots inside its daily step; weekends ignored; daily history for three years, monthly forever.
   - [ ] Reword specs from "per tick" and "next tick" to calendar time as each is locked; the spike numbers (Spike 4: per monthly tick) are re-measured in M2.
-- [ ] **D6 Market clearing and expectations:** the two open core decisions in the [economy overview](02-design/economy/README.md) (inventory buffers; anchored-adaptive expectations). ADR or a line in each spec.
+- [x] **D6 Market clearing and expectations:** decided 2026-10-11 under the owner's delegation. Markets clear by inventories ([production](02-design/economy/production.md), "First version"); expectations are anchored-adaptive ([prices](02-design/economy/prices-inflation.md), "Expectations").
 - [x] **D7 Scenario and command format:** [ADR-0018](03-architecture/decisions/0018-scenario-and-commands.md), accepted 2026-10-10. A scenario is a folder of tables and small files for one scale, with the law in force as data; a lever registry (`crates/econ-core/levers.toml`) generates the command types, the UI's lever list and the test list.
 - [x] **D8 The outside world: not simulated in v1** (owner, 2026-10-10). Foreign prices, fuel prices, foreign demand, foreign interest rates, wages abroad, the EU carbon price and weather are constants that the player can move with sliders ("World settings" in [levers](02-design/game/levers.md)). A world that moves by itself comes after v1. Step 3 of the calibration workflow of ADR-0009 (fitting processes for exogenous series) is postponed with it.
 - [x] **D9 Cost of changing a lever: none in v1** (owner, 2026-10-10).
@@ -172,7 +172,7 @@ Mostly owner time. Nothing here is code; all of it unblocks code.
 - [ ] **[vat](02-design/economy/vat.md):** the spec now has two reduced rates (19%, 9% and 5% on the start date) and is at `review`. Owed: a test-authoring session for AC-VAT-06, then the code change, then the lock.
 - [ ] Owner review pass over the open questions of the alpha specs (households, labour market, taxation, production, prices, money-banking, monetary policy, fiscal policy, trade-fx, social transfers, demographics). The other specs are reviewed when their milestone starts.
 
-**Exit:** D1, D6 and D11 answered; VAT tests and code done, then locked. (D2 to D5, D8 to D10 and D12 are recorded; ADR-0017 accepted; two specs locked.)
+**Exit:** D1 and D11 answered; VAT tests and code done, then locked. (D2 to D6, D8 to D10 and D12 are recorded; ADR-0017 accepted; six specs locked.)
 
 ### M1 — Complete starting state
 Everything the simulation needs at tick 0, from data files, consistent with the accounting matrix. Continues the population generator. Data for the systems of Part 2 is collected in their own milestones; here the tables only get the columns listed under "Built in from M1".
@@ -205,7 +205,7 @@ The first version of each mechanic is the simplest rule that is in its spec, not
 - [ ] CI runs a tiny scenario at three scales; a 50-year run at 1:100 stays within the time budget of Spike 4.
 - [ ] Thin UI window on this core (time controls, a dozen charts).
 
-**Owner:** lock households, labour market, production, prices.
+**Owner:** households, labour market, production and prices were reworded for the daily tick and locked on 2026-10-11 (delegated: "accept the drafts"), each with its criteria under "Tests owed". Owed: the test-authoring session for them.
 **Exit:** 600 ticks at three scales with no invariant failure; unemployment, wage share, consumption share and inflation stay in a plausible band with no intervention.
 
 ### M3 — Money, state and the rest of the world

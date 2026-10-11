@@ -152,6 +152,14 @@ pub const VARIABLES: &[Variable] = &[
     Variable { code_name: "air_quality[c]", meaning: "PM2.5 index by county", unit: "index", kind: "state", owner: "economy/environment" },
     Variable { code_name: "admin_capacity[m]", meaning: "Administrative capacity of ministry/agency *m*", unit: "0–1", kind: "state", owner: "economy/state-capacity" },
     Variable { code_name: "corruption", meaning: "Corruption prevalence", unit: "0–1", kind: "state", owner: "economy/state-capacity" },
+    Variable { code_name: "hh_stagger_day", meaning: "The household's own day of the month (1 to 28) for its monthly decisions; a keyed draw, fixed for life (ADR-0017)", unit: "day of month", kind: "state", owner: "economy/households" },
+    Variable { code_name: "hh_income_received", meaning: "Money a household received since its last decision day", unit: "LCU", kind: "state", owner: "economy/households" },
+    Variable { code_name: "hh_hardship", meaning: "The household could not pay for the subsistence basket this month", unit: "bool", kind: "state", owner: "economy/households" },
+    Variable { code_name: "basket_share[g]", meaning: "Share of household spending that goes to good *g* (from the input-output table; fixed in M2)", unit: "ratio", kind: "parameter", owner: "economy/households" },
+    Variable { code_name: "unit_stagger_day", meaning: "The firm unit's own day of the month (1 to 28) for its plan and staffing (ADR-0017)", unit: "day of month", kind: "state", owner: "economy/labor-market" },
+    Variable { code_name: "months_unemployed", meaning: "Months since the person lost a job or started looking", unit: "months", kind: "state", owner: "economy/labor-market" },
+    Variable { code_name: "desired_employment[f]", meaning: "Staff a firm unit wants, from its production plan", unit: "persons", kind: "state", owner: "economy/production" },
+    Variable { code_name: "expected_demand[f]", meaning: "Sales a firm unit expects", unit: "units / month", kind: "state", owner: "economy/production" },
 ];
 
 /// Look up a variable by its canonical code name.

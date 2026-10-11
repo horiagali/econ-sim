@@ -4,7 +4,7 @@ title: Glossary & Variable Registry
 status: draft
 owner: horia
 depends_on: []
-updated: 2026-10-10
+updated: 2026-10-11
 ---
 
 # Glossary & Variable Registry
@@ -131,6 +131,14 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `air_quality[c]` | PM2.5 index by county | index | state | economy/environment |
 | — | `admin_capacity[m]` | Administrative capacity of ministry/agency *m* | 0–1 | state | economy/state-capacity |
 | — | `corruption` | Corruption prevalence | 0–1 | state | economy/state-capacity |
+| — | `hh_stagger_day` | The household's own day of the month (1 to 28) for its monthly decisions; a keyed draw, fixed for life (ADR-0017) | day of month | state | economy/households |
+| — | `hh_income_received` | Money a household received since its last decision day | LCU | state | economy/households |
+| — | `hh_hardship` | The household could not pay for the subsistence basket this month | bool | state | economy/households |
+| — | `basket_share[g]` | Share of household spending that goes to good *g* (from the input-output table; fixed in M2) | ratio | parameter | economy/households |
+| — | `unit_stagger_day` | The firm unit's own day of the month (1 to 28) for its plan and staffing (ADR-0017) | day of month | state | economy/labor-market |
+| — | `months_unemployed` | Months since the person lost a job or started looking | months | state | economy/labor-market |
+| $N^*_f$ | `desired_employment[f]` | Staff a firm unit wants, from its production plan | persons | state | economy/production |
+| $D^e_f$ | `expected_demand[f]` | Sales a firm unit expects | units / month | state | economy/production |
 
 Indices: $g$ good, $j$ industry (same set as goods, except that the eight electricity generation industries share the good `wholesale_electricity` and `power_supply` sells `electricity`), $f$ firm unit (belongs to one industry; per-industry variables such as `output[j]` are also kept per unit as `output[f]`, and the industry value is the `firm_count`-weighted sum), $o$ occupation, $s$ skill tier, $r$ region, $c$ county, $h$ household, $i$ person, $p$ power plant, $\ell$ education level. LCU = leu (RON).
 
