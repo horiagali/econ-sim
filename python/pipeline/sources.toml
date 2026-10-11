@@ -253,3 +253,12 @@ source = "eurostat"
 code = "ert_bil_eur_a"             # euro exchange rates, annual
 filters = { currency = ["RON"], time = ["2021"], statinfo = ["AVG"] }
 licence = "eurostat-reuse"
+
+# Financial balance sheets of every sector, end of 2021. Input of
+# normalise_balance_sheets.py (spec economy/accounting).
+[[dataset]]
+id = "ro_balance_sheets_2021q4"
+source = "eurostat"
+code = "nasq_10_f_bs"              # financial balance sheets, quarterly
+filters = { geo = ["RO"], time = ["2021-Q4"], unit = ["MIO_NAC"] }
+licence = "eurostat-reuse"
