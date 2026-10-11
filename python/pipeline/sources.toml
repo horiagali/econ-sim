@@ -230,3 +230,26 @@ source = "eurostat"
 code = "nama_10_a10"               # gross value added and income by main industry, annual
 filters = { geo = ["RO"], time = ["2021"], unit = ["CP_MNAC"], nace_r2 = ["A"], na_item = ["B1G", "D1"] }
 licence = "eurostat-reuse"
+
+# Input-output table of Romania, 2021: Eurostat's inter-country table (FIGARO),
+# industry by industry, 64 industries. Inputs of normalise_io.py (spec economy/industries).
+[[dataset]]
+id = "figaro_2021_used_in_ro"
+source = "eurostat"
+code = "naio_10_fcp_ii3"           # what Romania's industries and final users buy, from every country
+filters = { time = ["2021"], c_dest = ["RO"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "figaro_2021_made_in_ro"
+source = "eurostat"
+code = "naio_10_fcp_ii3"           # where the output of Romania's industries goes, in every country
+filters = { time = ["2021"], c_orig = ["RO"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_exchange_rate_2021"
+source = "eurostat"
+code = "ert_bil_eur_a"             # euro exchange rates, annual
+filters = { currency = ["RON"], time = ["2021"], statinfo = ["AVG"] }
+licence = "eurostat-reuse"

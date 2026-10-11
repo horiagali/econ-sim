@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [economy/production]
 research: []
-updated: 2026-10-09
+updated: 2026-10-11
 ---
 
 # Industries & Goods Catalogue
@@ -204,6 +204,27 @@ Each industry is made of **firm units**: 0–5 named firms plus up to three size
 - Ownership vector `ownership[f]` (state, domestic private, foreign) and `company` id for companies active in several industries (ADR-0016 Ownership).
 - Generation units: their power plants (technology, capacity, region, age), see [energy](energy.md).
 - Opening balance sheet: deposits, loans, capital, inventories, equity.
+
+## The input-output table (data, 2026-10-11)
+The starting input-output structure is Eurostat's inter-country table (FIGARO) for 2021, industry by industry, at basic prices: the 64 industries of the national accounts (NACE A64). The pipeline turns it into `python/pipeline/fixtures/io_table2021_ro.json` (`normalise_io.py`), in lei at the year's average exchange rate (4.9215 lei per euro). Confidence: high; it is the official table, and its compensation of employees equals the national accounts' by industry group.
+
+| In the file | Meaning |
+|---|---|
+| `domestic[i][j]`, `imports_eu[i][j]`, `imports_non_eu[i][j]` | what industry *j* buys from industry *i*, by origin: Romania, the rest of the EU, the rest of the world |
+| `final` | household consumption, government consumption, investment and inventories, each by supplying industry and origin |
+| `exports_eu[i]`, `exports_non_eu[i]` | output of industry *i* used abroad |
+| `compensation[j]`, `other_taxes_less_subsidies[j]`, `operating_surplus[j]`, `product_taxes[j]` | the rest of industry *j*'s costs |
+| `output[j]` | the column's total; it equals the row's total (uses at home plus exports) to within 0.00001% |
+| `industry_group_of[j]` | the ten industry groups of the population stages |
+| `catalogue` | the 90 industries above inside the 64 |
+
+Romania 2021 in the table: output 2,237 billion lei, value added 1,072, compensation of employees 449, household consumption 720, exports 425, imports 483.
+
+**From 64 to 90.** Each industry of the catalogue belongs to one industry of the table, or to several (paper and printing; water and waste; media). Where a table industry holds several catalogue industries, its output is split by fixed shares.
+
+> **Simplification:** the shares are educated guesses (in `normalise_io.py`, `CATALOGUE`), and a catalogue industry inherits the cost structure of its table industry. So cereals and livestock start with the same inputs, and the eleven industries inside "electricity, gas, steam" do too. Structural business statistics, agricultural accounts and energy balances replace the shares and the cost structures when the firm table ([ADR-0016](../../03-architecture/decisions/0016-firm-representation.md)) and [energy](energy.md) are built. The largest splits: agriculture into six, mining into six, electricity and gas into eleven.
+
+The exception for electricity (below) is not in the data yet: the table has one industry that sells one product.
 
 ## Open questions
 - [ ] Get P&R 2026's sector list (the owner's reference for granularity) and reconcile.
