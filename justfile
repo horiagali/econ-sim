@@ -61,6 +61,10 @@ golden-check:
 bench-scale:
     cargo run -q --release -p econ-cli -- bench-scale
 
+# Assemble the starting state from the fixtures with the Python references and check that its parts agree (interim, ADR-0018)
+scenario-report sample_scale="1000":
+    {{python}} python/pipeline/build_scenario.py --sample-scale {{sample_scale}}
+
 # Daily-clock spike (ADR-0017): a simulated year with daily ticks against monthly ticks
 bench-days:
     cargo run -q --release -p econ-cli -- bench-days
