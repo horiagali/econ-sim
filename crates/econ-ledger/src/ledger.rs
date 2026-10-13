@@ -141,6 +141,8 @@ pub enum LedgerError {
     NonPositiveAmount(Leg),
     /// A leg had the same payer and payee.
     SelfTransfer(Leg),
+    /// A leg's flow code is not one of [`FlowCode::ALL`] (AC-ACC-04).
+    UnknownFlowCode(Leg),
     /// The transaction would leave a balance negative where that is not allowed.
     WouldGoNegative {
         /// Sector.
@@ -315,6 +317,9 @@ impl Ledger {
             }
             if leg.payer == leg.payee {
                 return Err(LedgerError::SelfTransfer(*leg));
+            }
+            if !leg.code.is_known() {
+                return Err(LedgerError::UnknownFlowCode(*leg));
             }
             let pk = (leg.payer, leg.instrument);
             let qk = (leg.payee, leg.instrument);
@@ -499,6 +504,23 @@ mod tests {
             )),
             Err(LedgerError::NonPositiveAmount(_))
         ));
+        assert!(matches!(
+            l.commit(Txn::new().leg(
+                Sector::Government,
+                Sector::Firms,
+                Instrument::Cash,
+                Bani(1),
+                FlowCode(4242)
+            )),
+            Err(LedgerError::UnknownFlowCode(_))
+        ));
+    }
+
+    /// `FlowCode::ALL` is sorted (for the binary search) and every code in it has a name.
+    #[test]
+    fn known_codes_are_sorted_and_named() {
+        assert!(FlowCode::ALL.windows(2).all(|w| w[0] < w[1]));
+        assert!(FlowCode::ALL.iter().all(|c| c.name() != "unknown"));
     }
 
     #[test]

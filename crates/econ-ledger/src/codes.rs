@@ -26,6 +26,23 @@ impl FlowCode {
     /// Opening balance sheet entry.
     pub const OPENING: FlowCode = FlowCode(9001);
 
+    /// Every code the ledger knows, in ascending order. A new code is added here
+    /// and in [`FlowCode::name`] in the same change.
+    pub const ALL: [FlowCode; 6] = [
+        Self::CONSUMPTION,
+        Self::GOV_PURCHASES,
+        Self::WAGES,
+        Self::TAX_INCOME,
+        Self::TAX_VAT,
+        Self::OPENING,
+    ];
+
+    /// Whether this is one of the ledger's codes (AC-ACC-04).
+    #[must_use]
+    pub fn is_known(self) -> bool {
+        Self::ALL.binary_search(&self).is_ok()
+    }
+
     /// Human-readable name (for reports and the "why" panel).
     #[must_use]
     pub fn name(self) -> &'static str {
