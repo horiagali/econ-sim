@@ -18,6 +18,7 @@
 //! | D | `society/population-jobs` | persons: `employment_status`, `occupation`, `industry_group` (u8) |
 //! | E | `society/population-housing` | households: `hh_locality_size` (u8), `hh_urban` (bool), `hh_tenure` (u8) |
 //! | F | `society/population-wages` | persons: `wage` (u64, gross monthly, bani) |
+//! | G | `society/population-pensions` | persons: `pension` (u64, gross monthly, bani) |
 
 use std::path::Path;
 use std::sync::Arc;
@@ -28,8 +29,8 @@ use econ_core::scale_spike::SeedPopulation;
 use econ_popgen::{
     AttributeMargins, EDU_GROUPS, EDU_LEVELS, GenParams, HouseholdHousing, HousingMargins,
     INDUSTRY_GROUPS, JobMargins, KINDS, MARGIN_ACTIVITIES, Margins, OCCUPATIONS, OPEN,
-    PersonAttributes, PersonJobs, PersonWages, Population, SIZE_GROUPS, STATUSES, TENURES,
-    WageMargins,
+    PensionMargins, PersonAttributes, PersonJobs, PersonPensions, PersonWages, Population,
+    SIZE_GROUPS, STATUSES, TENURES, WageMargins,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -131,6 +132,8 @@ pub struct Stages<'a> {
     pub housing: Option<(&'a HouseholdHousing, &'a Value)>,
     /// Stage F: wages.
     pub wages: Option<(&'a PersonWages, &'a Value)>,
+    /// Stage G: pensions.
+    pub pensions: Option<(&'a PersonPensions, &'a Value)>,
 }
 
 fn stage_err(file: &str, what: &str) -> SaveError {
@@ -428,6 +431,36 @@ pub fn read_wage_margins(json: &str) -> Result<StageFile<WageMargins>, SaveError
     })
 }
 
+/// Parse the pension margin file (stage G), written by
+/// `python/pipeline/normalise_pensions.py`.
+///
+/// # Errors
+/// `SaveError::Parse` if the JSON is not such a file.
+pub fn read_pension_margins(json: &str) -> Result<StageFile<PensionMargins>, SaveError> {
+    const FILE: &str = "pensions";
+    let v = parse(json, FILE)?;
+    fixed_names(&v, FILE, "sexes", &["F", "M"])?;
+    counted_names(&v, FILE, "edu_groups", EDU_GROUPS)?;
+    let amount = |name: &str| {
+        v[name]
+            .as_u64()
+            .ok_or_else(|| stage_err(FILE, &format!("{name} is not an amount")))
+    };
+    let rel_sex = ppm_table(&v, FILE, "rel_sex", &[2])?;
+    Ok(StageFile {
+        margins: PensionMargins {
+            pension_bill: amount("pension_bill")?,
+            minimum_pension: amount("minimum_pension")?,
+            rel_sex: [rel_sex[0], rel_sex[1]],
+            edu_group_of_level: edu_group_of_level(&v, FILE)?,
+            rel_education: ppm_table(&v, FILE, "rel_education", &[2, EDU_GROUPS])?,
+            curve_rank: ppm_list(&v["quantile_curve"], FILE, "rank")?,
+            curve_value: ppm_list(&v["quantile_curve"], FILE, "value")?,
+        },
+        provenance: v["provenance"].clone(),
+    })
+}
+
 /// The columns of a generated population that the simulation starts from.
 #[must_use]
 pub fn seed_population(pop: &Population) -> SeedPopulation<'_> {
@@ -489,8 +522,8 @@ pub fn households_table(pop: &Population, stages: &Stages<'_>) -> Result<Vec<u8>
     ipc_bytes(&batch(columns)?)
 }
 
-/// The persons table as Arrow IPC bytes, with the columns of stages C, D and F
-/// if they were run.
+/// The persons table as Arrow IPC bytes, with the columns of stages C, D, F
+/// and G if they were run.
 ///
 /// # Errors
 /// On Arrow encoding failures.
@@ -558,6 +591,13 @@ pub fn persons_table(pop: &Population, stages: &Stages<'_>) -> Result<Vec<u8>, S
             Arc::new(UInt64Array::from(wages.wage.clone())),
         ));
     }
+    if let Some((pensions, _)) = stages.pensions {
+        columns.push((
+            "pension",
+            DataType::UInt64,
+            Arc::new(UInt64Array::from(pensions.pension.clone())),
+        ));
+    }
     ipc_bytes(&batch(columns)?)
 }
 
@@ -611,6 +651,10 @@ pub fn fit_report(
         ("jobs", stages.jobs.map(|(j, p)| (j.state_hash(), p))),
         ("housing", stages.housing.map(|(h, p)| (h.state_hash(), p))),
         ("wages", stages.wages.map(|(w, p)| (w.state_hash(), p))),
+        (
+            "pensions",
+            stages.pensions.map(|(g, p)| (g.state_hash(), p)),
+        ),
     ];
     for (stage, result) in ran {
         if let Some((hash, provenance)) = result {
@@ -715,8 +759,8 @@ mod tests {
     #[test]
     fn stage_files_give_the_golden_columns() -> Result<(), SaveError> {
         use econ_popgen::{
-            AttrParams, HousingParams, JobParams, WageParams, assign_attributes, assign_housing,
-            assign_jobs, assign_wages,
+            AttrParams, HousingParams, JobParams, PensionParams, WageParams, assign_attributes,
+            assign_housing, assign_jobs, assign_pensions, assign_wages,
         };
         let file = read_margins(&fixture("census2021_margins_ro.json")).unwrap();
         let ea = read_attribute_margins(
@@ -727,6 +771,7 @@ mod tests {
         let job_file = read_job_margins(&fixture("census2021_jobs_ro.json"), &ea.margins).unwrap();
         let housing_file = read_housing_margins(&fixture("census2021_housing_ro.json")).unwrap();
         let wage_file = read_wage_margins(&fixture("earnings2021_ro.json")).unwrap();
+        let pension_file = read_pension_margins(&fixture("pensions2021_ro.json")).unwrap();
         assert_eq!(ea.margins.years_of_age, 101);
         assert_eq!(housing_file.margins.counties, file.margins.counties);
 
@@ -743,11 +788,14 @@ mod tests {
             &WageParams::new(42),
         )
         .unwrap();
+        let pensions =
+            assign_pensions(&pop, &attrs, &pension_file.margins, &PensionParams::new(42)).unwrap();
         let stages = Stages {
             attributes: Some((&attrs, &ea.provenance)),
             jobs: Some((&jobs, &job_file.provenance)),
             housing: Some((&housing, &housing_file.provenance)),
             wages: Some((&wages, &wage_file.provenance)),
+            pensions: Some((&pensions, &pension_file.provenance)),
         };
 
         let r = fit_report(&file, &params, &pop, &stages);
@@ -756,6 +804,7 @@ mod tests {
             ("jobs_hash", "popgen_ro_census2021_jobs.hashes"),
             ("housing_hash", "popgen_ro_census2021_housing.hashes"),
             ("wages_hash", "popgen_ro_census2021_wages.hashes"),
+            ("pensions_hash", "popgen_ro_census2021_pensions.hashes"),
         ] {
             assert_eq!(r[key], golden_1_in_1000(golden), "{key}");
         }
@@ -763,8 +812,9 @@ mod tests {
 
         let h = read_batch(households_table(&pop, &stages).unwrap()).unwrap();
         let p = read_batch(persons_table(&pop, &stages).unwrap()).unwrap();
-        assert_eq!((h.num_columns(), p.num_columns()), (6, 10));
+        assert_eq!((h.num_columns(), p.num_columns()), (6, 11));
         assert_eq!(col!(p, "wage", UInt64Array), wages.wage);
+        assert_eq!(col!(p, "pension", UInt64Array), pensions.pension);
         assert_eq!(
             col!(h, "hh_locality_size", UInt8Array),
             housing.hh_locality_size

@@ -5,14 +5,23 @@
 //! pension gap says, and about as many pensioners are at the minimum pension
 //! as in reality. Earlier stages are not changed.
 //!
-//! **Skeleton.** This file fixes the API the acceptance tests are written
-//! against (ADR-0014, tests-first). The stage is not implemented yet; the
-//! `pensions` feature that enables its acceptance tests is switched on by the
-//! implementation change. `python/reference/popgen_reference.py`
-//! (`assign_pensions`) is the independent reference.
+//! The retired are one group spread like the employees of an industry group
+//! in stage F ([`crate::wages`]). `python/reference/popgen_reference.py`
+//! (`assign_pensions`) is the independent reference; the two agree person for
+//! person (AC-POPP-08).
+
+use econ_rng::{KeyedRng, Stream};
 
 use crate::Population;
-use crate::attributes::{EDU_LEVELS, PersonAttributes};
+use crate::arith::{Int, UNIT};
+use crate::assign::column_hash;
+use crate::attributes::{Activity, EDU_LEVELS, PersonAttributes};
+use crate::jobs::EDU_GROUPS;
+use crate::wages::{Group, curve_ok, spread};
+
+/// `tick` of the draw context: the stage number.
+const STAGE: u32 = 6;
+const BANI_PER_LEU: Int = 100;
 
 /// Pension margins. Proportions are in millionths. Tables by education group
 /// have [`crate::EDU_GROUPS`] columns.
@@ -93,8 +102,72 @@ pub fn assign_pensions(
     margins: &PensionMargins,
     params: &PensionParams,
 ) -> Result<PersonPensions, PensionError> {
-    let _ = (pop, attrs, margins, params);
-    unimplemented!("econ-popgen: stage G is written in the implementation change")
+    let m = margins;
+    if m.rel_education.is_empty() || m.curve_rank.len() < 2 {
+        return Err(PensionError::EmptyTable);
+    }
+    let shape_ok = m.rel_sex.iter().all(|&r| r > 0)
+        && m.rel_education.len() == 2 * EDU_GROUPS
+        && m.rel_education.iter().all(|&v| v > 0)
+        && curve_ok(&m.curve_rank, &m.curve_value)
+        && m.edu_group_of_level
+            .iter()
+            .all(|&e| usize::from(e) < EDU_GROUPS);
+    let p = &pop.persons;
+    let n = p.household_id.len();
+    if !shape_ok || attrs.activity.len() != n || attrs.edu_level.len() != n {
+        return Err(PensionError::ShapeMismatch);
+    }
+    let mut pension = vec![0u64; n];
+    let mut members: Vec<usize> = (0..n)
+        .filter(|&i| attrs.activity[i] == Activity::Retired)
+        .collect();
+    if members.is_empty() {
+        return Ok(PersonPensions { pension });
+    }
+    let bill = Int::from(m.pension_bill) * BANI_PER_LEU;
+    if bill <= 0 {
+        return Err(PensionError::NoMargin);
+    }
+    let rng = KeyedRng::new(params.rng_seed);
+    members.sort_by_cached_key(|&i| (rng.draw(Stream::PopulationGen, STAGE, i as u64).u64(), i));
+    let w: Vec<Int> = members
+        .iter()
+        .map(|&i| Int::from(pop.households.hh_weight[p.household_id[i] as usize]))
+        .collect();
+    let sex: Vec<usize> = members.iter().map(|&i| p.sex[i] as usize).collect();
+    // The proportions between education groups: the earnings proportions pulled towards 1.
+    let link = Int::from(params.earnings_link_ppm);
+    let targets: Vec<Int> = m
+        .rel_education
+        .iter()
+        .map(|&v| (UNIT * UNIT + link * (Int::from(v) - UNIT)).div_euclid(UNIT))
+        .collect();
+    let cells: Vec<usize> = members
+        .iter()
+        .zip(&sex)
+        .map(|(&i, &s)| {
+            s * EDU_GROUPS + usize::from(m.edu_group_of_level[attrs.edu_level[i] as usize])
+        })
+        .collect();
+    // The minimum pension, or the mean pension if the bill cannot pay even that to everyone.
+    let total_w: Int = w.iter().sum();
+    let floor = (Int::from(m.minimum_pension) * BANI_PER_LEU).min(bill / total_w);
+    let group = Group {
+        w: &w,
+        sex: &sex,
+        rel_sex: m.rel_sex.map(Int::from),
+        curve_rank: &m.curve_rank,
+        curve_value: &m.curve_value,
+        dispersion_ppm: params.dispersion_ppm,
+        scaling_passes: params.scaling_passes,
+        bill,
+        floor,
+    };
+    for (&i, a) in members.iter().zip(spread(&group, &[(cells, targets)])) {
+        pension[i] = u64::try_from(a).expect("pension fits u64");
+    }
+    Ok(PersonPensions { pension })
 }
 
 impl PersonPensions {
@@ -102,6 +175,9 @@ impl PersonPensions {
     /// pension; see the spec).
     #[must_use]
     pub fn state_hash(&self) -> u64 {
-        unimplemented!("econ-popgen: stage G is written in the implementation change")
+        column_hash(
+            self.pension.len(),
+            self.pension.iter().flat_map(|v| v.to_le_bytes()),
+        )
     }
 }

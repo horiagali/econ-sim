@@ -191,8 +191,14 @@ pub fn assign_wages(
                 Int::from(margins.rel_sex[2 * g]),
                 Int::from(margins.rel_sex[2 * g + 1]),
             ],
+            curve_rank: &margins.curve_rank,
+            curve_value: &margins.curve_value,
+            dispersion_ppm: params.dispersion_ppm,
+            scaling_passes: params.scaling_passes,
+            bill,
+            floor,
         };
-        let amounts = spread(&group, &dims, margins, params, bill, floor);
+        let amounts = spread(&group, &dims);
         for (&i, a) in members.iter().zip(amounts) {
             wage[i] = u64::try_from(a).expect("wage fits u64");
         }
@@ -214,18 +220,12 @@ fn check_margins(m: &WageMargins) -> Result<(), WageError> {
     }
     let n_g = INDUSTRY_GROUPS;
     let table_ok = |t: &[u32], inner: usize| t.len() == n_g * 2 * inner && t.iter().all(|&v| v > 0);
-    let (rank, value) = (&m.curve_rank, &m.curve_value);
     let ok = m.wage_bill.len() == n_g
         && table_ok(&m.rel_sex, 1)
         && table_ok(&m.rel_occupation, OCCUPATIONS)
         && table_ok(&m.rel_age, n_age)
         && table_ok(&m.rel_education, EDU_GROUPS)
-        && value.len() == rank.len()
-        && rank[0] == 0
-        && Int::from(rank[rank.len() - 1]) == UNIT
-        && rank.windows(2).all(|r| r[0] < r[1])
-        && value[0] > 0
-        && value.windows(2).all(|v| v[0] <= v[1])
+        && curve_ok(&m.curve_rank, &m.curve_value)
         && m.edu_group_of_level
             .iter()
             .all(|&e| usize::from(e) < EDU_GROUPS)
@@ -245,9 +245,19 @@ fn group_table(t: &[u32], g: usize, inner: usize) -> Vec<Int> {
         .collect()
 }
 
+/// A quantile curve of at least two knots ascends from rank 0 to `UNIT`, starts
+/// above zero and does not decrease.
+pub(crate) fn curve_ok(rank: &[u32], value: &[u32]) -> bool {
+    value.len() == rank.len()
+        && rank[0] == 0
+        && Int::from(rank[rank.len() - 1]) == UNIT
+        && rank.windows(2).all(|r| r[0] < r[1])
+        && value[0] > 0
+        && value.windows(2).all(|v| v[0] <= v[1])
+}
+
 /// The quantile curve at `rank` (millionths, `0 <= rank < UNIT`): a line through its knots.
-fn curve_at(m: &WageMargins, rank: Int) -> Int {
-    let (ranks, values) = (&m.curve_rank, &m.curve_value);
+fn curve_at(ranks: &[u32], values: &[u32], rank: Int) -> Int {
     let k = (0..ranks.len() - 1)
         .rev()
         .find(|&i| Int::from(ranks[i]) <= rank)
@@ -257,32 +267,46 @@ fn curve_at(m: &WageMargins, rank: Int) -> Int {
     v0 + ((v1 - v0) * (rank - r0)).div_euclid(r1 - r0)
 }
 
-/// The members of one industry group, in keyed-random order.
-struct Group<'a> {
-    w: &'a [Int],
-    sex: &'a [usize],
-    rel_sex: [Int; 2],
+/// One group to spread an amount over (an industry group's employees, or the
+/// retired): its members in keyed-random order and what they are to be paid.
+pub(crate) struct Group<'a> {
+    /// Members' weights.
+    pub w: &'a [Int],
+    /// Members' sexes (0 F, 1 M).
+    pub sex: &'a [usize],
+    /// Mean of each sex, as proportions.
+    pub rel_sex: [Int; 2],
+    /// Knots of the quantile curve.
+    pub curve_rank: &'a [u32],
+    pub curve_value: &'a [u32],
+    /// Share of the curve's spread that is used, in millionths.
+    pub dispersion_ppm: u32,
+    /// Passes of scaling to the proportions.
+    pub scaling_passes: u32,
+    /// What the group is paid, in bani.
+    pub bill: Int,
+    /// Nobody gets less, in bani.
+    pub floor: Int,
 }
 
 /// Amounts for the members of one group, in bani: the group pays `bill`,
-/// nobody gets less than `floor` (spec, steps 2 to 4).
-fn spread(
-    group: &Group<'_>,
-    dims: &[(Vec<usize>, Vec<Int>)],
-    margins: &WageMargins,
-    params: &WageParams,
-    bill: Int,
-    floor: Int,
-) -> Vec<Int> {
-    let (w, sex) = (group.w, group.sex);
+/// nobody gets less than `floor` (spec `society/population-wages`, steps 2 to
+/// 4). `dims` are the tables of proportions inside each sex: each member's
+/// cell (`sex * width + category`) and the proportion of each cell.
+pub(crate) fn spread(group: &Group<'_>, dims: &[(Vec<usize>, Vec<Int>)]) -> Vec<Int> {
+    let (w, sex, floor) = (group.w, group.sex, group.floor);
     let total_w: Int = w.iter().sum();
-    let dispersion = Int::from(params.dispersion_ppm);
+    let dispersion = Int::from(group.dispersion_ppm);
     // A place on the quantile curve from the rank (the midpoint of the member's own weight).
     let mut x = Vec::with_capacity(w.len());
     let mut before = 0;
     for &wi in w {
         let rank = (2 * before + wi) * UNIT / (2 * total_w);
-        x.push((UNIT * UNIT + dispersion * (curve_at(margins, rank) - UNIT)).div_euclid(UNIT));
+        x.push(
+            (UNIT * UNIT
+                + dispersion * (curve_at(group.curve_rank, group.curve_value, rank) - UNIT))
+                .div_euclid(UNIT),
+        );
         before += wi;
     }
 
@@ -294,7 +318,7 @@ fn spread(
     }
     let sex_norm: Int = sex_w[0] * group.rel_sex[0] + sex_w[1] * group.rel_sex[1];
     let sex_mean = group.rel_sex.map(|r| rdiv(r * total_w * UNIT, sex_norm));
-    for _ in 0..params.scaling_passes {
+    for _ in 0..group.scaling_passes {
         for (cells, targets) in dims {
             let mut weight_of = vec![0; targets.len()];
             let mut sum_of = vec![0; targets.len()];
@@ -328,6 +352,7 @@ fn spread(
             .map(|(wi, &xi)| wi * rdiv(level * xi, UNIT).max(floor))
             .sum()
     };
+    let bill = group.bill;
     let (mut lo, mut hi) = (0, rdiv(2 * bill, total_w) + 1);
     while paid(hi) < bill {
         hi *= 2;

@@ -10,7 +10,7 @@ publish.workspace = true
 [features]
 # Each feature gates the acceptance tests of one stage: they were written
 # before the stage (ADR-0014), and its implementation switched the feature on.
-default = ["generator", "attributes", "jobs", "housing", "wages"]
+default = ["generator", "attributes", "jobs", "housing", "wages", "pensions"]
 generator = []
 # Stage C: education and activity (spec society/population-attributes).
 attributes = []
@@ -20,7 +20,7 @@ jobs = []
 housing = []
 # Stage F: wages (spec society/population-wages).
 wages = []
-# Stage G: pensions (spec society/population-pensions). Off until implemented, as above.
+# Stage G: pensions (spec society/population-pensions).
 pensions = []
 # Stage H: household wealth (spec society/population-wealth). Off until implemented, as above.
 wealth = []

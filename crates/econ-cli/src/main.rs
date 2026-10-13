@@ -4,7 +4,8 @@
 //! econ-cli sim [--ticks N] [--hashes] [--check-golden FILE] [--mutate tax-sign|consume-gross]
 //! econ-cli rng-raw [--pattern entity|tick|grid] [--entities N] [--bytes N] [--seed S]
 //! econ-cli synth-population --margins FILE --sample-scale N [--seed S] --out DIR
-//!                           [--attributes FILE [--jobs FILE [--wages FILE]]] [--housing FILE]
+//!                           [--attributes FILE [--jobs FILE [--wages FILE]] [--pensions FILE]]
+//!                           [--housing FILE]
 //! econ-cli sim-population --margins FILE --sample-scale N [--seed S] [--ticks N]
 //! ```
 //! Default output of `sim` is CSV: tick,Y,T,YD,C,G,H,GOV_DEFICIT,state_hash
@@ -13,7 +14,8 @@
 //! `synth-population` is the data pipeline's `synth_population` stage
 //! (ADR-0012): census margins in, `households.arrow`, `persons.arrow` and
 //! `fit_report.json` out; each further margin file runs one more stage and adds
-//! its columns (education and activity, jobs, locality size and tenure, wages).
+//! its columns (education and activity, jobs, locality size and tenure, wages,
+//! pensions).
 //! `sim-population` generates the same population and
 //! runs the scale world on it, printing one CSV line per month.
 
@@ -26,7 +28,7 @@ use econ_rng::{KeyedRng, Stream};
 fn usage() -> ExitCode {
     eprintln!(
         "usage:\n  econ-cli sim [--ticks N] [--hashes] [--check-golden FILE] [--mutate tax-sign|consume-gross]\n  econ-cli bench-scale [--scales 1000,100,10] [--ticks N]\n  econ-cli bench-save [--scales 100,10]\n  econ-cli bench-days [--scales 1000,100,10] [--years N]\n  econ-cli rng-raw [--pattern entity|tick|grid] [--entities N] [--bytes N] [--seed S]
-  econ-cli synth-population --margins FILE --sample-scale N [--seed S] --out DIR [--attributes FILE [--jobs FILE [--wages FILE]]] [--housing FILE]
+  econ-cli synth-population --margins FILE --sample-scale N [--seed S] --out DIR [--attributes FILE [--jobs FILE [--wages FILE]] [--pensions FILE]] [--housing FILE]
   econ-cli sim-population --margins FILE --sample-scale N [--seed S] [--ticks N]"
     );
     ExitCode::from(2)
@@ -52,11 +54,11 @@ fn main() -> ExitCode {
 fn synth_population(args: &[String]) -> ExitCode {
     use econ_io::popgen::{
         Stages, read_attribute_margins, read_housing_margins, read_job_margins, read_margins,
-        read_wage_margins, write_population,
+        read_pension_margins, read_wage_margins, write_population,
     };
     use econ_popgen::{
-        AttrParams, GenParams, HousingParams, JobParams, WageParams, assign_attributes,
-        assign_housing, assign_jobs, assign_wages, generate,
+        AttrParams, GenParams, HousingParams, JobParams, PensionParams, WageParams,
+        assign_attributes, assign_housing, assign_jobs, assign_pensions, assign_wages, generate,
     };
     /// Read and parse one margin file, or say why not.
     fn load<T, E: std::fmt::Debug>(
@@ -74,6 +76,7 @@ fn synth_population(args: &[String]) -> ExitCode {
     let mut jobs: Option<&String> = None;
     let mut housing: Option<&String> = None;
     let mut wages: Option<&String> = None;
+    let mut pensions: Option<&String> = None;
     let mut sample_scale: Option<u32> = None;
     let mut seed: u64 = 42;
     let mut it = args.iter();
@@ -85,6 +88,7 @@ fn synth_population(args: &[String]) -> ExitCode {
             "--jobs" => jobs = it.next(),
             "--housing" => housing = it.next(),
             "--wages" => wages = it.next(),
+            "--pensions" => pensions = it.next(),
             "--sample-scale" => match it.next().and_then(|v| v.parse().ok()) {
                 Some(n) => sample_scale = Some(n),
                 None => return usage(),
@@ -105,6 +109,10 @@ fn synth_population(args: &[String]) -> ExitCode {
     }
     if wages.is_some() && jobs.is_none() {
         eprintln!("--wages needs --jobs: wages are given to the employees of that stage");
+        return ExitCode::from(2);
+    }
+    if pensions.is_some() && attributes.is_none() {
+        eprintln!("--pensions needs --attributes: pensions are given to the retired of that stage");
         return ExitCode::from(2);
     }
     let fail = |e: String| {
@@ -171,11 +179,27 @@ fn synth_population(args: &[String]) -> ExitCode {
         }
         _ => None,
     };
+    let pensions = match (pensions, &attributes) {
+        (Some(path), Some((_, attrs))) => {
+            let done = load(path, read_pension_margins).and_then(|file| {
+                let pensions =
+                    assign_pensions(&pop, attrs, &file.margins, &PensionParams::new(seed))
+                        .map_err(|e| format!("pension margins rejected: {e:?}"))?;
+                Ok((file, pensions))
+            });
+            match done {
+                Ok(done) => Some(done),
+                Err(e) => return fail(e),
+            }
+        }
+        _ => None,
+    };
     let stages = Stages {
         attributes: attributes.as_ref().map(|(f, a)| (a, &f.provenance)),
         jobs: jobs.as_ref().map(|(f, j)| (j, &f.provenance)),
         housing: housing.as_ref().map(|(f, h)| (h, &f.provenance)),
         wages: wages.as_ref().map(|(f, w)| (w, &f.provenance)),
+        pensions: pensions.as_ref().map(|(f, p)| (p, &f.provenance)),
     };
     if let Err(e) = write_population(std::path::Path::new(out), &file, &params, &pop, &stages) {
         return fail(format!("cannot write to {out}: {e:?}"));
@@ -209,6 +233,7 @@ fn synth_population(args: &[String]) -> ExitCode {
             stages.housing.map(|(h, _)| h.state_hash()),
         ),
         ("wages", stages.wages.map(|(w, _)| w.state_hash())),
+        ("pensions", stages.pensions.map(|(p, _)| p.state_hash())),
     ];
     for (stage, hash) in hashes {
         if let Some(hash) = hash {
