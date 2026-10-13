@@ -286,3 +286,25 @@ source = "eurostat"
 code = "nama_10_nfa_bs"            # capital stocks by sector and asset type
 filters = { geo = ["RO"], time = ["2021"], unit = ["CP_MNAC"], asset10 = ["N11N", "N111N"] }
 licence = "eurostat-reuse"
+
+# General government spending in 2021 (spec economy/budget-2021). Inputs of normalise_budget.py.
+[[dataset]]
+id = "ro_gov_expenditure_cofog_2021"
+source = "eurostat"
+code = "gov_10a_exp"               # general government expenditure by function (COFOG) and economic transaction
+filters = { geo = ["RO"], time = ["2021"], sector = ["S13"], unit = ["MIO_NAC"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_gov_main_aggregates_2021"
+source = "eurostat"
+code = "gov_10a_main"              # government revenue, expenditure and main aggregates
+filters = { geo = ["RO"], time = ["2021"], sector = ["S13"], unit = ["MIO_NAC"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_gdp_2021"
+source = "eurostat"
+code = "nama_10_gdp"               # GDP and main components, current prices
+filters = { geo = ["RO"], time = ["2021"], unit = ["CP_MNAC"], na_item = ["B1GQ"] }
+licence = "eurostat-reuse"

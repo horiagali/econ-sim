@@ -4,8 +4,8 @@ title: Fiscal Policy — Budget, Spending, Subsidies & Public Debt
 status: draft
 owner: horia
 depends_on: [economy/accounting, economy/taxation, economy/social-transfers, economy/money-banking]
-research: []
-updated: 2026-10-08
+research: [research/budget-romania-2021]
+updated: 2026-10-13
 ---
 
 # Fiscal Policy — Budget, Spending, Subsidies & Public Debt
@@ -32,6 +32,8 @@ The government budget: what the state buys, whom it employs, what it subsidises,
 | SOE loss coverage | SOEs |
 | EU budget contribution | EU ([eu-membership](eu-membership.md)) |
 | EU-funds co-financing and pre-financing | projects ([eu-funds](eu-funds.md)) |
+
+The starting values of these lines (2021: 474 billion lei, 40.2% of GDP), public posts and the public wage bill are scenario data: see [the starting budget](budget-2021.md).
 
 Ministry spending affects quality indices: education quality, health capacity, policing, admin efficiency (tax enforcement), research (TFP). How much quality each leu buys depends on [state capacity](state-capacity.md); part of procurement can leak to corruption.
 
