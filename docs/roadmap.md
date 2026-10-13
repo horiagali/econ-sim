@@ -4,7 +4,7 @@ title: Roadmap
 status: draft
 owner: horia
 depends_on: [vision/scope]
-updated: 2026-10-11
+updated: 2026-10-13
 ---
 
 # Roadmap
@@ -154,7 +154,7 @@ A thin UI does not wait for M8. From the end of M2 a minimal window (time contro
 
 ### M0 — Decisions
 Mostly owner time. Nothing here is code; all of it unblocks code.
-- [ ] **D1 Order.** Confirm the three parts and the order of M9–M20, or reorder.
+- [x] **D1 Order:** the three parts and the order of M9–M20 as written (owner, 2026-10-13).
 - [x] **D2 Lever list.** Tagged by milestone in [levers](02-design/game/levers.md) ("When each lever arrives"), 2026-10-10. The owner changes it there.
 - [x] **D3 Indicator list.** Tagged by milestone in [information](02-design/game/information.md) ("When each view arrives"), 2026-10-10.
 - [x] **D4 Start date: 1 December 2021,** the census reference date (owner, 2026-10-10). No roll-forward of the population. Law, budget and balance sheets are collected as of that date. The years 2022 to 2025 are then real history to compare a run against (M21).
@@ -166,13 +166,13 @@ Mostly owner time. Nothing here is code; all of it unblocks code.
 - [x] **D8 The outside world: not simulated in v1** (owner, 2026-10-10). Foreign prices, fuel prices, foreign demand, foreign interest rates, wages abroad, the EU carbon price and weather are constants that the player can move with sliders ("World settings" in [levers](02-design/game/levers.md)). A world that moves by itself comes after v1. Step 3 of the calibration workflow of ADR-0009 (fitting processes for exogenous series) is postponed with it.
 - [x] **D9 Cost of changing a lever: none in v1** (owner, 2026-10-10).
 - [x] **D10 Extreme states: not modelled in v1** (owner, 2026-10-10). No dynamics of sovereign default, bank runs or hyperinflation. What stays: the simulation must not crash or break an invariant under any lever setting (tested in M7 and M21), which needs simple backstops (M10).
-- [ ] **D11 Language of the app:** English only, or English and Romanian. Cheap if decided before M8, costly after M22.
+- [x] **D11 Language of the app: English only** (owner, 2026-10-13). Proper names stay in Romanian: companies, institutions, counties, cities and other places (for example *Banca Națională a României*, *Cluj-Napoca*). Text still goes through one string table (M8).
 - [x] **Locked 2026-10-10:** [population-groups](02-design/society/population-groups.md) and [accounting](02-design/economy/accounting.md).
 - [x] **D12 Lock rule relaxed** (owner, 2026-10-10; [ADR-0014](03-architecture/decisions/0014-agent-workflow-guardrails.md) Amendment 1): a spec can be locked before its tests; each criterion without a live test is listed in the spec under "Tests owed", and `just trace` checks that list. Ten criteria of the two specs are owed.
 - [ ] **[vat](02-design/economy/vat.md):** the spec now has two reduced rates (19%, 9% and 5% on the start date) and is at `review`. Owed: a test-authoring session for AC-VAT-06, then the code change, then the lock.
 - [ ] Owner review pass over the open questions of the alpha specs (households, labour market, taxation, production, prices, money-banking, monetary policy, fiscal policy, trade-fx, social transfers, demographics). The other specs are reviewed when their milestone starts.
 
-**Exit:** D1 and D11 answered; VAT tests and code done, then locked. (D2 to D6, D8 to D10 and D12 are recorded; ADR-0017 accepted; six specs locked.)
+**Exit:** VAT tests and code done, then locked. (D1 to D6 and D8 to D12 are recorded; ADR-0017 accepted; six specs locked.)
 
 ### M1 — Complete starting state
 Everything the simulation needs at tick 0, from data files, consistent with the accounting matrix. Continues the population generator. Data for the systems of Part 2 is collected in their own milestones; here the tables only get the columns listed under "Built in from M1".
@@ -267,7 +267,7 @@ On the stack of [ADR-0013](03-architecture/decisions/0013-ui-stack.md), growing 
 - [ ] Central bank screen (rate, reserves, QE, monetary financing, FX).
 - [ ] Graph browser for every indicator in the registry; group explorer; county map.
 - [ ] "Why" panel on every headline number.
-- [ ] Text through one string table (D11).
+- [ ] Text through one string table (D11: English only; proper names in Romanian).
 
 **Exit:** the owner plays 20 game-years of the core in one sitting without touching a terminal. **This is the alpha.** Review the order of Part 2 here with what playing has taught.
 
