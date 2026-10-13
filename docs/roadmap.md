@@ -168,7 +168,7 @@ Mostly owner time. Nothing here is code; all of it unblocks code.
 - [x] **D11 Language of the app: English only** (owner, 2026-10-13). Proper names stay in Romanian: companies, institutions, counties, cities and other places (for example *Banca Națională a României*, *Cluj-Napoca*). Text still goes through one string table (M8).
 - [x] **Locked 2026-10-10:** [population-groups](02-design/society/population-groups.md) and [accounting](02-design/economy/accounting.md).
 - [x] **D12 Lock rule relaxed** (owner, 2026-10-10; [ADR-0014](03-architecture/decisions/0014-agent-workflow-guardrails.md) Amendment 1): a spec can be locked before its tests; each criterion without a live test is listed in the spec under "Tests owed", and `just trace` checks that list. Ten criteria of the two specs are owed.
-- [ ] **[vat](02-design/economy/vat.md):** the spec now has two reduced rates (19%, 9% and 5% on the start date) and is at `review`. Test for AC-VAT-06 written 2026-10-13. Owed: the code change, then the lock (owner, 2026-10-13: test, code, merge, lock).
+- [ ] **[vat](02-design/economy/vat.md):** the spec now has two reduced rates (19%, 9% and 5% on the start date) and is at `review`. Test for AC-VAT-06 and code written 2026-10-13. Owed: the lock (owner, 2026-10-13: test, code, merge, lock).
 - [ ] Owner review pass over the open questions of the alpha specs (households, labour market, taxation, production, prices, money-banking, monetary policy, fiscal policy, trade-fx, social transfers, demographics). The other specs are reviewed when their milestone starts.
 
 **Exit:** VAT tests and code done, then locked. (D1 to D6 and D8 to D12 are recorded; ADR-0017 accepted; six specs locked.)

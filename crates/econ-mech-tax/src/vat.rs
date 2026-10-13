@@ -1,4 +1,4 @@
-//! Value-added tax (spec `economy/vat`, AC-VAT-01..05).
+//! Value-added tax (spec `economy/vat`, AC-VAT-01..06).
 //!
 //! Rates are integer basis points so VAT is exact rational arithmetic
 //! (`Bani::mul_ratio`), never a float multiply.
@@ -38,6 +38,8 @@ pub enum VatCategory {
     Standard,
     /// Reduced rate (food, medicines, housing, …).
     Reduced,
+    /// Second reduced rate (books, newspapers, …; AC-VAT-06).
+    Reduced2,
     /// Taxable at 0% (e.g. intra-EU supplies, exports).
     Zero,
     /// Outside VAT (financial services, health, education).
@@ -54,13 +56,16 @@ pub enum VatWarning {
     },
 }
 
-/// The player-set VAT schedule (lever: `vat_rate_standard`, `vat_rate_reduced`).
+/// The player-set VAT schedule (levers: `vat_rate_standard`, `vat_rate_reduced`,
+/// `vat_rate_reduced_2`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct VatSchedule {
     /// Standard rate.
     pub standard: VatRate,
     /// Reduced rate.
     pub reduced: VatRate,
+    /// Second reduced rate; independent of the first, either may be the lower.
+    pub reduced_2: VatRate,
 }
 
 impl VatSchedule {
@@ -70,6 +75,7 @@ impl VatSchedule {
         match cat {
             VatCategory::Standard => Some(self.standard),
             VatCategory::Reduced => Some(self.reduced),
+            VatCategory::Reduced2 => Some(self.reduced_2),
             VatCategory::Zero => Some(VatRate(0)),
             VatCategory::Exempt => None,
         }

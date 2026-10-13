@@ -42,10 +42,12 @@ pub const N_COUNTIES: usize = 42;
 pub const N_REGIONS: usize = 8;
 /// Skill tiers.
 pub const N_SKILLS: usize = 3;
-/// Fake VAT schedule (stand-in for scenario data): 21% standard, 11% reduced.
+/// VAT schedule (stand-in for scenario data): Romania on 1 December 2021, 19%
+/// standard, 9% and 5% reduced. The spike's basket has no second-reduced group.
 pub const VAT_SCHEDULE: VatSchedule = VatSchedule {
-    standard: VatRate(2100),
-    reduced: VatRate(1100),
+    standard: VatRate(1900),
+    reduced: VatRate(900),
+    reduced_2: VatRate(500),
 };
 /// VAT groups of the consumption basket: standard, reduced, untaxed (zero-rated or exempt).
 const N_VAT_GROUPS: usize = 3;
@@ -1169,8 +1171,8 @@ mod tests {
             }
         }
         assert_eq!(
-            split_gross(Bani(12_100), VatCategory::Standard),
-            (Bani(10_000), Bani(2_100))
+            split_gross(Bani(11_900), VatCategory::Standard),
+            (Bani(10_000), Bani(1_900))
         );
         assert_eq!(
             split_gross(Bani(777), VatCategory::Exempt),
@@ -1199,10 +1201,10 @@ mod tests {
                 f.received(FlowCode::CONSUMPTION, Sector::Firms),
                 r.consumption - r.vat
             );
-            // The basket mixes 21%, 11% and untaxed goods: the VAT share of
-            // spending lies between zero and 21/121.
+            // The basket mixes 19%, 9% and untaxed goods: the VAT share of
+            // spending lies between zero and 19/119.
             let share = r.vat.to_f64_exact() / r.consumption.to_f64_exact();
-            assert!(share > 0.05 && share < 21.0 / 121.0, "VAT share {share}");
+            assert!(share > 0.05 && share < 19.0 / 119.0, "VAT share {share}");
             collected += r.vat;
             wages += r.wage_bill;
             spent += r.consumption;
@@ -1253,12 +1255,12 @@ mod tests {
 
     /// (state hash, employed, wage bill, consumption, VAT in tick 12, VAT collected in 12 ticks).
     const GOLDEN_12: (u64, u64, i64, i64, i64, i64) = (
-        0x8557_a49a_52c1_e86a,
+        0xf540_af18_bcd5_dbab,
         8_890_000,
         7_129_664_400_000,
-        6_207_483_617_000,
-        823_228_305_000,
-        9_769_553_421_000,
+        6_207_483_754_000,
+        740_807_571_000,
+        8_791_436_167_000,
     );
 
     /// A small hand-made population: households of 1 to 4 members with

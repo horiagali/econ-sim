@@ -91,7 +91,7 @@ None. The EU floor (15%) is a fact of EU law, not a tuning value.
 - **Rates above 100%:** computed as written. The lever's range keeps the player below 40%.
 
 ## Acceptance tests
-IDs are stable; tests live in `crates/econ-mech-tax/tests/acceptance/` (protected): AC-VAT-01 to 05 in `vat.rs`, which pass, and AC-VAT-06 in `vat_reduced_2.rs` (written 2026-10-13), compiled only with the crate feature `reduced-2` until its code exists. `[unit]` = pure function, `[ledger]` = posts through the ledger.
+IDs are stable; tests live in `crates/econ-mech-tax/tests/acceptance/` (protected): AC-VAT-01 to 05 in `vat.rs`, which pass, and AC-VAT-06 in `vat_reduced_2.rs` (written 2026-10-13), which passes since the code was added the same day (crate feature `reduced-2`, on by default). `[unit]` = pure function, `[ledger]` = posts through the ledger.
 
 - [ ] **AC-VAT-01** `[unit]` VAT on a purchase is `rate × net amount`, rounded half away from zero to whole bani; the gross price is net + VAT.
 - [ ] **AC-VAT-02** `[unit]` Each good's VAT category decides its rate: standard, reduced, zero (0%) or exempt (no VAT).
@@ -101,7 +101,7 @@ IDs are stable; tests live in `crates/econ-mech-tax/tests/acceptance/` (protecte
 - [ ] **AC-VAT-06** `[unit]` A good in the second reduced category is taxed at `vat_rate_reduced_2`. With the schedule 19%, 9%, 5%, a net purchase of 1,000.00 lei carries 190.00, 90.00 and 50.00 lei of VAT in the three taxed categories; changing one reduced rate leaves the VAT of the other category unchanged.
 
 ## API sketch
-As implemented in `crates/econ-mech-tax/src/vat.rs`, plus the second reduced rate (marked `// AC-VAT-06, not built`). Adding a field to `VatSchedule` breaks the struct literals of the existing tests, so the tests are updated in the same test-authoring session that writes AC-VAT-06.
+As implemented in `crates/econ-mech-tax/src/vat.rs`.
 
 ```rust
 pub struct VatRate(pub u32);                          // basis points: 2100 = 21%
@@ -111,9 +111,9 @@ impl VatRate {
     pub fn gross(self, net: Bani) -> Bani;
 }
 pub fn vat_on(net: Bani, rate: VatRate) -> Bani;      // rounded half away from zero
-pub enum VatCategory { Standard, Reduced, Reduced2 /* AC-VAT-06, not built */, Zero, Exempt }
+pub enum VatCategory { Standard, Reduced, Reduced2, Zero, Exempt }
 pub enum VatWarning { BelowEuMinimumStandardRate { rate: VatRate } }
-pub struct VatSchedule { pub standard: VatRate, pub reduced: VatRate, pub reduced_2: VatRate /* AC-VAT-06, not built */ }
+pub struct VatSchedule { pub standard: VatRate, pub reduced: VatRate, pub reduced_2: VatRate }
 impl VatSchedule {
     pub fn rate_for(&self, cat: VatCategory) -> Option<VatRate>;   // None for exempt
     pub fn vat(&self, net: Bani, cat: VatCategory) -> Bani;
@@ -131,7 +131,7 @@ The split of a gross budget into net and VAT lives in the scale world for now (`
 - **Input VAT of exempt industries** (owner, 2026-10-13). Industries whose sales are exempt (financial services, insurance, health, education) cannot deduct the VAT on their purchases, so for them it is a cost. Later version: each exempt industry pays VAT on its purchases from other firms at the rate of each input's category, posted under `tax.vat` from the firm to the government, and its unit cost rises by that amount. Needs firm purchases by good (production, roadmap M2) and firm accounts that pay taxes (M3); planned with firms in depth (M9).
 
 ## Open questions
-- [x] **Two reduced rates** (owner, 2026-10-10: "make reduced rates accurate"). The schedule now has the standard rate and two reduced rates, as Romanian law had on the start date. Test for AC-VAT-06 written 2026-10-13 (the existing tests' schedule gets `reduced_2` under the same feature). Still owed: the code change in `crates/econ-mech-tax` (add `Reduced2` and `reduced_2`, switch `reduced-2` on by default) and the scale world's stand-in schedule. The spec is at `review` and is locked after that (owner, 2026-10-13: test, code, merge, lock).
+- [x] **Two reduced rates** (owner, 2026-10-10: "make reduced rates accurate"). The schedule now has the standard rate and two reduced rates, as Romanian law had on the start date. Test for AC-VAT-06 written 2026-10-13 (the existing tests' schedule gets `reduced_2` under the same feature). Code done 2026-10-13: `Reduced2` and `reduced_2` in `crates/econ-mech-tax`, `reduced-2` on by default, and the scale world's stand-in schedule set to 19%, 9% and 5% (a re-golden of its two in-module goldens, approved by the owner; see `CHANGELOG-sim.md`). The spec is at `review` and is locked next (owner, 2026-10-13: test, code, merge, lock).
 - [x] VAT on new dwellings and on government purchases: not in this spec. Dwellings come with [housing](housing.md) (roadmap M13); government purchases stay free of VAT in v1 (the government would pay it to itself).
 - [x] Input VAT of exempt sectors (banks, hospitals, schools): ignored in the first version, added later (owner, 2026-10-13; see Later).
 - [x] A warning for reduced rates on goods that EU law does not allow: added with [eu-membership](eu-membership.md) (roadmap M18), as a new warning variant.

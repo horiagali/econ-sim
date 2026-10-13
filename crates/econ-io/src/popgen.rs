@@ -621,7 +621,7 @@ mod tests {
 
     /// (state hash, employed, unemployed, VAT in tick 12).
     const GOLDEN_ROMANIA_12: (u64, u64, u64, i64) =
-        (0xc050_2b54_1f4a_bd0b, 10_577_737, 641_162, 979_111_507_848);
+        (0xdf92_e313_fa51_cb01, 10_577_737, 641_162, 881_083_907_188);
 
     fn fixture(name: &str) -> String {
         let dir = concat!(
