@@ -1,11 +1,11 @@
 ---
 id: society/population-pensions
 title: Population Generator, Stage G — Pensions
-status: draft
+status: locked
 owner: horia
 depends_on: [society/population-wages, society/population-attributes, society/population-generator, society/population-groups, adr/0006-determinism-contract, adr/0012-data-pipeline-and-licensing, adr/0014-agent-workflow-guardrails]
 research: [research/population-modelling-deep-research]
-updated: 2026-10-10
+updated: 2026-10-13
 ---
 
 # Population Generator, Stage G — Pensions
@@ -103,7 +103,7 @@ None. The minimum pension in the margin file is the law at the start date; pensi
 - **Tables whose length does not match their dimensions, a proportion of zero, a quantile curve that does not ascend from rank 0 to 1, no education groups, attributes of another population:** rejected with a named error; nothing is produced.
 
 ## Acceptance tests
-IDs are stable. Tests go in `crates/econ-popgen/tests/acceptance/pensions.rs` (protected; to be written in a test-authoring session, before the Rust code), compiled only with the crate feature `pensions`. "The fixtures" are the normalised margin files committed with the pipeline. "Three scales" means 1:1000, 1:100 and 1:10, seed 42.
+IDs are stable. Tests go in `crates/econ-popgen/tests/acceptance/pensions.rs` (protected; written in a test-authoring session on 2026-10-11, before the Rust code), compiled only with the crate feature `pensions`. "The fixtures" are the normalised margin files committed with the pipeline. "Three scales" means 1:1000, 1:100 and 1:10, seed 42.
 
 - [ ] **AC-POPP-01** `[unit]` Structure, at each of the three scales: one pension per person; it is above zero exactly when `activity` is retired; none is below the minimum pension.
 - [ ] **AC-POPP-02** `[unit]` The stage changes nothing before it: the state hash and the attribute hash are those of AC-POP-06 and AC-POPA-06.
@@ -172,7 +172,7 @@ impl PersonPensions { pub fn state_hash(&self) -> u64; }
 - Margin fixture: `python/pipeline/fixtures/pensions2021_ro.json`, built by `python/pipeline/normalise_pensions.py`.
 
 ## Open questions
-- [ ] **The two low-confidence simplifications** (the shape above the minimum; the link to education at 0.5). Accept until the pension house's table of pensioners by pension bracket is brought in by hand, or get that table first?
-- [ ] **Only the census's retired have a pension.** Working pensioners and inactive disability pensioners are left out; their money goes to the retired. Acceptable for the start?
-- [ ] **Bands of AC-POPP-04 and AC-POPP-05:** to be accepted by the owner.
-- [ ] **Income of the self-employed is not here, and cannot be done the same way.** The national accounts give households 46 billion lei of mixed income in the fourth quarter of 2021, 15 billion a month. Shared among the census's 0.9 million employers and own-account workers that would be 17,000 lei a month each, three times the mean wage. The figure includes what households grow for themselves, building of own dwellings and the estimate of undeclared activity, and the national accounts count 1.9 million self-employed, most of them in agriculture, where the census counts 0.5 million. Splitting it needs a decision on subsistence farming and the informal economy (`hh_farm_land`, [informal economy](../economy/informal-economy.md)) and data on farm households. Proposed: a research note first.
+- [x] **The two low-confidence simplifications** (the shape above the minimum; the link to education at 0.5). Accepted until the pension house's table of pensioners by pension bracket is brought in by hand (owner, 2026-10-13).
+- [x] **Only the census's retired have a pension.** Working pensioners and inactive disability pensioners are left out; their money goes to the retired. Accepted for the start (owner, 2026-10-13).
+- [x] **Bands of AC-POPP-04 and AC-POPP-05:** accepted as written (owner, 2026-10-13).
+- [x] **Income of the self-employed is not here, and cannot be done the same way.** Answered by stage I ([population-incomes](population-incomes.md)), which shares mixed income among the self-employed, informal earners and farm households. The national accounts give households 46 billion lei of mixed income in the fourth quarter of 2021, 15 billion a month. Shared among the census's 0.9 million employers and own-account workers that would be 17,000 lei a month each, three times the mean wage. The figure includes what households grow for themselves, building of own dwellings and the estimate of undeclared activity, and the national accounts count 1.9 million self-employed, most of them in agriculture, where the census counts 0.5 million. Splitting it needs a decision on subsistence farming and the informal economy (`hh_farm_land`, [informal economy](../economy/informal-economy.md)) and data on farm households. Proposed: a research note first.

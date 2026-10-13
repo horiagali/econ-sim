@@ -25,6 +25,8 @@ mod support;
 // Stages F to J, likewise: off until each stage is implemented.
 #[cfg(feature = "employers")]
 mod employers;
+#[cfg(feature = "employers")]
+mod employers_link;
 #[cfg(feature = "incomes")]
 mod incomes;
 #[cfg(feature = "pensions")]

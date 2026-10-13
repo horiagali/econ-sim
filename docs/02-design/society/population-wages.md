@@ -1,11 +1,11 @@
 ---
 id: society/population-wages
 title: Population Generator, Stage F — Wages
-status: review
+status: locked
 owner: horia
 depends_on: [society/population-jobs, society/population-attributes, society/population-generator, society/population-groups, adr/0006-determinism-contract, adr/0012-data-pipeline-and-licensing, adr/0014-agent-workflow-guardrails]
 research: [research/population-modelling-deep-research]
-updated: 2026-10-10
+updated: 2026-10-13
 ---
 
 # Population Generator, Stage F — Wages
@@ -131,7 +131,7 @@ None. The minimum wage in the margin file is the law at the start date; the leve
 - **Tables whose length does not match their dimensions, a proportion of zero, a quantile curve that does not ascend from rank 0 to 1, no age groups, attributes or jobs of another population (different length):** rejected with a named error; nothing is produced.
 
 ## Acceptance tests
-IDs are stable. Tests go in `crates/econ-popgen/tests/acceptance/wages.rs` (protected; to be written in a test-authoring session, before the Rust code), compiled only with the crate feature `wages`. "The fixtures" are the four normalised margin files committed with the pipeline. "Three scales" means 1:1000, 1:100 and 1:10, seed 42.
+IDs are stable. Tests go in `crates/econ-popgen/tests/acceptance/wages.rs` (protected; written in a test-authoring session on 2026-10-11, before the Rust code), compiled only with the crate feature `wages`. "The fixtures" are the four normalised margin files committed with the pipeline. "Three scales" means 1:1000, 1:100 and 1:10, seed 42.
 
 - [ ] **AC-POPW-01** `[unit]` Structure, at each of the three scales: one wage per person; it is above zero exactly when `employment_status` is employee; no wage is below the floor of its industry group, and outside the groups with a lowered floor none is below the minimum wage.
 - [ ] **AC-POPW-02** `[unit]` The stage changes nothing before it: the state hash, the attribute hash and the jobs hash are those of AC-POP-06, AC-POPA-06 and AC-POPJ-06.
@@ -210,10 +210,10 @@ impl PersonWages { pub fn state_hash(&self) -> u64; }
 - Margin fixture: `python/pipeline/fixtures/earnings2021_ro.json`, built by `python/pipeline/normalise_earnings.py`.
 
 ## Open questions
-Accepted by the owner as proposed on 2026-10-10 ("everything's fine"); the spec is at `review` and is locked on the owner's word, with its nine criteria listed as tests owed until the test-authoring session.
+Accepted by the owner as proposed on 2026-10-10 ("everything's fine"). Locked 2026-10-13 by the owner; the tests of its nine criteria were written on 2026-10-11 (PR #14).
 - [x] **Tolerances** of AC-POPW-04 (5%, 6%, 8%) and the bands of AC-POPW-05.
 - [x] **`wage_dispersion` = 0.5,** which puts about 7% of employees at the minimum wage, as the survey of larger firms implies. Counts of contracts at the minimum wage that are often quoted for Romania are higher (not verified here); the parameter is the place to change it if a source is found.
 - [x] **Agriculture below the minimum wage** until the informal economy and part-time work exist (roadmap M15).
 - [x] **Proportions from 2022 and from firms of 10 employees or more.**
-- [ ] **The top of the distribution** is a guess (a Pareto tail fitted to the mean). The highest synthetic wage is about 35,000 lei a month at 1:1000 and 69,000 at 1:10. Tax records would give the real top; needed only if a wealth or top-income tax is to be calibrated closely.
-- [ ] Public sector pay is set by law in grids and is not distinguished here inside the group "public administration, education and health".
+- [x] **The top of the distribution** is a guess (a Pareto tail fitted to the mean). The highest synthetic wage is about 35,000 lei a month at 1:1000 and 69,000 at 1:10. Tax records would give the real top; needed only if a wealth or top-income tax is to be calibrated closely. Kept for the first version (owner, 2026-10-13).
+- [x] Public sector pay is set by law in grids and is not distinguished here inside the group "public administration, education and health". Not in the first version; it comes with public wages and headcount in [fiscal policy](../economy/fiscal-policy.md) (roadmap M3) (owner, 2026-10-13).

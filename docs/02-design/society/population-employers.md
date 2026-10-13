@@ -1,11 +1,11 @@
 ---
 id: society/population-employers
 title: Population Generator, Stage J — Industry and Employer
-status: draft
+status: locked
 owner: horia
 depends_on: [society/population-jobs, society/population-wages, society/population-generator, economy/industries, adr/0016-firm-representation, adr/0006-determinism-contract, adr/0014-agent-workflow-guardrails]
 research: []
-updated: 2026-10-11
+updated: 2026-10-13
 ---
 
 # Population Generator, Stage J — Industry and Employer
@@ -81,12 +81,12 @@ None.
 - **No industries, no units, a unit of an unlisted industry, more than 255 industries or 65,535 units, columns of another population:** rejected with a named error; nothing is produced.
 
 ## Acceptance tests
-IDs are stable. Tests go in `crates/econ-popgen/tests/acceptance/employers.rs` (protected; to be written in a test-authoring session, before the Rust code), compiled only with the crate feature `employers`. "The fixtures" are the margin files and the firm-unit file committed with the pipeline. "Three scales" means 1:1000, 1:100 and 1:10, seed 42.
+IDs are stable. Tests go in `crates/econ-popgen/tests/acceptance/employers.rs` and, for AC-POPE-04, `employers_link.rs` (protected; written in test-authoring sessions on 2026-10-11 and 2026-10-13, before the Rust code), compiled only with the crate feature `employers`. "The fixtures" are the margin files and the firm-unit file committed with the pipeline. "Three scales" means 1:1000, 1:100 and 1:10, seed 42.
 
 - [ ] **AC-POPE-01** `[unit]` Structure, at each of the three scales: a person has an industry and an employer exactly when employed; the employer's industry is the person's industry; that industry's group is the person's `industry_group`; employers, own-account and family workers are in micro units.
 - [ ] **AC-POPE-02** `[unit]` The stage changes nothing before it: the earlier hashes are those of their own golden tests.
 - [ ] **AC-POPE-03** `[unit]` At each of the three scales, in every industry group, each unit's share of the group's employees is within 3 points of its share of the group's persons employed in the firm-unit file.
-- [ ] **AC-POPE-04** `[unit]` At each of the three scales the mean wage of employees rises from micro to small to large units; with `employer_wage_link` = 0 the three means are within 10% of each other.
+- [ ] **AC-POPE-04** `[unit]` At each of the three scales the mean wage of employees rises from micro to small to large units. With `employer_wage_link` = 0 the three means are within 10% of each other once industry groups are held fixed: each size's mean is the average of its mean wage in each industry group, weighted by the group's employees in micro, small and large units together, over the groups where that size has employees.
 - [ ] **AC-POPE-05** `[unit]` Same inputs and seed give identical columns (equal employer hash). A different seed changes who works where; AC-POPE-03 still holds. Without wages the stage runs and AC-POPE-03 holds.
 - [ ] **AC-POPE-06** `[golden]` The employer hash of the fixture population at each of the three scales equals the committed golden value.
 - [ ] **AC-POPE-07** `[diff]` On the fixtures at 1:1000 and 1:200 the Rust stage and the independent Python reference produce identical columns.
@@ -101,6 +101,8 @@ Measured on 2026-10-11 with the Python reference on the fixtures (seed 42):
 | Industries with workers, of 90 | 89 | 90 | 90 |
 | Mean wage in micro, small, large, public units, lei | 3,817; 4,547; 6,215; 8,650 | 3,797; 4,562; 6,225; 8,662 | 3,806; 4,574; 6,219; 8,658 |
 | Employees in micro, small, large, public units, million | 1.76; 1.10; 2.62; 1.06 | 1.77; 1.10; 2.62; 1.06 | 1.77; 1.10; 2.61; 1.06 |
+
+AC-POPE-04 was reworded on 2026-10-13 (owner). As first written it compared the plain means with `employer_wage_link` = 0, and they are about 13% apart (1:1000 and 1:100): large units are mostly in better-paying industry groups, so the gap comes from the mix of industries, not from the link. Held to a fixed mix of groups, the three means are within 1.0% (1:1000) and 0.5% (1:100) of each other; with the default link they are 59% and 60% apart.
 
 Hashes of the reference, for the test writer to record as golden values (the earlier hashes are unchanged):
 
@@ -136,6 +138,6 @@ impl PersonEmployers { pub fn state_hash(&self) -> u64; }
 - Firm-unit fixture: `python/pipeline/fixtures/firm_units2021_ro.json`, built by `python/pipeline/normalise_firms.py`.
 
 ## Open questions
-- [ ] **Bands of AC-POPE-03 and AC-POPE-04:** to be accepted by the owner.
-- [ ] **Industry inside the group ignores occupation and county** (first simplification). Good enough for the start, or use the Labour Force Survey's occupation-by-activity table now?
-- [ ] The scenario builder rescales each unit's wage bill to its employees' wages (Interactions). The alternative is to adjust wages so that units pay what the business statistics say; that would undo part of Stage F's fit.
+- [x] **Bands of AC-POPE-03 and AC-POPE-04:** accepted, with AC-POPE-04 reworded to hold the mix of industry groups fixed (owner, 2026-10-13).
+- [x] **Industry inside the group ignores occupation and county** (first simplification). Good enough for the start (owner, 2026-10-13).
+- [x] The scenario builder rescales each unit's wage bill to its employees' wages (Interactions). Kept; the alternative (adjust wages so that units pay what the business statistics say) would undo part of Stage F's fit (owner, 2026-10-13).

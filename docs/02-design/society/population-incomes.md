@@ -1,11 +1,11 @@
 ---
 id: society/population-incomes
 title: Population Generator, Stage I — Declared and Undeclared Income
-status: draft
+status: locked
 owner: horia
 depends_on: [society/population-wages, society/population-jobs, society/population-housing, society/population-attributes, society/population-generator, economy/informal-economy, adr/0006-determinism-contract, adr/0012-data-pipeline-and-licensing, adr/0014-agent-workflow-guardrails]
 research: [research/informal-economy-romania]
-updated: 2026-10-11
+updated: 2026-10-13
 ---
 
 # Population Generator, Stage I — Declared and Undeclared Income
@@ -123,7 +123,7 @@ All in the margin file (see "The guesses"), plus the scaling passes of the sprea
 - **A table whose length does not match its dimensions, a share above 1, a proportion of zero, farm income in kind above farm income, a curve that does not ascend from rank 0 to 1, columns of another population:** rejected with a named error; nothing is produced.
 
 ## Acceptance tests
-IDs are stable. Tests go in `crates/econ-popgen/tests/acceptance/incomes.rs` (protected; to be written in a test-authoring session, before the Rust code), compiled only with the crate feature `incomes`. "The fixtures" are the normalised margin files committed with the pipeline. "Three scales" means 1:1000, 1:100 and 1:10, seed 42.
+IDs are stable. Tests go in `crates/econ-popgen/tests/acceptance/incomes.rs` (protected; written in a test-authoring session on 2026-10-11, before the Rust code), compiled only with the crate feature `incomes`. "The fixtures" are the normalised margin files committed with the pipeline. "Three scales" means 1:1000, 1:100 and 1:10, seed 42.
 
 - [ ] **AC-POPI-01** `[unit]` Structure, at each of the three scales: the bounds of the Outputs table hold for every person and household; nobody who is not an employee has a declared wage.
 - [ ] **AC-POPI-02** `[unit]` The stage changes nothing before it: the earlier hashes are those of their own golden tests.
@@ -176,7 +176,7 @@ impl OtherIncomes { pub fn state_hash(&self) -> u64; }
 
 ## Open questions
 - [x] **Build on educated guesses:** accepted by the owner, 2026-10-11.
-- [ ] **Bands of AC-POPI-04 and AC-POPI-05:** to be accepted by the owner.
-- [ ] **The size of informal income** (8.5 billion lei a month, more than half of mixed income, to 14% of adults at about 4,200 lei each). It is what the national accounts leave after farming and declared business. If it looks too rich for the people who get it, the lever is the recipient share: at 25% the mean would be about 2,400 lei.
-- [ ] **Almost a quarter of employees are not fully declared** (14% envelopes, 9% no contract). Surveys in which people admit to envelope wages give lower figures; the labour-input estimate implies more. Keep?
+- [x] **Bands of AC-POPI-04 and AC-POPI-05:** accepted as written (owner, 2026-10-13).
+- [x] **The size of informal income** (8.5 billion lei a month, more than half of mixed income, to 14% of adults at about 4,200 lei each). It is what the national accounts leave after farming and declared business. Kept for the first version (owner, 2026-10-13); if it looks too rich for the people who get it, the lever is the recipient share (at 25% the mean would be about 2,400 lei), to revisit with the [informal economy](../economy/informal-economy.md) (roadmap M15).
+- [x] **Almost a quarter of employees are not fully declared** (14% envelopes, 9% no contract). Surveys in which people admit to envelope wages give lower figures; the labour-input estimate implies more. Kept (owner, 2026-10-13).
 - [ ] Re-measure the wealth stage with these incomes, and decide whether informal income should count when households are placed by income.
