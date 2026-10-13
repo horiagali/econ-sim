@@ -368,6 +368,31 @@ pub(crate) fn spread(group: &Group<'_>, dims: &[(Vec<usize>, Vec<Int>)]) -> Vec<
     x.iter().map(|&xi| rdiv(lo * xi, UNIT).max(floor)).collect()
 }
 
+/// Spread `bill` over members of weights `w` (in this order) without a split
+/// by sex and with no floor; `dims` as in [`spread`], all cells of sex 0.
+pub(crate) fn spread_unsplit(
+    w: &[Int],
+    dims: &[(Vec<usize>, Vec<Int>)],
+    curve: (&[u32], &[u32]),
+    dispersion_ppm: u32,
+    scaling_passes: u32,
+    bill: Int,
+) -> Vec<Int> {
+    let sex = vec![0; w.len()];
+    let group = Group {
+        w,
+        sex: &sex,
+        rel_sex: [UNIT, UNIT],
+        curve_rank: curve.0,
+        curve_value: curve.1,
+        dispersion_ppm,
+        scaling_passes,
+        bill,
+        floor: 0,
+    };
+    spread(&group, dims)
+}
+
 impl PersonWages {
     /// Wage hash (FNV-1a 64 over the person count, then each person's wage;
     /// see the spec).

@@ -53,12 +53,12 @@ stages:
     deps: [normalise_firm_balance_sheets.py, normalise_census.py, jsonstat.py, data/raw/ro_capital_stock_2021.json, data/derived/firm_units2021_ro.json, data/derived/balance_sheets2021q4_ro.json]
     outs: [data/derived/firm_balance_sheets2021_ro.json]
   # The population generator (spec society/population-generator) and its stages
-  # C to H (education and activity, jobs, locality size and tenure, wages, pensions,
-  # wealth). It is Rust
+  # C to I (education and activity, jobs, locality size and tenure, wages, pensions,
+  # wealth, incomes). It is Rust
   # (crate econ-popgen), run through econ-cli; sample_scale comes from the scenario.
   synth_population:
-    cmd: cargo run -q --release -p econ-cli -- synth-population --margins data/derived/census2021_margins_ro.json --attributes data/derived/census2021_edu_activity_ro.json --jobs data/derived/census2021_jobs_ro.json --housing data/derived/census2021_housing_ro.json --wages data/derived/earnings2021_ro.json --pensions data/derived/pensions2021_ro.json --wealth data/derived/household_wealth2021_ro.json --sample-scale 100 --seed 42 --out data/population
-    deps: [data/derived/census2021_margins_ro.json, data/derived/census2021_edu_activity_ro.json, data/derived/census2021_jobs_ro.json, data/derived/census2021_housing_ro.json, data/derived/earnings2021_ro.json, data/derived/pensions2021_ro.json, data/derived/household_wealth2021_ro.json, ../../crates/econ-popgen/src, ../../crates/econ-io/src/popgen.rs]
+    cmd: cargo run -q --release -p econ-cli -- synth-population --margins data/derived/census2021_margins_ro.json --attributes data/derived/census2021_edu_activity_ro.json --jobs data/derived/census2021_jobs_ro.json --housing data/derived/census2021_housing_ro.json --wages data/derived/earnings2021_ro.json --pensions data/derived/pensions2021_ro.json --wealth data/derived/household_wealth2021_ro.json --incomes data/derived/other_incomes2021_ro.json --sample-scale 100 --seed 42 --out data/population
+    deps: [data/derived/census2021_margins_ro.json, data/derived/census2021_edu_activity_ro.json, data/derived/census2021_jobs_ro.json, data/derived/census2021_housing_ro.json, data/derived/earnings2021_ro.json, data/derived/pensions2021_ro.json, data/derived/household_wealth2021_ro.json, data/derived/other_incomes2021_ro.json, ../../crates/econ-popgen/src, ../../crates/econ-io/src/popgen.rs]
     outs: [data/population]
   # Spike 7 slice on illustrative marginals; superseded by synth_population.
   synth:

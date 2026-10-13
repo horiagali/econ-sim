@@ -17,7 +17,7 @@ use crate::arith::{Int, UNIT};
 use crate::assign::column_hash;
 use crate::housing::HouseholdHousing;
 use crate::pensions::PersonPensions;
-use crate::wages::{Group, PersonWages, curve_ok, spread};
+use crate::wages::{PersonWages, curve_ok, spread_unsplit};
 use crate::{Population, Role};
 
 /// `tick` of the draw context: the stage number.
@@ -187,7 +187,7 @@ pub fn assign_wealth(
     for &h in &private {
         let mut d = rng.draw(Stream::PopulationGen, STAGE, h as u64);
         for slot in &mut draws[h] {
-            *slot = (Int::from(d.u64() >> 44) * UNIT) >> 20;
+            *slot = draw_ppm(d.u64());
         }
     }
     let draws = &draws;
@@ -331,22 +331,7 @@ impl Ctx<'_> {
         link_ppm: u32,
         bonus: &dyn Fn(usize) -> Int,
     ) -> Vec<usize> {
-        if members.is_empty() {
-            return Vec::new();
-        }
-        let link = Int::from(link_ppm);
-        let total: Int = members.iter().map(|&h| self.weight[h]).sum();
-        let mut by_income = members.to_vec();
-        by_income.sort_by_key(|&h| (self.income[h], h));
-        let mut keyed = Vec::with_capacity(members.len());
-        let mut before = 0;
-        for h in by_income {
-            let rank = (2 * before + self.weight[h]) * UNIT / (2 * total);
-            keyed.push((link * rank + (UNIT - link) * draw(h) + bonus(h), h));
-            before += self.weight[h];
-        }
-        keyed.sort_unstable();
-        keyed.into_iter().map(|(_, h)| h).collect()
+        mixed_order(members, self.weight, self.income, draw, link_ppm, bonus)
     }
 
     /// Spread `bill` over `members` (in this order) along `curve`: one group
@@ -362,20 +347,44 @@ impl Ctx<'_> {
             return vec![0; members.len()];
         }
         let w: Vec<Int> = members.iter().map(|&h| self.weight[h]).collect();
-        let sex = vec![0; members.len()];
-        let group = Group {
-            w: &w,
-            sex: &sex,
-            rel_sex: [UNIT, UNIT],
-            curve_rank: &curve.rank,
-            curve_value: &curve.value,
-            dispersion_ppm: 1_000_000,
-            scaling_passes: self.passes,
-            bill,
-            floor: 0,
-        };
-        spread(&group, dims)
+        let curve = (curve.rank.as_slice(), curve.value.as_slice());
+        spread_unsplit(&w, dims, curve, 1_000_000, self.passes, bill)
     }
+}
+
+/// `members` from the lowest to the highest key, where the key mixes a
+/// member's rank by `income` (the midpoint of its own weight, in millionths)
+/// with its keyed draw (millionths): `link_ppm` of the first, the rest of the
+/// second, plus a bonus. Ties go to the lower index.
+pub(crate) fn mixed_order(
+    members: &[usize],
+    weight: &[Int],
+    income: &[Int],
+    draw: &dyn Fn(usize) -> Int,
+    link_ppm: u32,
+    bonus: &dyn Fn(usize) -> Int,
+) -> Vec<usize> {
+    if members.is_empty() {
+        return Vec::new();
+    }
+    let link = Int::from(link_ppm);
+    let total: Int = members.iter().map(|&h| weight[h]).sum();
+    let mut by_income = members.to_vec();
+    by_income.sort_by_key(|&h| (income[h], h));
+    let mut keyed = Vec::with_capacity(members.len());
+    let mut before = 0;
+    for h in by_income {
+        let rank = (2 * before + weight[h]) * UNIT / (2 * total);
+        keyed.push((link * rank + (UNIT - link) * draw(h) + bonus(h), h));
+        before += weight[h];
+    }
+    keyed.sort_unstable();
+    keyed.into_iter().map(|(_, h)| h).collect()
+}
+
+/// A keyed draw in millionths: the top 20 bits of `u64`, scaled.
+pub(crate) fn draw_ppm(word: u64) -> Int {
+    (Int::from(word >> 44) * UNIT) >> 20
 }
 
 impl HouseholdWealth {
