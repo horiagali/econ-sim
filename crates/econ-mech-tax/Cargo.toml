@@ -11,6 +11,12 @@ publish.workspace = true
 econ-types.workspace = true
 econ-ledger.workspace = true
 
+[features]
+# Gates the acceptance test of the second reduced VAT rate (AC-VAT-06): it was
+# written before the code (ADR-0014), and the implementation adds it to `default`.
+default = []
+reduced-2 = []
+
 [[test]]
 name = "acceptance"
 path = "tests/acceptance/main.rs"

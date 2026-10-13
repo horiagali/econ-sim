@@ -1,4 +1,5 @@
-//! Acceptance tests for AC-VAT-* (spec: economy/taxation, "VAT" section).
+//! Acceptance tests for AC-VAT-01..05 (spec: economy/vat; AC-VAT-06 is in
+//! `vat_reduced_2.rs`).
 //! Written by the test-writer pass from the spec text alone, before the
 //! implementation existed (Spike 9, ADR-0014).
 
@@ -12,6 +13,8 @@ fn schedule(standard_pct: u32) -> VatSchedule {
     VatSchedule {
         standard: VatRate::percent(standard_pct),
         reduced: VatRate::percent(11),
+        #[cfg(feature = "reduced-2")]
+        reduced_2: VatRate::percent(5),
     }
 }
 
