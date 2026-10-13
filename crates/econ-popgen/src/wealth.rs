@@ -6,16 +6,26 @@
 //! what is an educated guess (no survey covers Romania); the spec says which.
 //! Earlier stages are not changed.
 //!
-//! **Skeleton.** This file fixes the API the acceptance tests are written
-//! against (ADR-0014, tests-first). The stage is not implemented yet; the
-//! `wealth` feature that enables its acceptance tests is switched on by the
-//! implementation change. `python/reference/popgen_reference.py`
-//! (`assign_wealth`) is the independent reference.
+//! Amounts are spread over households with stage F's `spread` (one group, no
+//! split by sex). `python/reference/popgen_reference.py` (`assign_wealth`) is
+//! the independent reference; the two agree household for household
+//! (AC-POPH2-08).
 
-use crate::Population;
+use econ_rng::{KeyedRng, Stream};
+
+use crate::arith::{Int, UNIT};
+use crate::assign::column_hash;
 use crate::housing::HouseholdHousing;
 use crate::pensions::PersonPensions;
-use crate::wages::PersonWages;
+use crate::wages::{Group, PersonWages, curve_ok, spread};
+use crate::{Population, Role};
+
+/// `tick` of the draw context: the stage number.
+const STAGE: u32 = 7;
+const BANI_PER_LEU: Int = 100;
+const MONTHS: u16 = 12;
+/// `hh_tenure` of an owner household.
+const TENURE_OWNER: u8 = 0;
 
 /// A quantile curve: the value at a rank over the mean, as a line through knots.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -133,8 +143,239 @@ pub fn assign_wealth(
     margins: &WealthMargins,
     params: &WealthParams,
 ) -> Result<HouseholdWealth, WealthError> {
-    let _ = (pop, housing, wages, pensions, margins, params);
-    unimplemented!("econ-popgen: stage H is written in the implementation change")
+    check_margins(margins)?;
+    let m = margins;
+    let (hh, p) = (&pop.households, &pop.persons);
+    let (n_hh, n) = (hh.hh_weight.len(), p.household_id.len());
+    if housing.hh_tenure.len() != n_hh
+        || housing.hh_locality_size.len() != n_hh
+        || housing.hh_urban.len() != n_hh
+        || wages.is_some_and(|w| w.wage.len() != n)
+        || pensions.is_some_and(|g| g.pension.len() != n)
+        || housing
+            .hh_locality_size
+            .iter()
+            .any(|&k| usize::from(k) >= m.rel_locality.len())
+    {
+        return Err(WealthError::ShapeMismatch);
+    }
+    let weight: Vec<Int> = hh.hh_weight.iter().map(|&w| Int::from(w)).collect();
+    let mut income: Vec<Int> = vec![0; n_hh];
+    let mut head_years = vec![0u16; n_hh];
+    for i in 0..n {
+        let h = p.household_id[i] as usize;
+        income[h] += wages.map_or(0, |w| Int::from(w.wage[i]))
+            + pensions.map_or(0, |g| Int::from(g.pension[i]));
+        if p.role[i] == Role::Head {
+            head_years[h] = p.age[i] / MONTHS;
+        }
+    }
+    let private: Vec<usize> = (0..n_hh).filter(|&h| !hh.hh_collective[h]).collect();
+    let mut out = HouseholdWealth {
+        hh_cash: vec![0; n_hh],
+        hh_deposits: vec![0; n_hh],
+        hh_dwelling_value: vec![0; n_hh],
+        hh_mortgage: vec![0; n_hh],
+        hh_consumer_debt: vec![0; n_hh],
+    };
+    if private.is_empty() {
+        return Ok(out);
+    }
+    // Four keyed draws per household, in millionths: dwelling, liquid, mortgage, consumer.
+    let rng = KeyedRng::new(params.rng_seed);
+    let mut draws: Vec<[Int; 4]> = vec![[0; 4]; n_hh];
+    for &h in &private {
+        let mut d = rng.draw(Stream::PopulationGen, STAGE, h as u64);
+        for slot in &mut draws[h] {
+            *slot = (Int::from(d.u64() >> 44) * UNIT) >> 20;
+        }
+    }
+    let draws = &draws;
+    let draw = |k: usize| move |h: usize| draws[h][k];
+    let ctx = Ctx {
+        weight: &weight,
+        income: &income,
+        passes: params.scaling_passes,
+    };
+    let bani = |lei: u64| Int::from(lei) * BANI_PER_LEU;
+    let amount = |v: Int| u64::try_from(v).expect("amount fits u64");
+
+    // 1. Dwellings of owner households.
+    let owners: Vec<usize> = private
+        .iter()
+        .copied()
+        .filter(|&h| housing.hh_tenure[h] == TENURE_OWNER)
+        .collect();
+    let order = ctx.mixed_order(&owners, &draw(0), m.dwelling_income_link_ppm, &|_| 0);
+    let locality_targets: Vec<Int> = m
+        .rel_locality
+        .iter()
+        .chain(&m.rel_locality)
+        .map(|&v| Int::from(v))
+        .collect();
+    let dims = [(
+        order
+            .iter()
+            .map(|&h| usize::from(housing.hh_locality_size[h]))
+            .collect(),
+        locality_targets,
+    )];
+    let values = ctx.place(&order, &dims, &m.dwelling_curve, bani(m.dwellings));
+    for (&h, v) in order.iter().zip(values) {
+        out.hh_dwelling_value[h] = amount(v);
+    }
+
+    // 2. Money of private households: cash and deposits in the national proportion.
+    let order = ctx.mixed_order(&private, &draw(1), m.liquid_income_link_ppm, &|_| 0);
+    let (cash, liquid_total) = (bani(m.cash), bani(m.cash) + bani(m.deposits));
+    for (&h, v) in order
+        .iter()
+        .zip(ctx.place(&order, &[], &m.liquid_curve, liquid_total))
+    {
+        let c = if liquid_total == 0 {
+            0
+        } else {
+            v * cash / liquid_total
+        };
+        out.hh_cash[h] = amount(c);
+        out.hh_deposits[h] = amount(v - c);
+    }
+
+    // 3 and 4. Loans: who borrows, then how much.
+    let total_w: Int = private.iter().map(|&h| weight[h]).sum();
+    let borrowers = |pool: &[usize], rule: &BorrowerRule, k: usize| -> Vec<usize> {
+        let eligible: Vec<usize> = pool
+            .iter()
+            .copied()
+            .filter(|&h| (rule.age_from..rule.age_to).contains(&head_years[h]))
+            .collect();
+        let bonus = |h: usize| {
+            if housing.hh_urban[h] {
+                Int::from(rule.urban_bonus_ppm) * UNIT
+            } else {
+                0
+            }
+        };
+        let ranked = ctx.mixed_order(&eligible, &draw(k), rule.income_link_ppm, &bonus);
+        let target = Int::from(rule.share_ppm) * total_w / UNIT;
+        let (mut got, mut chosen) = (0, Vec::new());
+        for &h in ranked.iter().rev() {
+            if got >= target {
+                break;
+            }
+            chosen.push(h);
+            got += weight[h];
+        }
+        chosen
+    };
+    let mut chosen = borrowers(&owners, &m.mortgage, 2);
+    chosen.sort_by_key(|&h| (out.hh_dwelling_value[h], h));
+    let values = ctx.place(&chosen, &[], &m.loan_curve, bani(m.housing_loans));
+    for (&h, v) in chosen.iter().zip(values) {
+        out.hh_mortgage[h] = amount(v);
+    }
+    let mut chosen = borrowers(&private, &m.consumer, 3);
+    chosen.reverse(); // lowest key first
+    let values = ctx.place(&chosen, &[], &m.loan_curve, bani(m.consumer_loans));
+    for (&h, v) in chosen.iter().zip(values) {
+        out.hh_consumer_debt[h] = amount(v);
+    }
+    Ok(out)
+}
+
+fn check_margins(m: &WealthMargins) -> Result<(), WealthError> {
+    if m.rel_locality.is_empty() {
+        return Err(WealthError::EmptyTable);
+    }
+    if m.rel_locality.contains(&0) {
+        return Err(WealthError::ShapeMismatch);
+    }
+    for curve in [&m.liquid_curve, &m.dwelling_curve, &m.loan_curve] {
+        if curve.rank.len() < 2 {
+            return Err(WealthError::EmptyTable);
+        }
+        if !curve_ok(&curve.rank, &curve.value) {
+            return Err(WealthError::ShapeMismatch);
+        }
+    }
+    let unit = |v: u32| Int::from(v) <= UNIT;
+    let rule_ok =
+        |b: &BorrowerRule| unit(b.share_ppm) && unit(b.income_link_ppm) && b.age_from < b.age_to;
+    if rule_ok(&m.mortgage)
+        && rule_ok(&m.consumer)
+        && unit(m.liquid_income_link_ppm)
+        && unit(m.dwelling_income_link_ppm)
+    {
+        Ok(())
+    } else {
+        Err(WealthError::ShapeMismatch)
+    }
+}
+
+/// What the placing of households needs.
+struct Ctx<'a> {
+    weight: &'a [Int],
+    income: &'a [Int],
+    passes: u32,
+}
+
+impl Ctx<'_> {
+    /// `members` from the lowest to the highest key, where the key mixes a
+    /// member's rank by income (the midpoint of its own weight, in millionths)
+    /// with its keyed draw: `link_ppm` of the first, the rest of the second,
+    /// plus a bonus.
+    fn mixed_order(
+        &self,
+        members: &[usize],
+        draw: &dyn Fn(usize) -> Int,
+        link_ppm: u32,
+        bonus: &dyn Fn(usize) -> Int,
+    ) -> Vec<usize> {
+        if members.is_empty() {
+            return Vec::new();
+        }
+        let link = Int::from(link_ppm);
+        let total: Int = members.iter().map(|&h| self.weight[h]).sum();
+        let mut by_income = members.to_vec();
+        by_income.sort_by_key(|&h| (self.income[h], h));
+        let mut keyed = Vec::with_capacity(members.len());
+        let mut before = 0;
+        for h in by_income {
+            let rank = (2 * before + self.weight[h]) * UNIT / (2 * total);
+            keyed.push((link * rank + (UNIT - link) * draw(h) + bonus(h), h));
+            before += self.weight[h];
+        }
+        keyed.sort_unstable();
+        keyed.into_iter().map(|(_, h)| h).collect()
+    }
+
+    /// Spread `bill` over `members` (in this order) along `curve`: one group
+    /// without a split by sex, the curve in full, no floor.
+    fn place(
+        &self,
+        members: &[usize],
+        dims: &[(Vec<usize>, Vec<Int>)],
+        curve: &Curve,
+        bill: Int,
+    ) -> Vec<Int> {
+        if members.is_empty() || bill <= 0 {
+            return vec![0; members.len()];
+        }
+        let w: Vec<Int> = members.iter().map(|&h| self.weight[h]).collect();
+        let sex = vec![0; members.len()];
+        let group = Group {
+            w: &w,
+            sex: &sex,
+            rel_sex: [UNIT, UNIT],
+            curve_rank: &curve.rank,
+            curve_value: &curve.value,
+            dispersion_ppm: 1_000_000,
+            scaling_passes: self.passes,
+            bill,
+            floor: 0,
+        };
+        spread(&group, dims)
+    }
 }
 
 impl HouseholdWealth {
@@ -142,6 +383,20 @@ impl HouseholdWealth {
     /// household's five amounts; see the spec).
     #[must_use]
     pub fn state_hash(&self) -> u64 {
-        unimplemented!("econ-popgen: stage H is written in the implementation change")
+        let n = self.hh_cash.len();
+        column_hash(
+            n,
+            (0..n).flat_map(|h| {
+                [
+                    self.hh_cash[h],
+                    self.hh_deposits[h],
+                    self.hh_dwelling_value[h],
+                    self.hh_mortgage[h],
+                    self.hh_consumer_debt[h],
+                ]
+                .into_iter()
+                .flat_map(u64::to_le_bytes)
+            }),
+        )
     }
 }
