@@ -3,6 +3,12 @@
 Every change to a golden hash or snapshot needs an entry here with the reason
 (ADR-0010). Newest first.
 
+## 2026-10-13 — Scale world: VAT rates of 1 December 2021
+- **Re-golden (owner approved, 2026-10-13):** the scale world's stand-in VAT schedule moves from 21% standard and 11% reduced (the 2025 rates) to Romania's rates on the start date, 19% standard and 9% and 5% reduced (spec `economy/vat`, AC-VAT-06; the spike's basket has no second-reduced group, so 5% is unused). Less VAT is carved out of household spending, so VAT, deposits and the state hash change; employment and the wage bill do not.
+  - `golden_12_ticks_at_1_in_1000` (`crates/econ-core/src/scale_spike.rs`): hash 0x8557_a49a_52c1_e86a → 0xf540_af18_bcd5_dbab; consumption in tick 12 6,207,483,617,000 → 6,207,483,754,000 bani; VAT in tick 12 823,228,305,000 → 740,807,571,000; VAT over 12 ticks 9,769,553,421,000 → 8,791,436,167,000.
+  - `golden_romania_12_ticks_at_1_in_1000` (`crates/econ-io/src/popgen.rs`): hash 0xc050_2b54_1f4a_bd0b → 0xdf92_e313_fa51_cb01; VAT in tick 12 979,111,507,848 → 881,083,907,188; employed and unemployed unchanged.
+- **Unchanged:** `tests/golden/sim_200.hashes` and every population golden.
+
 ## 2026-10-11 — Population stages F to J: first golden hashes
 - Added `tests/golden/popgen_ro_census2021_wages.hashes` (AC-POPW-07), `popgen_ro_census2021_pensions.hashes` (AC-POPP-07), `popgen_ro_census2021_wealth.hashes` (AC-POPH2-07), `popgen_ro_census2021_incomes.hashes` (AC-POPI-07) and `popgen_ro_census2021_employers.hashes` (AC-POPE-06): the wage, pension, wealth, income and employer hash of the Census 2021 fixture population at 1:1000, 1:200, 1:100 and 1:10 (seed 42, default parameters, every earlier stage run). Reason: initial baseline for the five stages. The values are those of the five specs, reproduced on the day with the Python reference (`python/reference/popgen_reference.py`); the Rust stages do not exist yet.
 - **Unchanged:** every other golden. The stages change nothing before them (AC-POPW-02, AC-POPP-02, AC-POPH2-02, AC-POPI-02, AC-POPE-02).
