@@ -25,6 +25,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "reference"))
 import opening_balance_reference as obs  # noqa: E402
+import firm_reference as fref  # noqa: E402
 import popgen_reference as ref  # noqa: E402
 
 FIXTURES = HERE / "fixtures"
@@ -35,6 +36,7 @@ INPUTS = {
     "pensions": "pensions2021_ro.json", "incomes": "other_incomes2021_ro.json", "wealth": "household_wealth2021_ro.json",
     "io": "io_table2021_ro.json", "firms": "firm_units2021_ro.json", "sheets": "balance_sheets2021q4_ro.json",
     "firm_sheets": "firm_balance_sheets2021_ro.json", "details": "sector_details2021_ro.json",
+    "firm_extras": "firm_undeclared_inventories2021_ro.json",
 }
 # Mean disposable income of households by income fifth, Romania 2020, euro a year
 # (Eurostat experimental statistics icw_res_02, read 2026-10-10). A check, not an input.
@@ -72,8 +74,9 @@ def run_stages(d: dict, sample_scale: int, seed: int) -> dict:
     incomes = ref.assign_other_incomes(pop, d["incomes"], attrs, jobs, housing, wage, seed)
     wealth = ref.assign_wealth(pop, d["wealth"], housing, wage, pension, seed)
     employers = ref.assign_employers(pop, d["firms"], jobs, wage, seed)
+    firm_extras = fref.undeclared_and_inventories(d["firms"], d["firm_extras"])
     return {"pop": pop, "attrs": attrs, "jobs": jobs, "housing": housing, "wage": wage, "pension": pension,
-            "incomes": incomes, "wealth": wealth, "employers": employers}
+            "incomes": incomes, "wealth": wealth, "employers": employers, "firm_extras": firm_extras}
 
 
 def stage_hashes(s: dict) -> dict:
@@ -84,6 +87,7 @@ def stage_hashes(s: dict) -> dict:
         "wages": f"{ref.wages_hash(s['wage']):016x}", "pensions": f"{ref.pensions_hash(s['pension']):016x}",
         "incomes": f"{ref.incomes_hash(s['incomes']):016x}", "wealth": f"{ref.wealth_hash(s['wealth']):016x}",
         "employers": f"{ref.employers_hash(s['employers']):016x}",
+        "firm_undeclared_inventories": f"{fref.columns_hash(s['firm_extras']):016x}",
     }
 
 
@@ -206,6 +210,26 @@ def report(d: dict, s: dict, sample_scale: int) -> dict:
           firm_cash == b["cash"]["firms"] and firm_deposits * BANI == b["deposits"]["firms"],
           cash=bn(b["cash"]["firms"]), deposits=bn(b["deposits"]["firms"]))
     check("left_out", True, **{k: {s: bn(v) for s, v in row.items()} for k, row in opening["left_out"].items()})
+    # 15. Undeclared sales and inventories of the firm units: the committed columns are the reference's, the
+    #     totals are the anchor's and the measured inventories (spec economy/firm-units-undeclared-inventories).
+    extras, cols = d["firm_extras"], s["firm_extras"]
+    fit = fref.fit(d["firms"], extras, cols)
+    committed = len(extras["units"]) == len(units) and all(
+        row["id"] == units[f]["id"] and all(row[k] == cols[k][f] for k in fref.COLUMNS)
+        for f, row in enumerate(extras["units"]))
+    check("firm_undeclared_and_inventories",
+          committed and fit["undeclared_value_added_total"] == fit["undeclared_value_added_target"]
+          and fit["inventories_total"] == fit["inventories_target"],
+          undeclared_value_added=round(fit["undeclared_value_added_total"] / 1e9, 1),
+          undeclared_sales=fit["billion_lei"]["undeclared_sales"], inventories=round(fit["inventories_total"] / 1e9, 1),
+          vat_gap_proxy=fit["vat_gap_proxy"])
+
+    # 16. The undeclared wages of each class of firm unit against those of the population (Stages I and J).
+    population = fref.population_wage_shares(d["firms"], emp["employer"], s["wage"], inc["wage_declared"], pw)
+    gaps = {c: round(population[c] - fit["by_class"][c]["undeclared_wage_share"], 4) for c in fref.CLASSES
+            if c in population}
+    check("firm_undeclared_wages_against_population", all(abs(g) <= 0.02 for g in gaps.values()),
+          population=population, gap=gaps)
     for name, reason in KNOWN_GAPS.items():
         checks[name]["known_gap"] = reason
     return {"sample_scale": sample_scale, "opening": b, "ok": all(c["ok"] for name, c in checks.items() if name not in KNOWN_GAPS),

@@ -27,13 +27,14 @@ class TestBuildScenario(unittest.TestCase):
             "population": "247112c87ae60cf2", "attributes": "8a0509e8ebc90647", "jobs": "7e3499aa1c44e7f1",
             "housing": "a4b8ac6c2c2bb24e", "wages": "e5c524e4e785f24f", "pensions": "963e671ef7035b92",
             "incomes": "40c861af66b29b98", "wealth": "8b7d9a0ea0d3c373", "employers": "40dc87a87a0e31af",
+            "firm_undeclared_inventories": "d0ecc4f61fa5a6c3",
         })
 
     def test_the_parts_agree(self):
         self.assertTrue(self.report["ok"], {k: v for k, v in self.report["checks"].items() if not v["ok"]})
         failed = {name for name, c in self.report["checks"].items() if not c["ok"]}
         self.assertLessEqual(failed, set(bs.KNOWN_GAPS))
-        self.assertEqual(len(self.report["checks"]), 16)
+        self.assertEqual(len(self.report["checks"]), 18)
 
     def test_the_opening_ledger_closes_and_matches_the_tables(self):
         for name in ("ledger_invariants", "households_against_ledger", "firms_against_ledger"):

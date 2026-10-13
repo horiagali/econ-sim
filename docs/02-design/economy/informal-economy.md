@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [economy/labor-market, economy/taxation, economy/state-capacity, economy/vat, society/population-wages]
 research: [research/informal-economy-romania]
-updated: 2026-10-10
+updated: 2026-10-13
 ---
 
 # Informal Economy & Tax Compliance
@@ -44,6 +44,8 @@ Everything is a split of something the model already has. Nothing informal is ad
 |---|---|
 | `undeclared_sales_share` | share of a unit's sales not reported for VAT and profit tax |
 | `undeclared_wage_share` | share of a unit's wage bill paid outside contracts; equals what its employees' `wage` − `wage_declared` add up to |
+
+Their starting values, and the undeclared value added and sales behind them, are set by [firm-units-undeclared-inventories](firm-units-undeclared-inventories.md).
 
 ### What follows from the split
 | On | Effect |

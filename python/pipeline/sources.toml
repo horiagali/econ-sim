@@ -308,3 +308,12 @@ source = "eurostat"
 code = "nama_10_gdp"               # GDP and main components, current prices
 filters = { geo = ["RO"], time = ["2021"], unit = ["CP_MNAC"], na_item = ["B1GQ"] }
 licence = "eurostat-reuse"
+
+# Inventories by sector, end of 2021. Input of normalise_firm_undeclared_inventories.py
+# (spec economy/firm-units-undeclared-inventories).
+[[dataset]]
+id = "ro_inventories_2021"
+source = "eurostat"
+code = "nama_10_nfa_bs"            # capital stocks by sector and asset type
+filters = { geo = ["RO"], time = ["2021"], unit = ["CP_MNAC"], asset10 = ["N12N"] }
+licence = "eurostat-reuse"

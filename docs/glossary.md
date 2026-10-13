@@ -121,6 +121,8 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `hh_farm_land` | Agricultural land a household owns or uses | ha | state | society/population-groups |
 | — | `hh_subsistence_income` | Value of what a household grows and consumes itself (in kind, untaxed) | LCU / month | state | economy/informal-economy |
 | — | `undeclared_sales_share[f]`, `undeclared_wage_share[f]` | Share of firm unit *f*'s sales not reported for VAT and profit tax, and of its wage bill paid outside contracts | ratio | state | economy/informal-economy |
+| — | `undeclared_wages[f]`, `undeclared_value_added[f]`, `undeclared_sales[f]` | Firm unit *f*'s wages paid outside contracts, value added not declared (undeclared wages, undeclared household income and undeclared profit), and the sales that carry it; for all its firms together | LCU / year | state | economy/firm-units-undeclared-inventories |
+| — | `inventory_materials[f]` | Materials, supplies and goods bought for resale held by firm unit *f* (its own output in stock is `inventory`) | LCU | state | economy/firm-units-undeclared-inventories |
 | — | `informal_employment_share` | Share of employed persons whose job is partly declared or informal | ratio | derived | economy/informal-economy |
 | — | `undeclared_labour_share` | Share of private-sector labour income that is not declared | ratio | derived | economy/informal-economy |
 | — | `revenue_lost` | Tax not collected because of undeclared wages, income and sales, by tax | LCU / month | derived | economy/informal-economy |
