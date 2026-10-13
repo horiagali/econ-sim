@@ -14,10 +14,9 @@ econ-types.workspace = true
 proptest.workspace = true
 
 [features]
-# Gates the acceptance test of AC-ACC-04 (unknown flow codes are rejected): it
-# was written before the code (ADR-0014), and the implementation adds it to
-# `default`.
-default = []
+# Gates the acceptance test of AC-ACC-04 (unknown flow codes are rejected),
+# written before the code (ADR-0014); on by default now that the check exists.
+default = ["flow-code-check"]
 flow-code-check = []
 
 [[test]]
