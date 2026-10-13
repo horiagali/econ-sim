@@ -317,3 +317,12 @@ source = "eurostat"
 code = "nama_10_nfa_bs"            # capital stocks by sector and asset type
 filters = { geo = ["RO"], time = ["2021"], unit = ["CP_MNAC"], asset10 = ["N12N"] }
 licence = "eurostat-reuse"
+
+# Pupils and students of the school year 2021/22 (Eurostat labels it 2022) by level, sex and age
+# (age on 1 January 2022). Input of normalise_inactivity_enrolment.py (spec society/population-inactivity-enrolment).
+[[dataset]]
+id = "ro_enrolment_level_age_2021_22"
+source = "eurostat"
+code = "educ_uoe_enra02"           # pupils and students enrolled by education level, sex and age
+filters = { geo = ["RO"], time = ["2022"], unit = ["NR"], sex = ["F", "M"] }
+licence = "eurostat-reuse"
