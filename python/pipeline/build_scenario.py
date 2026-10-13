@@ -24,6 +24,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "reference"))
+import opening_balance_reference as obs  # noqa: E402
 import popgen_reference as ref  # noqa: E402
 
 FIXTURES = HERE / "fixtures"
@@ -33,7 +34,7 @@ INPUTS = {
     "jobs": "census2021_jobs_ro.json", "housing": "census2021_housing_ro.json", "earnings": "earnings2021_ro.json",
     "pensions": "pensions2021_ro.json", "incomes": "other_incomes2021_ro.json", "wealth": "household_wealth2021_ro.json",
     "io": "io_table2021_ro.json", "firms": "firm_units2021_ro.json", "sheets": "balance_sheets2021q4_ro.json",
-    "firm_sheets": "firm_balance_sheets2021_ro.json",
+    "firm_sheets": "firm_balance_sheets2021_ro.json", "details": "sector_details2021_ro.json",
 }
 # Mean disposable income of households by income fifth, Romania 2020, euro a year
 # (Eurostat experimental statistics icw_res_02, read 2026-10-10). A check, not an input.
@@ -191,9 +192,23 @@ def report(d: dict, s: dict, sample_scale: int) -> dict:
 
     # 10. The declared economy.
     check("declared_wages", 0.8 <= declared_wages / wages <= 0.97, declared_share=round(declared_wages / wages, 4))
+
+    # 11 to 14. The opening ledger (spec economy/opening-balance-sheet) and the tables against it.
+    opening = obs.reconcile(obs.opening_balances(sheets), {"cash": total("hh_cash"), "deposits": total("hh_deposits")})
+    b = opening["balances"]
+    rows = {k: sum(row.values()) for k, row in b.items()}
+    check("ledger_invariants", all(v == 0 for v in rows.values()), rows_not_zero={k: v for k, v in rows.items() if v})
+    check("households_against_ledger",
+          total("hh_cash") == b["cash"]["households"] and total("hh_deposits") == b["deposits"]["households"],
+          cash=bn(b["cash"]["households"]), deposits=bn(b["deposits"]["households"]))
+    firm_cash = sum(u["currency"] for u in d["firm_sheets"]["units"]) * BANI
+    check("firms_against_ledger",
+          firm_cash == b["cash"]["firms"] and firm_deposits * BANI == b["deposits"]["firms"],
+          cash=bn(b["cash"]["firms"]), deposits=bn(b["deposits"]["firms"]))
+    check("left_out", True, **{k: {s: bn(v) for s, v in row.items()} for k, row in opening["left_out"].items()})
     for name, reason in KNOWN_GAPS.items():
         checks[name]["known_gap"] = reason
-    return {"sample_scale": sample_scale, "ok": all(c["ok"] for name, c in checks.items() if name not in KNOWN_GAPS),
+    return {"sample_scale": sample_scale, "opening": b, "ok": all(c["ok"] for name, c in checks.items() if name not in KNOWN_GAPS),
             "checks": checks,
             "household_income_a_month": {"wages": bn(wages), "pensions": bn(pensions), "self_employment": bn(self_emp),
                                          "informal": bn(informal), "grown_at_home": bn(in_kind)}}
@@ -212,7 +227,9 @@ def main() -> int:
     rep = report(docs, stages, a.sample_scale)
     scenario = {"format": 0, "name": "Romania 2021 (interim, from Python references)", "start_date": START_DATE,
                 "sample_scale": a.sample_scale, "rng_seed": a.seed, "stage_hashes": stage_hashes(stages),
+                "opening_hash": f"{obs.opening_hash(rep['opening']):016x}",
                 "inputs": input_hashes, "consistent": rep["ok"]}
+    rep.pop("opening")
     if a.out:
         a.out.mkdir(parents=True, exist_ok=True)
         (a.out / "scenario.json").write_text(json.dumps(scenario, indent=2) + "\n", encoding="utf-8")

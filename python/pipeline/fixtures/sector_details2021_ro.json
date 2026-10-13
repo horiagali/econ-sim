@@ -1,0 +1,58 @@
+{
+ "date": "2021-12-31",
+ "unit": "lei",
+ "government_debt": {
+  "total": 576600000000,
+  "short_term": 29380000000,
+  "by_residual_maturity": {
+   "up_to_1y": 29380000000,
+   "1_to_3y": 120000000000,
+   "3_to_5y": 110000000000,
+   "5_to_10y": 177000000000,
+   "over_10y": 140220000000
+  },
+  "by_currency": {
+   "lei": 273224415288,
+   "eur": 258642213349,
+   "usd": 44733371363
+  }
+ },
+ "central_bank_reserves": {
+  "gold": 26502023600,
+  "sdr_holdings": 16725276400,
+  "fx_deposits": 88686000000,
+  "fx_securities": 113237600000,
+  "fx_reserves_official": 200274347500
+ },
+ "provenance": {
+  "sources": [
+   {
+    "id": "ro_mof_public_debt_2021_12",
+    "source": "Ministry of Finance (press reports)",
+    "url": "https://www.romania-insider.com/romania-public-debt-gdp-end-2021",
+    "confidence": "medium-high",
+    "note": "total and medium/long-term debt, 31 December 2021"
+   },
+   {
+    "id": "ro_mof_public_debt_2021_05",
+    "source": "Ministry of Finance (press reports)",
+    "url": "https://economedia.ro/romanias-public-debt-reached-49-7-of-gdp-the-ministry-of-finance-announces.html",
+    "confidence": "medium",
+    "note": "currency of the debt, end of May 2021"
+   },
+   {
+    "id": "ro_bnr_reserves_2021_12",
+    "source": "National Bank of Romania press release",
+    "url": "https://actmedia.eu/financial-and-banking/bnr-international-reserves-december-2021/95714",
+    "confidence": "high",
+    "note": "FX reserves and gold, 31 December 2021"
+   },
+   {
+    "id": "ro_balance_sheets_2021q4",
+    "source": "eurostat",
+    "note": "central bank holdings of gold and SDR, deposits and debt securities (fixture balance_sheets2021q4_ro.json)"
+   }
+  ],
+  "note": "constants in normalise_sector_details.py; maturity buckets above one year are a guess (low)"
+ }
+}
