@@ -56,6 +56,10 @@ stages:
     cmd: python normalise_firm_balance_sheets.py
     deps: [normalise_firm_balance_sheets.py, normalise_census.py, jsonstat.py, data/raw/ro_capital_stock_2021.json, data/derived/firm_units2021_ro.json, data/derived/balance_sheets2021q4_ro.json]
     outs: [data/derived/firm_balance_sheets2021_ro.json]
+  normalise_budget:
+    cmd: python normalise_budget.py
+    deps: [normalise_budget.py, normalise_census.py, jsonstat.py, data/raw/ro_gov_expenditure_cofog_2021.json, data/raw/ro_gov_main_aggregates_2021.json, data/raw/ro_gdp_2021.json]
+    outs: [data/derived/budget2021_ro.json]
   # The population generator (spec society/population-generator) and its stages
   # C to J (education and activity, jobs, locality size and tenure, wages, pensions,
   # wealth, incomes, employers). It is Rust

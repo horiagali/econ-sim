@@ -160,6 +160,9 @@ pub const VARIABLES: &[Variable] = &[
     Variable { code_name: "months_unemployed", meaning: "Months since the person lost a job or started looking", unit: "months", kind: "state", owner: "economy/labor-market" },
     Variable { code_name: "desired_employment[f]", meaning: "Staff a firm unit wants, from its production plan", unit: "persons", kind: "state", owner: "economy/production" },
     Variable { code_name: "expected_demand[f]", meaning: "Sales a firm unit expects", unit: "units / month", kind: "state", owner: "economy/production" },
+    Variable { code_name: "budget_spending[l,k]", meaning: "Spending of budget line *l* on economic type *k* (wages, goods and services, social benefits, subsidies, interest, investment, other) in the starting budget; integer bani in code", unit: "LCU / year", kind: "parameter", owner: "economy/budget-2021" },
+    Variable { code_name: "public_posts[f]", meaning: "Occupied public posts that public firm unit *f* stands for at the start; its starting headcount target", unit: "posts", kind: "parameter", owner: "economy/budget-2021" },
+    Variable { code_name: "public_wage_bill", meaning: "Wages the government pays its employees (ESA D11): what the public units' employees earn", unit: "LCU / tick", kind: "flow", owner: "economy/budget-2021" },
 ];
 
 /// Look up a variable by its canonical code name.

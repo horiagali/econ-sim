@@ -4,7 +4,7 @@ title: Glossary & Variable Registry
 status: draft
 owner: horia
 depends_on: []
-updated: 2026-10-11
+updated: 2026-10-13
 ---
 
 # Glossary & Variable Registry
@@ -139,8 +139,11 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `months_unemployed` | Months since the person lost a job or started looking | months | state | economy/labor-market |
 | $N^*_f$ | `desired_employment[f]` | Staff a firm unit wants, from its production plan | persons | state | economy/production |
 | $D^e_f$ | `expected_demand[f]` | Sales a firm unit expects | units / month | state | economy/production |
+| $S_{l,k}$ | `budget_spending[l,k]` | Spending of budget line *l* on economic type *k* (wages, goods and services, social benefits, subsidies, interest, investment, other) in the starting budget; integer bani in code | LCU / year | parameter | economy/budget-2021 |
+| — | `public_posts[f]` | Occupied public posts that public firm unit *f* stands for at the start; its starting headcount target | posts | parameter | economy/budget-2021 |
+| $W^{g}$ | `public_wage_bill` | Wages the government pays its employees (ESA D11): what the public units' employees earn | LCU / tick | flow | economy/budget-2021 |
 
-Indices: $g$ good, $j$ industry (same set as goods, except that the eight electricity generation industries share the good `wholesale_electricity` and `power_supply` sells `electricity`), $f$ firm unit (belongs to one industry; per-industry variables such as `output[j]` are also kept per unit as `output[f]`, and the industry value is the `firm_count`-weighted sum), $o$ occupation, $s$ skill tier, $r$ region, $c$ county, $h$ household, $i$ person, $p$ power plant, $\ell$ education level. LCU = leu (RON).
+Indices: $g$ good, $j$ industry (same set as goods, except that the eight electricity generation industries share the good `wholesale_electricity` and `power_supply` sells `electricity`), $f$ firm unit (belongs to one industry; per-industry variables such as `output[j]` are also kept per unit as `output[f]`, and the industry value is the `firm_count`-weighted sum), $o$ occupation, $s$ skill tier, $r$ region, $c$ county, $h$ household, $i$ person, $p$ power plant, $\ell$ education level, $l$ budget line, $k$ economic type of spending. LCU = leu (RON).
 
 ## Terms
 - **SFC (stock-flow consistent):** modelling approach where every flow changes a stock and all balance sheets reconcile.
