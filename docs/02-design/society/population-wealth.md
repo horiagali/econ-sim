@@ -1,11 +1,11 @@
 ---
 id: society/population-wealth
 title: Population Generator, Stage H — Household Wealth
-status: draft
+status: locked
 owner: horia
 depends_on: [society/population-housing, society/population-wages, society/population-pensions, society/population-generator, society/population-groups, economy/accounting, adr/0006-determinism-contract, adr/0012-data-pipeline-and-licensing, adr/0014-agent-workflow-guardrails]
 research: [research/household-wealth-romania]
-updated: 2026-10-11
+updated: 2026-10-13
 ---
 
 # Population Generator, Stage H — Household Wealth
@@ -118,7 +118,7 @@ All in the margin file (see "The guesses"), plus:
 - **A proportion of zero, a curve that does not ascend from rank 0 to 1, a share above 1, an empty age range, a locality class the margins do not have, housing, wage or pension columns of another population:** rejected with a named error; nothing is produced.
 
 ## Acceptance tests
-IDs are stable. Tests go in `crates/econ-popgen/tests/acceptance/wealth.rs` (protected; to be written in a test-authoring session, before the Rust code), compiled only with the crate feature `wealth`. "The fixtures" are the normalised margin files committed with the pipeline. "Three scales" means 1:1000, 1:100 and 1:10, seed 42.
+IDs are stable. Tests go in `crates/econ-popgen/tests/acceptance/wealth.rs` (protected; written in a test-authoring session on 2026-10-11, before the Rust code), compiled only with the crate feature `wealth`. "The fixtures" are the normalised margin files committed with the pipeline. "Three scales" means 1:1000, 1:100 and 1:10, seed 42.
 
 - [ ] **AC-POPH2-01** `[unit]` Structure, at each of the three scales: five values per household; a record that is not a private household has five zeros; every private household has money; `hh_dwelling_value` is above zero exactly for owners; only owners have `hh_mortgage`.
 - [ ] **AC-POPH2-02** `[unit]` The stage changes nothing before it: the state, housing, wage and pension hashes are those of their own golden tests.
@@ -187,7 +187,7 @@ impl HouseholdWealth { pub fn state_hash(&self) -> u64; }
 
 ## Open questions
 - [x] **Borrow Hungary's pattern and build on educated guesses:** accepted by the owner, 2026-10-11.
-- [ ] **Bands of AC-POPH2-04 and AC-POPH2-05:** to be accepted by the owner.
+- [x] **Bands of AC-POPH2-04 and AC-POPH2-05:** accepted as written (owner, 2026-10-13).
 - [ ] **Stakes in firms, shares, bonds and pension fund claims** (400 billion lei): after the firm table, since a stake needs a firm unit to be a stake in.
-- [ ] **The market value of homes** (2.7 times replacement value) decides property-tax revenue and how rich owners feel. It is the guess to replace first, with prices by county, when [housing](../economy/housing.md) is built.
+- [x] **The market value of homes** (2.7 times replacement value) decides property-tax revenue and how rich owners feel. Kept until [housing](../economy/housing.md) (roadmap M13), which replaces it with prices by county (owner, 2026-10-13).
 - [ ] Re-measure, and perhaps re-tune the two income links, when the income of the self-employed exists.
