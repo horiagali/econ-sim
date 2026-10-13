@@ -17,17 +17,19 @@
 //! | C | `society/population-attributes` | persons: `edu_level`, `activity` (u8) |
 //! | D | `society/population-jobs` | persons: `employment_status`, `occupation`, `industry_group` (u8) |
 //! | E | `society/population-housing` | households: `hh_locality_size` (u8), `hh_urban` (bool), `hh_tenure` (u8) |
+//! | F | `society/population-wages` | persons: `wage` (u64, gross monthly, bani) |
 
 use std::path::Path;
 use std::sync::Arc;
 
-use arrow_array::{ArrayRef, BooleanArray, UInt8Array, UInt16Array, UInt32Array};
+use arrow_array::{ArrayRef, BooleanArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array};
 use arrow_schema::DataType;
 use econ_core::scale_spike::SeedPopulation;
 use econ_popgen::{
     AttributeMargins, EDU_GROUPS, EDU_LEVELS, GenParams, HouseholdHousing, HousingMargins,
     INDUSTRY_GROUPS, JobMargins, KINDS, MARGIN_ACTIVITIES, Margins, OCCUPATIONS, OPEN,
-    PersonAttributes, PersonJobs, Population, SIZE_GROUPS, STATUSES, TENURES,
+    PersonAttributes, PersonJobs, PersonWages, Population, SIZE_GROUPS, STATUSES, TENURES,
+    WageMargins,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -127,6 +129,8 @@ pub struct Stages<'a> {
     pub jobs: Option<(&'a PersonJobs, &'a Value)>,
     /// Stage E: locality size and tenure.
     pub housing: Option<(&'a HouseholdHousing, &'a Value)>,
+    /// Stage F: wages.
+    pub wages: Option<(&'a PersonWages, &'a Value)>,
 }
 
 fn stage_err(file: &str, what: &str) -> SaveError {
@@ -365,6 +369,65 @@ pub fn read_housing_margins(json: &str) -> Result<StageFile<HousingMargins>, Sav
     })
 }
 
+/// A list of millionths.
+fn ppm_list(v: &Value, file: &str, name: &str) -> Result<Vec<u32>, SaveError> {
+    serde_json::from_value(v[name].clone())
+        .map_err(|_| stage_err(file, &format!("{name} is not a list of millionths")))
+}
+
+/// A table of millionths of the given shape, row-major.
+fn ppm_table(v: &Value, file: &str, name: &str, dims: &[usize]) -> Result<Vec<u32>, SaveError> {
+    flat_table(v, file, name, dims)?
+        .into_iter()
+        .map(|x| u32::try_from(x).map_err(|_| stage_err(file, &format!("{name} is too large"))))
+        .collect()
+}
+
+/// The education group of each education level.
+fn edu_group_of_level(v: &Value, file: &str) -> Result<[u8; EDU_LEVELS], SaveError> {
+    serde_json::from_value(v["edu_group_of_level"].clone()).map_err(|_| {
+        stage_err(
+            file,
+            &format!("edu_group_of_level must list {EDU_LEVELS} education groups"),
+        )
+    })
+}
+
+/// Parse the earnings margin file (stage F), written by
+/// `python/pipeline/normalise_earnings.py`.
+///
+/// # Errors
+/// `SaveError::Parse` if the JSON is not such a file.
+pub fn read_wage_margins(json: &str) -> Result<StageFile<WageMargins>, SaveError> {
+    const FILE: &str = "earnings";
+    let v = parse(json, FILE)?;
+    fixed_names(&v, FILE, "sexes", &["F", "M"])?;
+    counted_names(&v, FILE, "industry_groups", INDUSTRY_GROUPS)?;
+    counted_names(&v, FILE, "occupations", OCCUPATIONS)?;
+    counted_names(&v, FILE, "edu_groups", EDU_GROUPS)?;
+    let age_group_from: Vec<u16> = serde_json::from_value(v["age_group_from"].clone())
+        .map_err(|_| stage_err(FILE, "age_group_from is not a list of ages"))?;
+    let n_age = age_group_from.len();
+    let g = INDUSTRY_GROUPS;
+    Ok(StageFile {
+        margins: WageMargins {
+            wage_bill: flat_table(&v, FILE, "wage_bill", &[g])?,
+            minimum_wage: v["minimum_wage"]
+                .as_u64()
+                .ok_or_else(|| stage_err(FILE, "minimum_wage is not an amount"))?,
+            edu_group_of_level: edu_group_of_level(&v, FILE)?,
+            rel_sex: ppm_table(&v, FILE, "rel_sex", &[g, 2])?,
+            rel_occupation: ppm_table(&v, FILE, "rel_occupation", &[g, 2, OCCUPATIONS])?,
+            rel_age: ppm_table(&v, FILE, "rel_age", &[g, 2, n_age])?,
+            rel_education: ppm_table(&v, FILE, "rel_education", &[g, 2, EDU_GROUPS])?,
+            curve_rank: ppm_list(&v["quantile_curve"], FILE, "rank")?,
+            curve_value: ppm_list(&v["quantile_curve"], FILE, "value")?,
+            age_group_from,
+        },
+        provenance: v["provenance"].clone(),
+    })
+}
+
 /// The columns of a generated population that the simulation starts from.
 #[must_use]
 pub fn seed_population(pop: &Population) -> SeedPopulation<'_> {
@@ -426,7 +489,7 @@ pub fn households_table(pop: &Population, stages: &Stages<'_>) -> Result<Vec<u8>
     ipc_bytes(&batch(columns)?)
 }
 
-/// The persons table as Arrow IPC bytes, with the columns of stages C and D
+/// The persons table as Arrow IPC bytes, with the columns of stages C, D and F
 /// if they were run.
 ///
 /// # Errors
@@ -488,6 +551,13 @@ pub fn persons_table(pop: &Population, stages: &Stages<'_>) -> Result<Vec<u8>, S
             ),
         ]);
     }
+    if let Some((wages, _)) = stages.wages {
+        columns.push((
+            "wage",
+            DataType::UInt64,
+            Arc::new(UInt64Array::from(wages.wage.clone())),
+        ));
+    }
     ipc_bytes(&batch(columns)?)
 }
 
@@ -540,6 +610,7 @@ pub fn fit_report(
         ),
         ("jobs", stages.jobs.map(|(j, p)| (j.state_hash(), p))),
         ("housing", stages.housing.map(|(h, p)| (h.state_hash(), p))),
+        ("wages", stages.wages.map(|(w, p)| (w.state_hash(), p))),
     ];
     for (stage, result) in ran {
         if let Some((hash, provenance)) = result {
@@ -644,7 +715,8 @@ mod tests {
     #[test]
     fn stage_files_give_the_golden_columns() -> Result<(), SaveError> {
         use econ_popgen::{
-            AttrParams, HousingParams, JobParams, assign_attributes, assign_housing, assign_jobs,
+            AttrParams, HousingParams, JobParams, WageParams, assign_attributes, assign_housing,
+            assign_jobs, assign_wages,
         };
         let file = read_margins(&fixture("census2021_margins_ro.json")).unwrap();
         let ea = read_attribute_margins(
@@ -654,6 +726,7 @@ mod tests {
         .unwrap();
         let job_file = read_job_margins(&fixture("census2021_jobs_ro.json"), &ea.margins).unwrap();
         let housing_file = read_housing_margins(&fixture("census2021_housing_ro.json")).unwrap();
+        let wage_file = read_wage_margins(&fixture("earnings2021_ro.json")).unwrap();
         assert_eq!(ea.margins.years_of_age, 101);
         assert_eq!(housing_file.margins.counties, file.margins.counties);
 
@@ -662,10 +735,19 @@ mod tests {
         let attrs = assign_attributes(&pop, &ea.margins, &AttrParams::new(42)).unwrap();
         let jobs = assign_jobs(&pop, &attrs, &job_file.margins, &JobParams::new(42)).unwrap();
         let housing = assign_housing(&pop, &housing_file.margins, &HousingParams::new(42)).unwrap();
+        let wages = assign_wages(
+            &pop,
+            &attrs,
+            &jobs,
+            &wage_file.margins,
+            &WageParams::new(42),
+        )
+        .unwrap();
         let stages = Stages {
             attributes: Some((&attrs, &ea.provenance)),
             jobs: Some((&jobs, &job_file.provenance)),
             housing: Some((&housing, &housing_file.provenance)),
+            wages: Some((&wages, &wage_file.provenance)),
         };
 
         let r = fit_report(&file, &params, &pop, &stages);
@@ -673,6 +755,7 @@ mod tests {
             ("attributes_hash", "popgen_ro_census2021_attributes.hashes"),
             ("jobs_hash", "popgen_ro_census2021_jobs.hashes"),
             ("housing_hash", "popgen_ro_census2021_housing.hashes"),
+            ("wages_hash", "popgen_ro_census2021_wages.hashes"),
         ] {
             assert_eq!(r[key], golden_1_in_1000(golden), "{key}");
         }
@@ -680,7 +763,8 @@ mod tests {
 
         let h = read_batch(households_table(&pop, &stages).unwrap()).unwrap();
         let p = read_batch(persons_table(&pop, &stages).unwrap()).unwrap();
-        assert_eq!((h.num_columns(), p.num_columns()), (6, 9));
+        assert_eq!((h.num_columns(), p.num_columns()), (6, 10));
+        assert_eq!(col!(p, "wage", UInt64Array), wages.wage);
         assert_eq!(
             col!(h, "hh_locality_size", UInt8Array),
             housing.hh_locality_size
