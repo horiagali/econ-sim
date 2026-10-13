@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [adr/0007-money-and-ledger, adr/0016-firm-representation, adr/0017-time-base]
 research: []
-updated: 2026-10-10
+updated: 2026-10-13
 ---
 
 # Accounting & Stock-Flow Consistency
@@ -75,7 +75,7 @@ National accounts (GDP three ways, sector balances, current account), per-sector
 - Defaults (firm, household, bank, government): write-downs are booked as losses to creditors with a reason code. Never silently zero a balance.
 
 ## Acceptance tests
-IDs are stable (added 2026-10-10 so the tests-first flow can cite them). Tests go in `crates/econ-ledger/tests/acceptance/` (protected; to be written in a test-authoring session). None exists there yet; the unit tests inside the ledger crate cover parts of AC-ACC-03 today.
+IDs are stable (added 2026-10-10 so the tests-first flow can cite them). Tests go in `crates/econ-ledger/tests/acceptance/` (protected). AC-ACC-03 and AC-ACC-04 were written there on 2026-10-13; AC-ACC-04 is compiled only with the crate feature `flow-code-check` until the ledger rejects unknown flow codes.
 
 - [ ] **AC-ACC-01** `[sim]` All invariant checks pass for 100 simulated years under random lever changes (fuzz test).
 - [ ] **AC-ACC-02** `[sim]` GDP measured three ways agrees every tick.
@@ -87,8 +87,6 @@ IDs are stable (added 2026-10-10 so the tests-first flow can cite them). Tests g
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
 - AC-ACC-01: the lever system and every sector on the real `World` (roadmap M4)
 - AC-ACC-02: production, incomes and spending on the real `World` (roadmap M3)
-- AC-ACC-03: testable on the ledger as it is; next test-authoring session
-- AC-ACC-04: testable on the ledger as it is; next test-authoring session
 - AC-ACC-05: clearing accounts, with the firm-unit goods market (roadmap M2)
 
 ## API sketch

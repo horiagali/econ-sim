@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/accounting, economy/industries, economy/labor-market, economy/investment-capital, adr/0016-firm-representation, adr/0017-time-base]
 research: []
-updated: 2026-10-11
+updated: 2026-10-13
 ---
 
 # Production & Supply Chains
@@ -145,7 +145,7 @@ Upstream: industries (coefficients), labour, energy, infrastructure, investment,
 - **Services** have a small buffer (they cannot be stored for long); the rule is the same.
 
 ## Acceptance tests
-IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, in `tests/acceptance/` (protected).
+IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, `crates/econ-mech-production`, in `tests/acceptance/` (protected). AC-PROD-01 and 02 were written there on 2026-10-13 against the API skeleton, compiled only with the crate feature `mechanic` until the implementation turns it on.
 
 - [ ] **AC-PROD-01** `[unit]` The plan: expected demand, planned output and desired employment are the formulas of step 1, in integers; planned output is never negative and never above capacity.
 - [ ] **AC-PROD-02** `[unit]` Rationing: when demand on an industry exceeds its inventories every buyer gets the same share, nothing more than the inventories is sold, and the shortage is demand less sales.
@@ -161,8 +161,6 @@ IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, in `tests/a
 
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-PROD-01: the production mechanic (roadmap M2)
-- AC-PROD-02: the goods market (roadmap M2)
 - AC-PROD-03: production on the real `World` (roadmap M2)
 - AC-PROD-04: the goods market with the ledger's clearing accounts (roadmap M2)
 - AC-PROD-05: the full M2 loop with invariant I-7

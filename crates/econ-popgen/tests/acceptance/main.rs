@@ -6,6 +6,9 @@ mod popgen;
 // which the stage's implementation change adds to `default`.
 #[cfg(feature = "attributes")]
 mod attributes;
+// The stages run together (spec society/population-groups, AC-PG-01).
+#[cfg(all(feature = "attributes", feature = "jobs", feature = "housing"))]
+mod groups;
 #[cfg(feature = "housing")]
 mod housing;
 #[cfg(feature = "jobs")]
