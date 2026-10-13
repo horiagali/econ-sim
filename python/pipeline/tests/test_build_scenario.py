@@ -33,7 +33,12 @@ class TestBuildScenario(unittest.TestCase):
         self.assertTrue(self.report["ok"], {k: v for k, v in self.report["checks"].items() if not v["ok"]})
         failed = {name for name, c in self.report["checks"].items() if not c["ok"]}
         self.assertLessEqual(failed, set(bs.KNOWN_GAPS))
-        self.assertEqual(len(self.report["checks"]), 12)
+        self.assertEqual(len(self.report["checks"]), 16)
+
+    def test_the_opening_ledger_closes_and_matches_the_tables(self):
+        for name in ("ledger_invariants", "households_against_ledger", "firms_against_ledger"):
+            self.assertTrue(self.report["checks"][name]["ok"], name)
+        self.assertTrue(all(sum(row.values()) == 0 for row in self.report["opening"].values()))
 
     def test_a_known_gap_is_reported_with_its_reason(self):
         for name in bs.KNOWN_GAPS:
