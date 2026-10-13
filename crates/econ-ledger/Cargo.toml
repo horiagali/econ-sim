@@ -13,5 +13,16 @@ econ-types.workspace = true
 [dev-dependencies]
 proptest.workspace = true
 
+[features]
+# Gates the acceptance test of AC-ACC-04 (unknown flow codes are rejected): it
+# was written before the code (ADR-0014), and the implementation adds it to
+# `default`.
+default = []
+flow-code-check = []
+
+[[test]]
+name = "acceptance"
+path = "tests/acceptance/main.rs"
+
 [lints]
 workspace = true

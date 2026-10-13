@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/production, society/population-groups, society/education, economy/demographics, society/population-employers, society/population-wages, adr/0016-firm-representation, adr/0017-time-base]
 research: []
-updated: 2026-10-11
+updated: 2026-10-13
 ---
 
 # Labour Market
@@ -135,7 +135,7 @@ Employment and unemployment for any group; wages by industry, occupation and reg
 - A unit whose `firm_count` falls to zero: its staff is laid off without the monthly limit.
 
 ## Acceptance tests
-IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, in `tests/acceptance/` (protected).
+IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, `crates/econ-mech-labour`, in `tests/acceptance/` (protected). AC-LM-01 and 02 were written there on 2026-10-13 against the API skeleton, compiled only with the crate feature `mechanic` until the implementation turns it on.
 
 - [ ] **AC-LM-01** `[unit]` The fill rate and the hires are the formulas of step 2; hires never exceed the unit's vacancies or the seekers it can reach; the carried fraction makes a unit with a fractional rate hire the right number over many months; with no vacancies in the tier the fill rate is 1.
 - [ ] **AC-LM-02** `[unit]` Layoffs: the excess over desired employment, at most `max_layoff_share` of staff in a month.
@@ -150,8 +150,6 @@ IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, in `tests/a
 
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-LM-01: the labour-market mechanic (roadmap M2)
-- AC-LM-02: the labour-market mechanic (roadmap M2)
 - AC-LM-03: the labour market on the real `World` (roadmap M2)
 - AC-LM-04: the labour market with the ledger's clearing accounts (roadmap M2)
 - AC-LM-05: the labour market on the real `World` (roadmap M2)

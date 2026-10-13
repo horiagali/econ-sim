@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [society/overview, economy/accounting, adr/0003-people-representation, adr/0017-time-base]
 research: [research/people-model-approaches]
-updated: 2026-10-10
+updated: 2026-10-13
 ---
 
 # Population Model — Synthetic Population & Groups
@@ -104,7 +104,6 @@ IDs are stable (added 2026-10-10 so the tests-first flow can cite them). The sta
 
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-PG-01: a test that runs the generator stages together and cites this ID; next test-authoring session
 - AC-PG-02: births, deaths and migration (demographics, roadmap M5)
 - AC-PG-03: the real `World` and its tick loop (roadmap M2)
 - AC-PG-04: the labour market on the real `World` (roadmap M2)

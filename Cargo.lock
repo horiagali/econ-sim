@@ -257,6 +257,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "econ-mech-households"
+version = "0.1.0"
+dependencies = [
+ "econ-types",
+]
+
+[[package]]
+name = "econ-mech-labour"
+version = "0.1.0"
+dependencies = [
+ "econ-types",
+]
+
+[[package]]
+name = "econ-mech-prices"
+version = "0.1.0"
+
+[[package]]
+name = "econ-mech-production"
+version = "0.1.0"
+
+[[package]]
 name = "econ-mech-tax"
 version = "0.1.0"
 dependencies = [

@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/production, economy/labor-market, economy/trade-fx, economy/monetary-policy, economy/vat, adr/0017-time-base]
 research: []
-updated: 2026-10-11
+updated: 2026-10-13
 ---
 
 # Prices & Inflation
@@ -123,7 +123,7 @@ The stability rule of [ADR-0009](../../03-architecture/decisions/0009-calibratio
 - **Numerical:** the daily cap; a price never reaches zero.
 
 ## Acceptance tests
-IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, in `tests/acceptance/` (protected).
+IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, `crates/econ-mech-prices`, in `tests/acceptance/` (protected). AC-PRICE-01 to 03 were written there on 2026-10-13 against the API skeleton, compiled only with the crate feature `mechanic` until the implementation turns it on.
 
 - [ ] **AC-PRICE-01** `[unit]` Unit cost, markup and target price are the formulas above; at the starting state every target price is 1 and every price stays 1 while nothing else changes and expected inflation is zero.
 - [ ] **AC-PRICE-02** `[unit]` The daily step: a price moves toward its target by the daily equivalent of its monthly flexibility, so that thirty daily steps close the same share of a constant gap as one monthly step, within rounding; a day's move never exceeds the cap.
@@ -139,9 +139,6 @@ IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, in `tests/a
 
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-PRICE-01: the prices mechanic (roadmap M2)
-- AC-PRICE-02: the prices mechanic (roadmap M2)
-- AC-PRICE-03: the prices mechanic (roadmap M2)
 - AC-PRICE-04: prices on the real `World` (roadmap M2)
 - AC-PRICE-05: the full M2 loop
 - AC-PRICE-06: the full M2 loop with the VAT lever

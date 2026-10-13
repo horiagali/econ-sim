@@ -1,0 +1,21 @@
+[package]
+name = "econ-mech-prices"
+description = "Prices: unit cost, markup, the daily price step and expectations (spec: economy/prices-inflation)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+# Gates the acceptance tests: they were written before the code (ADR-0014), and
+# the implementation adds `mechanic` to `default`.
+default = []
+mechanic = []
+
+[[test]]
+name = "acceptance"
+path = "tests/acceptance/main.rs"
+
+[lints]
+workspace = true
