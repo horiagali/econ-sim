@@ -20,6 +20,7 @@
 //! | F | `society/population-wages` | persons: `wage` (u64, gross monthly, bani) |
 //! | G | `society/population-pensions` | persons: `pension` (u64, gross monthly, bani) |
 //! | H | `society/population-wealth` | households: `hh_cash`, `hh_deposits`, `hh_dwelling_value`, `hh_mortgage`, `hh_consumer_debt` (u64, bani) |
+//! | I | `society/population-incomes` | persons: `wage_declared`, `self_employment_income`, `self_employment_declared`, `informal_income` (u64, bani a month); households: `hh_subsistence_income` (u64) |
 
 use std::path::Path;
 use std::sync::Arc;
@@ -29,9 +30,10 @@ use arrow_schema::DataType;
 use econ_core::scale_spike::SeedPopulation;
 use econ_popgen::{
     AttributeMargins, BorrowerRule, Curve, EDU_GROUPS, EDU_LEVELS, GenParams, HouseholdHousing,
-    HouseholdWealth, HousingMargins, INDUSTRY_GROUPS, JobMargins, KINDS, MARGIN_ACTIVITIES,
-    Margins, OCCUPATIONS, OPEN, PensionMargins, PersonAttributes, PersonJobs, PersonPensions,
-    PersonWages, Population, SIZE_GROUPS, STATUSES, TENURES, WageMargins, WealthMargins,
+    HouseholdWealth, HousingMargins, INDUSTRY_GROUPS, IncomeMargins, InformalPropensity,
+    JobMargins, KINDS, MARGIN_ACTIVITIES, Margins, OCCUPATIONS, OPEN, OtherIncomes, PensionMargins,
+    PersonAttributes, PersonJobs, PersonPensions, PersonWages, Population, SIZE_GROUPS, STATUSES,
+    TENURES, WageMargins, WealthMargins,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -137,6 +139,8 @@ pub struct Stages<'a> {
     pub pensions: Option<(&'a PersonPensions, &'a Value)>,
     /// Stage H: household wealth.
     pub wealth: Option<(&'a HouseholdWealth, &'a Value)>,
+    /// Stage I: declared and undeclared income.
+    pub incomes: Option<(&'a OtherIncomes, &'a Value)>,
 }
 
 fn stage_err(file: &str, what: &str) -> SaveError {
@@ -525,6 +529,76 @@ pub fn read_wealth_margins(json: &str) -> Result<StageFile<WealthMargins>, SaveE
     })
 }
 
+/// Parse the income margin file (stage I), written by
+/// `python/pipeline/normalise_incomes.py`.
+///
+/// # Errors
+/// `SaveError::Parse` if the JSON is not such a file.
+pub fn read_income_margins(json: &str) -> Result<StageFile<IncomeMargins>, SaveError> {
+    const FILE: &str = "incomes";
+    let v = parse(json, FILE)?;
+    counted_names(&v, FILE, "industry_groups", INDUSTRY_GROUPS)?;
+    let number = |v: &Value, name: &str| {
+        v[name]
+            .as_u64()
+            .ok_or_else(|| stage_err(FILE, &format!("{name} is not a non-negative integer")))
+    };
+    let small = |v: &Value, name: &str| {
+        number(v, name).and_then(|x| {
+            u32::try_from(x).map_err(|_| stage_err(FILE, &format!("{name} is too large")))
+        })
+    };
+    let prop = &v["informal_propensity"];
+    let rel_kind = ppm_table(&v, FILE, "rel_kind", &[3])?;
+    Ok(StageFile {
+        margins: IncomeMargins {
+            farm_income: number(&v, "farm_income")?,
+            farm_in_kind: number(&v, "farm_in_kind")?,
+            self_employment_income: number(&v, "self_employment_income")?,
+            informal_income: number(&v, "informal_income")?,
+            minimum_wage: number(&v, "minimum_wage")?,
+            quantile_curve: Curve {
+                rank: ppm_list(&v["quantile_curve"], FILE, "rank")?,
+                value: ppm_list(&v["quantile_curve"], FILE, "value")?,
+            },
+            undeclared_wage_share: ppm_table(
+                &v,
+                FILE,
+                "undeclared_wage_share",
+                &[INDUSTRY_GROUPS],
+            )?,
+            fully_informal_share: small(&v, "fully_informal_share")?,
+            envelope_declared_share: small(&v, "envelope_declared_share")?,
+            low_wage_link: small(&v, "low_wage_link")?,
+            rel_kind: [rel_kind[0], rel_kind[1], rel_kind[2]],
+            self_employment_education_link: small(&v, "self_employment_education_link")?,
+            self_employment_declared: small(&v, "self_employment_declared")?,
+            farm_declared: small(&v, "farm_declared")?,
+            subsistence_household_share: small(&v, "subsistence_household_share")?,
+            subsistence_bonus_farm_worker: small(&v["subsistence_bonus"], "farm_worker")?,
+            subsistence_bonus_retired: small(&v["subsistence_bonus"], "retired")?,
+            subsistence_dispersion: small(&v, "subsistence_dispersion")?,
+            informal_recipient_share: small(&v, "informal_recipient_share")?,
+            informal_propensity: InformalPropensity {
+                unemployed: small(prop, "unemployed")?,
+                inactive_other: small(prop, "inactive_other")?,
+                retired: small(prop, "retired")?,
+                student: small(prop, "student")?,
+                employer: small(prop, "employer")?,
+                own_account: small(prop, "own_account")?,
+                family_worker: small(prop, "family_worker")?,
+                employee_by_industry_group: ppm_table(
+                    prop,
+                    FILE,
+                    "employee_by_industry_group",
+                    &[INDUSTRY_GROUPS],
+                )?,
+            },
+        },
+        provenance: v["provenance"].clone(),
+    })
+}
+
 /// The columns of a generated population that the simulation starts from.
 #[must_use]
 pub fn seed_population(pop: &Population) -> SeedPopulation<'_> {
@@ -541,8 +615,8 @@ fn codes(values: impl Iterator<Item = u8>) -> ArrayRef {
     Arc::new(UInt8Array::from_iter_values(values))
 }
 
-/// The households table as Arrow IPC bytes, with the columns of stages E and H
-/// if they were run.
+/// The households table as Arrow IPC bytes, with the columns of stages E, H
+/// and I if they were run.
 ///
 /// # Errors
 /// On Arrow encoding failures.
@@ -599,11 +673,18 @@ pub fn households_table(pop: &Population, stages: &Stages<'_>) -> Result<Vec<u8>
             ));
         }
     }
+    if let Some((incomes, _)) = stages.incomes {
+        columns.push((
+            "hh_subsistence_income",
+            DataType::UInt64,
+            Arc::new(UInt64Array::from(incomes.hh_subsistence_income.clone())),
+        ));
+    }
     ipc_bytes(&batch(columns)?)
 }
 
-/// The persons table as Arrow IPC bytes, with the columns of stages C, D, F
-/// and G if they were run.
+/// The persons table as Arrow IPC bytes, with the columns of stages C, D, F,
+/// G and I if they were run.
 ///
 /// # Errors
 /// On Arrow encoding failures.
@@ -678,6 +759,23 @@ pub fn persons_table(pop: &Population, stages: &Stages<'_>) -> Result<Vec<u8>, S
             Arc::new(UInt64Array::from(pensions.pension.clone())),
         ));
     }
+    if let Some((incomes, _)) = stages.incomes {
+        for (name, column) in [
+            ("wage_declared", &incomes.wage_declared),
+            ("self_employment_income", &incomes.self_employment_income),
+            (
+                "self_employment_declared",
+                &incomes.self_employment_declared,
+            ),
+            ("informal_income", &incomes.informal_income),
+        ] {
+            columns.push((
+                name,
+                DataType::UInt64,
+                Arc::new(UInt64Array::from(column.clone())),
+            ));
+        }
+    }
     ipc_bytes(&batch(columns)?)
 }
 
@@ -736,6 +834,7 @@ pub fn fit_report(
             stages.pensions.map(|(g, p)| (g.state_hash(), p)),
         ),
         ("wealth", stages.wealth.map(|(w, p)| (w.state_hash(), p))),
+        ("incomes", stages.incomes.map(|(i, p)| (i.state_hash(), p))),
     ];
     for (stage, result) in ran {
         if let Some((hash, provenance)) = result {
@@ -840,9 +939,9 @@ mod tests {
     #[test]
     fn stage_files_give_the_golden_columns() -> Result<(), SaveError> {
         use econ_popgen::{
-            AttrParams, HousingParams, JobParams, PensionParams, WageParams, WealthParams,
-            assign_attributes, assign_housing, assign_jobs, assign_pensions, assign_wages,
-            assign_wealth,
+            AttrParams, HousingParams, IncomeParams, JobParams, PensionParams, WageParams,
+            WealthParams, assign_attributes, assign_housing, assign_jobs, assign_other_incomes,
+            assign_pensions, assign_wages, assign_wealth,
         };
         let file = read_margins(&fixture("census2021_margins_ro.json")).unwrap();
         let ea = read_attribute_margins(
@@ -855,6 +954,7 @@ mod tests {
         let wage_file = read_wage_margins(&fixture("earnings2021_ro.json")).unwrap();
         let pension_file = read_pension_margins(&fixture("pensions2021_ro.json")).unwrap();
         let wealth_file = read_wealth_margins(&fixture("household_wealth2021_ro.json")).unwrap();
+        let income_file = read_income_margins(&fixture("other_incomes2021_ro.json")).unwrap();
         assert_eq!(ea.margins.years_of_age, 101);
         assert_eq!(housing_file.margins.counties, file.margins.counties);
 
@@ -882,6 +982,16 @@ mod tests {
             &WealthParams::new(42),
         )
         .unwrap();
+        let incomes = assign_other_incomes(
+            &pop,
+            &attrs,
+            &jobs,
+            &housing,
+            &wages,
+            &income_file.margins,
+            &IncomeParams::new(42),
+        )
+        .unwrap();
         let stages = Stages {
             attributes: Some((&attrs, &ea.provenance)),
             jobs: Some((&jobs, &job_file.provenance)),
@@ -889,6 +999,7 @@ mod tests {
             wages: Some((&wages, &wage_file.provenance)),
             pensions: Some((&pensions, &pension_file.provenance)),
             wealth: Some((&wealth, &wealth_file.provenance)),
+            incomes: Some((&incomes, &income_file.provenance)),
         };
 
         let r = fit_report(&file, &params, &pop, &stages);
@@ -899,6 +1010,7 @@ mod tests {
             ("wages_hash", "popgen_ro_census2021_wages.hashes"),
             ("pensions_hash", "popgen_ro_census2021_pensions.hashes"),
             ("wealth_hash", "popgen_ro_census2021_wealth.hashes"),
+            ("incomes_hash", "popgen_ro_census2021_incomes.hashes"),
         ] {
             assert_eq!(r[key], golden_1_in_1000(golden), "{key}");
         }
@@ -906,7 +1018,11 @@ mod tests {
 
         let h = read_batch(households_table(&pop, &stages).unwrap()).unwrap();
         let p = read_batch(persons_table(&pop, &stages).unwrap()).unwrap();
-        assert_eq!((h.num_columns(), p.num_columns()), (11, 11));
+        assert_eq!((h.num_columns(), p.num_columns()), (12, 15));
+        assert_eq!(
+            col!(p, "informal_income", UInt64Array),
+            incomes.informal_income
+        );
         assert_eq!(col!(h, "hh_mortgage", UInt64Array), wealth.hh_mortgage);
         assert_eq!(col!(p, "wage", UInt64Array), wages.wage);
         assert_eq!(col!(p, "pension", UInt64Array), pensions.pension);
