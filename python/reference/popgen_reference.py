@@ -16,7 +16,9 @@ With `--housing HOUSING.json` it runs the housing stage (spec
 `society/population-housing`): locality size and tenure of every household.
 With `--wages EARNINGS.json` (and the two before it) it runs the wage stage
 (spec `society/population-wages`); with `--pensions PENSIONS.json` the pension
-stage (spec `society/population-pensions`).
+stage (spec `society/population-pensions`). With `--enrolment INACTIVITY_ENROLMENT.json`
+(and `--attributes`) it runs Stage K (spec `society/population-inactivity-enrolment`): the
+kind of inactivity of the other inactive and the enrolment level of every person.
 """
 from __future__ import annotations
 
@@ -85,6 +87,17 @@ NO_INDUSTRY = 255  # `industry` of a person who is not employed
 NO_EMPLOYER = 65535  # `employer` of a person who is not employed
 EMPLOYER_WAGE_LINK_PPM = 500_000  # how closely an employee's place among employers follows the wage
 WEALTH_COLUMNS = ["hh_cash", "hh_deposits", "hh_dwelling_value", "hh_mortgage", "hh_consumer_debt"]
+# Stage K, kinds of inactivity and enrolment (spec society/population-inactivity-enrolment).
+STAGE_INACTIVITY_ENROLMENT = 11  # `tick` of the draw context
+INACTIVE_KINDS = ["homemaker", "disabled", "other"]
+INACTIVE_NONE = 0  # `inactive_kind` of a person whose activity is not "other inactive"; kinds are 1..3
+ENROLMENT_LEVELS = ["pre_school", "primary", "lower_secondary", "upper_secondary", "post_secondary", "tertiary",
+                    "master_doctorate"]
+NOT_ENROLLED = 0  # `enrolled` of a person who is not enrolled; levels are 1..7
+LEVEL_UPPER_SECONDARY = 4
+FIRST_LEVEL_AFTER_SECONDARY = 5  # post-secondary and above need upper secondary completed (edu_level >= 1)
+HOMEMAKER_CHILD_LINK_PPM = 500_000  # how strongly homemakers are those who live with a young child
+YOUNG_CHILD_AGE = 7  # years; a household member younger than this is a young child
 
 
 # --- keyed ChaCha8 (ADR-0006) ------------------------------------------------
@@ -2059,6 +2072,231 @@ def employer_fit(pop: dict, firms: dict, job_attrs: dict, e_attrs: dict, wage: l
     }
 
 
+# --- Stage K: kinds of inactivity and enrolment ---------------------------------------------
+
+def check_inactivity_enrolment_margins(ie: dict) -> None:
+    if (ie.get("sexes") != ["F", "M"] or ie.get("inactive_kinds") != INACTIVE_KINDS
+            or ie.get("enrolment_levels") != ENROLMENT_LEVELS):
+        raise GenError("ShapeMismatch")
+    n_bands, n_groups = len(ie["age_bands"]), len(ie["enrolment_ages"])
+    if not n_bands or not n_groups:
+        raise GenError("EmptyTable")
+    if (len(ie["inactive_kind"]) != 2 or len(ie["enrolment"]) != 2 or len(ie["population"]) != 2
+            or any(len(t) != n_bands or any(len(row) != len(INACTIVE_KINDS) for row in t) for t in ie["inactive_kind"])
+            or any(len(t) != n_groups or any(len(row) != len(ENROLMENT_LEVELS) for row in t) for t in ie["enrolment"])
+            or any(len(t) != n_groups for t in ie["population"])):
+        raise GenError("ShapeMismatch")
+    if not any(v for t in ie["inactive_kind"] for row in t for v in row) or not any(
+            v for t in ie["enrolment"] for row in t for v in row):
+        raise GenError("EmptyTable")
+
+
+def assign_inactivity_enrolment(pop: dict, attrs: dict, ie: dict, rng_seed: int = 42,
+                                homemaker_child_link_ppm: int = HOMEMAKER_CHILD_LINK_PPM) -> dict:
+    """The kind of inactivity of every person "other inactive", and the level every person is enrolled at.
+
+    `attrs` is the result of Stage C (education level and activity; not changed), `ie` the margin
+    file of this stage. Returns {"inactive_kind": [...], "enrolled": [...]}: INACTIVE_NONE or
+    1 + an index into INACTIVE_KINDS; NOT_ENROLLED or 1 + an index into ENROLMENT_LEVELS.
+
+    Kinds: per sex and age band (national), `split` of the band's other inactive persons over the
+    kinds, homemaker first; persons living with a young child come first with probability
+    `homemaker_child_link_ppm`. Enrolment: per sex and enrolment age group, every pupil and student
+    is enrolled, and the group's enrolment above them is taken from its children, employed,
+    unemployed and other inactive persons (those who completed upper secondary for the levels
+    after it). The enrolled are split over the levels from the lowest education and youngest up;
+    a level after upper secondary that falls to someone without it becomes upper secondary.
+    """
+    check_inactivity_enrolment_margins(ie)
+    n = len(pop["household_id"])
+    edu, activity = attrs["edu_level"], attrs["activity"]
+    if len(edu) != n or len(activity) != n:
+        raise GenError("ShapeMismatch")
+    bands = [(b[0], b[1]) for b in ie["age_bands"]]
+    groups = [(g[0], g[1]) for g in ie["enrolment_ages"]]
+
+    def index_of(year: int, ranges: list[tuple]) -> int:
+        for k, (lo, hi) in enumerate(ranges):
+            if year >= lo and (hi is None or year < hi):
+                return k
+        raise GenError("ShapeMismatch")
+
+    weight = [pop["hh_weight"][h] for h in pop["household_id"]]
+    sex = pop["sex"]
+    year = [a // 12 for a in pop["age"]]
+    prio, link_draw = [], []
+    for i in range(n):
+        d = Draw(rng_seed, STREAM_POPULATION_GEN, STAGE_INACTIVITY_ENROLMENT, i)
+        prio.append(d.u64())
+        link_draw.append(((d.u64() >> 44) * UNIT) >> 20)
+    young_child = set()
+    for i in range(n):
+        if pop["age"][i] < YOUNG_CHILD_AGE * 12:
+            young_child.add(pop["household_id"][i])
+
+    # Step 1: kinds of inactivity, by sex and age band; rounding is carried to the next band.
+    kind = [INACTIVE_NONE] * n
+    members_of: dict[tuple, list[int]] = {}
+    for i in range(n):
+        if activity[i] == ACT_INACTIVE_OTHER:
+            members_of.setdefault((sex[i], index_of(year[i], bands)), []).append(i)
+    for s in range(2):
+        carry = [0] * len(INACTIVE_KINDS)
+        sex_totals = [sum(row[k] for row in ie["inactive_kind"][s]) for k in range(len(INACTIVE_KINDS))]
+        for b in range(len(bands)):
+            members = members_of.get((s, b))
+            if not members:
+                continue
+            targets = ie["inactive_kind"][s][b]
+            if not any(targets):
+                targets = sex_totals
+            if not any(targets):
+                raise GenError("NoMargin")
+            members.sort(key=lambda i: (0 if pop["household_id"][i] in young_child
+                                        and link_draw[i] < homemaker_child_link_ppm else 1, prio[i], i))
+            for i, k in zip(members, split([weight[i] for i in members], targets, carry)):
+                kind[i] = 1 + k
+
+    # Step 2: enrolment, by sex and enrolment age group; rounding is carried to the next group.
+    enrolled = [NOT_ENROLLED] * n
+    by_group: dict[tuple, list[int]] = {}
+    for i in range(n):
+        by_group.setdefault((sex[i], index_of(year[i], groups)), []).append(i)
+    n_lv = len(ENROLMENT_LEVELS)
+    after = FIRST_LEVEL_AFTER_SECONDARY - 1  # index of the first level that needs upper secondary
+    pool_activities = (ACT_CHILD, ACT_EMPLOYED, ACT_UNEMPLOYED, ACT_INACTIVE_OTHER)
+    for s in range(2):
+        carry = [0] * n_lv  # rounding, carried from one age group to the next
+        owed = [0] * n_lv   # places after upper secondary that went to persons without it
+        for g in range(len(groups)):
+            members = by_group.get((s, g))
+            if not members:
+                continue
+            counts = ie["enrolment"][s][g]
+            rest = max(ie["population"][s][g] - sum(counts), 0)
+            total = sum(weight[i] for i in members)
+            t = apportion(total, counts + [rest])[:n_lv] if sum(counts) + rest else [0] * n_lv
+            t = [v + o for v, o in zip(t, owed)]
+            owed = [0] * n_lv
+            must = [i for i in members if activity[i] in (ACT_PUPIL, ACT_STUDENT)]
+            w_must = sum(weight[i] for i in must)
+            w_must_hi = sum(weight[i] for i in must if edu[i] >= STUDENT_MIN_EDU)
+            pool_hi = sorted((i for i in members if activity[i] in pool_activities and edu[i] >= STUDENT_MIN_EDU),
+                             key=lambda i: (prio[i], i))
+            pool_lo = sorted((i for i in members if activity[i] in pool_activities and edu[i] < STUDENT_MIN_EDU),
+                             key=lambda i: (prio[i], i))
+            w_hi, w_lo = sum(weight[i] for i in pool_hi), sum(weight[i] for i in pool_lo)
+            # The places pupils and students leave empty, before and after upper secondary; students
+            # beyond the later levels' places take earlier ones.
+            take_hi = min(max(sum(t[after:]) - w_must_hi, 0), w_hi)
+            spare_hi = max(w_must_hi - sum(t[after:]), 0)
+            take_lo = min(max(sum(t[:after]) - (w_must - w_must_hi) - spare_hi, 0), w_lo)
+            chosen = list(must)
+            for pool, w_pool, take in ((pool_hi, w_hi, take_hi), (pool_lo, w_lo, take_lo)):
+                if take:
+                    for i, c in zip(pool, split([weight[i] for i in pool], [take, w_pool - take], [0, 0])):
+                        if c == 0:
+                            chosen.append(i)
+            if not chosen:
+                continue
+            if not any(t):
+                if not any(counts):
+                    raise GenError("NoMargin")
+                t = counts
+            chosen.sort(key=lambda i: (edu[i], pop["age"][i], prio[i], i))
+            for i, k in zip(chosen, split([weight[i] for i in chosen], t, carry)):
+                level = 1 + k
+                if k >= after and edu[i] < STUDENT_MIN_EDU:
+                    # Not eligible: upper secondary instead; the place goes to the next age group.
+                    level = LEVEL_UPPER_SECONDARY
+                    owed[k] += weight[i]
+                enrolled[i] = level
+    return {"inactive_kind": kind, "enrolled": enrolled}
+
+
+def inactivity_enrolment_hash(k_attrs: dict) -> int:
+    """FNV-1a 64 over the person count (u32, little-endian), then each person's inactive kind
+    and enrolment level (one byte each)."""
+    h = 0xCBF29CE484222325
+    data = len(k_attrs["inactive_kind"]).to_bytes(4, "little") + bytes(
+        b for pair in zip(k_attrs["inactive_kind"], k_attrs["enrolled"]) for b in pair)
+    for b in data:
+        h = ((h ^ b) * 0x100000001B3) & M64
+    return h
+
+
+def inactivity_enrolment_fit(pop: dict, attrs: dict, ie: dict, k_attrs: dict, sample_scale: int,
+                             min_records: int = 50) -> dict:
+    """How Stage K fits: kinds against their targets by sex and age band, the homemakers' link to
+    young children, and enrolment by level against the school statistics."""
+    n = len(k_attrs["enrolled"])
+    w = [pop["hh_weight"][h] for h in pop["household_id"]]
+    sex, activity, edu = pop["sex"], attrs["activity"], attrs["edu_level"]
+    kind, enrolled = k_attrs["inactive_kind"], k_attrs["enrolled"]
+    bands = [(b[0], b[1]) for b in ie["age_bands"]]
+    groups = [(g[0], g[1]) for g in ie["enrolment_ages"]]
+
+    def index_of(year: int, ranges: list[tuple]) -> int:
+        return next(k for k, (lo, hi) in enumerate(ranges) if year >= lo and (hi is None or year < hi))
+
+    got = {}
+    for i in range(n):
+        if kind[i]:
+            key = (sex[i], index_of(pop["age"][i] // 12, bands))
+            got.setdefault(key, [0] * len(INACTIVE_KINDS))[kind[i] - 1] += w[i]
+    by_sex = []
+    for s in range(2):
+        want = [sum(row[k] for row in ie["inactive_kind"][s]) for k in range(len(INACTIVE_KINDS))]
+        have = [sum(v[k] for (ss, _), v in got.items() if ss == s) for k in range(len(INACTIVE_KINDS))]
+        by_sex.append({kd: [have[k], want[k], round(have[k] / want[k] - 1, 4) if want[k] else None]
+                       for k, kd in enumerate(INACTIVE_KINDS)})
+    worst_band = 0.0
+    for (s, b), have in got.items():
+        want = ie["inactive_kind"][s][b]
+        if sum(want) >= min_records * sample_scale and sum(have):
+            worst_band = max(worst_band, max(abs(have[k] / sum(have) - want[k] / sum(want)) for k in range(len(want))))
+    young_child = {pop["household_id"][i] for i in range(n) if pop["age"][i] < YOUNG_CHILD_AGE * 12}
+
+    def share_with_child(k: int) -> float:
+        tot = sum(w[i] for i in range(n) if kind[i] == k)
+        return round(sum(w[i] for i in range(n) if kind[i] == k and pop["household_id"][i] in young_child) / tot, 4) if tot else 0.0
+
+    levels = [0] * len(ENROLMENT_LEVELS)
+    by_activity: dict[int, list[int]] = {}
+    cell: dict[tuple, list[int]] = {}
+    for i in range(n):
+        if enrolled[i]:
+            levels[enrolled[i] - 1] += w[i]
+            by_activity.setdefault(activity[i], [0, 0])[0] += w[i]
+            cell.setdefault((sex[i], index_of(pop["age"][i] // 12, groups)), [0] * len(levels))[enrolled[i] - 1] += w[i]
+        if activity[i] in (ACT_PUPIL, ACT_STUDENT):
+            by_activity.setdefault(activity[i], [0, 0])[1] += w[i]
+    # The school statistics at the enrolment rates of each sex and age group, on the synthetic population.
+    weight_of = [[0] * len(groups) for _ in range(2)]
+    for i in range(n):
+        weight_of[sex[i]][index_of(pop["age"][i] // 12, groups)] += w[i]
+    uoe = [round(sum(ie["enrolment"][s][g][k] * weight_of[s][g] / ie["population"][s][g]
+                     for s in range(2) for g in range(len(groups)) if ie["population"][s][g]))
+           for k in range(len(levels))]
+    gaps = {}
+    for (s, g), have in sorted(cell.items()):
+        want = ie["enrolment"][s][g]
+        if sum(want) >= min_records * sample_scale:
+            gaps[f"{'FM'[s]}{groups[g][0]}"] = round(max(abs(have[k] / sum(have) - want[k] / sum(want))
+                                                         for k in range(len(want))), 4)
+    names = ["child", "pupil", "student", "employed", "unemployed", "retired", "inactive_other"]
+    return {
+        "inactive_kind_by_sex": {"F": by_sex[0], "M": by_sex[1]},
+        "largest_gap_of_a_kind_share_in_a_band": round(worst_band, 4),
+        "share_living_with_a_young_child": {kd: share_with_child(k + 1) for k, kd in enumerate(INACTIVE_KINDS)},
+        "enrolled_by_level": {lv: [levels[k], uoe[k], round(levels[k] / uoe[k] - 1, 4)]
+                              for k, lv in enumerate(ENROLMENT_LEVELS)},
+        "enrolled_by_activity": {names[a]: v[0] for a, v in sorted(by_activity.items())},
+        "pupils_and_students_not_enrolled": sum(v[1] - v[0] for a, v in by_activity.items() if a in (ACT_PUPIL, ACT_STUDENT)),
+        "largest_gaps_of_a_level_share_in_an_age_group": dict(sorted(gaps.items(), key=lambda kv: -kv[1])[:6]),
+    }
+
+
 def attributes_hash(attrs: dict) -> int:
     """FNV-1a 64 over the person count (u32, little-endian), then each person's
     education level and activity (one byte each)."""
@@ -2257,6 +2495,7 @@ def main() -> int:
                                      "uses the wages and pensions if those stages ran)")
     ap.add_argument("--incomes", help="income margin file: also run the income-split stage (needs --wages and --housing)")
     ap.add_argument("--firms", help="firm-unit file: also run the employer stage (needs --jobs; uses the wages if that stage ran)")
+    ap.add_argument("--enrolment", help="inactivity-and-enrolment margin file: also run Stage K (needs --attributes)")
     ap.add_argument("--wage-dispersion-ppm", type=int, default=WAGE_DISPERSION_PPM, help=argparse.SUPPRESS)
     a = ap.parse_args()
     check_rng()
@@ -2322,6 +2561,15 @@ def main() -> int:
         e_attrs = assign_employers(pop, firms, job_attrs, wage or None, a.seed)
         summary["employers_hash"] = f"{employers_hash(e_attrs):016x}"
         summary["seconds"] = round(time.time() - t0, 1)
+    k_attrs = {}
+    if a.enrolment:
+        if not attrs:
+            ap.error("--enrolment needs --attributes")
+        with open(a.enrolment, encoding="utf-8") as f:
+            ie = json.load(f)
+        k_attrs = assign_inactivity_enrolment(pop, attrs, ie, a.seed)
+        summary["inactivity_enrolment_hash"] = f"{inactivity_enrolment_hash(k_attrs):016x}"
+        summary["seconds"] = round(time.time() - t0, 1)
     i_attrs = {}
     if a.incomes:
         if not (wage and h_attrs):
@@ -2343,6 +2591,8 @@ def main() -> int:
         summary["seconds"] = round(time.time() - t0, 1)
     if a.report:
         summary["fit"] = fit_errors(m, pop, a.sample_scale)
+        if k_attrs:
+            summary["inactivity_enrolment_fit"] = inactivity_enrolment_fit(pop, attrs, ie, k_attrs, a.sample_scale)
         if e_attrs:
             summary["employer_fit"] = employer_fit(pop, firms, job_attrs, e_attrs, wage or None)
         if i_attrs:
@@ -2363,7 +2613,7 @@ def main() -> int:
     else:
         print(json.dumps({"summary": summary, **{k: v for k, v in pop.items() if k != "report"}, **attrs,
                           **job_attrs, **h_attrs, **({"wage": wage} if wage else {}),
-                          **({"pension": pension} if pension else {}), **w_attrs, **i_attrs, **e_attrs}))
+                          **({"pension": pension} if pension else {}), **w_attrs, **i_attrs, **e_attrs, **k_attrs}))
     return 0
 
 

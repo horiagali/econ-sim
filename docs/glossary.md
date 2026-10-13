@@ -82,6 +82,9 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `industry` | The catalogue industry a person works in (one of 90); none if not employed | category (90) | state | society/population-employers |
 | — | `employer` | The firm unit a person works in (ADR-0016); none if not employed | id | state | society/population-employers |
 | — | `employer_wage_link` | How closely an employee's place among the firm units of an industry group follows the wage (default 0.5) | ratio | parameter | society/population-employers |
+| — | `inactive_kind` | Kind of inactivity of a person whose `activity` is other inactive: homemaker (looks after the home or family), disabled (cannot work for reasons of health), other (supported by others, discouraged, other situations); none for everyone else | category (4) | state | society/population-inactivity-enrolment |
+| — | `enrolled` | Level of formal education a person is enrolled at: none, pre-school, primary, lower secondary, upper secondary, post-secondary non-tertiary, tertiary (ISCED 5–6), master or doctorate (ISCED 7–8) | category (8) | state | society/population-inactivity-enrolment |
+| — | `homemaker_child_link` | Chance that a person other inactive who lives with a child younger than 7 is placed first among the homemakers of their sex and age band when starting kinds are set (default 0.5) | ratio | parameter | society/population-inactivity-enrolment |
 | — | `school_age` | Age from which a child below the minimum working age is a pupil (default 6) | years | parameter | society/population-attributes |
 | — | `hh_locality_size` | Size class of the locality a household lives in (six classes, from under 2,000 to 200,000 or more inhabitants) | category (6) | state | society/population-housing |
 | — | `hh_urban` | The household's locality is urban (for now: 10,000 inhabitants or more) | bool | derived | society/population-housing |
