@@ -34,7 +34,7 @@ The guesses:
 | Share of inventories that is the unit's own output (finished goods and work in progress) | about half in manufacturing, 0.75 in agriculture, 0.8 to 0.9 in construction and real estate, 0.05 in trade (goods for resale), 0 to 0.4 in services | low |
 | Share of operating surplus earned on sales | 1, except real estate 0.2 (the rest is imputed rent of owner-occupiers) | medium |
 | Tilt of undeclared wages by class (micro, small, large, foreign) | 1.15, 0.95, 0.9, 0.8: fitted to the synthetic population, see Interactions | medium |
-| Tilt of informal income by class | 1, 1, 1, 0: the same per leu of surplus in domestic units of every size, none in foreign-controlled ones (owner's decision of 2026-10-14; it was 1, 0.5, 0.2, 0). Day labourers in construction and farming, seasonal hands and cash-paid extra hours are found in large domestic firms too, and nothing measured puts them mostly in small ones | low |
+| Tilt of informal income by class | 1, 0.5, 1, 0: per leu of surplus, micro and large domestic units alike, small ones half as much, none in foreign-controlled ones (owner's decisions of 2026-10-14; it was 1, 0.5, 0.2, 0, then 1, 1, 1, 0). Day labourers in construction and farming, seasonal hands and cash-paid extra hours are found in large domestic firms too, and nothing measured puts them mostly in small ones; the half for small units keeps their hidden sales well below micro units' | low |
 | Tilt of undeclared profit by class | 1.5, 1.5, 0.5, 0.15 | low |
 | Undeclared profit weight of an industry group | its undeclared wage share plus 0.02 | low |
 | Most a unit can hide | 90% of the value added it can hide | low |
@@ -89,9 +89,9 @@ For each industry group, over its cohort units: target $\lfloor \sum \text{wages
 Three apportions with caps, in this order, each capped at $R_f$ less what the unit already has:
 1. `undeclared_farm_income` over the domestic micro units of agriculture (group 0), weight $S_f$;
 2. `undeclared_self_employment_income` over the domestic micro units, weight $S_f$ × `household_business_propensity`$_g$;
-3. `informal_income` over the domestic cohort units, weight $S_f$ × `informal_tilt`$_c$ (1 for micro, small and large alike).
+3. `informal_income` over the domestic cohort units, weight $S_f$ × `informal_tilt`$_c$ (1 for micro and large, 0.5 for small).
 
-Farm sales and self-employment income stay on domestic micro units: they are the sales of household farms and of sole traders and family businesses, which are micro by definition (fewer than ten persons), and households' business inventories (Step 5) sit in the same units. Informal income is earned as casual, seasonal or extra work for firms of every size, so it is spread over all domestic units.
+Farm sales and self-employment income stay on domestic micro units: they are the sales of household farms and of sole traders and family businesses, which are micro by definition (fewer than ten persons), and households' business inventories (Step 5) sit in the same units. Informal income is earned as casual, seasonal or extra work for firms of every size, so it is spread over all domestic units, small units taking half as much per leu of surplus.
 
 ### Step 3 — undeclared profit
 Target $T = \lfloor \sum_{\text{cohort}} VA_f \cdot \text{undeclared\_value\_added\_share} / U \rfloor$. The rest $T$ − Steps 1 and 2 (if negative: `AnchorsInconsistent`) is apportioned with caps over the cohort units, weight $S_f$ × (`undeclared_wage_share`$_g$ + `profit_group_floor`) × `profit_tilt`$_c$, cap $R_f$ less what the unit has.
@@ -128,17 +128,17 @@ The guesses above, all in the margin file. Production's `inventory_target_ratio`
 
 - Stage I's undeclared income of households (farm sales, self-employment, informal: 131.9 billion lei a year) sits in domestic units by construction; Step 3 adds 75.8 billion lei of undeclared profit of firms, the "rest" that Stage I's text announces.
 
-Results on the fixtures (2026-10-14, informal tilt 1, 1, 1, 0; in brackets the first draft's, tilt 1, 0.5, 0.2, 0):
+Results on the fixtures (2026-10-14, informal tilt 1, 0.5, 1, 0; in brackets the first draft's, tilt 1, 0.5, 0.2, 0):
 
 | | Value |
 |---|---|
 | Undeclared value added | 250.1 billion lei, 27.1% of private value added (target hit to the leu) |
 | of which wages, household income, profit | 42.3, 131.9, 75.8 billion lei |
-| Undeclared sales | 562.2 billion lei, 27.8% of private sales (552.4, 27.3%) |
-| Undeclared sales share: micro, small, large, foreign-controlled | 47.6%, 46.6%, 31.2%, 4.6% (59.1%, 46.6%, 18.8%, 4.6%) |
-| By industry group: agriculture, industry, construction, trade-transport-hospitality, other services | 77.6%, 16.6%, 53.7%, 32.9%, 41.6% (72.6%, 13.7%, 54.3%, 32.9%, 46.8%) |
-| VAT gap from hidden sales (share of households' purchases bought undeclared) | 23.8%, against 36.7% measured (23.1%) |
-| Cohort units hiding 90% of their value added or more | 15 of 344 (17) |
+| Undeclared sales | 562.5 billion lei, 27.8% of private sales (552.4, 27.3%) |
+| Undeclared sales share: micro, small, large, foreign-controlled | 49.9%, 38.6%, 34.7%, 4.6% (59.1%, 46.6%, 18.8%, 4.6%) |
+| By industry group: agriculture, industry, construction, trade-transport-hospitality, other services | 77.4%, 17.2%, 52.7%, 32.3%, 42.2% (72.6%, 13.7%, 54.3%, 32.9%, 46.8%) |
+| VAT gap from hidden sales (share of households' purchases bought undeclared) | 24.1%, against 36.7% measured (23.1%) |
+| Cohort units hiding 90% of their value added or more | 8 of 344 (17) |
 | Inventories | 373.6 billion lei (231.9 + 141.8, exact): own output 149.3, materials and goods for resale 224.3 |
 | Days of output held: agriculture, industry, construction, trade, real estate, services | 189, 43, 86, 115, 63, 0 to 14 |
 
@@ -168,13 +168,13 @@ Hashes of the reference, for the test writer to record as golden values:
 
 | Margins | Hash |
 |---|---|
-| the fixtures | `8927cd5cdb31ef03` |
-| anchor at 20% | `eb66fd3a6b173882` |
+| the fixtures | `fc869fc9686d1dc1` |
+| anchor at 20% | `78e6ebe5b0cd8a22` |
 | every tilt at 1 | `e96cf180693cc915` |
-| `max_undeclared_share` at 75% | `32966da01cf955ed` |
+| `max_undeclared_share` at 75% | `23e1ac96da27b679` |
 
 ## API sketch
-For the test writer and the implementer; names may change before lock, shapes should not. Proposed home: a module `firm_opening` of `econ-popgen` (no I/O), behind a crate feature `firm_opening`, because AC-FUI-04 needs Stages I and J and the crate already reads the firm-unit file. The module extends `FirmUnits` of [Stage J](../society/population-employers.md) with what it needs.
+For the test writer and the implementer; names may change before lock, shapes should not. Home (owner's decision of 2026-10-14): a module `firm_opening` of the scenario-builder crate `econ-scenario` ([scenario builder](../game/scenario-builder.md), ADR-0018; no I/O). It takes the firm units as `FirmUnits` of [Stage J](../society/population-employers.md), extended with what it needs; AC-FUI-04 builds Stages I and J through `econ-popgen`, on which the scenario builder depends.
 
 ```rust
 pub struct FirmUnitAmounts { pub output: u64, pub value_added: i64, pub wages: u64 }          // lei a year, one per unit
@@ -208,9 +208,10 @@ impl FirmOpening { pub fn state_hash(&self) -> u64; }
 - [x] **Decided (owner, 2026-10-14): move part of the informal income onto large domestic units.** **Micro and small firms hide a lot** (59% and 47% of their sales; agriculture 73%, construction 54%). It follows from the anchor (27.1% of private value added) and from Stage I placing 132 billion lei of undeclared household income in domestic units, whose value added is small. Accept, lower the anchor (the 2019 figure measures labour, not sales), or move part of informal income to large domestic units?
   - **Done 2026-10-14:** the informal tilt went from 1, 0.5, 0.2, 0 to 1, 1, 1, 0 (Step 2); farm sales and self-employment stay on micro units; the wage and profit tilts and every total are unchanged. Micro units now hide 47.6% of their sales (was 59.1%), large domestic units 31.2% (18.8%); small units stay at 46.6% and foreign-controlled at 4.6%. Agriculture rises to 77.6% (its micro and small units were already at the 90% cap, so its large units take the moved income) and construction barely moves (53.7%).
   - **Limit found:** with the anchor, Stage I's amounts and the foreign-controlled units fixed, domestic units must hide about 40% of their sales on average (518 to 528 of 1,289 billion lei over the tilts tried), whatever the tilts. Micro below 45% and small below 35% together would leave large domestic units at about 40% or more, above small ones. A lower spread needs one of: a lower anchor, more undeclared profit in foreign-controlled units (a higher `profit_tilt` for them), or a smaller household part from Stage I.
-- [ ] **For the owner:** small units' 46.6% and agriculture's 77.6% are the levers' limit under the decision above. Alternatives on the same totals (micro, small, large): tilt 1, 0.5, 1, 0 gives 50.0%, 38.7%, 34.7%; tilt 1, 1, 1.5, 0 gives 45.1%, 43.4%, 36.1%; adding `profit_tilt` 1, 0.5, 0.5, 0.15 to tilt 1, 1, 1, 0 gives 49.0%, 37.4%, 35.2% (foreign-controlled 5.4%). Keep 1, 1, 1, 0?
+- [x] **Decided, see below.** Small units' 46.6% and agriculture's 77.6% are the levers' limit under the decision above. Alternatives on the same totals (micro, small, large): tilt 1, 0.5, 1, 0 gives 50.0%, 38.7%, 34.7%; tilt 1, 1, 1.5, 0 gives 45.1%, 43.4%, 36.1%; adding `profit_tilt` 1, 0.5, 0.5, 0.15 to tilt 1, 1, 1, 0 gives 49.0%, 37.4%, 35.2% (foreign-controlled 5.4%). Keep 1, 1, 1, 0?
+  - **Decided (owner 2026-10-14: tilt 1, 0.5, 1, 0).** Informal income per leu of surplus is halved in small units (Step 2); farm sales and self-employment stay on micro units; every total is unchanged. Micro units hide 49.9% of their sales, small 38.6%, large domestic 34.7%, foreign-controlled 4.6%; agriculture 77.4%, construction 52.7%; the VAT gap from hidden sales is 24.1%.
 - [x] **Band accepted (owner, 2026-10-14).** **The VAT gap from hidden sales is 23%** against 36.7% measured. Is a band of 15% to 36.7% right for AC-FUI-05, the rest being fraud, insolvency and VAT declared but not paid?
 - [x] **Decided (owner, 2026-10-14): keep the rule as written** (all domestic micro units, by output × days). A stock of about 189 days in agriculture on 31 December is the stored autumn harvest, and production starts each unit at its own stock as target, so it is stable. ("Farm output only", recorded on the same day by mistake, would have raised agriculture's stock, not lowered it.) **Households' inventories** (141.8 billion lei) put a third of a year's output or more in domestic micro units (agriculture 189 days on average). Spread them by farm output only, or keep them on all household businesses?
 - [x] **Kept as the trade units' goods (owner, 2026-10-14).** **Trade's stock:** keep goods for resale as trade units' materials (proposed), or count them as stock of the industries that make the goods, so that the goods-market buffer of [production](production.md) includes goods in shops?
 - [x] **Accepted and written into production (owner, 2026-10-14).** Production (locked) starts `inventory` at `inventory_target_ratio` × expected demand with defaults of a month (a week for services). It should start at this spec's `inventory`, with each unit's target ratio set to match (a change to production's "First version, starting state" that needs the owner).
-- [ ] Home of the Rust function: `econ-popgen` (proposed) or a scenario-builder crate of ADR-0018.
+- [x] **Decided (owner, 2026-10-14): the scenario-builder crate `econ-scenario`.** Home of the Rust function: `econ-popgen` (proposed) or a scenario-builder crate of ADR-0018.

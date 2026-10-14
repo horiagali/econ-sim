@@ -137,12 +137,15 @@ class TestNormaliser(unittest.TestCase):
         self.assertTrue(0.15 <= fit["vat_gap_proxy"] <= 0.367)
         shares = [fit["by_class"][k]["undeclared_sales_share"] for k in ref.CLASSES]
         self.assertEqual(shares, sorted(shares, reverse=True))
-        # The owner's decision of 2026-10-14: informal income lands on large domestic units too, so micro units
-        # hide under half their sales, and large domestic units stay well under micro and small ones.
-        self.assertEqual(m["informal_tilt"], [U, U, U, 0])
+        # The owner's decision of 2026-10-14: informal income lands on micro and large domestic units alike and
+        # on small ones half as much, so micro units hide about half their sales, well above small and large
+        # ones, and large domestic units stay below small ones.
+        self.assertEqual(m["informal_tilt"], [U, U // 2, U, 0])
         by = {k: fit["by_class"][k]["undeclared_sales_share"] for k in ref.CLASSES}
-        self.assertLess(by["micro"], 0.5)
-        self.assertLess(by["large"] + 0.1, by["small"])
+        self.assertLessEqual(by["micro"], 0.51)
+        self.assertLess(by["small"] + 0.08, by["micro"])
+        self.assertLess(by["large"] + 0.08, by["micro"])
+        self.assertLess(by["large"], by["small"])
         self.assertLess(by["foreign"], 0.06)
         incomes = json.loads((F / "other_incomes2021_ro.json").read_text(encoding="utf-8"))
         self.assertEqual(m["undeclared_wage_share"], incomes["undeclared_wage_share"])
