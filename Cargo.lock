@@ -267,6 +267,7 @@ dependencies = [
 name = "econ-mech-labour"
 version = "0.1.0"
 dependencies = [
+ "econ-num",
  "econ-types",
 ]
 
