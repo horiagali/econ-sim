@@ -3,9 +3,9 @@ id: society/education
 title: Education
 status: draft
 owner: horia
-depends_on: [society/population-groups, economy/fiscal-policy]
+depends_on: [society/population-groups, economy/fiscal-policy, society/population-inactivity-enrolment]
 research: []
-updated: 2026-10-08
+updated: 2026-10-14
 ---
 
 # Education
@@ -50,7 +50,7 @@ Slow adjustment (λ small: years).
 
 **Skill effect:** worker effective skill $=$ base by education level × $(1 + \gamma \cdot Q^{edu}$ when educated$)$. Feeds the labour productivity index in [production](../economy/production.md).
 
-> **Simplification:** primary and lower-secondary schooling is compulsory and near-universal; quality matters, enrolment doesn't.
+> **Simplification:** primary and lower-secondary schooling is compulsory; in v1 the enrolment decision above applies from upper secondary up. It is not universal in Romania: the starting population leaves about 380,000 children and young people of 6 to 19 not enrolled ([stage K](population-inactivity-enrolment.md): pupils above the school statistics' places, owner 2026-10-14), standing for dropouts and early school leavers. They get no school place, no spending per pupil and no progression; a policy that brings them back (attendance-linked benefits, school meals) is a lever this spec should add when it gets its first version.
 
 ## Player levers
 Education budget and split by level; teacher pay (public wages); building schools and universities; tuition fee (tertiary); student grants and loans; vocational training subsidies.
