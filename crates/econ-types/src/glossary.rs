@@ -169,6 +169,10 @@ pub const VARIABLES: &[Variable] = &[
     Variable { code_name: "expected_demand[f]", meaning: "Sales a firm unit expects", unit: "units / month", kind: "state", owner: "economy/production" },
     Variable { code_name: "budget_spending[l,k]", meaning: "Spending of budget line *l* on economic type *k* (wages, goods and services, social benefits, subsidies, interest, investment, other) in the starting budget; integer bani in code", unit: "LCU / year", kind: "parameter", owner: "economy/budget-2021" },
     Variable { code_name: "public_posts[f]", meaning: "Occupied public posts that public firm unit *f* stands for at the start; its starting headcount target", unit: "posts", kind: "parameter", owner: "economy/budget-2021" },
+    Variable { code_name: "pension_points", meaning: "A pensioner's pension points; the pension is points × `pension_point_value`, not below the minimum pension. Millionths of a point in code", unit: "points", kind: "state", owner: "economy/social-transfers" },
+    Variable { code_name: "pension_point_value", meaning: "Value of one pension point (1,442 lei on the start date)", unit: "LCU / month", kind: "parameter", owner: "economy/social-transfers" },
+    Variable { code_name: "last_wage", meaning: "Gross wage of the person's last job, kept when it is lost; the base of the unemployment benefit", unit: "LCU / month", kind: "state", owner: "economy/social-transfers" },
+    Variable { code_name: "benefit_months_left", meaning: "Months of unemployment benefit the person has left", unit: "months", kind: "state", owner: "economy/social-transfers" },
     Variable { code_name: "public_wage_bill", meaning: "Wages the government pays its employees (ESA D11): what the public units' employees earn", unit: "LCU / tick", kind: "flow", owner: "economy/budget-2021" },
 ];
 
