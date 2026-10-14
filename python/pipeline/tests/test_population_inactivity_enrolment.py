@@ -28,7 +28,7 @@ class TestInactivityEnrolmentReference(unittest.TestCase):
         cls.k = ref.assign_inactivity_enrolment(cls.pop, cls.attrs, cls.ie, 42)
 
     def test_fixture_hash_and_determinism(self):
-        self.assertEqual(f"{ref.inactivity_enrolment_hash(self.k):016x}", "d23518ac1ea5168c")
+        self.assertEqual(f"{ref.inactivity_enrolment_hash(self.k):016x}", "6bbd2499e40e5b15")
         self.assertEqual(self.k, ref.assign_inactivity_enrolment(self.pop, self.attrs, self.ie, 42))
         self.assertNotEqual(self.k, ref.assign_inactivity_enrolment(self.pop, self.attrs, self.ie, 7))
 
@@ -36,7 +36,7 @@ class TestInactivityEnrolmentReference(unittest.TestCase):
         act, edu = self.attrs["activity"], self.attrs["edu_level"]
         for i, (kind, level) in enumerate(zip(self.k["inactive_kind"], self.k["enrolled"])):
             self.assertEqual(kind != ref.INACTIVE_NONE, act[i] == ref.ACT_INACTIVE_OTHER)
-            if act[i] in (ref.ACT_PUPIL, ref.ACT_STUDENT):
+            if act[i] == ref.ACT_STUDENT:
                 self.assertNotEqual(level, ref.NOT_ENROLLED)
             if act[i] == ref.ACT_RETIRED:
                 self.assertEqual(level, ref.NOT_ENROLLED)
@@ -47,13 +47,36 @@ class TestInactivityEnrolmentReference(unittest.TestCase):
             if level and act[i] in (ref.ACT_EMPLOYED, ref.ACT_UNEMPLOYED, ref.ACT_INACTIVE_OTHER):
                 self.assertGreaterEqual(self.pop["age"][i], 15 * 12)
 
+    def test_pupils_left_unenrolled_only_where_the_places_are_full(self):
+        # A pupil is left not enrolled only in a sex and enrolment age group whose enrolled weight
+        # reaches its places (the school statistics at the group's rate), within one person's weight.
+        groups = [(g[0], g[1]) for g in self.ie["enrolment_ages"]]
+        w = [self.pop["hh_weight"][h] for h in self.pop["household_id"]]
+        cell = {}
+        for i, level in enumerate(self.k["enrolled"]):
+            y = self.pop["age"][i] // 12
+            g = next(k for k, (lo, hi) in enumerate(groups) if y >= lo and (hi is None or y < hi))
+            c = cell.setdefault((self.pop["sex"][i], g), {"weight": 0, "enrolled": 0, "left": 0, "max": 0})
+            c["weight"] += w[i]
+            c["max"] = max(c["max"], w[i])
+            c["enrolled"] += w[i] if level else 0
+            c["left"] += w[i] if not level and self.attrs["activity"][i] == ref.ACT_PUPIL else 0
+        left = 0
+        for (s, g), c in cell.items():
+            if c["left"]:
+                counts, pop = self.ie["enrolment"][s][g], self.ie["population"][s][g]
+                places = sum(ref.apportion(c["weight"], counts + [max(pop - sum(counts), 0)])[:-1])
+                self.assertGreaterEqual(c["enrolled"], places - c["max"])
+                left += c["left"]
+        self.assertGreater(left, 0)
+
     def test_fit(self):
         fit = ref.inactivity_enrolment_fit(self.pop, self.attrs, self.ie, self.k, 1000)
         for by_kind in fit["inactive_kind_by_sex"].values():
             for _, _, err in by_kind.values():
                 self.assertLess(abs(err), 0.02)
         self.assertLess(fit["largest_gap_of_a_kind_share_in_a_band"], 0.03)
-        for level in ("pre_school", "post_secondary", "tertiary", "master_doctorate"):
+        for level in ("pre_school", "primary", "lower_secondary", "post_secondary", "tertiary", "master_doctorate"):
             self.assertLess(abs(fit["enrolled_by_level"][level][2]), 0.06)
         gaps = {k: v for k, v in fit["largest_gaps_of_a_level_share_in_an_age_group"].items() if k[1:] not in ("19", "20")}
         self.assertLess(max(gaps.values(), default=0), 0.03)
