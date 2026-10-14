@@ -4,7 +4,7 @@ title: "ADR-0018: Scenario files and player commands"
 status: accepted
 owner: horia
 depends_on: [adr/0005-simulation-core-architecture, adr/0006-determinism-contract, adr/0011-storage-saves-history, adr/0012-data-pipeline-and-licensing, adr/0017-time-base, game/levers]
-updated: 2026-10-10
+updated: 2026-10-14
 ---
 
 # ADR-0018: Scenario files and player commands
@@ -114,3 +114,6 @@ Settled as proposed when the ADR was accepted (2026-10-10):
 - [x] The registry is `crates/econ-core/levers.toml`.
 - [x] A pending command can be cancelled before it takes effect, by a second command; both stay in the log.
 - [x] The default seed is part of the scenario; the player may choose another at "new game".
+
+## Amendment 1 — the budget (owner, 2026-10-14)
+A scenario gains the part `budget.json`: the starting budget of [budget-2021](../../02-design/economy/budget-2021.md) (spending by budget line and economic type, public posts and wages), in the shape of its fixture. The starting values of the budget levers are still commands in `law.json`; `budget.json` is the table they act on. `scenario.json` lists its hash like every other part.

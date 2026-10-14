@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [adr/0007-money-and-ledger, adr/0016-firm-representation, adr/0017-time-base]
 research: []
-updated: 2026-10-13
+updated: 2026-10-14
 ---
 
 # Accounting & Stock-Flow Consistency
@@ -18,26 +18,33 @@ National accounts (SNA 2008), flow of funds, and Godley & Lavoie *Monetary Econo
 
 ## Design
 ### 1. Balance-sheet matrix (stocks, end of day)
-Columns: households (sum of synthetic households × weights; also kept per household), firms (sum of firm units × firm counts, per industry; also kept per firm unit, [ADR-0016](../../03-architecture/decisions/0016-firm-representation.md)), banks, Pillar II pension funds (PF), government, central bank, rest of world. Rows: instruments.
+Columns: households (sum of synthetic households × weights; also kept per household), firms (sum of firm units × firm counts, per industry; also kept per firm unit, [ADR-0016](../../03-architecture/decisions/0016-firm-representation.md)), banks, Pillar II pension funds (PF), other financial firms (OF: insurers, investment funds, leasing and other non-bank lenders; a passive sector in v1 that holds its opening portfolio, owner 2026-10-13), government, central bank, rest of world. Rows: instruments. How the statistics of the start date map onto this matrix is the [opening balance sheet](opening-balance-sheet.md).
 
-| Instrument | Households | Firms | Banks | PF | Gov | CB | RoW | Σ |
-|---|---|---|---|---|---|---|---|---|
-| Cash | +Hc | | +Hb | | | −H | | 0 |
-| Deposits | +D_h | +D_f | −D | +D_pf | | | | 0 |
-| Gov deposits at CB (the government holds no deposits at commercial banks) | | | | | +D_g | −D_g | | 0 |
-| Reserves | | | +R | | | −R | | 0 |
-| Gov bonds | +B_h | | +B_b | +B_pf | −B | +B_cb | +B_row | 0 |
-| Loans | −L_h | −L_f | +L | | | | | 0 |
-| CB advances | | | −A | | | +A | | 0 |
-| Equity | +E_h | −E_f | −E_b | +E_pf | +E_g (SOE) | | +E_row | 0 |
-| Pension fund claims | +P_h | | | −P | | | | 0 |
-| FX reserves / foreign assets | | | | | | +F_cb | −F | 0 |
-| Real assets (capital, housing, inventories, public capital) | +H | +K +Inv | | | +K_g | | | ≠0 |
-| **Net worth** | NW_h | NW_f | NW_b | NW_pf (≈0) | NW_g | NW_cb | NW_row | Σ = real assets |
+| Instrument | Households | Firms | Banks | PF | OF | Gov | CB | RoW | Σ |
+|---|---|---|---|---|---|---|---|---|---|
+| Cash | +Hc_h | +Hc_f | +Hb | | +Hc_of | +Hc_g | −H | | 0 |
+| Deposits | +D_h | +D_f | −D | +D_pf | +D_of | | | +D_row | 0 |
+| Gov deposits at CB (the government holds no deposits at commercial banks) | | | | | | +D_g | −D_g | | 0 |
+| Reserves | | | +R | | | | −R | | 0 |
+| Gov bonds | +B_h | +B_f | +B_b | +B_pf | +B_of | −B | +B_cb | +B_row | 0 |
+| Loans (any resident may lend) | ±L_h | ±L_f | +L_b | ±L_pf | ±L_of | ±L_g | | | 0 |
+| CB advances | | | −A | | | | +A | | 0 |
+| Equity | +E_h | −E_f | −E_b | +E_pf | ±E_of | +E_g (SOE) | −E_cb | +E_row | 0 |
+| Pension and insurance claims | +P_h | +P_f | | −P_pf | −P_of | | | | 0 |
+| Foreign assets (every cross-border position except government bonds and equity held by the rest of the world) | ±F_h | ±F_f | ±F_b | ±F_pf | ±F_of | ±F_g | +F_cb | −F | 0 |
+| Real assets (capital, housing, inventories, public capital) | +H | +K +Inv | | | | +K_g | | | ≠0 |
+| **Net worth** | NW_h | NW_f | NW_b | NW_pf (≈0) | NW_of | NW_g | NW_cb | NW_row | Σ = real assets |
 
 Firm equity is split across holders by each unit's ownership vector `ownership[f]` (state → E_g, foreign → E_row, domestic private → E_h and E_pf); see the Ownership section of [ADR-0016](../../03-architecture/decisions/0016-firm-representation.md). Pillar II pension funds are a financial sub-sector holding assets on behalf of member households, whose claims are `hh_pension_assets`.
 
 Financial rows sum to zero exactly. Real assets are the only source of aggregate net worth.
+
+Amended by the owner on 2026-10-14 with the [opening balance sheet](opening-balance-sheet.md):
+- **Other financial firms** (OF) are a column of their own.
+- **Pension and insurance claims:** insurers (OF) issue claims to households as pension funds do.
+- **Foreign assets** hold every cross-border position except government bonds and equity held by the rest of the world: foreign notes, deposits abroad, foreign securities, loans to and from abroad, shares in foreign firms, gold and SDR. A resident's balance is its net claim on the rest of the world and can be negative.
+- **Loans** may be held by any resident sector, not only banks (non-bank lenders, government loans, firms' loans, and the debt securities of firms and banks).
+- **Not in the ledger in v1:** derivatives and other accounts receivable and payable (trade credit, advances, taxes due). Each sector's net position in them goes into its net worth; the scenario builder's report lists it.
 
 ### 2. Transaction-flow matrix (flows per day, summed per month, quarter and year)
 A tick is one day ([ADR-0017](../../03-architecture/decisions/0017-time-base.md)). The matrix below holds for the flows of any day and so for any sum of days; the ledger keeps running totals for the open month, quarter and year.
@@ -75,7 +82,7 @@ National accounts (GDP three ways, sector balances, current account), per-sector
 - Defaults (firm, household, bank, government): write-downs are booked as losses to creditors with a reason code. Never silently zero a balance.
 
 ## Acceptance tests
-IDs are stable (added 2026-10-10 so the tests-first flow can cite them). Tests go in `crates/econ-ledger/tests/acceptance/` (protected). AC-ACC-03 and AC-ACC-04 were written there on 2026-10-13; AC-ACC-04 is compiled only with the crate feature `flow-code-check` until the ledger rejects unknown flow codes.
+IDs are stable (added 2026-10-10 so the tests-first flow can cite them). Tests go in `crates/econ-ledger/tests/acceptance/` (protected). AC-ACC-03 and AC-ACC-04 were written there on 2026-10-13; the ledger rejects unknown flow codes since the same day (crate feature `flow-code-check`, on by default).
 
 - [ ] **AC-ACC-01** `[sim]` All invariant checks pass for 100 simulated years under random lever changes (fuzz test).
 - [ ] **AC-ACC-02** `[sim]` GDP measured three ways agrees every tick.
@@ -129,8 +136,8 @@ impl Ledger {
 
 | Missing | Design section | Needed by |
 |---|---|---|
-| Pension funds as a sector | 1 | social transfers |
-| Instruments: government deposits at the central bank, reserves, central bank advances, equity, pension fund claims, foreign assets | 1 | banks, central bank, firms, trade |
+| Pension funds and other financial firms as sectors | 1 | social transfers; the opening balance sheet |
+| Instruments: government deposits at the central bank, reserves, central bank advances, equity, pension and insurance claims, foreign assets | 1 | banks, central bank, firms, trade; the opening balance sheet |
 | Real assets and net worth (the last two rows of the balance sheet) | 1 | investment, housing |
 | Sub-ledgers per household and per firm unit | 3 | households, firms (the scale world keeps household deposits in its own columns today) |
 | Clearing accounts and their check (I-8) | 3, 4 | the firm-unit goods market |

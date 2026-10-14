@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [society/population-attributes, society/population-groups, society/population-generator, society/education, economy/social-transfers, economy/labor-market, adr/0006-determinism-contract, adr/0012-data-pipeline-and-licensing, adr/0014-agent-workflow-guardrails]
 research: [research/inactivity-enrolment-romania]
-updated: 2026-10-13
+updated: 2026-10-14
 ---
 
 # Population Generator, Stage K — Kinds of Inactivity and Enrolment
@@ -179,8 +179,8 @@ impl PersonInactivityEnrolment { pub fn state_hash(&self) -> u64; }
 - Margin fixture: `python/pipeline/fixtures/inactivity_enrolment2021_ro.json`, built by `python/pipeline/normalise_inactivity_enrolment.py` from Eurostat `educ_uoe_enra02` (dataset `ro_enrolment_level_age_2021_22`), Stage C's margin file and the values entered by hand.
 
 ## Open questions
-- [ ] **200,000 inactive for reasons of health** (low confidence), 55% men. Keep, or look for the INS census table of inactive persons by category, age and sex (on the census website, not on Eurostat), which would also give the homemakers by age?
-- [ ] **Pupils of 7 to 14 above the school statistics.** Stage C makes everyone of 6 to 14 a pupil, so primary and lower secondary are 18% above the school count (10–20% of children of those ages are not counted in school). Accept; or let this stage leave that share of pupils not enrolled (a "pupil" who is not enrolled); or change Stage C so that some children of 6 to 14 are not pupils (changes Stage C's golden hashes).
-- [ ] **19-year-olds without the diploma.** Stage C gives diplomas to the in-education persons of 15 to 19 in priority order, so tertiary places of 19-year-olds move to 20 (owed places). Accept; or have a later version of Stage C give diplomas by age (changes Stage C's golden hashes).
-- [ ] **Split "other" further** into the discouraged (want to work, 252,000 aged 15 to 64 in the Labour Force Survey) and the rest, if the labour market needs it.
-- [ ] **Bands of AC-POPK-03 and AC-POPK-04** (3 points, 2%, 6%): owner to accept.
+- [x] **Kept for now (owner, 2026-10-14).** **200,000 inactive for reasons of health** (low confidence), 55% men. Keep, or look for the INS census table of inactive persons by category, age and sex (on the census website, not on Eurostat), which would also give the homemakers by age?
+- [x] **Decided (owner, 2026-10-14): this stage leaves that share of pupils not enrolled.** **Pupils of 7 to 14 above the school statistics.** Stage C makes everyone of 6 to 14 a pupil, so primary and lower secondary are 18% above the school count (10–20% of children of those ages are not counted in school). Accept; or let this stage leave that share of pupils not enrolled (a "pupil" who is not enrolled); or change Stage C so that some children of 6 to 14 are not pupils (changes Stage C's golden hashes).
+- [x] **Accepted for now (owner, 2026-10-14).** **19-year-olds without the diploma.** Stage C gives diplomas to the in-education persons of 15 to 19 in priority order, so tertiary places of 19-year-olds move to 20 (owed places). Accept; or have a later version of Stage C give diplomas by age (changes Stage C's golden hashes).
+- [x] **Not now (owner, 2026-10-14).** **Split "other" further** into the discouraged (want to work, 252,000 aged 15 to 64 in the Labour Force Survey) and the rest, if the labour market needs it.
+- [x] **Accepted (owner, 2026-10-14).** **Bands of AC-POPK-03 and AC-POPK-04** (3 points, 2%, 6%): owner to accept.

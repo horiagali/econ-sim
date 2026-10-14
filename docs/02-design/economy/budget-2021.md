@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [economy/fiscal-policy, economy/accounting, economy/social-transfers, economy/industries, economy/state-capacity, society/population-employers, game/levers, adr/0007-money-and-ledger, adr/0016-firm-representation, adr/0017-time-base, adr/0018-scenario-and-commands, adr/0014-agent-workflow-guardrails]
 research: [research/budget-romania-2021, research/law-in-force-romania-2021]
-updated: 2026-10-13
+updated: 2026-10-14
 ---
 
 # The Starting Budget — Spending by Ministry Line, Public Employment and Wages
@@ -308,9 +308,9 @@ impl Budget {
 The reconciliations (AC-BUD-05 to 09) read other parts of the scenario and belong to the scenario builder's report, with the tolerances above.
 
 ## Open questions
-- [ ] **Rebuild the public units from this table?** Proposed: `normalise_firms.py` takes each public unit's persons from `public_posts` and its wage bill from the budget's `wages`, instead of 12.5 persons per million lei and the guessed public shares. It fixes the per-unit gaps (health, social care, and the arbitrary pay order of public units in Stage J), but it changes the firm-unit fixture and so the employer hashes recorded in the locked [Stage J](../society/population-employers.md) spec and their golden tests. Owner's decision.
-- [ ] **The remaining gap of 16% in public employees** (census against posts): accept it as vacant posts at the start (the labour market fills them toward the target from M4), or move census workers of the group "public, education, health" from private to public units. Proposed: accept, and report.
-- [ ] **Scenario part.** ADR-0018 lists the scenario's parts; the table needs a place. Proposed: a new part `budget.json` (the fixture's shape), with the lever values in `law.json` as usual. Needs an amendment to ADR-0018.
-- [ ] **Does "Budget per ministry" include the line's investment,** or does investment get its own lever until the projects of M11? Proposed: included, so one number per ministry, as the catalogue has it.
-- [ ] **Defence:** held at its starting value with no lever in v1 (the catalogue's "Not in v1: military budget"), or a key of Budget per ministry? Proposed: held.
+- [x] **Yes, later: together with the stage J re-golden (owner, 2026-10-14).** **Rebuild the public units from this table?** Proposed: `normalise_firms.py` takes each public unit's persons from `public_posts` and its wage bill from the budget's `wages`, instead of 12.5 persons per million lei and the guessed public shares. It fixes the per-unit gaps (health, social care, and the arbitrary pay order of public units in Stage J), but it changes the firm-unit fixture and so the employer hashes recorded in the locked [Stage J](../society/population-employers.md) spec and their golden tests. Owner's decision.
+- [x] **Accepted as vacant posts at the start (owner, 2026-10-14).** **The remaining gap of 16% in public employees** (census against posts): accept it as vacant posts at the start (the labour market fills them toward the target from M4), or move census workers of the group "public, education, health" from private to public units. Proposed: accept, and report.
+- [x] **Accepted: `budget.json`, ADR-0018 Amendment 1 (owner, 2026-10-14).** **Scenario part.** ADR-0018 lists the scenario's parts; the table needs a place. Proposed: a new part `budget.json` (the fixture's shape), with the lever values in `law.json` as usual. Needs an amendment to ADR-0018.
+- [x] **Yes, included (owner, 2026-10-14).** **Does "Budget per ministry" include the line's investment,** or does investment get its own lever until the projects of M11? Proposed: included, so one number per ministry, as the catalogue has it.
+- [x] **Held, no lever in v1 (owner, 2026-10-14).** **Defence:** held at its starting value with no lever in v1 (the catalogue's "Not in v1: military budget"), or a key of Budget per ministry? Proposed: held.
 - [ ] **Check the guesses** of health and social care posts against the Ministry of Finance's full monthly staffing table (by ministry and financing), and the D11/D12 split against Eurostat's ESA table 11 detail if a breakdown of D12 by function exists.

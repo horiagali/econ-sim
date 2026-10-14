@@ -1,11 +1,11 @@
 ---
 id: game/scenario-builder
 title: Scenario Builder
-status: draft
+status: locked
 owner: horia
 depends_on: [adr/0018-scenario-and-commands, economy/opening-balance-sheet, economy/accounting, society/population-generator, society/population-employers, adr/0016-firm-representation, adr/0012-data-pipeline-and-licensing, adr/0006-determinism-contract, adr/0003-people-representation]
 research: [research/opening-balance-sheet-romania]
-updated: 2026-10-13
+updated: 2026-10-14
 ---
 
 # Scenario Builder
@@ -132,6 +132,19 @@ IDs are stable. Tests in `crates/econ-scenario/tests/acceptance/` (protected), w
 - [ ] **AC-SCB-09** `[diff]` The report's figures equal those of the reference `python/pipeline/build_scenario.py` (extended with the four new checks) at 1:1000: the same pass or fail for every check, and amounts equal to the leu.
 - [ ] **AC-SCB-10** `[unit]` `scenario.json` lists the SHA-256 of every input file and of every file it wrote, and the hashes match the files.
 
+### Tests owed
+The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-SCB-01: the crate `econ-scenario` and `econ-cli build-scenario`
+- AC-SCB-02: the crate `econ-scenario` and `econ-cli build-scenario`
+- AC-SCB-03: the crate `econ-scenario`
+- AC-SCB-04: the crate `econ-scenario` and the opening balances
+- AC-SCB-05: the firm-unit table
+- AC-SCB-06: the crate `econ-scenario`
+- AC-SCB-07: the crate `econ-scenario`
+- AC-SCB-08: the crate `econ-scenario`
+- AC-SCB-09: the crate `econ-scenario` and the reference's report as JSON
+- AC-SCB-10: the crate `econ-scenario`
+
 ## API sketch
 A new crate `econ-scenario` (library; `econ-cli` calls it). It depends on `econ-popgen`, `econ-ledger` and `econ-io`.
 
@@ -169,7 +182,7 @@ pub enum BuildError {
 `econ-cli build-scenario --sample-scale N [--seed S] [--fixtures DIR] --out DIR`. The justfile recipe is `build-scenario sample_scale out="python/pipeline/data/scenario"`.
 
 ## Open questions
-- [ ] **A scenario without `law.json`** until M4: written with `law: null` and refused for a run, as proposed? Or wait for the registry before building scenarios at all?
-- [ ] **Where the report's tolerances live:** in the code as constants (proposed), or in a small `checks.toml` that the owner edits.
-- [ ] **CI:** build 1:1000 on every push (about a minute in release), or only in the nightly job?
-- [ ] **Firm-unit stocks are cohort totals** (all firms of the unit together). Accounting's sub-ledgers per real firm divide them by `firm_count` with a carried remainder. Store totals now (proposed) and per-firm values when the firm mechanics need them?
+- [x] **A scenario without `law.json`** until M4: written with `law: null` and refused for a run (owner, 2026-10-14).
+- [x] **Where the report's tolerances live:** in the code as constants (owner, 2026-10-14).
+- [x] **CI:** builds 1:1000 on every push (owner, 2026-10-14).
+- [x] **Firm-unit stocks are cohort totals** (all firms of the unit together); per-firm values come with the firm mechanics that need them (owner, 2026-10-14).
