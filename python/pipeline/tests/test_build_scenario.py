@@ -27,7 +27,7 @@ class TestBuildScenario(unittest.TestCase):
             "population": "247112c87ae60cf2", "attributes": "8a0509e8ebc90647", "jobs": "7e3499aa1c44e7f1",
             "housing": "a4b8ac6c2c2bb24e", "wages": "e5c524e4e785f24f", "pensions": "963e671ef7035b92",
             "incomes": "40c861af66b29b98", "wealth": "8b7d9a0ea0d3c373", "employers": "40dc87a87a0e31af",
-            "firm_undeclared_inventories": "8927cd5cdb31ef03",
+            "firm_undeclared_inventories": "fc869fc9686d1dc1",
         })
 
     def test_the_parts_agree(self):
