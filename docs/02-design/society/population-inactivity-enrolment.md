@@ -26,7 +26,9 @@ Research note [`inactivity-enrolment-romania`](../../01-research/notes/inactivit
 
 > **Simplification:** the age pattern of each kind (below, "Inputs") and the split of homemakers and of the disabled by sex are educated guesses (confidence low, the homemakers' sex split medium). The census totals by sex and age band, and the census count of homemakers, are kept exact.
 
-> **Simplification:** enrolment is national, by sex and age group, not by region. Every pupil and student of Stage C is enrolled; others are enrolled only where the school statistics have more places than Stage C has pupils and students (working students, adults back in school). The retired are never enrolled.
+> **Simplification:** enrolment is national, by sex and age group, not by region. Every student of Stage C (in education, upper secondary completed) is enrolled. Pupils (in education, without it) are enrolled up to the group's places in the school statistics; where Stage C has more pupils than places (ages 6 to 19), the surplus is left not enrolled (owner, 2026-10-14). Others are enrolled only where the school statistics have more places than Stage C has pupils and students (working students, adults back in school). The retired are never enrolled.
+
+> **Simplification:** a **pupil who is not enrolled** (Stage C's activity pupil, `enrolled` 0; about 380,000 persons, 6 to 19 years old) is a child or young person outside school: never enrolled, dropped out, or an early school leaver. Stage C's activity is not changed, so the pupil keeps the population group pupil and counts as below the working age (under 15) or inactive (15 or older) as before. Mechanics that need school attendance read `enrolled`, not the activity: [education](education.md) gives them no school place, no spending per pupil and no progress to the next level, and may bring them back to school; [social transfers](../economy/social-transfers.md) do not pay them benefits tied to attendance (child allowance does not depend on it); from 15 the [labour market](../economy/labor-market.md) treats them as inactive "other" (they may look for work). Confidence low: part of the gap is real (Romania's early leavers from education and training were about 15% of those aged 18 to 24 in 2021, Eurostat `edat_lfse_14`, among the highest in the EU), part is a mismatch of the census and the school statistics (children counted resident but living abroad, ages counted on different dates).
 
 ## Scope
 **This increment:** `inactive_kind` for every person, `enrolled` for every person.
@@ -73,14 +75,14 @@ The first members in the order become homemakers, so a person who lives with a y
 ### Step 2 — enrolment
 For each sex, with the rounding carry (one per level) and the owed places (one per level) starting at zero, go through the enrolment age groups from youngest to oldest. For one group, whose persons have weight $W$:
 1. **Targets.** Apportion $W$ over the group's seven counts and what the census population $P$ has beyond them, $\max(P - \sum \text{counts}, 0)$; keep the seven levels (all zero if the eight numbers are zero). Add the owed places, and set them to zero. The targets are the school statistics at this group's enrolment rates.
-2. **Who must be enrolled:** every pupil and student. Their weight $M$ splits into $M_{hi}$, those with `edu_level` ≥ 1 (upper secondary completed), and $M_{lo}$, the rest.
-3. **Who may be enrolled:** persons whose `activity` is child, employed, unemployed or other inactive. They form an upper pool (`edu_level` ≥ 1, weight $V_{hi}$) and a lower pool ($V_{lo}$), each in ascending (priority, index).
-4. **How many more.** With $T_{after}$ the targets of post-secondary and above and $T_{before}$ those of the four levels before:
-   - from the upper pool $\min(\max(T_{after} - M_{hi}, 0), V_{hi})$;
-   - from the lower pool $\min(\max(T_{before} - M_{lo} - \max(M_{hi} - T_{after}, 0), 0), V_{lo})$.
+2. **Who may be enrolled:** persons whose `activity` is child, employed, unemployed or other inactive. They form an upper pool (`edu_level` ≥ 1, weight $V_{hi}$) and a lower pool ($V_{lo}$), each in ascending (priority, index).
+3. **Students and pupils.** Every student (`activity` student, so `edu_level` ≥ 1; weight $M_{hi}$) is enrolled. With $T$ the sum of the targets, $T_{after}$ the targets of post-secondary and above and $T_{before}$ those of the four levels before, the upper pool gives $H = \min(\max(T_{after} - M_{hi}, 0), V_{hi})$. The pupils (`activity` pupil) have room for $R = \max(T - M_{hi} - H, 0)$. If their weight is above $R$, order them ascending (priority, index) and **split** them with the two targets ($R$, pupils' weight − $R$) and no carry: the pupils in the first part are enrolled, the others stay not enrolled. $M_{lo}$ is the weight of the enrolled pupils. The draw word is the person's priority (the first `u64` of the draw), so the surplus pupils are those last in priority order, independent of household and region.
+4. **How many more.**
+   - from the upper pool $H$;
+   - from the lower pool $\min(\max(T_{before} - M_{lo} - \max(M_{hi} - T_{after}, 0), 0), V_{lo})$ (zero when pupils were left out).
 
    From each pool, **split** with the two targets (take, pool weight − take) and no carry; the members in the first part are taken.
-5. **Levels.** Order the enrolled (step 2 and the taken) ascending by (`edu_level`, age in months, priority, index), and **split** them over the seven levels with the targets and the rounding carry. If every target is zero, the group's counts are the targets; if those are zero too, rejected (`NoMargin`). The lowest levels go to the least educated and the youngest.
+5. **Levels.** Order the enrolled (step 3 and the taken) ascending by (`edu_level`, age in months, priority, index), and **split** them over the seven levels with the targets and the rounding carry. If every target is zero, the group's counts are the targets; if those are zero too, rejected (`NoMargin`). The lowest levels go to the least educated and the youngest.
 6. **Eligibility.** A person given post-secondary or above with `edu_level` 0 is enrolled in upper secondary instead, and their weight is added to the owed places of the level they were given: the next age group fills it.
 
 Everyone not enrolled in step 5 has `enrolled` 0.
@@ -105,7 +107,9 @@ The guessed totals and age pattern of the kinds are data in the margin file (`pr
 
 ## Edge cases & failure modes
 - **A person other inactive in a band with no counts** (cannot happen with the fixture: nobody under 15 is other inactive): the sex's totals are the targets.
-- **A group whose pupils and students outnumber the school statistics** (ages 6 to 17: Stage C makes everyone of 6 to 14 a pupil, and the census has more persons in education at 15 to 17 than the schools count): all are enrolled, split over the levels in proportion to the targets. Primary, lower secondary and upper secondary then have about 18% more pupils nationally than the school statistics (open question).
+- **A group whose pupils outnumber the school statistics** (ages 6 to 17: Stage C makes everyone of 6 to 14 a pupil, and the census has more persons in education at 15 to 17 than the schools count): pupils are enrolled up to the group's places, the rest stay not enrolled (step 3). Nationally about 380,000 pupils: 31,000 to 39,000 at each year of age from 7 to 14 (15–19% of the age), fewer at 6 and at 15 to 17.
+- **Age 19:** Stage C's pupils of 19 (no diploma) fill the places the students and the upper pool leave, tertiary places among them; those become upper secondary and owe their place to age 20 (step 6). Upper secondary is therefore 7–8% above its target nationally, and some pupils of 19 are left not enrolled.
+- **Students who outnumber the places** (none with the fixture): all are enrolled; no pupil is.
 - **A pool smaller than what it should give** (few working 19-year-olds): everyone in it is taken; the shortfall is not carried.
 - **A place after upper secondary that falls to someone without the diploma:** upper secondary instead; the place is owed to the next age group of the same sex. What is still owed after the last group (65 or over) is dropped.
 - **No bands or no enrolment ages, tables whose length does not match, sexes or kinds or levels other than those listed, all counts zero, columns of another population:** rejected with a named error; nothing is produced.
@@ -113,38 +117,39 @@ The guessed totals and age pattern of the kinds are data in the margin file (`pr
 ## Acceptance tests
 IDs are stable. Tests go in `crates/econ-popgen/tests/acceptance/inactivity_enrolment.rs` (protected; written in a test-authoring session before the Rust code), compiled only with a crate feature `inactivity_enrolment`. "The fixtures" are the margin files committed with the pipeline. "Three scales" means 1:1000, 1:100 and 1:10, seed 42. "Targets" for enrolment are the school statistics at each sex and age group's enrolment rate, on the synthetic population (count × weight of the group ÷ census population of the group).
 
-- [ ] **AC-POPK-01** `[unit]` Structure, at each of the three scales: a person has a kind exactly when their activity is other inactive; every pupil and student is enrolled; nobody retired is enrolled; a child (activity) is enrolled only in pre-school; everyone enrolled at post-secondary or above has `edu_level` ≥ 1; everyone enrolled whose activity is employed, unemployed or other inactive is 15 or older.
+- [ ] **AC-POPK-01** `[unit]` Structure, at each of the three scales: a person has a kind exactly when their activity is other inactive; every student is enrolled; a pupil is left not enrolled only in a sex and enrolment age group whose enrolled weight is at least its targets less one person's weight, and at 1:1000 at least one pupil is left not enrolled; nobody retired is enrolled; a child (activity) is enrolled only in pre-school; everyone enrolled at post-secondary or above has `edu_level` ≥ 1; everyone enrolled whose activity is employed, unemployed or other inactive is 15 or older.
 - [ ] **AC-POPK-02** `[unit]` The stage changes nothing before it: the population's state hash and the attribute hash are those of their own golden tests.
 - [ ] **AC-POPK-03** `[unit]` At each of the three scales, each kind's national weighted total by sex is within 2% of the margin file's total, and in every sex and age band with at least 50 expected synthetic persons other inactive, each kind's share is within 3 points of its share in the margin file.
-- [ ] **AC-POPK-04** `[unit]` At each of the three scales, the national weighted count of pre-school, post-secondary, tertiary, and master and doctorate is each within 6% of its target; and in every sex and enrolment age group with at least 50 expected synthetic enrolled persons, except ages 19 and 20, each level's share of the enrolled is within 3 points of its share in the school statistics.
+- [ ] **AC-POPK-04** `[unit]` At each of the three scales, the national weighted count of pre-school, primary, lower secondary, post-secondary, tertiary, and master and doctorate is each within 6% of its target (upper secondary is not checked: the pupils of 19, see Edge cases); and in every sex and enrolment age group with at least 50 expected synthetic enrolled persons, except ages 19 and 20, each level's share of the enrolled is within 3 points of its share in the school statistics.
 - [ ] **AC-POPK-05** `[unit]` With `homemaker_child_link` = 1 the share of homemakers who live with a child younger than 7 is at least 10 points above that with 0 (1:1000 and 1:100); with 0 it is within 3 points of the same share among all persons other inactive. AC-POPK-03 holds for 0, 0.5 and 1.
 - [ ] **AC-POPK-06** `[unit]` Same inputs and seed give identical columns (equal hash). A different seed changes who has which kind and level; AC-POPK-03 and AC-POPK-04 still hold.
 - [ ] **AC-POPK-07** `[golden]` The inactivity and enrolment hash of the fixture population at each of the three scales equals the committed golden value.
 - [ ] **AC-POPK-08** `[diff]` On the fixtures at 1:1000 and 1:200 the Rust stage and the independent Python reference produce identical columns.
 - [ ] **AC-POPK-09** `[unit]` Tables of the wrong length, the wrong sexes, kinds or levels, no age bands, all counts zero, and attributes of a different length are each rejected with a named error and produce no output.
 
-Measured on 2026-10-13 with the Python reference on the fixtures (seed 42; the targets of enrolment as defined above):
+Measured on 2026-10-14 (pupils above the places left not enrolled) with the Python reference on the fixtures (seed 42; the targets of enrolment as defined above):
 
 | | 1:1000 | 1:100 | 1:10 |
 |---|---|---|---|
 | Largest gap of a kind's total by sex, % | 0.5 | 0.2 | 0.0 |
 | Largest gap of a kind's share in a band, points | 1.3 | 1.1 | 0.4 |
 | Share living with a child under 7: homemaker, disabled, other | 27%, 14%, 10% | 26%, 12%, 10% | 26%, 11%, 10% |
-| Pre-school, post-secondary, tertiary, master and doctorate against targets, % | +1.0, +0.0, +0.7, −1.0 | +0.8, −0.1, +1.6, +0.4 | +0.8, +0.3, +1.9, +0.5 |
-| Primary, lower secondary, upper secondary against targets, % | +18, +19, +17 | +19, +18, +19 | +19, +18, +19 |
-| Largest gap of a level's share in an age group, other than 19 and 20, points | 1.2 | 1.1 | 0.9 |
-| Enrolled who are not pupils or students (employed, unemployed, other inactive), thousand | 269, 25, 71 | 289, 26, 67 | 293, 24, 70 |
+| Pre-school, post-secondary, tertiary, master and doctorate against targets, % | −0.0, −0.9, −1.3, −1.5 | +0.0, −1.0, −1.4, −0.2 | +0.0, −0.5, −0.6, −0.1 |
+| Primary, lower secondary, upper secondary against targets, % (before the decision: about +18 each) | +0.1, −0.2, +6.7 | −0.0, +0.0, +7.4 | −0.0, −0.0, +7.7 |
+| Largest gap of a level's share in an age group, other than 19 and 20, points | 1.8 | 1.6 | 0.8 |
+| Enrolled who are not pupils or students (employed, unemployed, other inactive), thousand | 262, 25, 71 | 278, 26, 66 | 283, 24, 69 |
+| Pupils not enrolled, thousand (of them aged 6–14, 15–17, 18–19) | 375 (301, 56, 18) | 382 (300, 57, 25) | 383 (301, 57, 25) |
 
-With seed 7 at 1:1000 the largest gaps are 1.5 points (kinds) and 2.2 points (levels), and tertiary is 4.4% above its target. With `homemaker_child_link` = 0 and 1, the share of homemakers living with a young child is 20% and 35% (1:1000) and 19% and 34% (1:100).
+With seed 7 at 1:1000 the largest gaps are 1.5 points (kinds) and 1.2 points (levels), tertiary is 0.4% below its target, primary and lower secondary within 0.2%, and 385,000 pupils are not enrolled. With `homemaker_child_link` = 0 and 1, the share of homemakers living with a young child is 20% and 35% (1:1000) and 19% and 34% (1:100).
 
-Hashes of the reference, for the test writer to record as golden values (the earlier hashes are unchanged):
+Hashes of the reference, for the test writer to record as golden values (the earlier hashes are unchanged; until 2026-10-14, before the pupils above the places were left not enrolled, they were `d23518ac1ea5168c`, `29a74f43a637a5de`, `e80168c0de0e39ab` and `fd1f841d318212d1`):
 
 | Scale | Inactivity and enrolment hash |
 |---|---|
-| 1:1000 | `d23518ac1ea5168c` |
-| 1:200 | `29a74f43a637a5de` |
-| 1:100 | `e80168c0de0e39ab` |
-| 1:10 | `fd1f841d318212d1` |
+| 1:1000 | `6bbd2499e40e5b15` |
+| 1:200 | `5b4d035f94305967` |
+| 1:100 | `78af647d4c3d3a69` |
+| 1:10 | `9c3fc9aedfc6f0ea` |
 
 ## API sketch
 For the test writer and the implementer. Names may change before lock; shapes should not. There is no Rust code yet (tests come first, ADR-0014); the skeleton will be `crates/econ-popgen/src/inactivity.rs`.
@@ -180,7 +185,7 @@ impl PersonInactivityEnrolment { pub fn state_hash(&self) -> u64; }
 
 ## Open questions
 - [x] **Kept for now (owner, 2026-10-14).** **200,000 inactive for reasons of health** (low confidence), 55% men. Keep, or look for the INS census table of inactive persons by category, age and sex (on the census website, not on Eurostat), which would also give the homemakers by age?
-- [x] **Decided (owner, 2026-10-14): this stage leaves that share of pupils not enrolled.** **Pupils of 7 to 14 above the school statistics.** Stage C makes everyone of 6 to 14 a pupil, so primary and lower secondary are 18% above the school count (10–20% of children of those ages are not counted in school). Accept; or let this stage leave that share of pupils not enrolled (a "pupil" who is not enrolled); or change Stage C so that some children of 6 to 14 are not pupils (changes Stage C's golden hashes).
+- [x] **Decided (owner, 2026-10-14): this stage leaves that share of pupils not enrolled; done 2026-10-14** (step 3 of the enrolment, the simplification on pupils not enrolled). **Pupils of 7 to 14 above the school statistics.** Stage C makes everyone of 6 to 14 a pupil, so primary and lower secondary are 18% above the school count (10–20% of children of those ages are not counted in school). Accept; or let this stage leave that share of pupils not enrolled (a "pupil" who is not enrolled); or change Stage C so that some children of 6 to 14 are not pupils (changes Stage C's golden hashes).
 - [x] **Accepted for now (owner, 2026-10-14).** **19-year-olds without the diploma.** Stage C gives diplomas to the in-education persons of 15 to 19 in priority order, so tertiary places of 19-year-olds move to 20 (owed places). Accept; or have a later version of Stage C give diplomas by age (changes Stage C's golden hashes).
 - [x] **Not now (owner, 2026-10-14).** **Split "other" further** into the discouraged (want to work, 252,000 aged 15 to 64 in the Labour Force Survey) and the rest, if the labour market needs it.
 - [x] **Accepted (owner, 2026-10-14).** **Bands of AC-POPK-03 and AC-POPK-04** (3 points, 2%, 6%): owner to accept.

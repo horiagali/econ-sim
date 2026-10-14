@@ -2101,8 +2101,9 @@ def assign_inactivity_enrolment(pop: dict, attrs: dict, ie: dict, rng_seed: int 
 
     Kinds: per sex and age band (national), `split` of the band's other inactive persons over the
     kinds, homemaker first; persons living with a young child come first with probability
-    `homemaker_child_link_ppm`. Enrolment: per sex and enrolment age group, every pupil and student
-    is enrolled, and the group's enrolment above them is taken from its children, employed,
+    `homemaker_child_link_ppm`. Enrolment: per sex and enrolment age group, every student is
+    enrolled, pupils only up to the places the students leave before post-secondary (the surplus,
+    last in priority order, is not enrolled), and the group's enrolment above them is taken from its children, employed,
     unemployed and other inactive persons (those who completed upper secondary for the levels
     after it). The enrolled are split over the levels from the lowest education and youngest up;
     a level after upper secondary that falls to someone without it becomes upper secondary.
@@ -2178,17 +2179,27 @@ def assign_inactivity_enrolment(pop: dict, attrs: dict, ie: dict, rng_seed: int 
             t = apportion(total, counts + [rest])[:n_lv] if sum(counts) + rest else [0] * n_lv
             t = [v + o for v, o in zip(t, owed)]
             owed = [0] * n_lv
-            must = [i for i in members if activity[i] in (ACT_PUPIL, ACT_STUDENT)]
-            w_must = sum(weight[i] for i in must)
-            w_must_hi = sum(weight[i] for i in must if edu[i] >= STUDENT_MIN_EDU)
+            students = [i for i in members if activity[i] == ACT_STUDENT]
+            pupils = sorted((i for i in members if activity[i] == ACT_PUPIL), key=lambda i: (prio[i], i))
+            w_must_hi = sum(weight[i] for i in students)
             pool_hi = sorted((i for i in members if activity[i] in pool_activities and edu[i] >= STUDENT_MIN_EDU),
                              key=lambda i: (prio[i], i))
             pool_lo = sorted((i for i in members if activity[i] in pool_activities and edu[i] < STUDENT_MIN_EDU),
                              key=lambda i: (prio[i], i))
             w_hi, w_lo = sum(weight[i] for i in pool_hi), sum(weight[i] for i in pool_lo)
-            # The places pupils and students leave empty, before and after upper secondary; students
-            # beyond the later levels' places take earlier ones.
+            # The places students leave empty after upper secondary, taken from the upper pool.
             take_hi = min(max(sum(t[after:]) - w_must_hi, 0), w_hi)
+            # Pupils are enrolled only up to the group's places that the students and the upper pool
+            # leave (owner, 2026-10-14): the surplus pupils, last in (priority, index), stay not enrolled.
+            room = max(sum(t) - w_must_hi - take_hi, 0)
+            w_pupils = sum(weight[i] for i in pupils)
+            if w_pupils > room:
+                pupils = [i for i, c in zip(pupils, split([weight[i] for i in pupils], [room, w_pupils - room],
+                                                          [0, 0])) if c == 0]
+            must = students + pupils
+            w_must = sum(weight[i] for i in must)
+            # The places pupils and students leave empty before upper secondary is completed; students
+            # beyond the later levels' places take earlier ones.
             spare_hi = max(w_must_hi - sum(t[after:]), 0)
             take_lo = min(max(sum(t[:after]) - (w_must - w_must_hi) - spare_hi, 0), w_lo)
             chosen = list(must)
