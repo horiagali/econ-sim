@@ -1,11 +1,11 @@
 ---
 id: economy/opening-balance-sheet
 title: Opening Balance Sheet
-status: draft
+status: locked
 owner: horia
 depends_on: [economy/accounting, adr/0007-money-and-ledger, adr/0018-scenario-and-commands, society/population-wealth, adr/0016-firm-representation]
 research: [research/opening-balance-sheet-romania]
-updated: 2026-10-13
+updated: 2026-10-14
 ---
 
 # Opening Balance Sheet
@@ -23,15 +23,15 @@ Turn the financial accounts of 31 December 2021 into the ledger's balances on th
 ## Owner decision this spec builds on
 - **Other financial firms are a sector of their own** (owner, 2026-10-13). This means insurers, investment funds, leasing companies and other non-bank lenders: 186 bn lei of assets and 181 bn of liabilities. In v1 the sector holds its opening portfolio and has no behaviour of its own; interest and dividends pass through it.
 
-## Changes this asks of the accounting spec
-[Accounting](accounting.md) is locked. Its balance-sheet matrix needs these changes, which take effect when the owner locks this spec:
+## Changes made to the accounting spec
+Approved by the owner with this spec (owner, 2026-10-14) and written into [accounting](accounting.md), section 1:
 1. **A column "other financial" (OF)** between pension funds and government.
 2. **The pension fund claims row becomes "pension and insurance claims".** Insurers (OF) issue claims to households, as pension funds do.
 3. **The foreign assets row is every cross-border position except government bonds and equity held by the rest of the world.** That means foreign notes, deposits abroad, foreign securities, loans to and from abroad, shares in foreign firms, and gold and SDR. A resident's balance in this row is its net claim on the rest of the world, so it can be negative (a firm that owes a foreign parent).
 4. **Loans may be held by any resident sector,** not only banks. That covers non-bank lenders, government loans, firms' loans to each other and to households, and the debt securities of firms and banks (rule 5d).
 5. **Derivatives and "other accounts receivable and payable" are not in the ledger in v1.** These are trade credit, advances and taxes due: 1,146 bn lei on each side, 871 bn of it owed by firms. Each sector's net position in them goes into its net worth, and the consistency report lists it.
 
-ADR-0007's sector list gains the same column.
+The ledger's `Sector` enum gains the same column when the ledger grows the instruments of section 1.
 
 ## Inputs
 - `balance_sheets2021q4_ro.json`: `assets[instrument][sector]` and `liabilities[instrument][sector]` in lei, for 8 sectors and 9 instruments.
@@ -140,6 +140,19 @@ IDs are stable. The tests will live in `crates/econ-scenario/tests/acceptance/` 
 - [ ] **AC-OBS-09** `[unit]` The sector details: the maturity buckets and the currencies each sum to the government debt total, the first bucket equals the measured short-term debt, and gold plus SDR holdings equal the central bank's gold and SDR in the financial accounts.
 - [ ] **AC-OBS-10** `[unit]` Removing a sector or an instrument from the statistics, or making foreign notes exceed the banks' vault cash, gives a named error and no output.
 
+### Tests owed
+The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-OBS-01: the opening balances in Rust (crate of the scenario builder)
+- AC-OBS-02: the opening balances in Rust, with rule 8
+- AC-OBS-03: the opening balances in Rust
+- AC-OBS-04: the opening balances in Rust
+- AC-OBS-05: the opening balances in Rust
+- AC-OBS-06: the ledger's new sector and instruments, and `post`
+- AC-OBS-07: the opening balances in Rust and a golden file
+- AC-OBS-08: the opening balances in Rust
+- AC-OBS-09: the sector details reader in Rust
+- AC-OBS-10: the opening balances in Rust
+
 ## API sketch
 In the crate of the scenario builder (see [scenario builder](../game/scenario-builder.md)). It needs the ledger to grow the sector `OtherFinancial` and the instruments of the accounting matrix (its "Not built yet" table); `Sector::ALL` and `Instrument::ALL` keep matrix order.
 
@@ -183,8 +196,8 @@ pub fn read_sector_details(json: &str) -> Result<SectorDetails, SaveError>;
 `post` sets balances from zero, so each balance is a leg between the sector and a counterpart in the same row. One way: walk the row in sector order, carrying the running sum. The legs of a row cancel, and the ledger's row invariant holds after every leg.
 
 ## Open questions
-- [ ] **The accounting changes above** (OF column, insurance in the claims row, the foreign assets row, loans held by any resident, other accounts left out). Accept as written, or change?
-- [ ] **Other accounts left out (1,146 bn each side).** They are mostly trade credit between firms and taxes due. Leaving them out puts firms' net −179 bn into net worth. Alternative: a passive `other_accounts` row, kept but never moved in v1. My default: leave out, as written.
+- [x] **The accounting changes above:** accepted as written (owner, 2026-10-14).
+- [x] **Other accounts left out (1,146 bn each side):** left out in v1, as written (owner, 2026-10-14). They are mostly trade credit between firms and taxes due; firms' net −179 bn goes into net worth and the report lists it.
 - [ ] **Government deposits issued by the government (rule 4a)** are assumed intra-government. If they are in fact the Treasury's deposits from households or firms, the government's deposits at the central bank grow and bank reserves shrink by the same amount.
 - [ ] **Bank reserves of 46.7 bn** come out as a residual. They are above the minimum reserves (about 30 to 35 bn, low confidence). Check against the BNR's monetary balance sheet when the money-banking milestone starts.
 - [ ] **The maturity buckets above one year** are a guess. Replace them with the Ministry of Finance's debt bulletin of December 2021 when someone reads it.

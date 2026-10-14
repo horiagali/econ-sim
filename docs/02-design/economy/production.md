@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/accounting, economy/industries, economy/labor-market, economy/investment-capital, adr/0016-firm-representation, adr/0017-time-base]
 research: []
-updated: 2026-10-13
+updated: 2026-10-14
 ---
 
 # Production & Supply Chains
@@ -92,7 +92,7 @@ A_{j,t+1} = A_{j,t} \big(1 + g^0 + g_{edu}\Delta\text{skill} + g_{R\&D} \cdot \t
 ## First version (roadmap M2)
 **Market clearing is by inventories** (the open decision D6 of the roadmap, decided 2026-10-11 under the owner's delegation): prices do not jump to clear a market within a day; buyers are served from stock, and stock running out is a shortage that the price rule sees.
 
-**Starting state.** For each unit, from the firm-unit file and the input-output table: monthly output = its annual output ÷ 12; `expected_demand` = the same; `inventory` = `inventory_target_ratio` × expected demand; capacity = starting output ÷ `starting_utilisation`; labour requirement per unit of output = its starting staff ÷ its starting output; input coefficients $a_{ij}$, for inputs bought at home and imported from each bloc, = those of its industry's column of the table (a catalogue industry has the coefficients of its table industry, split over the supplying catalogue industries by their output shares).
+**Starting state.** For each unit, from the firm-unit file and the input-output table: monthly output = its annual output ÷ 12; `expected_demand` = the same; `inventory` = the unit's opening stock of its own output (`inventory` of [firm units' undeclared sales and inventories](firm-units-undeclared-inventories.md); owner, 2026-10-14) and its `inventory_target_ratio` = that stock ÷ a month of its output, so the plan starts at its target; capacity = starting output ÷ `starting_utilisation`; labour requirement per unit of output = its starting staff ÷ its starting output; input coefficients $a_{ij}$, for inputs bought at home and imported from each bloc, = those of its industry's column of the table (a catalogue industry has the coefficients of its table industry, split over the supplying catalogue industries by their output shares).
 
 **In:**
 1. **The plan, on a unit's day** (integers; real units are lei at starting prices):

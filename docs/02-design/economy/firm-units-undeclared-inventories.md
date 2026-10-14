@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [adr/0016-firm-representation, economy/industries, economy/informal-economy, economy/production, society/population-incomes, society/population-employers, adr/0006-determinism-contract, adr/0014-agent-workflow-guardrails]
 research: [research/firm-inventories-undeclared-sales-romania, research/informal-economy-romania]
-updated: 2026-10-13
+updated: 2026-10-14
 ---
 
 # Firm Units — Undeclared Sales and Opening Inventories
@@ -203,9 +203,9 @@ impl FirmOpening { pub fn state_hash(&self) -> u64; }
 - The interim scenario builder (`build_scenario.py`) runs it and checks the totals, the committed columns and AC-FUI-04's comparison.
 
 ## Open questions
-- [ ] **Micro and small firms hide a lot** (59% and 47% of their sales; agriculture 73%, construction 54%). It follows from the anchor (27.1% of private value added) and from Stage I placing 132 billion lei of undeclared household income in domestic units, whose value added is small. Accept, lower the anchor (the 2019 figure measures labour, not sales), or move part of informal income to large domestic units?
-- [ ] **The VAT gap from hidden sales is 23%** against 36.7% measured. Is a band of 15% to 36.7% right for AC-FUI-05, the rest being fraud, insolvency and VAT declared but not paid?
-- [ ] **Households' inventories** (141.8 billion lei) put a third of a year's output or more in domestic micro units (agriculture 189 days on average). Spread them by farm output only, or keep them on all household businesses?
-- [ ] **Trade's stock:** keep goods for resale as trade units' materials (proposed), or count them as stock of the industries that make the goods, so that the goods-market buffer of [production](production.md) includes goods in shops?
-- [ ] Production (locked) starts `inventory` at `inventory_target_ratio` × expected demand with defaults of a month (a week for services). It should start at this spec's `inventory`, with each unit's target ratio set to match (a change to production's "First version, starting state" that needs the owner).
+- [x] **Decided (owner, 2026-10-14): move part of the informal income onto large domestic units.** **Micro and small firms hide a lot** (59% and 47% of their sales; agriculture 73%, construction 54%). It follows from the anchor (27.1% of private value added) and from Stage I placing 132 billion lei of undeclared household income in domestic units, whose value added is small. Accept, lower the anchor (the 2019 figure measures labour, not sales), or move part of informal income to large domestic units?
+- [x] **Band accepted (owner, 2026-10-14).** **The VAT gap from hidden sales is 23%** against 36.7% measured. Is a band of 15% to 36.7% right for AC-FUI-05, the rest being fraud, insolvency and VAT declared but not paid?
+- [x] **Decided (owner, 2026-10-14): spread them by farm output only.** **Households' inventories** (141.8 billion lei) put a third of a year's output or more in domestic micro units (agriculture 189 days on average). Spread them by farm output only, or keep them on all household businesses?
+- [x] **Kept as the trade units' goods (owner, 2026-10-14).** **Trade's stock:** keep goods for resale as trade units' materials (proposed), or count them as stock of the industries that make the goods, so that the goods-market buffer of [production](production.md) includes goods in shops?
+- [x] **Accepted and written into production (owner, 2026-10-14).** Production (locked) starts `inventory` at `inventory_target_ratio` × expected demand with defaults of a month (a week for services). It should start at this spec's `inventory`, with each unit's target ratio set to match (a change to production's "First version, starting state" that needs the owner).
 - [ ] Home of the Rust function: `econ-popgen` (proposed) or a scenario-builder crate of ADR-0018.

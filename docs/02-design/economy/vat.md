@@ -1,11 +1,11 @@
 ---
 id: economy/vat
 title: Value-Added Tax (VAT)
-status: review
+status: locked
 owner: horia
 depends_on: [economy/accounting, adr/0007-money-and-ledger, adr/0014-agent-workflow-guardrails, adr/0017-time-base]
 research: []
-updated: 2026-10-13
+updated: 2026-10-14
 ---
 
 # Value-Added Tax (VAT)
@@ -131,7 +131,7 @@ The split of a gross budget into net and VAT lives in the scale world for now (`
 - **Input VAT of exempt industries** (owner, 2026-10-13). Industries whose sales are exempt (financial services, insurance, health, education) cannot deduct the VAT on their purchases, so for them it is a cost. Later version: each exempt industry pays VAT on its purchases from other firms at the rate of each input's category, posted under `tax.vat` from the firm to the government, and its unit cost rises by that amount. Needs firm purchases by good (production, roadmap M2) and firm accounts that pay taxes (M3); planned with firms in depth (M9).
 
 ## Open questions
-- [x] **Two reduced rates** (owner, 2026-10-10: "make reduced rates accurate"). The schedule now has the standard rate and two reduced rates, as Romanian law had on the start date. Test for AC-VAT-06 written 2026-10-13 (the existing tests' schedule gets `reduced_2` under the same feature). Code done 2026-10-13: `Reduced2` and `reduced_2` in `crates/econ-mech-tax`, `reduced-2` on by default, and the scale world's stand-in schedule set to 19%, 9% and 5% (a re-golden of its two in-module goldens, approved by the owner; see `CHANGELOG-sim.md`). The spec is at `review` and is locked next (owner, 2026-10-13: test, code, merge, lock).
+- [x] **Two reduced rates** (owner, 2026-10-10: "make reduced rates accurate"). The schedule now has the standard rate and two reduced rates, as Romanian law had on the start date. Test for AC-VAT-06 written 2026-10-13 (the existing tests' schedule gets `reduced_2` under the same feature). Code done 2026-10-13: `Reduced2` and `reduced_2` in `crates/econ-mech-tax`, `reduced-2` on by default, and the scale world's stand-in schedule set to 19%, 9% and 5% (a re-golden of its two in-module goldens, approved by the owner; see `CHANGELOG-sim.md`). Locked (owner, 2026-10-14).
 - [x] VAT on new dwellings and on government purchases: not in this spec. Dwellings come with [housing](housing.md) (roadmap M13); government purchases stay free of VAT in v1 (the government would pay it to itself).
 - [x] Input VAT of exempt sectors (banks, hospitals, schools): ignored in the first version, added later (owner, 2026-10-13; see Later).
 - [x] A warning for reduced rates on goods that EU law does not allow: added with [eu-membership](eu-membership.md) (roadmap M18), as a new warning variant.
