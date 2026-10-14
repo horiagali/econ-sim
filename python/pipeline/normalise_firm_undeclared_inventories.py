@@ -74,8 +74,13 @@ GUESSES = {
     # give at 1:100 (micro 18.1%, small 14.6%, large 12.6%, foreign-controlled 8.9%; see the spec).
     "wage_tilt": [1.15, 0.95, 0.9, 0.8],
     # Informal income (casual and seasonal work, undeclared second activities) is earned in domestic units of
-    # every size, most in micro firms; per leu of operating surplus, by class. Foreign-controlled units: none.
-    "informal_tilt": [1.0, 0.5, 0.2, 0.0],
+    # every size alike, per leu of operating surplus, by class; foreign-controlled units: none. The owner's
+    # decision of 2026-10-14 moved part of it onto large domestic units (it was 1, 0.5, 0.2, 0, which left micro
+    # and small units hiding 59% and 47% of their sales): day labourers in construction and farming, seasonal
+    # hands and cash-paid extra hours are found in large domestic firms too, and nothing measured says they are
+    # concentrated in small ones. Farm sales and self-employment stay on domestic micro units (they are the
+    # sales of household holdings and sole traders, micro by definition). Confidence low.
+    "informal_tilt": [1.0, 1.0, 1.0, 0.0],
     # Share of each industry group's operating surplus that is earned on sales and can be hidden. Real estate:
     # most of its surplus is the imputed rent of owner-occupiers (households' operating surplus, 71 billion lei
     # of real estate's 89 billion), which is not a sale. Confidence medium.
@@ -88,6 +93,11 @@ GUESSES = {
     "profit_group_floor": 0.02,
     # No unit hides more than this share of its value added.
     "max_undeclared_share": 0.9,
+    # How sure each guess is (the reasons are in the spec's table of guesses).
+    "confidence": {"inventory_days": "low", "wage_tilt": "medium (fitted to the synthetic population)",
+                   "informal_tilt": "low (educated guess, owner's decision of 2026-10-14)",
+                   "surplus_from_sales": "medium", "profit_tilt": "low", "profit_group_floor": "low",
+                   "max_undeclared_share": "low"},
 }
 
 
