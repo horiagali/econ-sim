@@ -146,6 +146,10 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | $D^e_f$ | `expected_demand[f]` | Sales a firm unit expects | units / month | state | economy/production |
 | $S_{l,k}$ | `budget_spending[l,k]` | Spending of budget line *l* on economic type *k* (wages, goods and services, social benefits, subsidies, interest, investment, other) in the starting budget; integer bani in code | LCU / year | parameter | economy/budget-2021 |
 | — | `public_posts[f]` | Occupied public posts that public firm unit *f* stands for at the start; its starting headcount target | posts | parameter | economy/budget-2021 |
+| — | `pension_points` | A pensioner's pension points; the pension is points × `pension_point_value`, not below the minimum pension. Millionths of a point in code | points | state | economy/social-transfers |
+| — | `pension_point_value` | Value of one pension point (1,442 lei on the start date) | LCU / month | parameter | economy/social-transfers |
+| — | `last_wage` | Gross wage of the person's last job, kept when it is lost; the base of the unemployment benefit | LCU / month | state | economy/social-transfers |
+| — | `benefit_months_left` | Months of unemployment benefit the person has left | months | state | economy/social-transfers |
 | $W^{g}$ | `public_wage_bill` | Wages the government pays its employees (ESA D11): what the public units' employees earn | LCU / tick | flow | economy/budget-2021 |
 
 Indices: $g$ good, $j$ industry (same set as goods, except that the eight electricity generation industries share the good `wholesale_electricity` and `power_supply` sells `electricity`), $f$ firm unit (belongs to one industry; per-industry variables such as `output[j]` are also kept per unit as `output[f]`, and the industry value is the `firm_count`-weighted sum), $o$ occupation, $s$ skill tier, $r$ region, $c$ county, $h$ household, $i$ person, $p$ power plant, $\ell$ education level, $l$ budget line, $k$ economic type of spending. LCU = leu (RON).
