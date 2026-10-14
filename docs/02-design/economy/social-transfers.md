@@ -1,7 +1,7 @@
 ---
 id: economy/social-transfers
 title: Social Transfers — Pensions, Benefits, Student Finance, Charity
-status: draft
+status: locked
 owner: horia
 depends_on: [society/population-groups, economy/fiscal-policy, economy/households, economy/taxation, economy/labor-market, society/population-pensions, economy/budget-2021, game/world-loop, adr/0017-time-base]
 research: [research/law-in-force-romania-2021]
@@ -86,6 +86,21 @@ IDs are stable (added 2026-10-14). Tests go in a new crate `crates/econ-mech-tra
 - [ ] **AC-ST-11** `[sim]` *(M14)* A charity drive lowers the wealth of donor households and raises the consumption of recipient households by the same total, less its administrative cost.
 - [ ] **AC-ST-12** `[sim]` *(M5)* Minimum income with a 100% withdrawal rate produces lower participation among eligible persons than with 50%.
 
+### Tests owed
+The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-ST-01: the crate `econ-mech-transfers` and its pay-day phase (roadmap M3)
+- AC-ST-02: the crate `econ-mech-transfers` and its pay-day phase (roadmap M3)
+- AC-ST-03: the crate `econ-mech-transfers` and its pay-day phase (roadmap M3)
+- AC-ST-04: the crate `econ-mech-transfers` and its pay-day phase (roadmap M3)
+- AC-ST-05: the crate `econ-mech-transfers` and its pay-day phase (roadmap M3)
+- AC-ST-06: the crate `econ-mech-transfers` and its pay-day phase (roadmap M3)
+- AC-ST-07: the crate `econ-mech-transfers` and its pay-day phase (roadmap M3)
+- AC-ST-08: the crate `econ-mech-transfers` and its pay-day phase (roadmap M3)
+- AC-ST-09: roadmap M6
+- AC-ST-10: roadmap M14
+- AC-ST-11: roadmap M14
+- AC-ST-12: roadmap M5
+
 ## API sketch
 A new crate `crates/econ-mech-transfers` (pure functions, no I/O). Amounts are bani; shares millionths; points millionths of a point.
 
@@ -108,7 +123,7 @@ pub fn minimum_income(size: u16, month_income: Bani, r: &MinimumIncomeRule) -> B
 The pay-day phase that walks persons and households, applies take-up and posts through the ledger lives with the [World](../game/world-loop.md).
 
 ## Open questions
-- [ ] Private pension funds: Pillar II is in v1 as a financial sub-sector holding equity and bonds for member households ([ADR-0016](../../03-architecture/decisions/0016-firm-representation.md), [accounting](accounting.md)); contribution rules and Pillar III still open.
-- [ ] Universal basic income as a separate programme?
-- [ ] **First version as above** (2026-10-14 draft): one pay day, pension points, the unemployment benefit's contribution-years proxy and no benefit for the starting unemployed, the minimum income's floors and 60% take-up. Accept, or change?
+- [x] Private pension funds: Pillar II is in v1 as a financial sub-sector holding equity and bonds for member households ([ADR-0016](../../03-architecture/decisions/0016-firm-representation.md), [accounting](accounting.md)); contribution rules and Pillar III still open. **Decided (owner, 2026-10-14):** Pillar II as written (its share of CAS is routed by [taxation](taxation.md)); Pillar III not in v1.
+- [x] Universal basic income as a separate programme? **Decided (owner, 2026-10-14):** revisited with the M4 levers, not in the first version.
+- [x] **First version as above** (2026-10-14 draft): one pay day, pension points, the unemployment benefit's contribution-years proxy and no benefit for the starting unemployed, the minimum income's floors and 60% take-up. Accept, or change? **Decided (owner, 2026-10-14):** accepted.
 - [ ] **The minimum-income floors and the benefit shares by contribution years** are from memory (medium confidence); check against the law when the lever registry is filled (M4).

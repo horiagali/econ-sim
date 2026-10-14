@@ -1,7 +1,7 @@
 ---
 id: society/population-inactivity-enrolment
 title: Population Generator, Stage K — Kinds of Inactivity and Enrolment
-status: draft
+status: locked
 owner: horia
 depends_on: [society/population-attributes, society/population-groups, society/population-generator, society/education, economy/social-transfers, economy/labor-market, adr/0006-determinism-contract, adr/0012-data-pipeline-and-licensing, adr/0014-agent-workflow-guardrails]
 research: [research/inactivity-enrolment-romania]
@@ -150,6 +150,18 @@ Hashes of the reference, for the test writer to record as golden values (the ear
 | 1:200 | `5b4d035f94305967` |
 | 1:100 | `78af647d4c3d3a69` |
 | 1:10 | `9c3fc9aedfc6f0ea` |
+
+### Tests owed
+The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-POPK-01: the Rust stage K in `econ-popgen`
+- AC-POPK-02: the Rust stage K in `econ-popgen`
+- AC-POPK-03: the Rust stage K in `econ-popgen`
+- AC-POPK-04: the Rust stage K in `econ-popgen`
+- AC-POPK-05: the Rust stage K in `econ-popgen`
+- AC-POPK-06: the Rust stage K in `econ-popgen`
+- AC-POPK-07: the Rust stage K in `econ-popgen`
+- AC-POPK-08: the Rust stage K in `econ-popgen`
+- AC-POPK-09: the Rust stage K in `econ-popgen`
 
 ## API sketch
 For the test writer and the implementer. Names may change before lock; shapes should not. There is no Rust code yet (tests come first, ADR-0014); the skeleton will be `crates/econ-popgen/src/inactivity.rs`.
