@@ -8,9 +8,9 @@ license.workspace = true
 publish.workspace = true
 
 [features]
-# Gates the acceptance tests: they were written before the code (ADR-0014), and
-# the implementation adds `mechanic` to `default`.
-default = []
+# Gates the acceptance tests, written before the code (ADR-0014); on by
+# default now that the code exists.
+default = ["mechanic"]
 mechanic = []
 
 [[test]]
