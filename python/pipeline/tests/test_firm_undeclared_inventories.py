@@ -42,7 +42,7 @@ MARGINS = {
     "surplus_from_sales": [U, U],
     "undeclared_farm_income": 100_000, "undeclared_self_employment_income": 50_000, "informal_income": 200_000,
     "undeclared_value_added_share": 271_000,
-    "wage_tilt": [1_150_000, 950_000, 900_000, 800_000], "informal_tilt": [U, 500_000, 200_000, 0],
+    "wage_tilt": [1_150_000, 950_000, 900_000, 800_000], "informal_tilt": [U, U, U, 0],
     "profit_tilt": [1_500_000, 1_500_000, 500_000, 150_000], "profit_group_floor": 20_000,
     "max_undeclared_share": 900_000,
     "inventories": {"corporations": 1_000_000, "household_business": 300_000},
@@ -137,6 +137,13 @@ class TestNormaliser(unittest.TestCase):
         self.assertTrue(0.15 <= fit["vat_gap_proxy"] <= 0.367)
         shares = [fit["by_class"][k]["undeclared_sales_share"] for k in ref.CLASSES]
         self.assertEqual(shares, sorted(shares, reverse=True))
+        # The owner's decision of 2026-10-14: informal income lands on large domestic units too, so micro units
+        # hide under half their sales, and large domestic units stay well under micro and small ones.
+        self.assertEqual(m["informal_tilt"], [U, U, U, 0])
+        by = {k: fit["by_class"][k]["undeclared_sales_share"] for k in ref.CLASSES}
+        self.assertLess(by["micro"], 0.5)
+        self.assertLess(by["large"] + 0.1, by["small"])
+        self.assertLess(by["foreign"], 0.06)
         incomes = json.loads((F / "other_incomes2021_ro.json").read_text(encoding="utf-8"))
         self.assertEqual(m["undeclared_wage_share"], incomes["undeclared_wage_share"])
         self.assertTrue(all(abs(v) < 1e-5 for v in fit["undeclared_wage_share_gap_by_group"].values()))
