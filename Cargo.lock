@@ -273,6 +273,9 @@ dependencies = [
 [[package]]
 name = "econ-mech-prices"
 version = "0.1.0"
+dependencies = [
+ "econ-num",
+]
 
 [[package]]
 name = "econ-mech-production"

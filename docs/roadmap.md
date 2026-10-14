@@ -199,7 +199,7 @@ The first version of each mechanic is the simplest rule that is in its spec, not
 - [ ] **Households:** income, consumption by good from baskets, saving.
 - [ ] **Labour market:** vacancies, matching by region and skill, wages, job loss.
 - [ ] **Firm-unit goods market,** then **production:** output from demand, inputs through the input-output table, inventories, hiring plans.
-- [ ] **Prices:** markup on unit cost, CPI.
+- [ ] **Prices:** markup on unit cost, CPI. Pure functions done 2026-10-14 (`econ-mech-prices`: unit cost, markup, target, the daily step, expectations; AC-PRICE-01 to 03 pass); the daily phase and the monthly CPI come with the `World`.
 - [ ] Placeholders so the loop closes: government buys and pays wages at fixed real levels and taxes with VAT only; no banks (deposits only); imports at fixed prices.
 - [ ] CI runs a tiny scenario at three scales; a 50-year run at 1:100 stays within the time budget of Spike 4.
 - [ ] Thin UI window on this core (time controls, a dozen charts).
