@@ -1,7 +1,7 @@
 ---
 id: economy/taxation
 title: Taxation
-status: draft
+status: locked
 owner: horia
 depends_on: [society/population-groups, economy/households, economy/production, economy/accounting, economy/vat, economy/labor-market, society/population-incomes, economy/firm-units-undeclared-inventories, economy/budget-2021, adr/0017-time-base]
 research: [research/law-in-force-romania-2021]
@@ -111,6 +111,22 @@ IDs are stable (added 2026-10-14). Tests go in `crates/econ-mech-tax/tests/accep
 - [ ] **AC-TAX-12** `[sim]` *(M15)* At extreme rates (a 90% flat income tax) revenue is lower than at moderate rates, through informality and reported income (an emergent Laffer curve).
 - [ ] **AC-TAX-13** `[sim]` *(M15)* Raising social contributions raises the informal share of employment.
 
+### Tests owed
+The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-TAX-01: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
+- AC-TAX-02: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
+- AC-TAX-03: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
+- AC-TAX-04: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
+- AC-TAX-05: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
+- AC-TAX-06: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
+- AC-TAX-07: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
+- AC-TAX-08: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
+- AC-TAX-09: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
+- AC-TAX-10: roadmap M4
+- AC-TAX-11: roadmap M4
+- AC-TAX-12: roadmap M15
+- AC-TAX-13: roadmap M15
+
 ### VAT
 The tax itself (rates, categories, rounding, the ledger posting) has its own spec, [vat](vat.md), with criteria AC-VAT-01 to 06. The VAT expectations in the list above (revenue and CPI after a rate change) stay here, because they depend on prices and demand.
 
@@ -142,9 +158,9 @@ pub fn tax_quarter(profit: Bani, losses_carried: &mut Bani, micro: Option<(Bani 
 The pay-day and quarter-end phases that call these and post through the ledger live with the [World](../game/world-loop.md).
 
 ## Open questions
-- [ ] Separate capital income tax vs taxed with labour income: offer both as a lever?
-- [ ] Inheritance tax in v1 (bequests already exist)?
-- [ ] Negative income tax option as an alternative to minimum income?
-- [ ] **First version as above** (2026-10-14 draft): the 2021 rates, the linear deduction, the two industry overrides, pensions above 2,000 lei, corporate and micro taxes quarterly, the flow codes 3003 to 3010. Accept, or change?
+- [x] Separate capital income tax vs taxed with labour income: offer both as a lever? **Decided (owner, 2026-10-14):** separate, as Romania has it; no merged option in v1.
+- [x] Inheritance tax in v1 (bequests already exist)? **Decided (owner, 2026-10-14):** not in v1 (Romania has none).
+- [x] Negative income tax option as an alternative to minimum income? **Decided (owner, 2026-10-14):** later, not in the first version.
+- [x] **First version as above** (2026-10-14 draft): the 2021 rates, the linear deduction, the two industry overrides, pensions above 2,000 lei, corporate and micro taxes quarterly, the flow codes 3003 to 3010. Accept, or change? **Decided (owner, 2026-10-14):** accepted.
 - [ ] **Pension tax and the health contribution on non-wage income** are from memory (medium confidence); check against the Fiscal Code when the lever registry is filled (M4).
-- [ ] **The revenue tolerance of AC-TAX-09** (20%): the undeclared economy and the simplifications make 2021's revenue a check, not a target.
+- [x] **The revenue tolerance of AC-TAX-09** (20%): the undeclared economy and the simplifications make 2021's revenue a check, not a target. **Decided (owner, 2026-10-14):** 20% accepted.

@@ -1,7 +1,7 @@
 ---
 id: game/world-loop
 title: World and Daily Loop (first version)
-status: draft
+status: locked
 owner: horia
 depends_on: [game/overview, adr/0005-simulation-core-architecture, adr/0017-time-base, adr/0018-scenario-and-commands, adr/0007-money-and-ledger, economy/accounting, game/scenario-builder, economy/opening-balance-sheet, economy/households, economy/labor-market, economy/production, economy/prices-inflation, economy/vat]
 research: []
@@ -112,6 +112,19 @@ IDs are stable. Tests in `crates/econ-core/tests/acceptance/` (protected), writt
 - [ ] **AC-WLD-09** `[unit]` `step` with a non-empty command list is refused in M2 with a named error and changes nothing.
 - [ ] **AC-WLD-10** `[bench]` At 1:100 a simulated year takes at most 2 seconds on CI hardware in a release build (Spike 4 and spike 10 measured about 0.2 s for the scale world).
 
+### Tests owed
+The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-WLD-01: the `World` in `econ-core` (roadmap M2)
+- AC-WLD-02: the `World` in `econ-core` (roadmap M2)
+- AC-WLD-03: the `World` in `econ-core` (roadmap M2)
+- AC-WLD-04: the `World` in `econ-core` (roadmap M2)
+- AC-WLD-05: the `World` in `econ-core` (roadmap M2)
+- AC-WLD-06: the `World` in `econ-core` (roadmap M2)
+- AC-WLD-07: the `World` in `econ-core` (roadmap M2)
+- AC-WLD-08: the `World` in `econ-core` (roadmap M2)
+- AC-WLD-09: the `World` in `econ-core` (roadmap M2)
+- AC-WLD-10: the `World` and a CI benchmark (roadmap M2)
+
 ## API sketch
 In `econ-core` (no I/O); loading the scenario's files is `econ-io`'s.
 
@@ -151,7 +164,7 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
 ```
 
 ## Open questions
-- [ ] **Who pays self-employment and informal income in M2?** The households spec keeps them at their starting amounts (scaled with consumption) but names no payer. Proposed: the domestic units that [firm units' undeclared sales](../economy/firm-units-undeclared-inventories.md) gives the households' income to, each its share, as a `deposits` payment firms → households. Alternative: the firms sector in proportion to value added.
-- [ ] **The placeholder law in code until M4.** The [scenario builder](scenario-builder.md) (locked) says a loader refuses a scenario with `law: null` "for a run". Proposed reading: the refusal is the game's; the M2 tests construct the `World` directly with `Law::placeholder_2021()`. Confirm, or the builder spec gets a sentence.
-- [ ] **Imports and exports in deposits.** In M2 the rest of the world pays and is paid in deposits at Romanian banks (its `deposits` balance moves), not through foreign assets and the exchange rate (M3). Accept as the placeholder?
-- [ ] **The quiet-baseline bands** of AC-WLD-07 (3 points for unemployment and inflation, 5 for the shares) and the time budget of AC-WLD-10.
+- [x] **Who pays self-employment and informal income in M2?** The households spec keeps them at their starting amounts (scaled with consumption) but names no payer. Proposed: the domestic units that [firm units' undeclared sales](../economy/firm-units-undeclared-inventories.md) gives the households' income to, each its share, as a `deposits` payment firms → households. Alternative: the firms sector in proportion to value added. **Decided (owner, 2026-10-14):** the domestic units that the firm-unit data gives the households' income to, each its share, as a deposits payment firms → households.
+- [x] **The placeholder law in code until M4.** The [scenario builder](scenario-builder.md) (locked) says a loader refuses a scenario with `law: null` "for a run". Proposed reading: the refusal is the game's; the M2 tests construct the `World` directly with `Law::placeholder_2021()`. Confirm, or the builder spec gets a sentence. **Decided (owner, 2026-10-14):** the M2 tests build the `World` with `Law::placeholder_2021()`; the builder's refusal of `law: null` is the game's.
+- [x] **Imports and exports in deposits.** In M2 the rest of the world pays and is paid in deposits at Romanian banks (its `deposits` balance moves), not through foreign assets and the exchange rate (M3). Accept as the placeholder? **Decided (owner, 2026-10-14):** accepted as the M2 placeholder.
+- [x] **The quiet-baseline bands** of AC-WLD-07 (3 points for unemployment and inflation, 5 for the shares) and the time budget of AC-WLD-10. **Decided (owner, 2026-10-14):** accepted as written.
