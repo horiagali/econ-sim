@@ -209,7 +209,7 @@ The first version of each mechanic is the simplest rule that is in its spec, not
 
 ### M3 — Money, state and the rest of the world
 Closes the loop: after this, every sector of the [economy overview](02-design/economy/README.md) is live.
-- [ ] **Taxation, the rest:** personal income tax with brackets and allowance, social contributions, corporate profit tax, capital income tax, excise, property tax, wealth tax.
+- [ ] **Taxation, the rest:** personal income tax with brackets and allowance, social contributions, corporate profit tax, capital income tax, excise, property tax, wealth tax. **2026-10-14:** first version drafted in [`economy/taxation`](02-design/economy/taxation.md) (the 2021 rates, deduction, industry overrides, pensions, corporate and micro taxes; AC-TAX-01 to 13; API sketch). Waiting for the owner: lock.
 - [ ] **Social transfers, core set:** state pension, unemployment benefit, child benefit, minimum income.
 - [ ] **Fiscal policy:** budget lines, public wages and headcount, deficit, bond issuance and the bond market, debt service.
 - [ ] **Money and banking:** aggregate bank; loans to households and firms, deposit and loan rates, capital and reserve constraints, defaults.
