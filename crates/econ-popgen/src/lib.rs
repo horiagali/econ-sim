@@ -15,6 +15,9 @@ mod attributes;
 mod employers;
 mod fit;
 mod housing;
+// Stage K: its API skeleton, until the implementation adds the feature to `default`.
+#[cfg(feature = "inactivity_enrolment")]
+mod inactivity;
 mod incomes;
 mod jobs;
 mod pensions;
@@ -25,6 +28,11 @@ mod wealth;
 pub use employers::{
     EmployerError, EmployerParams, FirmUnit, FirmUnits, NO_EMPLOYER, NO_INDUSTRY, PersonEmployers,
     UnitSize, assign_employers,
+};
+#[cfg(feature = "inactivity_enrolment")]
+pub use inactivity::{
+    ENROLMENT_LEVELS, Enrolled, INACTIVE_KINDS, InactiveKind, InactivityEnrolmentMargins,
+    InactivityError, InactivityParams, PersonInactivityEnrolment, assign_inactivity_enrolment,
 };
 pub use incomes::{
     IncomeError, IncomeMargins, IncomeParams, InformalPropensity, OtherIncomes,

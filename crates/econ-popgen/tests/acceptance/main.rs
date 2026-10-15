@@ -21,7 +21,8 @@ mod jobs;
     feature = "pensions",
     feature = "wealth",
     feature = "incomes",
-    feature = "employers"
+    feature = "employers",
+    feature = "inactivity_enrolment"
 ))]
 mod support;
 
@@ -39,10 +40,17 @@ mod pensions;
     feature = "pensions",
     feature = "wealth",
     feature = "incomes",
-    feature = "employers"
+    feature = "employers",
+    feature = "inactivity_enrolment"
 ))]
 mod support_fj;
 #[cfg(feature = "wages")]
 mod wages;
 #[cfg(feature = "wealth")]
 mod wealth;
+
+// Stage K, likewise: off until the stage is implemented.
+#[cfg(feature = "inactivity_enrolment")]
+mod inactivity_enrolment;
+#[cfg(feature = "inactivity_enrolment")]
+mod support_k;
