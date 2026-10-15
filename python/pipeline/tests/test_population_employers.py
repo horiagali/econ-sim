@@ -70,7 +70,7 @@ class TestEmployerReference(unittest.TestCase):
         ja = ref.assign_jobs(pop, m["counties"], ea, jobs, attrs, 42)
         wage = ref.assign_wages(pop, load("earnings2021_ro.json"), attrs, ja, 42)
         e = ref.assign_employers(pop, firms, ja, wage, 42)
-        self.assertEqual(f"{ref.employers_hash(e):016x}", "40dc87a87a0e31af")
+        self.assertEqual(f"{ref.employers_hash(e):016x}", "e94a4f492b24c1cb")
         self.assertEqual(e, ref.assign_employers(pop, firms, ja, wage, 42))
         self.assertNotEqual(e, ref.assign_employers(pop, firms, ja, wage, 7))
         group_of = {k: ind["industry_group"] for k, ind in enumerate(firms["industries"])}

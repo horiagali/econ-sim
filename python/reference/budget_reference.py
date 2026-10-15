@@ -41,21 +41,17 @@ PUBLIC_UNITS = ["defence_services.public", "education_services.public", "health_
 # Tolerances of the reconciliations, as relative differences (spec, "Acceptance tests").
 TOL = {
     "firm_units_public_wages": 0.02,      # AC-BUD-05
-    "firm_units_public_persons": 0.25,    # AC-BUD-06
+    "firm_units_public_persons": 0.02,    # AC-BUD-06 (the public units are built from the budget's posts)
     "earnings_public_group": 0.10,        # AC-BUD-07
     "pensions": 0.10,                     # AC-BUD-08
     "io_government_consumption": 0.01,    # AC-BUD-08
     "population_public_employees": 0.20,  # AC-BUD-09
     "population_public_wages": 0.10,      # AC-BUD-09
-    "firm_units_by_unit": 0.25,           # reported only (known gap)
+    "firm_units_by_unit": 0.02,           # each public unit against its posts and wages
 }
-KNOWN_GAPS = {
-    "firm_units_by_unit": "The firm units' public units take persons from a guessed 12.5 persons per million lei of "
-                          "wages and a guessed public share of education and health, so their split over defence, "
-                          "education, health, administration and social care differs from the budget's (health too "
-                          "big, social care far too small). Fix proposed in the spec: build the public units from "
-                          "the budget's posts and wages.",
-}
+# Reconciliations expected to fail for now, with the reason; reported, they do not fail the check. None since the
+# public units were built from the budget's posts and wages (2026-10-15).
+KNOWN_GAPS: dict[str, str] = {}
 
 
 def load(fixtures: Path = FIXTURES) -> dict:

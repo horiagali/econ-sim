@@ -4,7 +4,7 @@ title: The budget of Romania in 2021 — spending by function and type, public p
 status: draft
 owner: horia
 depends_on: [research/overview, research/law-in-force-romania-2021]
-updated: 2026-10-13
+updated: 2026-10-15
 ---
 
 # The budget of Romania in 2021 — spending by function and type, public posts and the public wage bill
@@ -127,15 +127,15 @@ Resulting wages per post, a month (D11 / posts / 12): education 6,990 lei; healt
 ### How the budget agrees with the rest of the starting state
 | Comparison | Budget | Other part | Ratio | Reading |
 |---|---|---|---|---|
-| Public wages | D11 120.02 bn | public firm units 120.09 bn | 1.001 | agree |
-| Public employment | 1,262,318 posts | public firm units 1,501,170 persons | 1.189 | the firm units guess 12.5 persons per million lei of wages; too many |
+| Public wages | D11 120.02 bn | public firm units 120.02 bn | 1.000 | equal: the public units take their wages from the budget (2026-10-15; 120.09 bn before) |
+| Public employment | 1,262,318 posts | public firm units 1,262,318 persons | 1.000 | equal: the public units take their persons from the posts (2026-10-15; 1,501,170 before, from a guessed 12.5 persons per million lei of wages) |
 | Public wages | D11 120.02 bn | wages of the industry group "public, education, health" (all employers, 2021-Q4 × 4) 114.98 bn | 0.958 | close: the group includes private schools and clinics (+) and excludes public employees in culture, research and agencies (−) |
 | Pensions | old age + survivors, cash, 112.34 bn | pension stage's bill, 104.66 bn | 1.073 | close: COFOG old age includes special pensions and some care allowances; the pension stage uses ESSPROS pensions |
 | Government consumption | P3 211.18 bn | input-output table, government final use 211.18 bn | 1.000 | agree |
-| Public employees | 1,262,318 posts | starting population, 1:1000: 1,064,443; 1:100: 1,063,377 | 0.843 | the census counts fewer people working in public administration, education and health than the Ministry counts posts |
-| Public wages | D11 120.02 bn | starting population, 1:1000: 110.49 bn; 1:100: 110.53 bn | 0.921 | follows from the employees |
+| Public employees | 1,262,318 posts | starting population, 1:1000: 1,049,083; 1:100: 1,047,489 | 0.830 | the census counts fewer people working in public administration, education and health than the Ministry counts posts |
+| Public wages | D11 120.02 bn | starting population, 1:1000: 109.10 bn; 1:100: 109.28 bn | 0.910 | follows from the employees |
 
-By public unit the disagreement is large (firm file against budget): health 494,816 persons against 243,421 posts; social care 3,687 against 130,000; administration pays 45.92 bn against 56.28 bn. In the starting population the five public units pay very different wages per head (defence about 14,900 lei a month, administration about 6,300) because Stage J ranks units by pay per person and every public unit has the same pay per person in the firm file (the 12.5 guess), so their order is their order in the file. Both disappear if the public units are built from the budget's posts and wages.
+Until 2026-10-15 the disagreement by public unit was large (firm file against budget): health 494,816 persons against 243,421 posts; social care 3,687 against 130,000; administration paid 45.92 bn against 56.28 bn; and in the starting population the five public units paid very different wages per head (defence about 14,900 lei a month, administration about 6,300) because every public unit had the same pay per person in the firm file (the 12.5 guess). Since the public units are built from the budget's posts and wages, each has about 83% of its posts in the starting population and Stage J ranks them by the budget's wages per post. What remains: COFOG functions are not NACE industries, so social care's budget wages (6.39 bn) exceed the input-output table's whole compensation of that industry (0.41 bn) and the public unit's output (1.92 bn).
 
 ## Numbers worth keeping
 | Quantity | Value | Source | Confidence |
@@ -154,7 +154,7 @@ By public unit the disagreement is large (firm file against budget): health 494,
 ## Implications for the game
 - **[Budget 2021](../../02-design/economy/budget-2021.md):** the starting budget is a table of 13 lines (one per ministry line) by 12 economic types that adds up to the published totals exactly; the fixture `python/pipeline/fixtures/budget2021_ro.json` holds it.
 - **[Fiscal policy](../../02-design/economy/fiscal-policy.md):** the ministry budgets, public wages and headcount levers start from this table; the deficit to finance at the start is about 7% of GDP.
-- **[Industries](../../02-design/economy/industries.md) (the firm units):** the public units' persons and wages should come from the budget (posts and D11 by unit) instead of the guessed 12.5 persons per million lei; see the spec's open questions.
+- **[Industries](../../02-design/economy/industries.md) (the firm units):** the public units' persons and wages come from the budget (posts and D11 by unit) since 2026-10-15, instead of the guessed 12.5 persons per million lei; their output and value added still follow the input-output table (see the budget spec's open questions).
 - **[Social transfers](../../02-design/economy/social-transfers.md):** the programme totals are the targets for the benefits the mechanics will pay; family benefits (19.3 bn) and disability benefits (10.6 bn) are much larger than unemployment benefit (0.6 bn).
 - **[EU membership](../../02-design/economy/eu-membership.md):** the EU budget contribution is 12.1 bn lei a year; the deficit starts above the 3% reference value (Romania was in the excessive deficit procedure since 2020).
 

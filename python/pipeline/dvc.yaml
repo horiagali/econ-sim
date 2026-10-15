@@ -50,7 +50,7 @@ stages:
     outs: [data/derived/balance_sheets2021q4_ro.json]
   normalise_firms:
     cmd: python normalise_firms.py
-    deps: [normalise_firms.py, normalise_census.py, jsonstat.py, data/raw/ro_enterprises_by_size_2021.json, data/raw/ro_foreign_controlled_2021.json, data/derived/io_table2021_ro.json]
+    deps: [normalise_firms.py, normalise_census.py, jsonstat.py, data/raw/ro_enterprises_by_size_2021.json, data/raw/ro_foreign_controlled_2021.json, data/derived/io_table2021_ro.json, data/derived/budget2021_ro.json]
     outs: [data/derived/firm_units2021_ro.json]
   normalise_sector_details:
     cmd: python normalise_sector_details.py
