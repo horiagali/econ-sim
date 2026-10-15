@@ -28,6 +28,8 @@ wealth = []
 incomes = []
 # Stage J: industry and employer (spec society/population-employers).
 employers = []
+# Stage K: kinds of inactivity and enrolment (spec society/population-inactivity-enrolment).
+inactivity_enrolment = []
 
 [dependencies]
 econ-rng.workspace = true
