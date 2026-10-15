@@ -92,12 +92,15 @@ def stage_hashes(s: dict) -> dict:
 
 
 def report(d: dict, s: dict, sample_scale: int) -> dict:
-    """Checks across the parts. Each has `ok`; amounts are billion lei unless said otherwise."""
+    """Checks across the parts. Each has `ok`. Amounts are whole lei (rounded half away from zero), so
+    the Rust builder's report can be compared with this one to the leu (spec game/scenario-builder,
+    AC-SCB-09); ratios and shares are not rounded unless said otherwise."""
     pop = s["pop"]
     hh_w, hh_of = pop["hh_weight"], pop["household_id"]
     pw = [hh_w[h] for h in hh_of]
     n, n_hh = len(pw), len(hh_w)
-    bn = lambda bani: round(bani / BANI / 1e9, 2)  # noqa: E731
+    def lei(bani: int) -> int:
+        return (abs(bani) + BANI // 2) // BANI * (1 if bani >= 0 else -1)
     checks: dict[str, dict] = {}
 
     def check(name: str, ok: bool, **facts) -> None:
@@ -115,12 +118,12 @@ def report(d: dict, s: dict, sample_scale: int) -> dict:
     informal = sum(w * v for w, v in zip(pw, inc["informal_income"]))
     in_kind = sum(hh_w[h] * inc["hh_subsistence_income"][h] for h in range(n_hh))
     want_wages = sum(d["earnings"]["wage_bill"]) * BANI
-    check("wage_bill", abs(wages - want_wages) <= 1e-4 * want_wages, got=bn(wages), want=bn(want_wages))
+    check("wage_bill", abs(wages - want_wages) <= 1e-4 * want_wages, got=lei(wages), want=lei(want_wages))
     check("pension_bill", abs(pensions - d["pensions"]["pension_bill"] * BANI) <= 1e-4 * pensions,
-          got=bn(pensions), want=bn(d["pensions"]["pension_bill"] * BANI))
+          got=lei(pensions), want=lei(d["pensions"]["pension_bill"] * BANI))
     mixed = self_emp + informal + in_kind
     check("mixed_income", abs(mixed - d["incomes"]["mixed_income"] * BANI) <= 1e-4 * mixed,
-          got=bn(mixed), want=bn(d["incomes"]["mixed_income"] * BANI))
+          got=lei(mixed), want=lei(d["incomes"]["mixed_income"] * BANI))
     declared_wages = sum(w * v for w, v in zip(pw, inc["wage_declared"]))
     income_month = wages + pensions + mixed
 
@@ -134,7 +137,7 @@ def report(d: dict, s: dict, sample_scale: int) -> dict:
     for g, name in enumerate(io["industry_groups"]):
         paid = sum(w * v for w, v, st, gr in zip(pw, s["wage"], s["jobs"]["employment_status"], s["jobs"]["industry_group"])
                    if st == ref.KIND_EMPLOYEE and gr == g)
-        ratios.append(round(paid * 12 / BANI / comp[g], 3))
+        ratios.append(paid * 12 / BANI / comp[g])
     check("wages_against_input_output_table", all(0.85 <= r <= 1.25 for r in ratios),
           year_of_population_wages_over_table_compensation=dict(zip(io["industry_groups"], ratios)),
           note="1.0 would mean a month of 2021-Q4 times twelve equals the year 2021 including employers' contributions")
@@ -146,15 +149,15 @@ def report(d: dict, s: dict, sample_scale: int) -> dict:
     loans = total("hh_mortgage") + total("hh_consumer_debt")
     ok = all(abs(total(c) - want * BANI) <= 1e-4 * want * BANI for c, want in pairs.items())
     ok = ok and abs(loans - sheets["liabilities"]["loans"]["households"] * BANI) <= 1e-4 * loans
-    check("household_balance_sheet", ok, cash=bn(total("hh_cash")), deposits=bn(total("hh_deposits")), loans=bn(loans),
-          dwellings=bn(total("hh_dwelling_value")))
+    check("household_balance_sheet", ok, cash=lei(total("hh_cash")), deposits=lei(total("hh_deposits")), loans=lei(loans),
+          dwellings=lei(total("hh_dwelling_value")))
 
     # 5. Deposits: what households and firms hold against what banks owe (the rest is other sectors').
     held = sheets["assets"]["deposits"]["households"] + sheets["assets"]["deposits"]["firms"]
     owed = sheets["liabilities"]["deposits"]["banks"]
     firm_deposits = sum(u["deposits"] for u in d["firm_sheets"]["units"])
     check("deposits", firm_deposits == sheets["assets"]["deposits"]["firms"] and held <= owed,
-          households_and_firms=round(held / 1e9, 1), owed_by_banks=round(owed / 1e9, 1))
+          households_and_firms=held, owed_by_banks=owed)
 
     # 6. Every employed person has an employer of their industry group; units' employees against the firm table.
     emp, units = s["employers"], d["firms"]["units"]
@@ -170,13 +173,13 @@ def report(d: dict, s: dict, sample_scale: int) -> dict:
     # 7. Firm units against the input-output table.
     check("firm_units_against_input_output_table",
           abs(d["firms"]["totals"]["output"] - io["totals"]["output"]) <= 1e-4 * io["totals"]["output"],
-          output=round(d["firms"]["totals"]["output"] / 1e9, 1), table=round(io["totals"]["output"] / 1e9, 1))
+          output=d["firms"]["totals"]["output"], table=io["totals"]["output"])
 
     # 8. What households earn in a year against what they consume in the table (before taxes and saving).
     consumption = io["totals"]["household_consumption"]
     ratio = income_month * 12 / BANI / consumption
-    check("income_against_consumption", 0.8 <= ratio <= 1.4, income_a_year=bn(income_month * 12),
-          consumption_in_table=round(consumption / 1e9, 1), ratio=round(ratio, 3),
+    check("income_against_consumption", 0.8 <= ratio <= 1.4, income_a_year=lei(income_month * 12),
+          consumption_in_table=consumption, ratio=ratio,
           note="gross money and in-kind income of a month of 2021-Q4, times twelve, over household consumption of 2021")
 
     # 9. The distribution of household income by fifth of households, against the survey's shape (2020, disposable).
@@ -195,7 +198,7 @@ def report(d: dict, s: dict, sample_scale: int) -> dict:
           note="gross income here, disposable income in the survey: taxes and benefits are not applied yet")
 
     # 10. The declared economy.
-    check("declared_wages", 0.8 <= declared_wages / wages <= 0.97, declared_share=round(declared_wages / wages, 4))
+    check("declared_wages", 0.8 <= declared_wages / wages <= 0.97, declared_share=declared_wages / wages)
 
     # 11 to 14. The opening ledger (spec economy/opening-balance-sheet) and the tables against it.
     opening = obs.reconcile(obs.opening_balances(sheets), {"cash": total("hh_cash"), "deposits": total("hh_deposits")})
@@ -204,12 +207,12 @@ def report(d: dict, s: dict, sample_scale: int) -> dict:
     check("ledger_invariants", all(v == 0 for v in rows.values()), rows_not_zero={k: v for k, v in rows.items() if v})
     check("households_against_ledger",
           total("hh_cash") == b["cash"]["households"] and total("hh_deposits") == b["deposits"]["households"],
-          cash=bn(b["cash"]["households"]), deposits=bn(b["deposits"]["households"]))
+          cash=lei(b["cash"]["households"]), deposits=lei(b["deposits"]["households"]))
     firm_cash = sum(u["currency"] for u in d["firm_sheets"]["units"]) * BANI
     check("firms_against_ledger",
           firm_cash == b["cash"]["firms"] and firm_deposits * BANI == b["deposits"]["firms"],
-          cash=bn(b["cash"]["firms"]), deposits=bn(b["deposits"]["firms"]))
-    check("left_out", True, **{k: {s: bn(v) for s, v in row.items()} for k, row in opening["left_out"].items()})
+          cash=lei(b["cash"]["firms"]), deposits=lei(b["deposits"]["firms"]))
+    check("left_out", True, **{k: {s: lei(v) for s, v in row.items()} for k, row in opening["left_out"].items()})
     # 15. Undeclared sales and inventories of the firm units: the committed columns are the reference's, the
     #     totals are the anchor's and the measured inventories (spec economy/firm-units-undeclared-inventories).
     extras, cols = d["firm_extras"], s["firm_extras"]
@@ -220,8 +223,8 @@ def report(d: dict, s: dict, sample_scale: int) -> dict:
     check("firm_undeclared_and_inventories",
           committed and fit["undeclared_value_added_total"] == fit["undeclared_value_added_target"]
           and fit["inventories_total"] == fit["inventories_target"],
-          undeclared_value_added=round(fit["undeclared_value_added_total"] / 1e9, 1),
-          undeclared_sales=fit["billion_lei"]["undeclared_sales"], inventories=round(fit["inventories_total"] / 1e9, 1),
+          undeclared_value_added=fit["undeclared_value_added_total"],
+          undeclared_sales=sum(cols["undeclared_sales"]), inventories=fit["inventories_total"],
           vat_gap_proxy=fit["vat_gap_proxy"])
 
     # 16. The undeclared wages of each class of firm unit against those of the population (Stages I and J).
@@ -234,8 +237,8 @@ def report(d: dict, s: dict, sample_scale: int) -> dict:
         checks[name]["known_gap"] = reason
     return {"sample_scale": sample_scale, "opening": b, "ok": all(c["ok"] for name, c in checks.items() if name not in KNOWN_GAPS),
             "checks": checks,
-            "household_income_a_month": {"wages": bn(wages), "pensions": bn(pensions), "self_employment": bn(self_emp),
-                                         "informal": bn(informal), "grown_at_home": bn(in_kind)}}
+            "household_income_a_month": {"wages": lei(wages), "pensions": lei(pensions), "self_employment": lei(self_emp),
+                                         "informal": lei(informal), "grown_at_home": lei(in_kind)}}
 
 
 def main() -> int:

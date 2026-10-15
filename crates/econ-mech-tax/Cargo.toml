@@ -1,6 +1,6 @@
 [package]
 name = "econ-mech-tax"
-description = "Taxation mechanics (specs: economy/taxation, economy/vat). So far: VAT."
+description = "Taxation mechanics (specs: economy/taxation, economy/vat). VAT and the taxes on income."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -16,6 +16,9 @@ econ-ledger.workspace = true
 # before the code (ADR-0014); on by default now that the code exists.
 default = ["reduced-2"]
 reduced-2 = []
+# Gates the acceptance tests of the taxes on income (AC-TAX-01..07), written
+# before the code (ADR-0014); the implementation adds it to `default`.
+taxation = []
 
 [[test]]
 name = "acceptance"

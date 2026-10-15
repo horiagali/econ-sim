@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [society/population-groups, economy/households, economy/production, economy/accounting, economy/vat, economy/labor-market, society/population-incomes, economy/firm-units-undeclared-inventories, economy/budget-2021, adr/0017-time-base]
 research: [research/law-in-force-romania-2021]
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 # Taxation
@@ -113,15 +113,8 @@ IDs are stable (added 2026-10-14). Tests go in `crates/econ-mech-tax/tests/accep
 
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-TAX-01: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
-- AC-TAX-02: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
-- AC-TAX-03: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
-- AC-TAX-04: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
-- AC-TAX-05: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
-- AC-TAX-06: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
-- AC-TAX-07: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
-- AC-TAX-08: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
-- AC-TAX-09: the taxation code in `econ-mech-tax` and its pay-day phase (roadmap M3)
+- AC-TAX-08: the World's pay-day phase calling `econ-mech-tax`'s income taxes and posting through the ledger (roadmap M3)
+- AC-TAX-09: the World's pay-day phase calling `econ-mech-tax`'s income taxes and posting through the ledger (roadmap M3)
 - AC-TAX-10: roadmap M4
 - AC-TAX-11: roadmap M4
 - AC-TAX-12: roadmap M15

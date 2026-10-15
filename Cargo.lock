@@ -291,6 +291,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "econ-mech-transfers"
+version = "0.1.0"
+dependencies = [
+ "econ-types",
+]
+
+[[package]]
 name = "econ-num"
 version = "0.1.0"
 dependencies = [
@@ -322,6 +329,19 @@ dependencies = [
  "econ-num",
  "econ-rng",
  "proptest",
+]
+
+[[package]]
+name = "econ-scenario"
+version = "0.1.0"
+dependencies = [
+ "arrow-array",
+ "arrow-ipc",
+ "econ-io",
+ "econ-ledger",
+ "econ-popgen",
+ "econ-types",
+ "serde_json",
 ]
 
 [[package]]

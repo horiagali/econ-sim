@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [adr/0018-scenario-and-commands, economy/opening-balance-sheet, economy/accounting, society/population-generator, society/population-employers, adr/0016-firm-representation, adr/0012-data-pipeline-and-licensing, adr/0006-determinism-contract, adr/0003-people-representation]
 research: [research/opening-balance-sheet-romania]
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 # Scenario Builder
@@ -131,19 +131,6 @@ IDs are stable. Tests in `crates/econ-scenario/tests/acceptance/` (protected), w
 - [ ] **AC-SCB-08** `[unit]` If the opening balances are corrupted so that a row does not sum to zero (a test hook), the build exits 3 and writes nothing. A malformed input file gives a named error and writes nothing.
 - [ ] **AC-SCB-09** `[diff]` The report's figures equal those of the reference `python/pipeline/build_scenario.py` (extended with the four new checks) at 1:1000: the same pass or fail for every check, and amounts equal to the leu.
 - [ ] **AC-SCB-10** `[unit]` `scenario.json` lists the SHA-256 of every input file and of every file it wrote, and the hashes match the files.
-
-### Tests owed
-The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-SCB-01: the crate `econ-scenario` and `econ-cli build-scenario`
-- AC-SCB-02: the crate `econ-scenario` and `econ-cli build-scenario`
-- AC-SCB-03: the crate `econ-scenario`
-- AC-SCB-04: the crate `econ-scenario` and the opening balances
-- AC-SCB-05: the firm-unit table
-- AC-SCB-06: the crate `econ-scenario`
-- AC-SCB-07: the crate `econ-scenario`
-- AC-SCB-08: the crate `econ-scenario`
-- AC-SCB-09: the crate `econ-scenario` and the reference's report as JSON
-- AC-SCB-10: the crate `econ-scenario`
 
 ## API sketch
 A new crate `econ-scenario` (library; `econ-cli` calls it). It depends on `econ-popgen`, `econ-ledger` and `econ-io`.

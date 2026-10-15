@@ -1,0 +1,38 @@
+[package]
+name = "econ-scenario"
+description = "Scenario builder: the starting world from the pipeline's outputs, with the opening balance sheet and a consistency report (specs: game/scenario-builder, economy/opening-balance-sheet)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+econ-types.workspace = true
+econ-ledger.workspace = true
+econ-popgen.workspace = true
+econ-io.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+arrow-array.workspace = true
+arrow-ipc.workspace = true
+
+[features]
+# Gate the acceptance tests, written before the code (ADR-0014); the
+# implementation adds them to `default`. Both need the ledger to grow the
+# sectors and instruments of the accounting matrix (pension funds, other
+# financial firms; government deposits at the central bank, reserves, central
+# bank advances, equity, pension and insurance claims, foreign assets), in
+# matrix order.
+# `opening`: the opening balance sheet (AC-OBS-*).
+opening = []
+# `builder`: the scenario builder and `econ-cli build-scenario` (AC-SCB-*).
+builder = ["opening"]
+
+[[test]]
+name = "acceptance"
+path = "tests/acceptance/main.rs"
+
+[lints]
+workspace = true
