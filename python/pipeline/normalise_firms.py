@@ -15,11 +15,14 @@ ownership vector.
 Measured: enterprises, employment, value added and wages by size class and
 two-digit activity (structural business statistics 2021); value added under
 foreign control by activity (foreign affiliates statistics 2021); the
-industries' output, value added and wages (input-output table).
+industries' output, value added and wages (input-output table); each public
+unit's persons employed (occupied posts) and wage bill (D11), from the budget
+(`budget2021_ro.json`, spec `economy/budget-2021`).
 Guessed (`GUESSES`): the size structure of the industries the business
 statistics do not cover (agriculture, public administration, households as
-employers, membership organisations); the public share of education, health
-and care; that foreign control sits in the largest firms first. A catalogue
+employers, membership organisations); the public share of output and value
+added where the business statistics leave none; that foreign control sits in
+the largest firms first. A catalogue
 industry inherits the size structure of the table industry it is part of.
 Named firms are not here yet (roadmap M9): every unit is a cohort or public.
 """
@@ -67,7 +70,8 @@ GUESSES = {
     # public care homes), and the public share of output to use if the business statistics have no wages for
     # the market part. Where they have, the share is measured: what those wages leave of the industry's wage bill.
     "public_share": {"O84": 1.0, "P85": 0.85, "Q86": 0.70, "Q87_88": 0.70},
-    # Persons employed per million lei of wage bill in a public unit: one person per 80,000 lei a year.
+    # Persons employed per million lei of wage bill where the business statistics have none (the guessed
+    # structures above; public units only when no budget is given): one person per 80,000 lei a year.
     "public_persons_per_million_lei_of_wages": 12.5,
 }
 # The foreign-affiliates table is coarser than the input-output table: its code for each table industry.
@@ -142,8 +146,13 @@ def shares(values: list[float]) -> list[float]:
     return [v / total for v in values] if total > 0 else [1.0, 0.0, 0.0]
 
 
-def build(sizes_doc: dict, foreign_doc: dict, io: dict) -> dict:
-    """`io` is the input-output margin file (its industries, their output, value added, wages and the catalogue)."""
+def build(sizes_doc: dict, foreign_doc: dict, io: dict, public_units: list[dict] | None = None) -> dict:
+    """`io` is the input-output margin file (its industries, their output, value added, wages and the catalogue).
+
+    `public_units` is the budget's `public_units` (`budget2021_ro.json`; spec `economy/budget-2021`): when given,
+    each public unit's persons employed are its occupied posts and its wage bill is the budget's wages (D11), and
+    every public unit built must be one of them. Without it, a public unit's persons follow its wage bill at the
+    guessed persons per million lei. Output and value added follow the input-output table either way."""
     structure, foreign = size_structure(sizes_doc), foreign_shares(foreign_doc)
     pos = {ind["code"]: k for k, ind in enumerate(io["industries"])}
     units: dict[tuple, dict] = {}
@@ -214,6 +223,16 @@ def build(sizes_doc: dict, foreign_doc: dict, io: dict) -> dict:
                         persons=s * head_scale * persons[k] * w, output=s * market * output * va_share[k] * w,
                         value_added=s * market * value_added * va_share[k] * w, wages=s * market * wages * wage_share[k] * w)
 
+    if public_units is not None:
+        budget = {p["unit"]: p for p in public_units}
+        built = sorted(f"{k[0]}.public" for k in units if k[1] == "public")
+        if sorted(budget) != built:
+            raise CensusError(f"budget public units {sorted(budget)} are not the public units built {built}")
+        for (industry, size, _), u in units.items():
+            if size == "public":
+                p = budget[f"{industry}.public"]
+                u["persons"], u["wages"] = float(p["posts"]), float(p["wages"])
+
     out_units = []
     for (industry, size, controller), u in sorted(units.items()):
         if u["output"] < 1:
@@ -252,6 +271,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--raw", type=Path, default=RAW)
     ap.add_argument("--io", type=Path, default=HERE / "data" / "derived" / "io_table2021_ro.json")
+    ap.add_argument("--budget", type=Path, default=HERE / "data" / "derived" / "budget2021_ro.json")
     ap.add_argument("--out", type=Path, default=HERE / "data" / "derived" / "firm_units2021_ro.json")
     a = ap.parse_args()
     docs, prov = {}, []
@@ -262,10 +282,13 @@ def main() -> int:
         p = json.loads(side.read_text(encoding="utf-8")) if side.exists() else {"id": ds}
         p["sha256"] = hashlib.sha256(raw).hexdigest()
         prov.append(p)
-    m = build(docs[SIZES_ID], docs[FOREIGN_ID], json.loads(a.io.read_text(encoding="utf-8")))
+    budget = json.loads(a.budget.read_text(encoding="utf-8"))
+    m = build(docs[SIZES_ID], docs[FOREIGN_ID], json.loads(a.io.read_text(encoding="utf-8")), budget["public_units"])
     m["provenance"] = {"sources": prov, "guesses": GUESSES,
                        "note": "Eurostat structural business statistics and foreign affiliates statistics 2021, on the "
-                               "input-output table's totals; guesses listed under `guesses`"}
+                               "input-output table's totals; the public units' persons employed and wages are the "
+                               "budget's occupied posts and wages (D11), from budget2021_ro.json; guesses listed "
+                               "under `guesses`"}
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(m, separators=(",", ":")) + "\n", encoding="utf-8")
     print(f"OK - {m['totals']} -> {a.out}")

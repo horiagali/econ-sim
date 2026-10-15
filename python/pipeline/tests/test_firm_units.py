@@ -79,6 +79,18 @@ class TestNormaliseFirms(unittest.TestCase):
         self.assertEqual(m["size_structure_guessed_for"], ["C29"])
         self.assertAlmostEqual(m["totals"]["output"], 1_000_000_000, delta=10)
 
+    def test_public_units_take_posts_and_wages_from_the_budget(self):
+        io = dict(IO, industries=[{"code": "P85"}],
+                  catalogue=[{"industry": "P85", "parts": [{"id": "education_services", "share": UNIT}]}])
+        empty = jsonstat({"nace_r2": ["X"], "indic_sbs": ["ENT_NR"], "size_emp": ["TOTAL"]}, {})
+        budget = [{"unit": "education_services.public", "posts": 1234, "wages": 150_000_000}]
+        m = nf.build(empty, foreign_doc(), io, budget)
+        public = next(u for u in m["units"] if u["kind"] == "public")
+        self.assertEqual((public["persons_employed"], public["wages"]), (1234, 150_000_000))
+        self.assertAlmostEqual(m["totals"]["output"], 1_000_000_000, delta=10)    # output still the table's
+        with self.assertRaises(nf.CensusError):
+            nf.build(empty, foreign_doc(), io, [dict(budget[0], unit="health_services.public")])
+
     def test_committed_fixture_covers_the_catalogue_and_adds_up_to_the_input_output_table(self):
         m = json.loads((F / "firm_units2021_ro.json").read_text(encoding="utf-8"))
         io = json.loads((F / "io_table2021_ro.json").read_text(encoding="utf-8"))
@@ -96,6 +108,10 @@ class TestNormaliseFirms(unittest.TestCase):
         public = {u["industry"] for u in m["units"] if u["kind"] == "public"}
         self.assertEqual(public, {"public_administration", "defence_services", "education_services",
                                   "health_services", "social_care"})
+        budget = json.loads((F / "budget2021_ro.json").read_text(encoding="utf-8"))
+        for p in budget["public_units"]:
+            u = next(u for u in m["units"] if u["id"] == p["unit"])
+            self.assertEqual((u["persons_employed"], u["wages"]), (p["posts"], p["wages"]), p["unit"])
         by = m["totals"]["value_added_by_controller"]
         self.assertTrue(0.2 < by["foreign"] / sum(by.values()) < 0.45)     # foreign-controlled firms: about a third
         self.assertTrue(500_000 < m["totals"]["firms"] < 1_500_000)
