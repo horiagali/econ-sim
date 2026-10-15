@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [society/population-groups, economy/fiscal-policy, economy/households, economy/taxation, economy/labor-market, society/population-pensions, economy/budget-2021, game/world-loop, adr/0017-time-base]
 research: [research/law-in-force-romania-2021]
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 # Social Transfers — Pensions, Benefits, Student Finance, Charity
@@ -88,14 +88,10 @@ IDs are stable (added 2026-10-14). Tests go in a new crate `crates/econ-mech-tra
 
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-ST-01: the crate `econ-mech-transfers` and its pay-day phase (roadmap M3)
-- AC-ST-02: the crate `econ-mech-transfers` and its pay-day phase (roadmap M3)
-- AC-ST-03: the crate `econ-mech-transfers` and its pay-day phase (roadmap M3)
-- AC-ST-04: the crate `econ-mech-transfers` and its pay-day phase (roadmap M3)
-- AC-ST-05: the crate `econ-mech-transfers` and its pay-day phase (roadmap M3)
-- AC-ST-06: the crate `econ-mech-transfers` and its pay-day phase (roadmap M3)
-- AC-ST-07: the crate `econ-mech-transfers` and its pay-day phase (roadmap M3)
-- AC-ST-08: the crate `econ-mech-transfers` and its pay-day phase (roadmap M3)
+- AC-ST-05: the World's pay-day phase calling `econ-mech-transfers` and posting through the ledger (roadmap M3)
+- AC-ST-06: the World's pay-day phase calling `econ-mech-transfers` and posting through the ledger (roadmap M3)
+- AC-ST-07: the World's pay-day phase calling `econ-mech-transfers` and posting through the ledger (roadmap M3)
+- AC-ST-08: the World's pay-day phase calling `econ-mech-transfers` and posting through the ledger (roadmap M3)
 - AC-ST-09: roadmap M6
 - AC-ST-10: roadmap M14
 - AC-ST-11: roadmap M14

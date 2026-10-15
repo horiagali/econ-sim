@@ -6,3 +6,8 @@ mod vat;
 // its implementation adds to `default`.
 #[cfg(feature = "reduced-2")]
 mod vat_reduced_2;
+
+// The taxes on income and wages (AC-TAX-01..07): compiled with the crate
+// feature `taxation`, which their implementation adds to `default`.
+#[cfg(feature = "taxation")]
+mod taxation;

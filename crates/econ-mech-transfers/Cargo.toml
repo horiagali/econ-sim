@@ -1,0 +1,24 @@
+[package]
+name = "econ-mech-transfers"
+description = "Social transfers: state pension, unemployment benefit, child allowance, minimum income (spec: economy/social-transfers)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+econ-types.workspace = true
+
+[features]
+# Gates the acceptance tests: they were written before the code (ADR-0014), and
+# the implementation adds `mechanic` to `default`.
+default = []
+mechanic = []
+
+[[test]]
+name = "acceptance"
+path = "tests/acceptance/main.rs"
+
+[lints]
+workspace = true
