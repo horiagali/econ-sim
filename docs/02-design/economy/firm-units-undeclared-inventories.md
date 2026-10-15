@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [adr/0016-firm-representation, economy/industries, economy/informal-economy, economy/production, society/population-incomes, society/population-employers, adr/0006-determinism-contract, adr/0014-agent-workflow-guardrails]
 research: [research/firm-inventories-undeclared-sales-romania, research/informal-economy-romania]
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 # Firm Units — Undeclared Sales and Opening Inventories
@@ -164,7 +164,7 @@ IDs are stable. Tests go in the crate of the API sketch, in `tests/acceptance/` 
 - [ ] **AC-FUI-09** `[diff]` The Rust function and the Python reference produce identical columns on the fixtures and on three changed margin files: the anchor at 20%, every tilt at 1, `max_undeclared_share` at 75%.
 - [ ] **AC-FUI-10** `[unit]` Empty units, industries that differ from the firm file's, a unit of an unlisted industry, a tilt table of the wrong length and a share above one are each rejected with a named error and produce no output.
 
-Hashes of the reference, for the test writer to record as golden values:
+Hashes of the reference, recorded as golden values in `tests/golden/firm_undeclared_inventories.hashes` (tests in `crates/econ-scenario/tests/acceptance/firm_units.rs`, feature `firm-opening`):
 
 | Margins | Hash |
 |---|---|
@@ -172,19 +172,6 @@ Hashes of the reference, for the test writer to record as golden values:
 | anchor at 20% | `78e6ebe5b0cd8a22` |
 | every tilt at 1 | `e96cf180693cc915` |
 | `max_undeclared_share` at 75% | `23e1ac96da27b679` |
-
-### Tests owed
-The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-FUI-01: the Rust function in `econ-scenario`
-- AC-FUI-02: the Rust function in `econ-scenario`
-- AC-FUI-03: the Rust function in `econ-scenario`
-- AC-FUI-04: the Rust function in `econ-scenario`
-- AC-FUI-05: the Rust function in `econ-scenario`
-- AC-FUI-06: the Rust function in `econ-scenario`
-- AC-FUI-07: the Rust function in `econ-scenario`
-- AC-FUI-08: the Rust function in `econ-scenario`
-- AC-FUI-09: the Rust function in `econ-scenario`
-- AC-FUI-10: the Rust function in `econ-scenario`
 
 ## API sketch
 For the test writer and the implementer; names may change before lock, shapes should not. Home (owner's decision of 2026-10-14): a module `firm_opening` of the scenario-builder crate `econ-scenario` ([scenario builder](../game/scenario-builder.md), ADR-0018; no I/O). It takes the firm units as `FirmUnits` of [Stage J](../society/population-employers.md), extended with what it needs; AC-FUI-04 builds Stages I and J through `econ-popgen`, on which the scenario builder depends.

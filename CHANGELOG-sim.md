@@ -3,6 +3,10 @@
 Every change to a golden hash or snapshot needs an entry here with the reason
 (ADR-0010). Newest first.
 
+## 2026-10-15 — Firm units' undeclared sales and inventories: first golden hashes
+- Added `tests/golden/firm_undeclared_inventories.hashes` (AC-FUI-08, AC-FUI-09): the hash of the seven columns on the fixtures (`fc869fc9686d1dc1`) and on the three changed margin files of AC-FUI-09 (anchor at 20% `78e6ebe5b0cd8a22`, every tilt at 1 `e96cf180693cc915`, `max_undeclared_share` at 75% `23e1ac96da27b679`). Reason: initial baseline. The values are those of spec `economy/firm-units-undeclared-inventories`, reproduced on the day with `python/reference/firm_reference.py`; the Rust function does not exist yet.
+- **Unchanged:** every other golden.
+
 ## 2026-10-15 — Stage J: public units rebuilt from the budget
 - **Re-golden (owner approved, 2026-10-14):** `normalise_firms.py` now takes each of the five public firm units' persons employed from the budget's occupied posts and its wage bill from the budget's wages (D11) (`budget2021_ro.json`, `public_units`; spec `economy/budget-2021`, first open question), instead of 12.5 persons per million lei and the guessed public shares. Public persons employed go from 1,501,170 to 1,262,318 (health 494,816 → 243,421, social care 3,687 → 130,000), and Stage J's pay order of public units follows the budget's wages per post, so who works in which unit changes. Output and value added of every unit, and the firm balance sheets and undeclared sales and inventories fixtures, are unchanged.
   - `tests/golden/popgen_ro_census2021_employers.hashes` (AC-POPE-06), reproduced with `python/reference/popgen_reference.py` (seed 42): 1:1000 `40dc87a87a0e31af` → `e94a4f492b24c1cb`; 1:200 `54fe641b38dca16e` → `9c1eed63880a975c`; 1:100 `37541a9150c60900` → `4d19d7a3f5d1bafc`; 1:10 `07df05437989c962` → `f7f1d4e7c2c946ce`.
