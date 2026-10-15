@@ -3,6 +3,10 @@
 Every change to a golden hash or snapshot needs an entry here with the reason
 (ADR-0010). Newest first.
 
+## 2026-10-15 — Population stage K: first golden hashes
+- Added `tests/golden/popgen_ro_census2021_inactivity_enrolment.hashes` (AC-POPK-07): the inactivity and enrolment hash of the Census 2021 fixture population at 1:1000, 1:200, 1:100 and 1:10 (seed 42, default parameters, stages A to C run). Reason: initial baseline for the stage. The values are those of the spec, reproduced on the day with the Python reference (`python/reference/popgen_reference.py`); the Rust stage does not exist yet. The stage reads only stages A to C and its own margin file, so the hashes do not move with the firm-unit fixture or stages D to J.
+- **Unchanged:** every other golden. The stage changes nothing before it (AC-POPK-02).
+
 ## 2026-10-13 — Scale world: VAT rates of 1 December 2021
 - **Re-golden (owner approved, 2026-10-13):** the scale world's stand-in VAT schedule moves from 21% standard and 11% reduced (the 2025 rates) to Romania's rates on the start date, 19% standard and 9% and 5% reduced (spec `economy/vat`, AC-VAT-06; the spike's basket has no second-reduced group, so 5% is unused). Less VAT is carved out of household spending, so VAT, deposits and the state hash change; employment and the wage bill do not.
   - `golden_12_ticks_at_1_in_1000` (`crates/econ-core/src/scale_spike.rs`): hash 0x8557_a49a_52c1_e86a → 0xf540_af18_bcd5_dbab; consumption in tick 12 6,207,483,617,000 → 6,207,483,754,000 bani; VAT in tick 12 823,228,305,000 → 740,807,571,000; VAT over 12 ticks 9,769,553,421,000 → 8,791,436,167,000.
