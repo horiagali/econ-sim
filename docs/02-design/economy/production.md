@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/accounting, economy/industries, economy/labor-market, economy/investment-capital, adr/0016-firm-representation, adr/0017-time-base]
 research: []
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 # Production & Supply Chains
@@ -145,7 +145,7 @@ Upstream: industries (coefficients), labour, energy, infrastructure, investment,
 - **Services** have a small buffer (they cannot be stored for long); the rule is the same.
 
 ## Acceptance tests
-IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, `crates/econ-mech-production`, in `tests/acceptance/` (protected). AC-PROD-01 and 02 were written there on 2026-10-13 against the API skeleton, compiled only with the crate feature `mechanic` until the implementation turns it on.
+IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, `crates/econ-mech-production`, in `tests/acceptance/` (protected). AC-PROD-01 and 02 were written there on 2026-10-13 against the API skeleton, compiled only with the crate feature `mechanic` until the implementation turns it on. The `[sim]` criteria AC-PROD-03 to 07 and 09 were written on 2026-10-15 on the `World` ([world loop](../game/world-loop.md)), in `crates/econ-core/tests/acceptance/`, behind the feature `world`; AC-PROD-07 compares two worlds whose household basket differs from load.
 
 - [ ] **AC-PROD-01** `[unit]` The plan: expected demand, planned output and desired employment are the formulas of step 1, in integers; planned output is never negative and never above capacity.
 - [ ] **AC-PROD-02** `[unit]` Rationing: when demand on an industry exceeds its inventories every buyer gets the same share, nothing more than the inventories is sold, and the shortage is demand less sales.
@@ -161,13 +161,7 @@ IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, `crates/eco
 
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-PROD-03: production on the real `World` (roadmap M2)
-- AC-PROD-04: the goods market with the ledger's clearing accounts (roadmap M2)
-- AC-PROD-05: the full M2 loop with invariant I-7
-- AC-PROD-06: the scheduler and the production mechanic (roadmap M2)
-- AC-PROD-07: the full M2 loop
-- AC-PROD-08: the full M2 loop
-- AC-PROD-09: the full M2 loop on the Romania scenario
+- AC-PROD-08: a staff cut that lasts: M2 has no way to hold a unit's staff down (cut at load, the labour market hires the gap back within the month); needs a staffing command or shock (roadmap M4)
 - AC-PROD-10: investment and productivity (roadmap M3)
 - AC-PROD-11: energy and its own cost structures (roadmap M12)
 

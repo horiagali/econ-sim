@@ -15,6 +15,37 @@ econ-rng.workspace = true
 # Spike wiring only: the scale world calls the VAT mechanic directly. In the real
 # core, mechanics crates depend on econ-core (ADR-0005), not the other way round.
 econ-mech-tax.workspace = true
+# The M2 mechanics the `World` runs (feature `world`).
+econ-mech-households = { workspace = true, optional = true }
+econ-mech-labour = { workspace = true, optional = true }
+econ-mech-production = { workspace = true, optional = true }
+econ-mech-prices = { workspace = true, optional = true }
+econ-popgen = { workspace = true, optional = true }
+
+[dev-dependencies]
+# The acceptance tests of the `World` build the Romania scenario and read it
+# back as a `StartState` (a dev-dependency cycle, allowed for integration tests).
+econ-scenario.workspace = true
+econ-io.workspace = true
+serde_json.workspace = true
+
+[features]
+# Gates the `World` of spec game/world-loop and its acceptance tests (AC-WLD-*
+# and the owed `[sim]` criteria of the four M2 mechanics), written before the
+# code (ADR-0014); the implementation adds it to `default`.
+world = [
+    "dep:econ-mech-households",
+    "dep:econ-mech-labour",
+    "dep:econ-mech-production",
+    "dep:econ-mech-prices",
+    "dep:econ-popgen",
+    # `econ_io::read_start_state`, for the tests only.
+    "econ-io/world",
+]
+
+[[test]]
+name = "acceptance"
+path = "tests/acceptance/main.rs"
 
 [lints]
 workspace = true

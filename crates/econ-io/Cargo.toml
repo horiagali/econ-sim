@@ -17,5 +17,10 @@ zip.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
+[features]
+# `read_start_state`: a built scenario folder as the `StartState` of the
+# `World` (spec game/world-loop). Off until the `World` exists (ADR-0014).
+world = ["econ-core/world"]
+
 [lints]
 workspace = true

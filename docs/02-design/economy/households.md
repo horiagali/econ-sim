@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [society/population-groups, economy/labor-market, economy/taxation, economy/social-transfers, economy/money-banking, economy/prices-inflation, economy/vat, adr/0017-time-base]
 research: [research/household-wealth-romania, research/informal-economy-romania]
-updated: 2026-10-13
+updated: 2026-10-15
 ---
 
 # Households — Budgets, Consumption, Saving & Borrowing
@@ -122,7 +122,7 @@ The defaults make the starting population spend about what the national accounts
 - **A household that forms or dissolves** ([demographics](demographics.md), M5): it keeps or gets a day of the month; money moves by the rules of [population-groups](../society/population-groups.md).
 
 ## Acceptance tests
-IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, `crates/econ-mech-households`, in `tests/acceptance/` (protected). AC-HH-01, 02 and 06 were written there on 2026-10-13 against the API skeleton, compiled only with the crate feature `mechanic` until the implementation turns it on.
+IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, `crates/econ-mech-households`, in `tests/acceptance/` (protected). AC-HH-01, 02 and 06 were written there on 2026-10-13 against the API skeleton, compiled only with the crate feature `mechanic` until the implementation turns it on. The `[sim]` criteria AC-HH-03, 04, 05, 07 and 08 were written on 2026-10-15 on the `World` ([world loop](../game/world-loop.md)), in `crates/econ-core/tests/acceptance/`, behind the feature `world`; AC-HH-05 and 07 compare two worlds whose starting states differ by an edit applied at load (a one-off transfer; an industry with nothing to sell).
 
 - [ ] **AC-HH-01** `[unit]` The decision rule: for given income, money, fifth, floor and parameters, spending is the formula of step 2, in whole bani; it never exceeds the household's money.
 - [ ] **AC-HH-02** `[unit]` The basket split gives every good its share and sums to the household's spending exactly.
@@ -137,11 +137,6 @@ IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, `crates/eco
 
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-HH-03: the households mechanic on the real `World` (roadmap M2)
-- AC-HH-04: the scheduler and the households mechanic (roadmap M2)
-- AC-HH-05: the households mechanic on the real `World` (roadmap M2)
-- AC-HH-07: households with the goods market (roadmap M2)
-- AC-HH-08: the full M2 loop on the Romania scenario
 - AC-HH-09: borrowing and interest (roadmap M3)
 - AC-HH-10: baskets by group (roadmap M6)
 
