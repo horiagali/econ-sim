@@ -291,6 +291,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "econ-mech-transfers"
+version = "0.1.0"
+dependencies = [
+ "econ-types",
+]
+
+[[package]]
 name = "econ-num"
 version = "0.1.0"
 dependencies = [
