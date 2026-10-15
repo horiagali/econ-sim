@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/accounting, adr/0007-money-and-ledger, adr/0018-scenario-and-commands, society/population-wealth, adr/0016-firm-representation]
 research: [research/opening-balance-sheet-romania]
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 # Opening Balance Sheet
@@ -127,7 +127,7 @@ None. The rules are fixed; the guesses are in the fixture.
 - A row does not sum to zero after the rules → error (it cannot happen if the rules close; checked anyway).
 
 ## Acceptance tests
-IDs are stable. The tests will live in `crates/econ-scenario/tests/acceptance/` (or the crate the builder ends up in), written in a test-authoring session.
+IDs are stable. Tests in `crates/econ-scenario/tests/acceptance/` (protected), written in a test-authoring session; the golden values are in `tests/golden/opening_ro_2021.hashes`.
 
 - [ ] **AC-OBS-01** `[unit]` On the 2021 fixtures, every ledger instrument row of the opening balances sums to exactly 0 bani, and `cb_advances` is 0 for every sector.
 - [ ] **AC-OBS-02** `[unit]` Before rule 8, household `cash` and `deposits` equal the currency and deposits households hold in the financial accounts, to the ban. After rule 8, with any household totals within 10 millionths of those, they equal the given totals, every row still sums to zero, and only the central bank's `cash` and the banks' `deposits` change. Totals further off are rejected with a named error.
@@ -139,19 +139,6 @@ IDs are stable. The tests will live in `crates/econ-scenario/tests/acceptance/` 
 - [ ] **AC-OBS-08** `[diff]` The Rust opening balances equal the Python reference's (`python/reference/opening_balance_reference.py`) for every instrument and sector.
 - [ ] **AC-OBS-09** `[unit]` The sector details: the maturity buckets and the currencies each sum to the government debt total, the first bucket equals the measured short-term debt, and gold plus SDR holdings equal the central bank's gold and SDR in the financial accounts.
 - [ ] **AC-OBS-10** `[unit]` Removing a sector or an instrument from the statistics, or making foreign notes exceed the banks' vault cash, gives a named error and no output.
-
-### Tests owed
-The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-OBS-01: the opening balances in Rust (crate of the scenario builder)
-- AC-OBS-02: the opening balances in Rust, with rule 8
-- AC-OBS-03: the opening balances in Rust
-- AC-OBS-04: the opening balances in Rust
-- AC-OBS-05: the opening balances in Rust
-- AC-OBS-06: the ledger's new sector and instruments, and `post`
-- AC-OBS-07: the opening balances in Rust and a golden file
-- AC-OBS-08: the opening balances in Rust
-- AC-OBS-09: the sector details reader in Rust
-- AC-OBS-10: the opening balances in Rust
 
 ## API sketch
 In the crate of the scenario builder (see [scenario builder](../game/scenario-builder.md)). It needs the ledger to grow the sector `OtherFinancial` and the instruments of the accounting matrix (its "Not built yet" table); `Sector::ALL` and `Instrument::ALL` keep matrix order.

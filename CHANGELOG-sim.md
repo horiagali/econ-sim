@@ -3,6 +3,11 @@
 Every change to a golden hash or snapshot needs an entry here with the reason
 (ADR-0010). Newest first.
 
+## 2026-10-15 — Opening balance sheet: first golden hashes
+- Added `tests/golden/opening_ro_2021.hashes` (AC-OBS-07, AC-SCB-03): the opening hash of the ledger's balances on the 2021 financial accounts before rule 8 (`statistics 3e6e8302f2eded33`, the value of spec `economy/opening-balance-sheet`), and after rule 8 at 1:1000 and 1:100, seed 42 (`a817a2a5f2efe5bf`, `b034151ce37c5b43`), where the household column takes the population's weighted cash and deposits. Reason: initial baseline. The values come from the Python references (`python/reference/opening_balance_reference.py`, `python/pipeline/build_scenario.py`); the Rust builder does not exist yet.
+- `python/pipeline/build_scenario.py` now reports amounts in whole lei and ratios unrounded, so that the Rust builder's report can be compared with it to the leu (AC-SCB-09). No hash changes.
+- **Unchanged:** every other golden.
+
 ## 2026-10-13 — Scale world: VAT rates of 1 December 2021
 - **Re-golden (owner approved, 2026-10-13):** the scale world's stand-in VAT schedule moves from 21% standard and 11% reduced (the 2025 rates) to Romania's rates on the start date, 19% standard and 9% and 5% reduced (spec `economy/vat`, AC-VAT-06; the spike's basket has no second-reduced group, so 5% is unused). Less VAT is carved out of household spending, so VAT, deposits and the state hash change; employment and the wage bill do not.
   - `golden_12_ticks_at_1_in_1000` (`crates/econ-core/src/scale_spike.rs`): hash 0x8557_a49a_52c1_e86a → 0xf540_af18_bcd5_dbab; consumption in tick 12 6,207,483,617,000 → 6,207,483,754,000 bani; VAT in tick 12 823,228,305,000 → 740,807,571,000; VAT over 12 ticks 9,769,553,421,000 → 8,791,436,167,000.
