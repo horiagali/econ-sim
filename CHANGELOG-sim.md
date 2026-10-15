@@ -3,6 +3,12 @@
 Every change to a golden hash or snapshot needs an entry here with the reason
 (ADR-0010). Newest first.
 
+## 2026-10-15 — Stage J: public units rebuilt from the budget
+- **Re-golden (owner approved, 2026-10-14):** `normalise_firms.py` now takes each of the five public firm units' persons employed from the budget's occupied posts and its wage bill from the budget's wages (D11) (`budget2021_ro.json`, `public_units`; spec `economy/budget-2021`, first open question), instead of 12.5 persons per million lei and the guessed public shares. Public persons employed go from 1,501,170 to 1,262,318 (health 494,816 → 243,421, social care 3,687 → 130,000), and Stage J's pay order of public units follows the budget's wages per post, so who works in which unit changes. Output and value added of every unit, and the firm balance sheets and undeclared sales and inventories fixtures, are unchanged.
+  - `tests/golden/popgen_ro_census2021_employers.hashes` (AC-POPE-06), reproduced with `python/reference/popgen_reference.py` (seed 42): 1:1000 `40dc87a87a0e31af` → `e94a4f492b24c1cb`; 1:200 `54fe641b38dca16e` → `9c1eed63880a975c`; 1:100 `37541a9150c60900` → `4d19d7a3f5d1bafc`; 1:10 `07df05437989c962` → `f7f1d4e7c2c946ce`.
+  - The 1:1000 employer hash in `python/pipeline/tests/test_population_employers.py` and `test_build_scenario.py` follows.
+- **Unchanged:** the population, attribute, jobs, housing, wage, pension, wealth and income goldens at every scale (Stage J changes nothing before it), `golden_romania_12_ticks_at_1_in_1000` and `golden_12_ticks_at_1_in_1000` (they do not read the firm units), `tests/golden/sim_200.hashes`, the budget hash (`ffd4772468f8552e`) and the firm undeclared-and-inventories hash.
+
 ## 2026-10-13 — Scale world: VAT rates of 1 December 2021
 - **Re-golden (owner approved, 2026-10-13):** the scale world's stand-in VAT schedule moves from 21% standard and 11% reduced (the 2025 rates) to Romania's rates on the start date, 19% standard and 9% and 5% reduced (spec `economy/vat`, AC-VAT-06; the spike's basket has no second-reduced group, so 5% is unused). Less VAT is carved out of household spending, so VAT, deposits and the state hash change; employment and the wage bill do not.
   - `golden_12_ticks_at_1_in_1000` (`crates/econ-core/src/scale_spike.rs`): hash 0x8557_a49a_52c1_e86a → 0xf540_af18_bcd5_dbab; consumption in tick 12 6,207,483,617,000 → 6,207,483,754,000 bani; VAT in tick 12 823,228,305,000 → 740,807,571,000; VAT over 12 ticks 9,769,553,421,000 → 8,791,436,167,000.

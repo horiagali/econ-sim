@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [economy/production]
 research: []
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 # Industries & Goods Catalogue
@@ -240,7 +240,7 @@ Each unit has a firm count, persons employed, its part of the industry's output,
 - **Measured:** enterprises, persons employed and value added by size class and two-digit activity (structural business statistics 2021); the share of value added under foreign control by activity (foreign affiliates statistics 2021: 68% in manufacturing, 30% of all value added); the public share of education, health and care (what the wages of their market part leave of the industry's wage bill: 98%, 90% and 72%).
 - **Guessed** (listed in the file): the size structure of agriculture, forestry, fishing, oil refining, membership organisations and households as employers, which the business statistics do not cover or do not publish; that foreign control sits in the largest firms first, and that a foreign-controlled cohort has a tenth as many firms for its size; a size class's share of wages (the mean of its shares of persons and of value added).
 
-> **Simplification:** a catalogue industry inherits the size structure and the foreign share of the table industry it is part of (all six farm industries look alike; all eleven energy industries look alike). No named firms yet: Dacia is inside `cars.large.foreign`. State-owned companies that sell on the market are not marked yet either. Both come with roadmap M9. Persons employed are those of the statistics and of a guess for public units; the generator's own employed persons are placed in units by a later stage.
+> **Simplification:** a catalogue industry inherits the size structure and the foreign share of the table industry it is part of (all six farm industries look alike; all eleven energy industries look alike). No named firms yet: Dacia is inside `cars.large.foreign`. State-owned companies that sell on the market are not marked yet either. Both come with roadmap M9. Persons employed are those of the statistics; a public unit's persons employed and wage bill are the occupied posts and wages (D11) of the [budget](budget-2021.md) (since 2026-10-15), so by industry the public industries' wages no longer add up to the input-output table exactly (the budget's functions are not industries; see there). The generator's own employed persons are placed in units by a later stage.
 
 **Opening balance sheets** (`fixtures/firm_balance_sheets2021_ro.json`, `normalise_firm_balance_sheets.py`): the 332 cohort units outside finance share the balance sheet of non-financial corporations at the end of 2021 (deposits 189 billion lei, loans owed 391, equity issued 715, trade credit and other accounts 692 receivable and 871 payable) and 2,492 billion lei of fixed assets (corporations' 2,279, plus the 213 of households' business capital, which goes to the domestic micro units). The totals are measured; each column sums to them exactly.
 

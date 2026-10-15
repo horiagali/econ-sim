@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [society/population-jobs, society/population-wages, society/population-generator, economy/industries, adr/0016-firm-representation, adr/0006-determinism-contract, adr/0014-agent-workflow-guardrails]
 research: []
-updated: 2026-10-13
+updated: 2026-10-15
 ---
 
 # Population Generator, Stage J — Industry and Employer
@@ -92,26 +92,26 @@ IDs are stable. Tests go in `crates/econ-popgen/tests/acceptance/employers.rs` a
 - [ ] **AC-POPE-07** `[diff]` On the fixtures at 1:1000 and 1:200 the Rust stage and the independent Python reference produce identical columns.
 - [ ] **AC-POPE-08** `[unit]` No industries, no units, a unit of an unlisted industry, jobs of a different length, and a worker in an industry group without a unit are each rejected with a named error and produce no output.
 
-Measured on 2026-10-11 with the Python reference on the fixtures (seed 42):
+Measured on 2026-10-15 with the Python reference on the fixtures (seed 42), after the public units were rebuilt from the budget's posts and wages ([budget](../economy/budget-2021.md); re-golden approved by the owner on 2026-10-14, see `CHANGELOG-sim.md`):
 
 | | 1:1000 | 1:100 | 1:10 |
 |---|---|---|---|
 | Largest gap of a unit's share in its group, points | 1.3 | 0.2 | 0.03 |
-| Units with employees, of 349 | 299 | 342 | 348 |
+| Units with employees, of 349 | 298 | 342 | 348 |
 | Industries with workers, of 90 | 89 | 90 | 90 |
-| Mean wage in micro, small, large, public units, lei | 3,817; 4,547; 6,215; 8,650 | 3,797; 4,562; 6,225; 8,662 | 3,806; 4,574; 6,219; 8,658 |
-| Employees in micro, small, large, public units, million | 1.76; 1.10; 2.62; 1.06 | 1.77; 1.10; 2.62; 1.06 | 1.77; 1.10; 2.61; 1.06 |
+| Mean wage in micro, small, large, public units, lei | 3,825; 4,541; 6,230; 8,667 | 3,802; 4,561; 6,235; 8,694 | 3,809; 4,574; 6,229; 8,691 |
+| Employees in micro, small, large, public units, million | 1.77; 1.10; 2.62; 1.05 | 1.77; 1.11; 2.62; 1.05 | 1.77; 1.11; 2.62; 1.05 |
 
 AC-POPE-04 was reworded on 2026-10-13 (owner). As first written it compared the plain means with `employer_wage_link` = 0, and they are about 13% apart (1:1000 and 1:100): large units are mostly in better-paying industry groups, so the gap comes from the mix of industries, not from the link. Held to a fixed mix of groups, the three means are within 1.0% (1:1000) and 0.5% (1:100) of each other; with the default link they are 59% and 60% apart.
 
-Hashes of the reference, for the test writer to record as golden values (the earlier hashes are unchanged):
+Hashes of the reference, recorded as golden values (the earlier hashes are unchanged). Re-golden of 2026-10-15 (public units rebuilt from the budget; before: `40dc87a87a0e31af`, `54fe641b38dca16e`, `37541a9150c60900`, `07df05437989c962`):
 
 | Scale | Employer hash |
 |---|---|
-| 1:1000 | `40dc87a87a0e31af` |
-| 1:200 | `54fe641b38dca16e` |
-| 1:100 | `37541a9150c60900` |
-| 1:10 | `07df05437989c962` |
+| 1:1000 | `e94a4f492b24c1cb` |
+| 1:200 | `9c1eed63880a975c` |
+| 1:100 | `4d19d7a3f5d1bafc` |
+| 1:10 | `f7f1d4e7c2c946ce` |
 
 ## API sketch
 For the test writer and the implementer. Names may change before lock; shapes should not. The skeleton in `crates/econ-popgen/src/employers.rs` is the definition.
