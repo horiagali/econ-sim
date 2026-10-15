@@ -3,6 +3,10 @@
 Every change to a golden hash or snapshot needs an entry here with the reason
 (ADR-0010). Newest first.
 
+## 2026-10-15 — Opening balance sheet: first golden hashes
+- Added `tests/golden/opening_ro_2021.hashes` (AC-OBS-07, AC-SCB-03): the opening hash of the ledger's balances on the 2021 financial accounts before rule 8 (`statistics 3e6e8302f2eded33`, the value of spec `economy/opening-balance-sheet`), and after rule 8 at 1:1000 and 1:100, seed 42 (`a817a2a5f2efe5bf`, `b034151ce37c5b43`), where the household column takes the population's weighted cash and deposits. Reason: initial baseline. The values come from the Python references (`python/reference/opening_balance_reference.py`, `python/pipeline/build_scenario.py`); the Rust builder does not exist yet.
+- `python/pipeline/build_scenario.py` now reports amounts in whole lei and ratios unrounded, so that the Rust builder's report can be compared with it to the leu (AC-SCB-09). No hash changes.
+- **Unchanged:** every other golden.
 ## 2026-10-15 — Population stage K: first golden hashes
 - Added `tests/golden/popgen_ro_census2021_inactivity_enrolment.hashes` (AC-POPK-07): the inactivity and enrolment hash of the Census 2021 fixture population at 1:1000, 1:200, 1:100 and 1:10 (seed 42, default parameters, stages A to C run). Reason: initial baseline for the stage. The values are those of the spec, reproduced on the day with the Python reference (`python/reference/popgen_reference.py`); the Rust stage does not exist yet. The stage reads only stages A to C and its own margin file, so the hashes do not move with the firm-unit fixture or stages D to J.
 - **Unchanged:** every other golden. The stage changes nothing before it (AC-POPK-02).

@@ -325,6 +325,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "econ-scenario"
+version = "0.1.0"
+dependencies = [
+ "arrow-array",
+ "arrow-ipc",
+ "econ-io",
+ "econ-ledger",
+ "econ-popgen",
+ "econ-types",
+ "serde_json",
+]
+
+[[package]]
 name = "econ-types"
 version = "0.1.0"
 dependencies = [
