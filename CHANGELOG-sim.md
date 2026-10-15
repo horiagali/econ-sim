@@ -3,6 +3,10 @@
 Every change to a golden hash or snapshot needs an entry here with the reason
 (ADR-0010). Newest first.
 
+## 2026-10-15 — Firm units' undeclared sales and inventories: first golden hashes
+- Added `tests/golden/firm_undeclared_inventories.hashes` (AC-FUI-08, AC-FUI-09): the hash of the seven columns on the fixtures (`fc869fc9686d1dc1`) and on the three changed margin files of AC-FUI-09 (anchor at 20% `78e6ebe5b0cd8a22`, every tilt at 1 `e96cf180693cc915`, `max_undeclared_share` at 75% `23e1ac96da27b679`). Reason: initial baseline. The values are those of spec `economy/firm-units-undeclared-inventories`, reproduced on the day with `python/reference/firm_reference.py`; the Rust function does not exist yet.
+- **Unchanged:** every other golden.
+
 ## 2026-10-15 — Opening balance sheet: first golden hashes
 - Added `tests/golden/opening_ro_2021.hashes` (AC-OBS-07, AC-SCB-03): the opening hash of the ledger's balances on the 2021 financial accounts before rule 8 (`statistics 3e6e8302f2eded33`, the value of spec `economy/opening-balance-sheet`), and after rule 8 at 1:1000 and 1:100, seed 42 (`a817a2a5f2efe5bf`, `b034151ce37c5b43`), where the household column takes the population's weighted cash and deposits. Reason: initial baseline. The values come from the Python references (`python/reference/opening_balance_reference.py`, `python/pipeline/build_scenario.py`); the Rust builder does not exist yet.
 - `python/pipeline/build_scenario.py` now reports amounts in whole lei and ratios unrounded, so that the Rust builder's report can be compared with it to the leu (AC-SCB-09). No hash changes.

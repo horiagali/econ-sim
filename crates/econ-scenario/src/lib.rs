@@ -25,8 +25,13 @@ use econ_popgen::{
 };
 use serde_json::Value;
 
+pub mod firm_opening;
 pub mod opening;
 
+pub use firm_opening::{
+    FirmOpening, FirmOpeningError, FirmOpeningMargins, FirmUnitAmounts, IndustryMargins,
+    firm_opening, read_firm_opening_margins, read_firm_unit_amounts,
+};
 pub use opening::{
     CentralBankReserves, GovernmentDebt, OpeningBalances, OpeningError, SectorAccounts,
     SectorDetails, StatInstrument, opening_balances, read_sector_accounts, read_sector_details,

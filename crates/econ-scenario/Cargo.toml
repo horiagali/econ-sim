@@ -27,6 +27,9 @@ arrow-ipc.workspace = true
 # matrix order.
 # `opening`: the opening balance sheet (AC-OBS-*).
 opening = []
+# `firm-opening`: undeclared sales and opening inventories of the firm units
+# (AC-FUI-*); needs no ledger change.
+firm-opening = []
 # `builder`: the scenario builder and `econ-cli build-scenario` (AC-SCB-*).
 builder = ["opening"]
 
