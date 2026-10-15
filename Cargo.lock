@@ -227,11 +227,19 @@ dependencies = [
 name = "econ-core"
 version = "0.1.0"
 dependencies = [
+ "econ-io",
  "econ-ledger",
+ "econ-mech-households",
+ "econ-mech-labour",
+ "econ-mech-prices",
+ "econ-mech-production",
  "econ-mech-tax",
  "econ-num",
+ "econ-popgen",
  "econ-rng",
+ "econ-scenario",
  "econ-types",
+ "serde_json",
 ]
 
 [[package]]

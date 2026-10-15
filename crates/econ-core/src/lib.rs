@@ -12,6 +12,8 @@ mod hash;
 pub mod scale_spike;
 pub mod schedule;
 pub mod sim;
+#[cfg(feature = "world")]
+pub mod world;
 
 pub use hash::StateHasher;
 

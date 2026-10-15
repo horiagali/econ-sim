@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [game/overview, adr/0005-simulation-core-architecture, adr/0017-time-base, adr/0018-scenario-and-commands, adr/0007-money-and-ledger, economy/accounting, game/scenario-builder, economy/opening-balance-sheet, economy/households, economy/labor-market, economy/production, economy/prices-inflation, economy/vat]
 research: []
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 # World and Daily Loop (first version)
@@ -112,18 +112,11 @@ IDs are stable. Tests in `crates/econ-core/tests/acceptance/` (protected), writt
 - [ ] **AC-WLD-09** `[unit]` `step` with a non-empty command list is refused in M2 with a named error and changes nothing.
 - [ ] **AC-WLD-10** `[bench]` At 1:100 a simulated year takes at most 2 seconds on CI hardware in a release build (Spike 4 and spike 10 measured about 0.2 s for the scale world).
 
+The tests were written on 2026-10-15 against the API skeleton (`econ_core::world`, `econ_io::read_start_state`), compiled only with the crate feature `world` until the implementation turns it on. They build the Romania scenario with `econ_scenario::build`, write it and read it back with `econ_io::read_start_state`. Additions to the sketch, for the tests: read-only column tables (`households()`, `persons()`, `firm_units()`, `industries()`, with the per-record columns the criteria observe), `WorldParams::spec_defaults`, `World::inflation_target_ppm`, and `StartEdit`: edits of a starting state, applied at load, by which the mechanics' criteria that need a change M2 has no lever for compare two worlds (a one-off transfer, an industry with nothing to sell, scaled inventories, labour requirement or wages, other basket shares). AC-WLD-10 runs in release builds only (`cargo test --release -p econ-core --features world --test acceptance ac_wld_10`); debug builds skip it.
+
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-WLD-01: the `World` in `econ-core` (roadmap M2)
-- AC-WLD-02: the `World` in `econ-core` (roadmap M2)
-- AC-WLD-03: the `World` in `econ-core` (roadmap M2)
-- AC-WLD-04: the `World` in `econ-core` (roadmap M2)
-- AC-WLD-05: the `World` in `econ-core` (roadmap M2)
-- AC-WLD-06: the `World` in `econ-core` (roadmap M2)
-- AC-WLD-07: the `World` in `econ-core` (roadmap M2)
-- AC-WLD-08: the `World` in `econ-core` (roadmap M2)
-- AC-WLD-09: the `World` in `econ-core` (roadmap M2)
-- AC-WLD-10: the `World` and a CI benchmark (roadmap M2)
+- AC-WLD-05: the golden value comes from the first implementation, approved by the owner (ADR-0010)
 
 ## API sketch
 In `econ-core` (no I/O); loading the scenario's files is `econ-io`'s.
