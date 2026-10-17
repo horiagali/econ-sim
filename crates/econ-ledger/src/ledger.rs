@@ -212,7 +212,7 @@ pub enum InvariantError {
     ColumnMismatch {
         /// Sector.
         sector: Sector,
-        /// Sum of the sector's flows this tick.
+        /// Sum of the sector's flows and other postings (opening entries) this tick.
         flows: Bani,
         /// Change in the sector's net financial assets.
         delta_nfa: Bani,
@@ -249,6 +249,9 @@ pub struct Ledger {
     may_be_negative: BTreeMap<(Sector, Instrument), bool>,
     tick: u32,
     flows: TickFlows,
+    /// Net financial assets moved this tick by postings that are not flows
+    /// (opening entries, later revaluations), per sector.
+    adjustments: BTreeMap<Sector, Bani>,
     nfa_at_tick_start: BTreeMap<Sector, Bani>,
     debug_buffer: Vec<Posting>,
     /// How many ticks of raw postings to keep (ADR-0007: 1–3).
@@ -271,6 +274,7 @@ impl Ledger {
             may_be_negative: BTreeMap::new(),
             tick: 0,
             flows: TickFlows::default(),
+            adjustments: BTreeMap::new(),
             nfa_at_tick_start: BTreeMap::new(),
             debug_buffer: Vec::new(),
             debug_ticks: 2,
@@ -311,6 +315,7 @@ impl Ledger {
     pub fn begin_tick(&mut self, tick: u32) {
         self.tick = tick;
         self.flows = TickFlows::default();
+        self.adjustments = BTreeMap::new();
         self.nfa_at_tick_start = Sector::ALL
             .iter()
             .map(|&s| (s, self.net_financial_assets(s)))
@@ -383,6 +388,9 @@ impl Ledger {
                     .entry((leg.code, leg.payee))
                     .or_insert(Bani::ZERO);
                 *e += leg.amount;
+            } else {
+                *self.adjustments.entry(leg.payer).or_insert(Bani::ZERO) -= leg.amount;
+                *self.adjustments.entry(leg.payee).or_insert(Bani::ZERO) += leg.amount;
             }
             self.debug_buffer.push(Posting {
                 tick: self.tick,
@@ -425,7 +433,8 @@ impl Ledger {
                 errs.push(InvariantError::FlowRowNotZero { code: c, sum });
             }
         }
-        // I-3b: each column = change in net financial assets.
+        // I-3b: each column = change in net financial assets, less what
+        // postings that are not flows (opening entries) moved.
         for s in Sector::ALL {
             let flows: Bani = self
                 .flows
@@ -433,7 +442,8 @@ impl Ledger {
                 .iter()
                 .filter(|((_, sec), _)| *sec == s)
                 .map(|(_, v)| *v)
-                .sum();
+                .sum::<Bani>()
+                + self.adjustments.get(&s).copied().unwrap_or(Bani::ZERO);
             let delta_nfa = self.net_financial_assets(s) - self.nfa_at_tick_start[&s];
             if flows != delta_nfa {
                 errs.push(InvariantError::ColumnMismatch {
@@ -469,6 +479,23 @@ mod tests {
         let mut l = Ledger::new();
         l.allow_negative(Sector::Government, Instrument::Cash);
         l
+    }
+
+    #[test]
+    fn opening_entries_move_net_worth_without_breaking_the_column_check() {
+        let mut l = Ledger::new();
+        l.allow_negative(Sector::Firms, Instrument::Loans);
+        l.commit(Txn::new().leg(
+            Sector::Firms,
+            Sector::Banks,
+            Instrument::Loans,
+            Bani(500),
+            FlowCode::OPENING,
+        ))
+        .unwrap();
+        assert_eq!(l.net_financial_assets(Sector::Firms), Bani(-500));
+        assert!(l.flows().by_code_sector.is_empty());
+        assert_eq!(l.check_invariants(), Ok(()));
     }
 
     #[test]
