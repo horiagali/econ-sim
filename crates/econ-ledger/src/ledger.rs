@@ -4,7 +4,8 @@ use econ_types::Bani;
 
 use crate::FlowCode;
 
-/// An institutional sector (columns of the SFC matrices).
+/// An institutional sector: a column of the balance-sheet matrix of
+/// economy/accounting, declared in matrix order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Sector {
     /// Households (sum of synthetic households × weights).
@@ -13,6 +14,11 @@ pub enum Sector {
     Firms,
     /// Commercial banks.
     Banks,
+    /// Pillar II pension funds.
+    PensionFunds,
+    /// Other financial firms: insurers, investment funds, leasing and other
+    /// non-bank lenders (passive in v1).
+    OtherFinancial,
     /// General government.
     Government,
     /// Central bank.
@@ -23,36 +29,58 @@ pub enum Sector {
 
 impl Sector {
     /// All sectors in matrix column order.
-    pub const ALL: [Sector; 6] = [
+    pub const ALL: [Sector; 8] = [
         Sector::Households,
         Sector::Firms,
         Sector::Banks,
+        Sector::PensionFunds,
+        Sector::OtherFinancial,
         Sector::Government,
         Sector::CentralBank,
         Sector::RestOfWorld,
     ];
 }
 
-/// A financial instrument (rows of the balance-sheet matrix).
+/// A financial instrument: a row of the balance-sheet matrix of
+/// economy/accounting, declared in matrix order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Instrument {
-    /// Government-issued money (the "H" of the SIM model) / cash.
+    /// Currency (the "H" of the SIM model).
     Cash,
     /// Bank deposits.
     Deposits,
-    /// Bank loans.
-    Loans,
+    /// Government deposits at the central bank (the treasury account).
+    GovDepositsAtCb,
+    /// Bank reserves at the central bank.
+    Reserves,
     /// Government bonds.
     Bonds,
+    /// Loans, held by any resident lender.
+    Loans,
+    /// Central bank advances to banks.
+    CbAdvances,
+    /// Shares and other equity.
+    Equity,
+    /// Pension and insurance claims of households and firms.
+    PensionClaims,
+    /// Every cross-border position except government bonds and equity held
+    /// by the rest of the world; a resident's net claim on the rest of the world.
+    ForeignAssets,
 }
 
 impl Instrument {
     /// All instruments in matrix row order.
-    pub const ALL: [Instrument; 4] = [
+    pub const ALL: [Instrument; 10] = [
         Instrument::Cash,
         Instrument::Deposits,
-        Instrument::Loans,
+        Instrument::GovDepositsAtCb,
+        Instrument::Reserves,
         Instrument::Bonds,
+        Instrument::Loans,
+        Instrument::CbAdvances,
+        Instrument::Equity,
+        Instrument::PensionClaims,
+        Instrument::ForeignAssets,
     ];
 }
 
@@ -420,7 +448,12 @@ impl Ledger {
 
     /// Feed every balance into a hasher in a fixed order (for state hashes).
     pub fn hash_into(&self, h: &mut impl FnMut(&[u8])) {
+        // Zero balances are left out, so that a sector or instrument nobody
+        // holds (and every one added to the matrix later) leaves the hash as it is.
         for (&(s, i), b) in &self.balances {
+            if b.is_zero() {
+                continue;
+            }
             h(&[s as u8, i as u8]);
             h(&b.get().to_le_bytes());
         }

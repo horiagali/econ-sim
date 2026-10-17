@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [adr/0007-money-and-ledger, adr/0016-firm-representation, adr/0017-time-base]
 research: []
-updated: 2026-10-14
+updated: 2026-10-17
 ---
 
 # Accounting & Stock-Flow Consistency
@@ -97,12 +97,13 @@ The spec was locked before these tests could exist (ADR-0014, Amendment 1). A li
 - AC-ACC-05: clearing accounts, with the firm-unit goods market (roadmap M2)
 
 ## API sketch
-For the test writer and the implementer. The ledger exists as crate `econ-ledger` (Spike 2); this is its API today, then what the Design section still asks for.
+For the test writer and the implementer. The ledger exists as crate `econ-ledger` (Spike 2); this is its API today, then what the Design section still asks for. The sectors and instruments of section 1 were added on 2026-10-17; `Sector::ALL` and `Instrument::ALL` list them in matrix order, and the state hash leaves out zero balances.
 
 ```rust
 // crate econ-ledger, as implemented
-pub enum Sector { Households, Firms, Banks, Government, CentralBank, RestOfWorld }
-pub enum Instrument { Cash, Deposits, Loans, Bonds }
+pub enum Sector { Households, Firms, Banks, PensionFunds, OtherFinancial, Government, CentralBank, RestOfWorld }   // matrix order
+pub enum Instrument { Cash, Deposits, GovDepositsAtCb, Reserves, Bonds, Loans, CbAdvances, Equity,
+                      PensionClaims, ForeignAssets }                                                         // matrix order
 pub struct FlowCode(pub u16);                 // the "reason"; append-only numbering, e.g. TAX_VAT = 3002
 impl FlowCode { pub fn name(self) -> &'static str; pub fn is_flow(self) -> bool; }
 
@@ -136,8 +137,6 @@ impl Ledger {
 
 | Missing | Design section | Needed by |
 |---|---|---|
-| Pension funds and other financial firms as sectors | 1 | social transfers; the opening balance sheet |
-| Instruments: government deposits at the central bank, reserves, central bank advances, equity, pension and insurance claims, foreign assets | 1 | banks, central bank, firms, trade; the opening balance sheet |
 | Real assets and net worth (the last two rows of the balance sheet) | 1 | investment, housing |
 | Sub-ledgers per household and per firm unit | 3 | households, firms (the scale world keeps household deposits in its own columns today) |
 | Clearing accounts and their check (I-8) | 3, 4 | the firm-unit goods market |

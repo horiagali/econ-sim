@@ -3,6 +3,11 @@
 Every change to a golden hash or snapshot needs an entry here with the reason
 (ADR-0010). Newest first.
 
+## 2026-10-17 — Ledger: the sectors and instruments of the accounting matrix
+- **Re-golden (owner approved, 2026-10-17):** the ledger grows to the columns and rows of spec `economy/accounting`, section 1: sectors pension funds and other financial firms; instruments government deposits at the central bank, reserves, central bank advances, equity, pension and insurance claims, foreign assets; both in matrix order (bonds now before loans). The ledger's state hash now leaves out zero balances, so a sector or instrument nobody holds, including any added later, no longer moves it. Every SIM value is identical, bani for bani, for 200 ticks (the differential test against the Python reference passes); only the hash changes.
+  - `tests/golden/sim_200.hashes`: tick 0 `bf0ede85aad42f54` → `d1e54593570b3e11`; tick 1 `a1701aebfab7e071` → `21072aff0b55c3d8`; tick 199 `bc327d584e566547` → `c876f1991d9ed71a`; every line changes.
+- **Unchanged:** the scale-world goldens (their hash does not read the ledger), every population golden, the opening and firm goldens.
+
 ## 2026-10-15 — Firm units' undeclared sales and inventories: first golden hashes
 - Added `tests/golden/firm_undeclared_inventories.hashes` (AC-FUI-08, AC-FUI-09): the hash of the seven columns on the fixtures (`fc869fc9686d1dc1`) and on the three changed margin files of AC-FUI-09 (anchor at 20% `78e6ebe5b0cd8a22`, every tilt at 1 `e96cf180693cc915`, `max_undeclared_share` at 75% `23e1ac96da27b679`). Reason: initial baseline. The values are those of spec `economy/firm-units-undeclared-inventories`, reproduced on the day with `python/reference/firm_reference.py`; the Rust function does not exist yet.
 - **Unchanged:** every other golden.
