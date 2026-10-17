@@ -19,6 +19,7 @@ arrow-array.workspace = true
 arrow-ipc.workspace = true
 
 [features]
+default = ["firm-opening"]
 # Gate the acceptance tests, written before the code (ADR-0014); the
 # implementation adds them to `default`. Both need the ledger to grow the
 # sectors and instruments of the accounting matrix (pension funds, other
@@ -28,7 +29,7 @@ arrow-ipc.workspace = true
 # `opening`: the opening balance sheet (AC-OBS-*).
 opening = []
 # `firm-opening`: undeclared sales and opening inventories of the firm units
-# (AC-FUI-*); needs no ledger change.
+# (AC-FUI-*).
 firm-opening = []
 # `builder`: the scenario builder and `econ-cli build-scenario` (AC-SCB-*).
 builder = ["opening"]
