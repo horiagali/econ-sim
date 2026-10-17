@@ -6,13 +6,34 @@
 //!
 //! Amounts are whole bani; shares are millionths; pension points are
 //! millionths of a point. Each amount is rounded once, half away from zero
-//! (ADR-0007). API skeleton from the spec's API sketch, written before the
-//! code (ADR-0014); `Separation`, `UnemploymentClaim`, `start_claim` and
-//! `claim_month` were added by the test writer for AC-ST-02 (no benefit after
-//! a quit; the benefit stops when the person is hired or the months run out).
-//! The bodies come with the implementation change.
+//! (ADR-0007).
 
 use econ_types::Bani;
+
+/// Millionths in one.
+const PPM: i128 = 1_000_000;
+
+/// `num / den` rounded half away from zero (`den > 0`).
+// Callers pass bani times millionths, far inside i128.
+#[allow(clippy::arithmetic_side_effects)]
+fn round_div(num: i128, den: i128) -> i128 {
+    let (q, r) = (num / den, (num % den).abs());
+    if 2 * r >= den { q + num.signum() } else { q }
+}
+
+/// Bani × millionths as bani, rounded once.
+fn from_ppm(sum: i128) -> Bani {
+    Bani(i64::try_from(round_div(sum, PPM)).expect("a benefit fits i64"))
+}
+
+/// The value of the last entry whose threshold is at most `years`.
+fn by_years<T: Copy>(table: &[(u8, T)], years: u8) -> Option<T> {
+    table
+        .iter()
+        .rev()
+        .find(|&&(from, _)| from <= years)
+        .map(|&(_, v)| v)
+}
 
 /// The state pension's rule.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,15 +47,21 @@ pub struct PensionRule {
 /// `pension_points` from a starting pension, set once at load: pension ÷
 /// point value, in millionths of a point.
 #[must_use]
+// i64 × 10^6 fits i128.
+#[allow(clippy::arithmetic_side_effects)]
 pub fn pension_points(starting_pension: Bani, point_value: Bani) -> u64 {
-    let _ = (starting_pension, point_value);
-    unimplemented!("econ-mech-transfers: written in the implementation change")
+    let points = round_div(
+        i128::from(starting_pension.get().max(0)) * PPM,
+        i128::from(point_value.get().max(1)),
+    );
+    u64::try_from(points).expect("points fit u64")
 }
 
 /// The month's pension: points × point value, not below the minimum (AC-ST-01).
+// u64 × i64 fits i128.
+#[allow(clippy::arithmetic_side_effects)]
 pub fn pension(points: u64, r: &PensionRule) -> Bani {
-    let _ = (points, r);
-    unimplemented!("econ-mech-transfers: written in the implementation change")
+    from_ppm(i128::from(points) * i128::from(r.point_value.get())).max(r.minimum)
 }
 
 /// The unemployment benefit's rule.
@@ -55,16 +82,23 @@ pub struct UnemploymentRule {
 /// `benefit_months_left` when a job is lost, from the contribution years.
 #[must_use]
 pub fn benefit_months(contribution_years: u8, r: &UnemploymentRule) -> u8 {
-    let _ = (contribution_years, r);
-    unimplemented!("econ-mech-transfers: written in the implementation change")
+    by_years(&r.months_by_years, contribution_years).unwrap_or(0)
 }
 
 /// The benefit a month: `ui_isr_share` × ISR + the share of `last_wage` for the
 /// contribution years; nothing under the first entry of `months_by_years`
 /// (AC-ST-02).
+// i64 × u32 fits i128.
+#[allow(clippy::arithmetic_side_effects)]
 pub fn unemployment_benefit(last_wage: Bani, contribution_years: u8, r: &UnemploymentRule) -> Bani {
-    let _ = (last_wage, contribution_years, r);
-    unimplemented!("econ-mech-transfers: written in the implementation change")
+    if benefit_months(contribution_years, r) == 0 {
+        return Bani::ZERO;
+    }
+    let share = by_years(&r.wage_share_by_years, contribution_years).unwrap_or(0);
+    from_ppm(
+        i128::from(r.isr.get()) * i128::from(r.isr_share_ppm)
+            + i128::from(last_wage.get().max(0)) * i128::from(share),
+    )
 }
 
 /// How a person lost a job.
@@ -94,16 +128,28 @@ pub fn start_claim(
     contribution_years: u8,
     r: &UnemploymentRule,
 ) -> Option<UnemploymentClaim> {
-    let _ = (separation, last_wage, contribution_years, r);
-    unimplemented!("econ-mech-transfers: written in the implementation change")
+    let months_left = benefit_months(contribution_years, r);
+    if separation == Separation::Quit || months_left == 0 {
+        return None;
+    }
+    Some(UnemploymentClaim {
+        amount: unemployment_benefit(last_wage, contribution_years, r),
+        months_left,
+    })
 }
 
 /// The month's payment of a claim, on pay day: nothing, and no months left,
 /// if the person was hired during the month; otherwise the amount while
 /// months are left, one month fewer each time (AC-ST-02).
 pub fn claim_month(claim: &mut UnemploymentClaim, hired_this_month: bool) -> Bani {
-    let _ = (claim, hired_this_month);
-    unimplemented!("econ-mech-transfers: written in the implementation change")
+    if hired_this_month {
+        claim.months_left = 0;
+    }
+    if claim.months_left == 0 {
+        return Bani::ZERO;
+    }
+    claim.months_left = claim.months_left.saturating_sub(1);
+    claim.amount
 }
 
 /// The child allowance's rule.
@@ -118,8 +164,11 @@ pub struct ChildRule {
 /// The child allowance for a child of `age_months`, paid to the child's
 /// household (AC-ST-03).
 pub fn child_allowance(age_months: u16, r: &ChildRule) -> Bani {
-    let _ = (age_months, r);
-    unimplemented!("econ-mech-transfers: written in the implementation change")
+    match age_months {
+        0..24 => r.under2,
+        24..216 => r.to18,
+        _ => Bani::ZERO,
+    }
 }
 
 /// The guaranteed minimum income's rule.
@@ -137,6 +186,14 @@ pub struct MinimumIncomeRule {
 /// month's income after taxes and the other programmes, not below zero
 /// (AC-ST-04).
 pub fn minimum_income(size: u16, month_income: Bani, r: &MinimumIncomeRule) -> Bani {
-    let _ = (size, month_income, r);
-    unimplemented!("econ-mech-transfers: written in the implementation change")
+    let n = usize::from(size);
+    let floor = match (n, r.floor_by_size.last()) {
+        (0, _) | (_, None) => Bani::ZERO,
+        (n, Some(&last)) if n > r.floor_by_size.len() => {
+            let extra = i64::try_from(n.saturating_sub(r.floor_by_size.len())).unwrap_or(i64::MAX);
+            last + r.per_extra.times(extra)
+        }
+        (n, Some(_)) => r.floor_by_size[n.saturating_sub(1)],
+    };
+    (floor - month_income).max(Bani::ZERO)
 }
