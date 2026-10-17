@@ -19,13 +19,13 @@ arrow-array.workspace = true
 arrow-ipc.workspace = true
 
 [features]
-default = ["opening"]
+default = ["opening", "firm-opening"]
 # Gate the acceptance tests, written before the code (ADR-0014); the
 # implementation adds them to `default`.
 # `opening`: the opening balance sheet (AC-OBS-*).
 opening = []
 # `firm-opening`: undeclared sales and opening inventories of the firm units
-# (AC-FUI-*); needs no ledger change.
+# (AC-FUI-*).
 firm-opening = []
 # `builder`: the scenario builder and `econ-cli build-scenario` (AC-SCB-*).
 builder = ["opening"]
