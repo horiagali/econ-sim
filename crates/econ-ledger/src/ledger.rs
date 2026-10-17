@@ -217,6 +217,46 @@ pub enum InvariantError {
         /// Change in the sector's net financial assets.
         delta_nfa: Bani,
     },
+    /// I-4: the weighted sum of a table's records differs from the ledger's
+    /// balance of their sector (checked by the `World`).
+    SubLedgerMismatch {
+        /// Sector.
+        sector: Sector,
+        /// Instrument.
+        instrument: Instrument,
+        /// The records' weighted sum.
+        records: Bani,
+        /// The ledger's balance.
+        ledger: Bani,
+    },
+    /// I-2 for records: a household's or firm unit's money, or a unit's
+    /// inventory, is negative (checked by the `World`).
+    NegativeRecord {
+        /// Which column.
+        column: &'static str,
+        /// The record's index.
+        record: usize,
+    },
+    /// I-8: a clearing account of an industry does not net to zero at the end
+    /// of the day (checked by the `World`).
+    ClearingNotZero {
+        /// The flow passed through it.
+        code: FlowCode,
+        /// The catalogue industry.
+        industry: usize,
+        /// What is left in it.
+        sum: Bani,
+    },
+    /// I-7: GDP by production, expenditure and income differ at a monthly
+    /// close (checked by the `World`).
+    GdpMismatch {
+        /// By production.
+        production: Bani,
+        /// By expenditure.
+        expenditure: Bani,
+        /// By income.
+        income: Bani,
+    },
 }
 
 /// Flows of one tick by flow code and sector (the TFM / tag accumulators).

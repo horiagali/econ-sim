@@ -252,6 +252,7 @@ dependencies = [
  "arrow-schema",
  "econ-core",
  "econ-popgen",
+ "econ-types",
  "serde",
  "serde_json",
  "zip",

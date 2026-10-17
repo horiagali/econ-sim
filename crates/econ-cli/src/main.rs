@@ -368,6 +368,9 @@ fn synth_population(args: &[String]) -> ExitCode {
         wealth: wealth.as_ref().map(|(f, w)| (w, &f.provenance)),
         incomes: incomes.as_ref().map(|(f, i)| (i, &f.provenance)),
         employers: employers.as_ref().map(|(f, e)| (e, &f.provenance)),
+        region_of_county: attributes
+            .as_ref()
+            .map(|(f, _)| f.margins.region_of_county.as_slice()),
     };
     if let Err(e) = write_population(std::path::Path::new(out), &file, &params, &pop, &stages) {
         return fail(format!("cannot write to {out}: {e:?}"));

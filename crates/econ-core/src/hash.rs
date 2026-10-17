@@ -19,6 +19,12 @@ impl StateHasher {
             self.0 = self.0.wrapping_mul(0x0100_0000_01b3);
         }
     }
+    /// Feed a whole 64-bit word in one step (FNV-1a over words rather than
+    /// bytes): for large state, where hashing byte by byte costs too much.
+    pub fn write_word(&mut self, w: u64) {
+        self.0 ^= w;
+        self.0 = self.0.wrapping_mul(0x0100_0000_01b3);
+    }
     /// Feed an `f64` by its exact bit pattern.
     pub fn write_f64(&mut self, x: f64) {
         self.write(&x.to_bits().to_le_bytes());

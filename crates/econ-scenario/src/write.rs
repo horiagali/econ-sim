@@ -152,6 +152,7 @@ fn files(scenario: &Scenario, inputs: &Inputs) -> Result<BTreeMap<String, Vec<u8
         wealth: Some((&s.wealth, &st.wealth.provenance)),
         incomes: Some((&s.incomes, &st.incomes.provenance)),
         employers: Some((&s.employers, &st.firms.provenance)),
+        region_of_county: Some(&st.attributes.margins.region_of_county),
     };
     let arrow = |r: Result<Vec<u8>, econ_io::SaveError>| r.map_err(|e| io_err(format!("{e:?}")));
     let mut out = BTreeMap::new();

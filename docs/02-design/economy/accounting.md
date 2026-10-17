@@ -138,11 +138,11 @@ impl Ledger {
 | Missing | Design section | Needed by |
 |---|---|---|
 | Real assets and net worth (the last two rows of the balance sheet) | 1 | investment, housing |
-| Sub-ledgers per household and per firm unit | 3 | households, firms (the scale world keeps household deposits in its own columns today) |
-| Clearing accounts and their check (I-8) | 3, 4 | the firm-unit goods market |
+| Sub-ledgers per household and per firm unit | 3 | households, firms. **2026-10-17:** the `World` keeps them as its households' and firm units' columns and checks them against the sector balances every day (I-4) |
+| Clearing accounts and their check (I-8) | 3, 4 | the firm-unit goods market. **2026-10-17:** the `World`'s goods market and pay day pass sales and wages through per-industry clearing and check that nothing is left (`InvariantError::ClearingNotZero`) |
 | Revaluation flows | 3 | housing, trade |
-| Checks I-4 to I-7 of [ADR-0007](../../03-architecture/decisions/0007-money-and-ledger.md) (independent balances, replay, explanation sums, GDP three ways) | 4 | the first full tick |
-| Flow codes beyond consumption, government purchases, wages, income tax, VAT and opening | 3 | every mechanic, as it arrives |
+| Checks I-4 to I-7 of [ADR-0007](../../03-architecture/decisions/0007-money-and-ledger.md) (independent balances, replay, explanation sums, GDP three ways) | 4 | the first full tick. **2026-10-17:** I-4 and I-7 are checked by the `World` (`SubLedgerMismatch`, `GdpMismatch`); I-5 and I-6 wait for saves and the "why" panel |
+| Flow codes beyond consumption, government purchases, wages, income tax, VAT and opening | 3 | every mechanic, as it arrives. **2026-10-17:** `exports` 1004, `imports` 1005, `income.mixed` 2003, `benefit.pension` 4001, `benefit.other` 4008 (numbering of [budget-2021](budget-2021.md)), `finance.cash_deposit` 7001 |
 
 ## Open questions
 Answers accepted by the owner on 2026-10-10, when the spec was locked.
