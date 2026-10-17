@@ -220,6 +220,7 @@ dependencies = [
  "econ-io",
  "econ-popgen",
  "econ-rng",
+ "econ-scenario",
  "econ-types",
 ]
 

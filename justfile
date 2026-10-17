@@ -73,6 +73,10 @@ bench-days:
 synth-population sample_scale out="python/pipeline/data/population" fixtures="python/pipeline/fixtures" seed="42":
     cargo run -q --release -p econ-cli -- synth-population --margins {{fixtures}}/census2021_margins_ro.json --attributes {{fixtures}}/census2021_edu_activity_ro.json --jobs {{fixtures}}/census2021_jobs_ro.json --housing {{fixtures}}/census2021_housing_ro.json --wages {{fixtures}}/earnings2021_ro.json --pensions {{fixtures}}/pensions2021_ro.json --wealth {{fixtures}}/household_wealth2021_ro.json --incomes {{fixtures}}/other_incomes2021_ro.json --employers {{fixtures}}/firm_units2021_ro.json --sample-scale {{sample_scale}} --seed {{seed}} --out {{out}}
 
+# Build the Romania scenario at one sample scale (spec game/scenario-builder): tables, opening balances and report.json in `out`
+build-scenario sample_scale out="python/pipeline/data/scenario":
+    cargo run -q --release -p econ-cli -- build-scenario --sample-scale {{sample_scale}} --out {{out}}
+
 # Run the scale world on the Romanian starting population (census households and ages; jobs and wages still invented)
 sim-romania sample_scale="100" ticks="12" margins="python/pipeline/fixtures/census2021_margins_ro.json":
     cargo run -q --release -p econ-cli -- sim-population --margins {{margins}} --sample-scale {{sample_scale}} --ticks {{ticks}}

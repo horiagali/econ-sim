@@ -176,6 +176,7 @@ macro_rules! col {
 }
 
 pub mod popgen;
+pub mod table;
 
 /// The starting state of a `World` (spec `game/world-loop`): a scenario
 /// folder written by the scenario builder (its tables, firm units and opening

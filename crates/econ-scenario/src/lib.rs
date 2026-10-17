@@ -3,9 +3,6 @@
 //! a folder of Arrow tables and small JSON files, with a consistency report.
 //! `econ-cli build-scenario` calls it.
 //!
-//! **Skeleton** (ADR-0014): the API of the spec's sketch, written with the
-//! acceptance tests; the bodies come with the implementation.
-//!
 //! The folder (what the acceptance tests read):
 //!
 //! | File | Content |
@@ -16,6 +13,7 @@
 //! | `balances.arrow` | `instrument` (u8), `sector` (u8), `balance` (i64, bani), one row per pair in matrix order |
 //! | `report.json` | `checks`: one object per check with `name`, `ok`, `known_gap` and its figures; `consistent` |
 
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use econ_ledger::{InvariantError, Ledger};
@@ -25,8 +23,15 @@ use econ_popgen::{
 };
 use serde_json::Value;
 
+mod build;
 pub mod firm_opening;
 pub mod opening;
+mod report;
+mod sha256;
+mod write;
+
+pub use build::StageInputs;
+pub use sha256::sha256_hex;
 
 pub use firm_opening::{
     FirmOpening, FirmOpeningError, FirmOpeningMargins, FirmUnitAmounts, IndustryMargins,
@@ -59,6 +64,12 @@ pub struct Inputs {
     pub accounts: SectorAccounts,
     /// `sector_details2021_ro.json`.
     pub details: SectorDetails,
+    /// The margin files of stages A to J.
+    pub stages: StageInputs,
+    /// Every input file as JSON, by its name.
+    pub docs: BTreeMap<&'static str, Value>,
+    /// The firm-unit table without `employees`, which needs the population.
+    pub firm_units: FirmUnitTable,
 }
 
 /// Read and check every input of the spec's table.
@@ -66,8 +77,7 @@ pub struct Inputs {
 /// # Errors
 /// [`BuildError::Input`] naming the first file that is missing or malformed.
 pub fn read_inputs(dir: &Path) -> Result<Inputs, BuildError> {
-    let _ = dir;
-    unimplemented!("game/scenario-builder: read the inputs")
+    build::read_inputs(dir)
 }
 
 /// The columns of stages C to J.
@@ -155,14 +165,13 @@ impl Report {
     /// Every check passes or is a known gap.
     #[must_use]
     pub fn consistent(&self) -> bool {
-        unimplemented!("game/scenario-builder: the report's verdict")
+        self.checks.iter().all(|c| c.ok || c.known_gap.is_some())
     }
 
     /// The check of that name.
     #[must_use]
     pub fn check(&self, name: &str) -> Option<&Check> {
-        let _ = name;
-        unimplemented!("game/scenario-builder: look up a check")
+        self.checks.iter().find(|c| c.name == name)
     }
 }
 
@@ -189,7 +198,18 @@ impl Scenario {
     /// The hash of every stage, under its name in `scenario.json`, in stage order.
     #[must_use]
     pub fn stage_hashes(&self) -> Vec<(&'static str, u64)> {
-        unimplemented!("game/scenario-builder: the stage hashes")
+        let s = &self.stages;
+        vec![
+            ("population", self.population.state_hash()),
+            ("attributes", s.attributes.state_hash()),
+            ("jobs", s.jobs.state_hash()),
+            ("housing", s.housing.state_hash()),
+            ("wages", s.wages.state_hash()),
+            ("pensions", s.pensions.state_hash()),
+            ("wealth", s.wealth.state_hash()),
+            ("incomes", s.incomes.state_hash()),
+            ("employers", s.employers.state_hash()),
+        ]
     }
 }
 
@@ -214,11 +234,16 @@ pub enum BuildError {
 }
 
 impl BuildError {
-    /// The exit status of `econ-cli build-scenario` for this error (3 for
-    /// [`BuildError::Invariants`]).
+    /// The exit status of `econ-cli build-scenario` for this error: 3 for
+    /// [`BuildError::Invariants`], 2 for an input that cannot be read (as a
+    /// bad argument), 1 otherwise.
     #[must_use]
     pub fn exit_status(&self) -> u8 {
-        unimplemented!("game/scenario-builder: exit status")
+        match self {
+            BuildError::Invariants(_) => 3,
+            BuildError::Input { .. } => 2,
+            _ => 1,
+        }
     }
 }
 
@@ -241,8 +266,7 @@ pub fn build_with_hook(
     params: &BuildParams,
     hook: &dyn Fn(&mut OpeningBalances),
 ) -> Result<Scenario, BuildError> {
-    let _ = (inputs, params, hook);
-    unimplemented!("game/scenario-builder: build")
+    build::build_with_hook(inputs, params, hook)
 }
 
 /// Write the folder: every file into a temporary folder next to `dir`, then
@@ -252,8 +276,7 @@ pub fn build_with_hook(
 /// # Errors
 /// [`BuildError::Io`].
 pub fn write(scenario: &Scenario, inputs: &Inputs, dir: &Path) -> Result<(), BuildError> {
-    let _ = (scenario, inputs, dir);
-    unimplemented!("game/scenario-builder: write the folder")
+    write::write(scenario, inputs, dir)
 }
 
 /// What `econ-cli build-scenario` does: read, build, write. The report is
