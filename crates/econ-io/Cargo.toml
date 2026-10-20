@@ -22,6 +22,19 @@ serde_json.workspace = true
 # `read_start_state`: a built scenario folder as the `StartState` of the
 # `World` (spec game/world-loop). Off until the `World` exists (ADR-0014).
 world = ["econ-core/world"]
+# `budget`: the starting budget's loader (spec economy/budget-2021). Gates the
+# acceptance tests, written before the code (ADR-0014); the implementation adds
+# it to `default`.
+budget = []
+
+[dev-dependencies]
+# The reconciliation with the starting population (AC-BUD-09) builds the
+# Romania scenario (a dev-dependency cycle, allowed for integration tests).
+econ-scenario.workspace = true
+
+[[test]]
+name = "acceptance"
+path = "tests/acceptance/main.rs"
 
 [lints]
 workspace = true

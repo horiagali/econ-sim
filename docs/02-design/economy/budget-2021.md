@@ -235,7 +235,7 @@ None. The guesses are data, in the fixture's `provenance.guesses`:
 - **Overflow:** the largest amount (old-age pensions, 1.1 × 10^13 bani) is far inside `i64`; sums use checked arithmetic.
 
 ## Acceptance tests
-IDs are stable. Tests are to be written in a test-authoring session (ADR-0014), in `crates/econ-io/tests/acceptance/budget.rs` (protected), against the loader sketched below. "The fixture" is `python/pipeline/fixtures/budget2021_ro.json`. Measured values are from the Python reference on 2026-10-13; those of AC-BUD-05, 06 and 09 on 2026-10-15, after the public units were rebuilt from this table.
+IDs are stable. Tests are to be written in a test-authoring session (ADR-0014), in `crates/econ-io/tests/acceptance/budget.rs` (protected), against the loader sketched below. "The fixture" is `python/pipeline/fixtures/budget2021_ro.json`. Measured values are from the Python reference on 2026-10-13; those of AC-BUD-05, 06 and 09 on 2026-10-15, after the public units were rebuilt from this table. AC-BUD-01 to 13 were written there on 2026-10-20 against the API skeleton (`econ_io::budget`), compiled only with the crate feature `budget` until the implementation turns it on; the reconciliations AC-BUD-05 to 09 read the committed fixtures and the scenario that `econ_scenario::build` makes, since the builder's report has no budget section yet, and AC-BUD-12 runs the reference with `--tables`. AC-BUD-14 waits for the proposed flow codes and a function that posts a month of the budget, which the sketch does not have.
 
 - [ ] **AC-BUD-01** `[unit]` For each of the twelve types, the amounts of the thirteen lines add up exactly (in bani) to the published national total the fixture carries (D11, D12, P2, D62, D632, D3, D4, P5, NP, D7, D9, D29+D5+D8), and the lines add up to total expenditure, 474,031,500,000 lei, exactly.
 - [ ] **AC-BUD-02** `[unit]` The lines are a partition of the COFOG subgroups (no subgroup in two lines); for each of the ten divisions, the amounts of its subgroups add up exactly to Eurostat's published division total.
@@ -254,20 +254,7 @@ IDs are stable. Tests are to be written in a test-authoring session (ADR-0014), 
 
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-BUD-01: the budget loader in Rust (roadmap M1)
-- AC-BUD-02: the budget loader in Rust (roadmap M1)
-- AC-BUD-03: the budget loader in Rust (roadmap M1)
-- AC-BUD-04: the budget loader in Rust (roadmap M1)
-- AC-BUD-05: the budget loader in Rust (roadmap M1)
-- AC-BUD-06: the budget loader in Rust (roadmap M1)
-- AC-BUD-07: the budget loader in Rust (roadmap M1)
-- AC-BUD-08: the budget loader in Rust (roadmap M1)
-- AC-BUD-09: the budget loader in Rust (roadmap M1)
-- AC-BUD-10: the budget loader in Rust (roadmap M1)
-- AC-BUD-11: the budget loader in Rust (roadmap M1)
-- AC-BUD-12: the budget loader in Rust (roadmap M1)
-- AC-BUD-13: the budget loader in Rust (roadmap M1)
-- AC-BUD-14: the budget loader in Rust (roadmap M1)
+- AC-BUD-14: the proposed flow codes in `codes.rs` and a function that posts a month of the budget (not in the API sketch)
 
 ## API sketch (Rust, no implementation)
 In `econ-io` (loading) behind an off-by-default feature `budget`; the types in `econ-types` if fiscal policy needs them without the loader.
