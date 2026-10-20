@@ -15,7 +15,7 @@ mod attributes;
 mod employers;
 mod fit;
 mod housing;
-// Stage K: its API skeleton, until the implementation adds the feature to `default`.
+// Stage K: kinds of inactivity and enrolment.
 #[cfg(feature = "inactivity_enrolment")]
 mod inactivity;
 mod incomes;
