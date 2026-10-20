@@ -699,8 +699,14 @@ name = "econ-core"
 version = "0.1.0"
 dependencies = [
  "econ-ledger",
+ "econ-mech-households",
+ "econ-mech-labour",
+ "econ-mech-prices",
+ "econ-mech-production",
  "econ-mech-tax",
+ "econ-mech-transfers",
  "econ-num",
+ "econ-popgen",
  "econ-rng",
  "econ-types",
 ]
@@ -713,6 +719,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "econ-mech-households"
+version = "0.1.0"
+dependencies = [
+ "econ-types",
+]
+
+[[package]]
+name = "econ-mech-labour"
+version = "0.1.0"
+dependencies = [
+ "econ-num",
+ "econ-types",
+]
+
+[[package]]
+name = "econ-mech-prices"
+version = "0.1.0"
+dependencies = [
+ "econ-num",
+]
+
+[[package]]
+name = "econ-mech-production"
+version = "0.1.0"
+
+[[package]]
 name = "econ-mech-tax"
 version = "0.1.0"
 dependencies = [
@@ -721,10 +753,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "econ-mech-transfers"
+version = "0.1.0"
+dependencies = [
+ "econ-types",
+]
+
+[[package]]
 name = "econ-num"
 version = "0.1.0"
 dependencies = [
  "libm",
+]
+
+[[package]]
+name = "econ-popgen"
+version = "0.1.0"
+dependencies = [
+ "econ-rng",
 ]
 
 [[package]]
