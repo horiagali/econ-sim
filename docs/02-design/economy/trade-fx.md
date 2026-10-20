@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/production, economy/prices-inflation, economy/money-banking, economy/monetary-policy, economy/opening-balance-sheet, game/world-loop, adr/0017-time-base]
 research: []
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # Trade & Exchange Rate
@@ -79,7 +79,7 @@ What is built first, on the `World` of [game/world-loop](../game/world-loop.md).
 3. **Exports, monthly:** each day's export demand on good $g$ is $\bar X_g \cdot \big(\tfrac{p_g}{e/e_0 \cdot p^*_g}\big)^{-\epsilon} \cdot \text{demand index}$; the rest of the world pays in lei as in M2.
 4. **The exchange rate, monthly close:**
    $$\frac{\Delta e}{e} = -\gamma_1\big[(i - \pi^e) - (i^* - \pi^{*e}) - \text{rp}\big] - \gamma_2\,\frac{CA}{GDP} + \text{intervention}$$
-   with $CA$ the month's current account (exports less imports, less primary income paid abroad, from the ledger) over the month's GDP, and $\text{rp}$ a constant risk premium. **Managed float:** the central bank offsets `intervention_share` of the move by selling or buying foreign assets against the rest of the world's lei deposits (flow code `finance.fx_intervention`), as long as its foreign assets stay above `reserve_floor` months of imports.
+   with $CA$ the month's current account (exports less imports, less primary income paid abroad, from the ledger) over the month's GDP, and $\text{rp}$ the risk premium: the real-rate gap of the start, so that with the starting rates the exchange rate does not move (with the policy rate at 1.75%, expected inflation at the 2.5% target, the euro area's −0.5% and 2%: 1.75 points). **Managed float:** the central bank offsets `intervention_share` of the move by selling or buying foreign assets against the rest of the world's lei deposits (flow code `finance.fx_intervention`), as long as its foreign assets stay above `reserve_floor` months of imports.
 5. **Settlement.** The rest of the world keeps paying and being paid in its lei deposits at Romanian banks (M2's placeholder); a deficit of the current account is the growth of those deposits, and the central bank's intervention converts them against its foreign assets.
 
 > **Simplification (M3):** one foreign bloc for prices (the euro area) with the dollar at a constant cross rate; no tariffs (EU single market; the common external tariff on non-EU goods is small and constant); no capital account beyond the rest of the world's deposits and the central bank's intervention; no J-curve beyond what the monthly adjustment gives.
@@ -94,7 +94,7 @@ What is built first, on the `World` of [game/world-loop](../game/world-loop.md).
 | `export_elasticity` $\epsilon$ | 1.0 | export volume per relative price |
 | $\gamma_1$ | 0.02 a month per point of real-rate gap | interest parity pull |
 | $\gamma_2$ | 0.05 a month per unit of CA/GDP | flow pressure |
-| `risk_premium` rp | 3 points | Romania's premium over the euro area (medium confidence) |
+| `risk_premium` rp | the starting real-rate gap (1.75 points) | Romania's premium over the euro area; a constant of 3 points made the rate drift about 1% a month at the start (restated 2026-10-21) |
 | `intervention_share` | 0.8 | share of a move the BNR offsets (a tightly managed float) |
 | `reserve_floor` | 3 months of imports | below it the BNR stops selling |
 
@@ -112,7 +112,7 @@ IDs are stable (added 2026-10-20). Tests go in `crates/econ-core/tests/acceptanc
 
 - [ ] **AC-TFX-01** `[unit]` The Armington share is the formula of step 2: at equal prices it is the starting share, and it rises when the domestic good becomes dearer.
 - [ ] **AC-TFX-02** `[unit]` The exchange-rate step is the formula of step 4, with the intervention offsetting its share of the move while reserves are above the floor and none below it.
-- [ ] **AC-TFX-03** `[sim]` The balance of payments closes every month end: current account + the change in the rest of the world's lei deposits + the central bank's intervention = 0, to the ban.
+- [ ] **AC-TFX-03** `[sim]` The balance of payments closes every month end: current account (including the coupons on government bonds paid to the rest of the world) = the change in the rest of the world's lei deposits + its purchases of government bonds less redemptions − the central bank's sales of foreign assets (its intervention), to the ban. Restated 2026-10-21 to include the bonds.
 - [ ] **AC-TFX-04** `[sim]` A permanent 10% depreciation (a world-constants edit) raises import prices at once, export volumes over the following months and CPI by less than 10%.
 - [ ] **AC-TFX-05** `[sim]` Quiet baseline: on the Romania scenario with the 2021 law and constant world, the exchange rate over 120 months stays within 10% of its start and the central bank's reserves above their floor.
 - [ ] **AC-TFX-06** `[sim]` *(M4)* A 2-point rise in the domestic policy rate appreciates the currency.
@@ -143,6 +143,7 @@ pub fn fx_step(rate_ppm: u32, real_gap_ppm: i32, ca_over_gdp_ppm: i32, reserves_
 Powers through `econ_num::math` (ADR-0006). The monthly close and the settlement live with the `World`.
 
 ## Open questions
+- [x] **AC-TFX-03 and the risk premium restated** (2026-10-21, under the owner's delegation, after the test session): the balance of payments includes the rest of the world's bond purchases and coupons; the risk premium is the starting real-rate gap, so the quiet baseline (AC-TFX-05) does not drift.
 - [x] **Settlement in the rest of the world's lei deposits** (M2's placeholder) instead of foreign assets per sector: proposed for M3; residents' foreign assets move only by the central bank's intervention. A portfolio of foreign assets per sector comes with the capital account. **Decided (owner, 2026-10-20): as proposed.**
 - [x] **One price bloc** (the euro area) in M3; the two blocs of the draft when the outside world becomes dynamic (D8). **Decided (owner, 2026-10-20): as proposed.**
 - [ ] Name more partner blocs later (e.g. separate China, US, Turkey, Ukraine/Moldova)?

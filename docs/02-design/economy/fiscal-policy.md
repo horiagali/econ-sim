@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/accounting, economy/taxation, economy/social-transfers, economy/money-banking, economy/monetary-policy, economy/budget-2021, economy/opening-balance-sheet, game/world-loop, adr/0017-time-base]
 research: [research/budget-romania-2021]
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # Fiscal Policy — Budget, Spending, Subsidies & Public Debt
@@ -120,7 +120,7 @@ Budget balance, primary balance, debt/GDP, interest burden, yields, holders of d
 ## Acceptance tests
 IDs are stable (added 2026-10-20). Tests go in `crates/econ-core/tests/acceptance/` (protected).
 
-- [ ] **AC-FIS-01** `[sim]` Debt identity, every month end: debt = debt a month earlier + the month's deficit − the change of the government's deposits − monetary financing, to the ban.
+- [ ] **AC-FIS-01** `[sim]` Debt identity, every month end: debt = debt a month earlier + the month's deficit + the change of the government's deposits at the central bank, to the ban. Bonds the central bank holds are part of the debt; restated 2026-10-21 (the first statement had the sign of the deposits wrong and counted the central bank's bonds twice, found by the test session).
 - [ ] **AC-FIS-02** `[sim]` After every month end the government's deposits at the central bank equal `gov_cash_target`, and no maturing bond is left unpaid.
 - [ ] **AC-FIS-03** `[sim]` Coupons: each holder sector receives its share of a twelfth of the coupon on the stock, the sum is the government's interest under `interest.gov_debt`.
 - [ ] **AC-FIS-04** `[unit]` The yield is the formula of step 4; it never falls as debt rises.
@@ -155,6 +155,7 @@ pub fn split_by_holdings(amount: Bani, holdings: &[Bani]) -> Vec<Bani>;         
 The month-end postings live with the `World`.
 
 ## Open questions
+- [x] **AC-FIS-01 restated** (2026-10-21, under the owner's delegation): debt = previous debt + deficit + change of the government's deposits; the central bank's bonds are inside the debt, so monetary financing is not subtracted.
 - [x] **Budget lines and the `World`'s purchases:** the input-output table's government purchases (211 billion lei) already contain public wages and goods; proposed that M3 adds only the budget lines the `World` does not pay (subsidies, transfers, capital), so nothing is paid twice. The budget's lines become the levers in M4, when purchases follow the ministries' budgets instead of the table. **Decided (owner, 2026-10-20): as proposed.**
 - [x] **Holders' shares fixed:** proposed for M3; a portfolio rule (banks' liquidity, the rest of the world's yield gap) comes with trade and the exchange rate. **Decided (owner, 2026-10-20): as proposed.**
 - [ ] Should ministries have a minimum viable budget (e.g. zero police → chaos) or scale smoothly?
