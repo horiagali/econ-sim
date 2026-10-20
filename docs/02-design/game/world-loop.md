@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [game/overview, adr/0005-simulation-core-architecture, adr/0017-time-base, adr/0018-scenario-and-commands, adr/0007-money-and-ledger, economy/accounting, game/scenario-builder, economy/opening-balance-sheet, economy/households, economy/labor-market, economy/production, economy/prices-inflation, economy/vat]
 research: []
-updated: 2026-10-15
+updated: 2026-10-20
 ---
 
 # World and Daily Loop (first version)
@@ -116,7 +116,7 @@ The tests were written on 2026-10-15 against the API skeleton (`econ_core::world
 
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-WLD-05: the golden value comes from the first implementation, approved by the owner (ADR-0010)
+- AC-WLD-05: the golden value comes from the first implementation: `407f56fb8ccd24ea`, the state hash on day 31 at 1:1000, seed 42 (2026-10-17), approved by the owner on 2026-10-20; the test session commits it
 
 ## API sketch
 In `econ-core` (no I/O); loading the scenario's files is `econ-io`'s.
@@ -157,6 +157,18 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
 ```
 
 ## Open questions
+- [x] **Choices of the first implementation** (2026-10-17), where this spec and the mechanics' left room or the first runs broke without them; listed in the module documentation of `econ_core::world`. **Accepted (owner, 2026-10-20):**
+  - `employer` is employment as an employee; employers, own-account and family workers keep their status and earn self-employment income.
+  - Normal tightness θ* of the wage round is the tightness of normal turnover (a month of quits over qualified seekers) at load.
+  - Households buy each good's imported part from the rest of the world at the starting price, through the seller industry's clearing account.
+  - Households pay the legal VAT rates less Romania's VAT gap of 2021 (36.7%) until the informal economy (M15).
+  - Fixed investment includes the input-output table's change in inventories.
+  - A unit holds 60 days of its essential inputs (at least 1% of its output) and is short of one only when that stock runs out.
+  - Staff meets its requirement within half a record; matching reaches the seekers of the regions where a unit has staff (the builder writes `hh_region`).
+  - Cohort units pay investment goods, and the domestic ones self-employment and informal income, by their starting surplus, out of what they can spare beyond a month of wages.
+  - A public producer's shortfall is paid by the government as non-market output at cost; a cohort unit short of money borrows from the others' spare money (credit inside the firm sector) until banks lend (M3).
+  - The government's deposits at the central bank may go below zero until bonds exist (M3).
+  - The clock starts just after November's pay day: the starting month's income is paid on day 0.
 - [x] **Who pays self-employment and informal income in M2?** The households spec keeps them at their starting amounts (scaled with consumption) but names no payer. Proposed: the domestic units that [firm units' undeclared sales](../economy/firm-units-undeclared-inventories.md) gives the households' income to, each its share, as a `deposits` payment firms → households. Alternative: the firms sector in proportion to value added. **Decided (owner, 2026-10-14):** the domestic units that the firm-unit data gives the households' income to, each its share, as a deposits payment firms → households.
 - [x] **The placeholder law in code until M4.** The [scenario builder](scenario-builder.md) (locked) says a loader refuses a scenario with `law: null` "for a run". Proposed reading: the refusal is the game's; the M2 tests construct the `World` directly with `Law::placeholder_2021()`. Confirm, or the builder spec gets a sentence. **Decided (owner, 2026-10-14):** the M2 tests build the `World` with `Law::placeholder_2021()`; the builder's refusal of `law: null` is the game's.
 - [x] **Imports and exports in deposits.** In M2 the rest of the world pays and is paid in deposits at Romanian banks (its `deposits` balance moves), not through foreign assets and the exchange rate (M3). Accept as the placeholder? **Decided (owner, 2026-10-14):** accepted as the M2 placeholder.

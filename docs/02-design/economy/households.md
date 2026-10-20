@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [society/population-groups, economy/labor-market, economy/taxation, economy/social-transfers, economy/money-banking, economy/prices-inflation, economy/vat, adr/0017-time-base]
 research: [research/household-wealth-romania, research/informal-economy-romania]
-updated: 2026-10-17
+updated: 2026-10-20
 ---
 
 # Households — Budgets, Consumption, Saving & Borrowing
@@ -160,4 +160,4 @@ The phase that walks today's households, calls these, posts through the ledger a
 - [x] First version, periods and parameters as above: accepted by the owner's delegation, 2026-10-11 ("accept the drafts").
 - [ ] `mpc[q]` and the floor are guesses until calibration (M7); the survey behind the fifths is Eurostat's income-consumption statistics for 2020.
 - [x] **The defaults of `mpc[q]`** (owner, 2026-10-17). The first values (0.95 to 0.60) made the starting population spend 537 billion lei in its first year, 25% under the input-output table's 720 billion (AC-HH-08 allows 10%): in M2 households keep their gross income (there are no taxes yet), so they match the table only by spending nearly all of it. 1.00, 1.00, 1.00, 0.98, 0.95 give 720.1 billion. Revisit in M3, when taxes cut disposable income.
-- [ ] **AC-HH-05 and the defaults.** With them, a transfer to the poorest fifth raises consumption less than the same total to the richest (0.85 against 0.97 of the transfer over two months, 1:1000): a third of the poorest households have no income in M2 (no benefits before M3) and already spend the subsistence floor out of savings, so a transfer first replaces that. The criterion holds with a richest-fifth `mpc` of 0.80, but then demand falls short of starting output and the quiet baseline (AC-WLD-07) fails. Owner to decide: wait for the benefits of M3, or change one of the criteria.
+- [x] **AC-HH-05 and the defaults.** With them, a transfer to the poorest fifth raises consumption less than the same total to the richest (0.85 against 0.97 of the transfer over two months, 1:1000): a third of the poorest households have no income in M2 (no benefits before M3) and already spend the subsistence floor out of savings, so a transfer first replaces that. The criterion holds with a richest-fifth `mpc` of 0.80, but then demand falls short of starting output and the quiet baseline (AC-WLD-07) fails. **Decided (owner, 2026-10-20):** the criterion waits for the benefits of M3 (the minimum income and child allowance give the poorest households an income); its test is marked as owed until then.

@@ -4,7 +4,7 @@ title: Roadmap
 status: draft
 owner: horia
 depends_on: [vision/scope]
-updated: 2026-10-17
+updated: 2026-10-20
 ---
 
 # Roadmap
@@ -201,7 +201,7 @@ The first version of each mechanic is the simplest rule that is in its spec, not
 - [x] **Firm-unit goods market,** then **production:** output from demand, inputs through the input-output table, inventories, hiring plans. Pure functions done 2026-10-14 (`econ-mech-production`: the monthly plan, rationing, sales shared over units; AC-PROD-01 and 02 pass); the daily output, input purchases and the goods market come with the `World`.
 - [x] **Prices:** markup on unit cost, CPI. Pure functions done 2026-10-14 (`econ-mech-prices`: unit cost, markup, target, the daily step, expectations; AC-PRICE-01 to 03 pass); the daily phase and the monthly CPI come with the `World`.
 - [x] Placeholders so the loop closes: government buys and pays wages at fixed real levels and taxes with VAT only; no banks (deposits only); imports at fixed prices.
-- **2026-10-17, the `World` built** (`econ_core::world`, feature `world`; spec [`game/world-loop`](02-design/game/world-loop.md)): the four mechanics on the Romania scenario, every leu through the ledger, the checks of phase 13 every day, GDP equal three ways at every close. 27 of the 29 `[sim]` and `World` criteria pass on a local copy of the tests with the new spending defaults; AC-HH-05 waits for an owner decision (spec [households](02-design/economy/households.md), open questions), and AC-WLD-10 (a year at 1:100 within 2 seconds) passes alone (1.4 s) but not with the other tests running in parallel. The feature stays off by default until the owner's test session updates the defaults asserted in `support.rs`, decides AC-HH-05 and approves the day-31 golden (`407f56fb8ccd24ea` at 1:1000, seed 42). Choices the specs left open are listed in the module documentation of `world.rs` for the owner's review.
+- **2026-10-17, the `World` built** (`econ_core::world`, feature `world`; spec [`game/world-loop`](02-design/game/world-loop.md)): the four mechanics on the Romania scenario, every leu through the ledger, the checks of phase 13 every day, GDP equal three ways at every close. 27 of the 29 `[sim]` and `World` criteria pass on a local copy of the tests with the new spending defaults; AC-HH-05 waits for an owner decision (spec [households](02-design/economy/households.md), open questions), and AC-WLD-10 (a year at 1:100 within 2 seconds) passes alone (1.4 s) but not with the other tests running in parallel. **2026-10-20, owner:** the choices of the implementation accepted (spec [`game/world-loop`](02-design/game/world-loop.md), open questions); AC-HH-05 waits for M3's benefits; the day-31 golden `407f56fb8ccd24ea` approved. Owed by the owner's next test session: the defaults asserted in `support.rs`, AC-HH-05 marked owed, the golden committed, two SHA-256 constants of `support_builder.rs`, the SIM re-golden of PR #52. Then the feature `world` goes on by default.
 - [ ] CI runs a tiny scenario at three scales; a 50-year run at 1:100 stays within the time budget of Spike 4.
 - [ ] Thin UI window on this core (time controls, a dozen charts).
 
