@@ -1,7 +1,7 @@
 ---
 id: economy/money-banking
 title: Money & Banking
-status: draft
+status: locked
 owner: horia
 depends_on: [economy/accounting, economy/monetary-policy, economy/opening-balance-sheet, game/world-loop, adr/0016-firm-representation, adr/0017-time-base]
 research: []
@@ -130,6 +130,20 @@ IDs are stable (added 2026-10-20). Tests go in `crates/econ-core/tests/acceptanc
 - [ ] **AC-BANK-10** `[sim]` *(M9)* Cohort defaults lower `firm_count` and bank loans by the defaulting firms' share; the loan book still equals the count-weighted sum of firm-unit loans.
 - [ ] **AC-BANK-11** `[sim]` *(later; crisis dynamics, D10)* A bank run can occur with low capital and low deposit insurance, and not with high capital.
 
+### Tests owed
+The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-BANK-01: the banking mechanic on the `World` (roadmap M3)
+- AC-BANK-02: the banking mechanic on the `World` (roadmap M3)
+- AC-BANK-03: the banking mechanic on the `World` (roadmap M3)
+- AC-BANK-04: the banking mechanic on the `World` (roadmap M3)
+- AC-BANK-05: the banking mechanic on the `World` (roadmap M3)
+- AC-BANK-06: the banking mechanic on the `World` (roadmap M3)
+- AC-BANK-07: the banking mechanic on the `World` (roadmap M3)
+- AC-BANK-08: the banking mechanic on the `World` (roadmap M3)
+- AC-BANK-09: roadmap M9
+- AC-BANK-10: roadmap M9
+- AC-BANK-11: after v1
+
 ## API sketch
 For the test writer and the implementer. Rates and shares in millionths; money in bani.
 
@@ -149,8 +163,8 @@ pub fn capital_ratio_ppm(equity: Bani, firm_loans: Bani, consumer: Bani, mortgag
 The daily credit draws, the month-end interest and repayments and the reserve check live with the `World`. New flow codes, append-only: `interest.loan`, `interest.deposit`, `interest.reserves`, `finance.loan` (draws and repayments), `finance.cb_advance`, `finance.write_off`.
 
 ## Open questions
-- [ ] **One bank or several in v1?** Proposed: one until the bank run is modelled (after v1, D10).
-- [ ] **Shadow banking or bond markets for corporate debt?** Proposed: no; other financial firms keep their opening portfolio (owner, 2026-10-13).
-- [ ] **Households' new borrowing in M3:** proposed none (interest only, the stock constant) until the housing market (M13). The alternative, lending each month what households repay to households of the same fifths, keeps credit moving but has no model of who borrows.
-- [ ] **The credit limit and the write-off rule** replace the M2 credit inside the firm sector; a unit that is structurally loss-making (the scale artefact of small units at 1:1000) will default every year. Accept, or keep a sector-internal fallback for those.
+- [x] **One bank or several in v1?** Proposed: one until the bank run is modelled (after v1, D10). **Decided (owner, 2026-10-20): as proposed.**
+- [x] **Shadow banking or bond markets for corporate debt?** Proposed: no; other financial firms keep their opening portfolio (owner, 2026-10-13). **Decided (owner, 2026-10-20): as proposed.**
+- [x] **Households' new borrowing in M3:** proposed none (interest only, the stock constant) until the housing market (M13). The alternative, lending each month what households repay to households of the same fifths, keeps credit moving but has no model of who borrows. **Decided (owner, 2026-10-20): as proposed.**
+- [x] **The credit limit and the write-off rule** replace the M2 credit inside the firm sector; a unit that is structurally loss-making (the scale artefact of small units at 1:1000) will default every year. Accept, or keep a sector-internal fallback for those. **Decided (owner, 2026-10-20): accepted; no sector-internal fallback.**
 - [ ] Rates and requirements of the start date to be checked against the BNR when the scenario's rates are collected.

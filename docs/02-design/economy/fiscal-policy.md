@@ -1,7 +1,7 @@
 ---
 id: economy/fiscal-policy
 title: Fiscal Policy — Budget, Spending, Subsidies & Public Debt
-status: draft
+status: locked
 owner: horia
 depends_on: [economy/accounting, economy/taxation, economy/social-transfers, economy/money-banking, economy/monetary-policy, economy/budget-2021, economy/opening-balance-sheet, game/world-loop, adr/0017-time-base]
 research: [research/budget-romania-2021]
@@ -129,6 +129,17 @@ IDs are stable (added 2026-10-20). Tests go in `crates/econ-core/tests/acceptanc
 - [ ] **AC-FIS-07** `[sim]` *(M4)* Persistent primary deficits with $r > g$ produce rising debt over GDP and rising yields.
 - [ ] **AC-FIS-08** `[sim]` *(M12)* A consumer energy subsidy lowers measured CPI and raises energy demand and the fiscal cost.
 
+### Tests owed
+The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-FIS-01: the debt mechanic on the `World` (roadmap M3)
+- AC-FIS-02: the debt mechanic on the `World` (roadmap M3)
+- AC-FIS-03: the debt mechanic on the `World` (roadmap M3)
+- AC-FIS-04: the debt mechanic on the `World` (roadmap M3)
+- AC-FIS-05: the debt mechanic on the `World` (roadmap M3)
+- AC-FIS-06: roadmap M4
+- AC-FIS-07: roadmap M4
+- AC-FIS-08: roadmap M12
+
 ## API sketch
 ```rust
 // crate econ-mech-fiscal (no I/O); money in bani, rates in millionths
@@ -146,7 +157,7 @@ pub fn split_by_holdings(amount: Bani, holdings: &[Bani]) -> Vec<Bani>;         
 The month-end postings live with the `World`.
 
 ## Open questions
-- [ ] **Budget lines and the `World`'s purchases:** the input-output table's government purchases (211 billion lei) already contain public wages and goods; proposed that M3 adds only the budget lines the `World` does not pay (subsidies, transfers, capital), so nothing is paid twice. The budget's lines become the levers in M4, when purchases follow the ministries' budgets instead of the table.
-- [ ] **Holders' shares fixed:** proposed for M3; a portfolio rule (banks' liquidity, the rest of the world's yield gap) comes with trade and the exchange rate.
+- [x] **Budget lines and the `World`'s purchases:** the input-output table's government purchases (211 billion lei) already contain public wages and goods; proposed that M3 adds only the budget lines the `World` does not pay (subsidies, transfers, capital), so nothing is paid twice. The budget's lines become the levers in M4, when purchases follow the ministries' budgets instead of the table. **Decided (owner, 2026-10-20): as proposed.**
+- [x] **Holders' shares fixed:** proposed for M3; a portfolio rule (banks' liquidity, the rest of the world's yield gap) comes with trade and the exchange rate. **Decided (owner, 2026-10-20): as proposed.**
 - [ ] Should ministries have a minimum viable budget (e.g. zero police → chaos) or scale smoothly?
-- [ ] Foreign-currency (EUR) borrowing: proposed yes, since Romania issues a large share of debt in EUR *(verify)*; adds FX risk to debt. Debt under foreign law matters for euro exit ([euro](euro.md)).
+- [x] Foreign-currency (EUR) borrowing: proposed yes, since Romania issues a large share of debt in EUR *(verify)*; adds FX risk to debt. Debt under foreign law matters for euro exit ([euro](euro.md)). **Decided (owner, 2026-10-20): debt in lei in M3 (the first version's simplification); foreign-currency debt with the exchange rate's later blocs.**

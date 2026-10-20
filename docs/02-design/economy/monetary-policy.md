@@ -1,7 +1,7 @@
 ---
 id: economy/monetary-policy
 title: Monetary Policy & Central Bank
-status: draft
+status: locked
 owner: horia
 depends_on: [economy/money-banking, economy/prices-inflation, economy/fiscal-policy, economy/opening-balance-sheet, game/world-loop, adr/0017-time-base]
 research: []
@@ -104,6 +104,17 @@ IDs are stable (added 2026-10-20). Tests go in `crates/econ-core/tests/acceptanc
 - [ ] **AC-MP-07** `[sim]` *(M13)* A rate cut raises credit growth and house prices.
 - [ ] **AC-MP-08** `[unit]` *(M4)* The rate cannot go below the floor.
 
+### Tests owed
+The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-MP-01: the monetary mechanic on the `World` (roadmap M3)
+- AC-MP-02: the monetary mechanic on the `World` (roadmap M3)
+- AC-MP-03: the monetary mechanic on the `World` (roadmap M3)
+- AC-MP-04: the monetary mechanic on the `World` (roadmap M3)
+- AC-MP-05: the monetary mechanic on the `World` (roadmap M3)
+- AC-MP-06: roadmap M4
+- AC-MP-07: roadmap M13
+- AC-MP-08: roadmap M4
+
 ## API sketch
 ```rust
 // crate econ-mech-monetary (no I/O); rates and shares in millionths
@@ -117,7 +128,7 @@ pub fn advisory_rate_ppm(previous: i32, expected_ppm: i32, inflation_ppm: i32, t
 The month-end interest and profit postings and the close live with the `World`. New flow codes, append-only: `interest.reserves`, `interest.cb_foreign`, `transfer.cb_profit`.
 
 ## Open questions
-- [ ] **The policy rate before levers (M3):** proposed constant at 1.75%; the alternative is the advisory rule set on autopilot until the player can move it (M4).
-- [ ] **Monetary financing once bonds exist:** proposed that the government issues bonds to keep its deposits at or above zero (fiscal policy), so monetary financing is a player's choice from M4.
+- [x] **The policy rate before levers (M3):** proposed constant at 1.75%; the alternative is the advisory rule set on autopilot until the player can move it (M4). **Decided (owner, 2026-10-20): as proposed.**
+- [x] **Monetary financing once bonds exist:** proposed that the government issues bonds to keep its deposits at or above zero (fiscal policy), so monetary financing is a player's choice from M4. **Decided (owner, 2026-10-20): as proposed.**
 - [ ] When independence arrives later: should an independent CB be able to refuse to buy bonds in a debt crisis (forcing default)?
 - [ ] Euro adoption as a long-term option (gives up the policy rate and exchange rate)?
