@@ -1,4 +1,12 @@
-# econ-sim UI (Spike 8)
+# econ-sim UI
+
+The thin UI of roadmap M2: open the World on the Romania scenario (1:1000 or
+1:100), step it by a day, a month or a year, or play it, and watch twelve
+monthly charts. The host builds the scenario from `python/pipeline/fixtures`
+(or `ECON_FIXTURES`). The county map and the "why" tree of Spike 8 are
+still in `src/components`, not shown.
+
+## Spike 8
 
 Tauri 2 desktop app: React + TypeScript frontend, uPlot charts, ECharts
 county map; the Rust simulation core runs in-process (ADR-0013).

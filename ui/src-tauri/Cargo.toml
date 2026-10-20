@@ -14,6 +14,8 @@ serde = { version = "1", features = ["derive"] }
 econ-core = { path = "../../crates/econ-core" }
 econ-rules = { path = "../../crates/econ-rules" }
 econ-types = { path = "../../crates/econ-types" }
+econ-scenario = { path = "../../crates/econ-scenario" }
+econ-io = { path = "../../crates/econ-io", features = ["world"] }
 
 # Not a member of the root workspace (it needs the system WebView libraries to build).
 [workspace]

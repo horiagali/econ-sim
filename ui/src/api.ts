@@ -15,29 +15,47 @@ export interface ContributionNode {
   children: ContributionNode[];
 }
 
+/** Where the open world is (see `src-tauri/src/world.rs`). */
+export interface WorldStatus {
+  open: boolean;
+  sample_scale: number;
+  day: number;
+  date: string;
+  months: number;
+  /** The checks of the latest day that failed; empty when all hold. */
+  failed: string[];
+}
+
 export interface Backend {
   kind: "tauri" | "mock";
-  /** `nSeries` monthly series of length `months` (binary transfer in Tauri). */
-  runSeries(nSeries: number, months: number): Promise<Series[]>;
+  /** Build the Romania scenario at 1:`sampleScale` and open a world on it. */
+  worldOpen(sampleScale: number): Promise<WorldStatus>;
+  /** Run `days` days with no command (stops at a day whose checks fail). */
+  worldStep(days: number, sampleScale: number): Promise<WorldStatus>;
+  /** The world's monthly series, one value per closed month (binary transfer in Tauri). */
+  worldSeries(): Promise<Series[]>;
   /** One value per county code (e.g. "RO-CJ"). */
   countyValues(indicator: string): Promise<Record<string, number>>;
   /** Why did `indicator` change between two months? */
   explain(indicator: string): Promise<ContributionNode>;
 }
 
-function unpack(buf: ArrayBuffer, nSeries: number, months: number): Series[] {
+function unpack(buf: ArrayBuffer, names: string[]): Series[] {
   const all = new Float64Array(buf);
-  return Array.from({ length: nSeries }, (_, s) => ({
-    name: `series ${s + 1}`,
-    values: all.subarray(s * months, (s + 1) * months),
-  }));
+  const months = names.length ? all.length / names.length : 0;
+  return names.map((name, s) => ({ name, values: all.subarray(s * months, (s + 1) * months) }));
 }
+
+let seriesNames: string[] | null = null;
 
 const tauriBackend: Backend = {
   kind: "tauri",
-  async runSeries(nSeries, months) {
-    const buf = await invoke<ArrayBuffer>("run_series", { nSeries, months });
-    return unpack(buf, nSeries, months);
+  worldOpen: (sampleScale) => invoke<WorldStatus>("world_open", { sampleScale }),
+  worldStep: (days, sampleScale) => invoke<WorldStatus>("world_step", { days, sampleScale }),
+  async worldSeries() {
+    seriesNames ??= await invoke<string[]>("world_series_names");
+    const buf = await invoke<ArrayBuffer>("world_series");
+    return unpack(buf, seriesNames);
   },
   countyValues: (indicator) => invoke<Record<string, number>>("county_values", { indicator }),
   explain: (indicator) => invoke<ContributionNode>("explain", { indicator }),
@@ -60,19 +78,52 @@ export const COUNTIES = [
   "SM", "SJ", "SB", "SV", "TR", "TM", "TL", "VS", "VL", "VN",
 ];
 
+// The mock world: a day counter and random walks, for the browser only.
+const MOCK_SERIES = [
+  "Unemployment rate (%)", "Inflation, 12 months (%)", "Expected inflation (%)", "CPI (start = 100)",
+  "Employed (thousands)", "GDP, production (bn lei)", "Household consumption (bn lei)", "Wage bill (bn lei)",
+  "Wage share of GDP (%)", "Consumption share of GDP (%)", "Shortages (bn lei)", "Households in hardship (thousands)",
+];
+let mockDay = -1;
+let mockScale = 1000;
+
+function mockStatus(): WorldStatus {
+  const open = mockDay >= 0;
+  const day = Math.max(mockDay, 0);
+  return {
+    open,
+    sample_scale: mockScale,
+    day,
+    date: open ? new Date(Date.UTC(2021, 11, 1 + day)).toISOString().slice(0, 10) : "",
+    months: open ? Math.floor(day / 30.4) : 0,
+    failed: [],
+  };
+}
+
 const mockBackend: Backend = {
   kind: "mock",
-  async runSeries(nSeries, months) {
-    const buf = new Float64Array(nSeries * months);
-    for (let s = 0; s < nSeries; s++) {
+  async worldOpen(sampleScale) {
+    mockDay = 0;
+    mockScale = sampleScale;
+    return mockStatus();
+  },
+  async worldStep(days) {
+    if (mockDay < 0) throw new Error("no world is open");
+    mockDay += days;
+    return mockStatus();
+  },
+  async worldSeries() {
+    const months = mockStatus().months;
+    return MOCK_SERIES.map((name, s) => {
       const r = mulberry32(s + 1);
-      let v = 100;
+      const values = new Float64Array(months);
+      let v = 10 + 5 * s;
       for (let m = 0; m < months; m++) {
-        v *= 1 + 0.002 + (r() - 0.5) * 0.02;
-        buf[s * months + m] = v;
+        v *= 1 + (r() - 0.5) * 0.02;
+        values[m] = v;
       }
-    }
-    return unpack(buf.buffer, nSeries, months);
+      return { name, values };
+    });
   },
   async countyValues() {
     const r = mulberry32(7);
