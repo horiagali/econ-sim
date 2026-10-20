@@ -45,8 +45,14 @@ fn ac_st_05() {
     let mut w = world_2021(1000);
     let mut paid = [Bani::ZERO; 4];
     for _ in 0..3 {
-        let before = w.households().hh_income_received.clone();
-        let r = to_pay_day(&mut w);
+        // Up to the eve of the pay day, then the pay day itself.
+        let (before, r) = loop {
+            let before = w.households().hh_income_received.clone();
+            let r = step(&mut w);
+            if r.date.is_month_end() {
+                break (before, r);
+            }
+        };
         let s = w.pay_slips().clone();
         assert_eq!(s.day, Some(r.day));
         let d = r.date;
