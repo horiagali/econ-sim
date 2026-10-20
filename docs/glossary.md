@@ -4,7 +4,7 @@ title: Glossary & Variable Registry
 status: draft
 owner: horia
 depends_on: []
-updated: 2026-10-13
+updated: 2026-10-20
 ---
 
 # Glossary & Variable Registry
@@ -136,6 +136,11 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `air_quality[c]` | PM2.5 index by county | index | state | economy/environment |
 | — | `admin_capacity[m]` | Administrative capacity of ministry/agency *m* | 0–1 | state | economy/state-capacity |
 | — | `corruption` | Corruption prevalence | 0–1 | state | economy/state-capacity |
+| $L_f$ | `unit_loans[f]` | A firm unit's bank loans (all its firms together) | LCU | state | economy/money-banking |
+| $E^b$ | `bank_equity` | The banks' net worth | LCU | state | economy/money-banking |
+| $NPL$ | `non_performing_loans` | Share of loans written off in the last twelve months | ratio | derived | economy/money-banking |
+| $R$ | `reserves` | Banks' reserves at the central bank | LCU | state | economy/money-banking |
+| $A$ | `cb_advances` | Central bank advances to banks | LCU | state | economy/monetary-policy |
 | — | `hh_stagger_day` | The household's own day of the month (1 to 28) for its monthly decisions; a keyed draw, fixed for life (ADR-0017) | day of month | state | economy/households |
 | — | `hh_income_received` | Money a household received since its last decision day | LCU | state | economy/households |
 | — | `hh_hardship` | The household could not pay for the subsistence basket this month | bool | state | economy/households |
