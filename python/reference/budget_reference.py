@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Python reference of the starting budget (spec `economy/budget-2021`).
 
-    python python/reference/budget_reference.py [--fixtures DIR] [--population-scale N]
+    python python/reference/budget_reference.py [--fixtures DIR] [--population-scale N] [--tables]
 
 Loads `budget2021_ro.json`, checks that it is consistent with itself and with
 the published totals it carries (AC-BUD-01 to 04), reconciles it with the firm
@@ -9,7 +9,9 @@ units, the earnings, the pensions and the input-output table (AC-BUD-05 to 08)
 and, with `--population-scale`, with the public employees of the starting
 population (AC-BUD-09). Prints one JSON document: the totals, every check, the
 monthly amounts of each line in bani and the budget hash (AC-BUD-11), so that
-the Rust scenario loader can be diffed against it (AC-BUD-12).
+the Rust scenario loader can be diffed against it (AC-BUD-12). With `--tables`, the
+document also carries the table as the loader reads it (`tables`: lines with their
+amounts a year in bani, programmes, sectors and public units).
 
 Exit code 1 if a structural check fails or a reconciliation fails outside its
 tolerance, except the reconciliations listed in `KNOWN_GAPS`.
@@ -272,16 +274,34 @@ def summary(d: dict, population: dict | None = None) -> dict:
     }
 
 
+def tables(b: dict) -> dict:
+    """The table as the Rust loader holds it: amounts a year in bani, every list in file order."""
+    return {
+        "lines": [{"id": ln["id"], "cofog": ln["cofog"], "per_year_bani": [v * BANI for v in ln["spending"]]}
+                  for ln in b["lines"]],
+        "programmes": [{"id": p["id"], "cofog": p["cofog"], "cash_bani": p["cash"] * BANI,
+                        "in_kind_bani": p["in_kind"] * BANI} for p in b["programmes"]],
+        "sectors": [{"id": s["id"], "posts": s["posts"], "unit": s["unit"]} for s in b["employment"]["sectors"]],
+        "public_units": [{"unit": u["unit"], "posts": u["posts"], "wages_bani": u["wages"] * BANI,
+                          "employer_contributions_bani": u["employer_contributions"] * BANI}
+                         for u in b["public_units"]],
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--fixtures", type=Path, default=FIXTURES)
     ap.add_argument("--population-scale", type=int, default=None,
                     help="also reconcile with the public employees of the starting population at this scale")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--tables", action="store_true",
+                    help="also print the table as the loader reads it, for the differential test (AC-BUD-12)")
     a = ap.parse_args()
     d = load(a.fixtures)
     pop = public_population(a.fixtures, a.population_scale, a.seed) if a.population_scale else None
     out = summary(d, pop)
+    if a.tables:
+        out["tables"] = tables(d["budget"])
     print(json.dumps(out, indent=1))
     return 0 if out["ok"] else 1
 
