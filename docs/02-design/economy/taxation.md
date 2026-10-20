@@ -153,6 +153,7 @@ pub fn tax_quarter(profit: Bani, losses_carried: &mut Bani, micro: Option<(Bani 
 The pay-day and quarter-end phases that call these and post through the ledger live with the [World](../game/world-loop.md).
 
 ## Open questions
+- [x] **Mixed income out of the profit-tax base** (owner's delegation, 2026-10-20, with [investment and capital](investment-capital.md)): a unit's taxable profit also deducts the self-employment and informal income it paid (`income.mixed`), as that spec's profit does; and depreciation (its step 4) is the deduction of step 8.
 - [x] Separate capital income tax vs taxed with labour income: offer both as a lever? **Decided (owner, 2026-10-14):** separate, as Romania has it; no merged option in v1.
 - [x] Inheritance tax in v1 (bequests already exist)? **Decided (owner, 2026-10-14):** not in v1 (Romania has none).
 - [x] Negative income tax option as an alternative to minimum income? **Decided (owner, 2026-10-14):** later, not in the first version.
