@@ -403,6 +403,7 @@ impl World {
                 let hired = self.persons.employer[p] != NO_EMPLOYER;
                 let amount = claim_month(&mut c, hired);
                 self.fs.claims[p] = (c.months_left > 0).then_some(c);
+                self.slips.unemployment_benefit[p] = amount;
                 if amount > Bani::ZERO {
                     let h = self.persons.household_id[p] as usize;
                     got[h] += amount;
@@ -420,6 +421,7 @@ impl World {
             }
             let amount = child_allowance(self.pp.age[p], &t.child);
             if amount > Bani::ZERO {
+                self.slips.child_allowance[h] += amount;
                 got[h] += amount;
                 family += w(self, h) * i128::from(amount.get());
             }
@@ -434,6 +436,7 @@ impl World {
             }
             let amount = minimum_income(self.fs.size[h], got[h], &t.minimum_income);
             if amount > Bani::ZERO {
+                self.slips.minimum_income[h] = amount;
                 got[h] += amount;
                 assistance += w(self, h) * i128::from(amount.get());
             }

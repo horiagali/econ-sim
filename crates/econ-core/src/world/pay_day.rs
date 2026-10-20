@@ -4,7 +4,7 @@
 //! (AC-ST-05 to 08).
 //!
 //! Test-writer addition to the `World` (ADR-0014), written with those tests
-//! before the code; the body comes with the implementation change.
+//! before the code; filled by the pay-day phase.
 
 use econ_types::{Bani, Day};
 
@@ -56,10 +56,45 @@ pub struct PaySlips {
     pub received: Vec<Bani>,
 }
 
+impl PaySlips {
+    /// Empty columns for a new pay day.
+    pub(super) fn start(&mut self, day: Day, persons: usize, households: usize) {
+        let zero = |v: &mut Vec<Bani>, n: usize| {
+            v.clear();
+            v.resize(n, Bani::ZERO);
+        };
+        self.day = Some(day);
+        for v in [
+            &mut self.gross_wage,
+            &mut self.declared_wage,
+            &mut self.cas_public,
+            &mut self.cas_pillar2,
+            &mut self.cass,
+            &mut self.income_tax,
+            &mut self.cam,
+            &mut self.net_wage,
+            &mut self.pension,
+            &mut self.pension_tax,
+            &mut self.unemployment_benefit,
+        ] {
+            zero(v, persons);
+        }
+        for v in [
+            &mut self.mixed_income,
+            &mut self.self_employment_tax,
+            &mut self.child_allowance,
+            &mut self.minimum_income,
+            &mut self.received,
+        ] {
+            zero(v, households);
+        }
+    }
+}
+
 impl World {
     /// The record of the latest pay day.
     #[must_use]
     pub fn pay_slips(&self) -> &PaySlips {
-        unimplemented!("econ-core pay_day: written in the implementation change")
+        &self.slips
     }
 }

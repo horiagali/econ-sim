@@ -485,6 +485,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     };
     let mut wage_scale: Option<u32> = None;
     let mut transfer = Vec::new();
+    #[cfg_attr(not(feature = "pay_day"), allow(unused_mut))]
+    let mut layoffs: Vec<(usize, u32)> = Vec::new();
 
     // The edits, in order.
     for e in &s.edits {
@@ -535,8 +537,12 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             }
             StartEdit::ScaleWages { factor_ppm } => wage_scale = Some(*factor_ppm),
             #[cfg(feature = "pay_day")]
-            StartEdit::Layoff { .. } => {
-                unimplemented!("econ-core pay_day: written in the implementation change")
+            StartEdit::Layoff {
+                industry,
+                share_ppm,
+            } => {
+                shape(*industry < n_i, "an industry that does not exist")?;
+                layoffs.push((*industry, *share_ppm));
             }
             #[cfg(feature = "banking")]
             StartEdit::PolicyRate { .. } | StartEdit::ExtraLoan { .. } => {
@@ -712,7 +718,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             .collect::<Vec<_>>(),
         &s.unit_firm_count,
     );
-    Ok(World {
+    let mut world = World {
+        slips: super::PaySlips::default(),
         fs,
         sample_scale: s.sample_scale,
         law,
@@ -735,5 +742,10 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             households: Vec::new(),
         },
         months: Vec::new(),
-    })
+    };
+    // Layoffs of a starting edit, before the first day (AC-ST-08).
+    for (industry, share_ppm) in layoffs {
+        world.lay_off_share(industry, share_ppm);
+    }
+    Ok(world)
 }

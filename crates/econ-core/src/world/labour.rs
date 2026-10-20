@@ -90,6 +90,31 @@ impl World {
         self.pp.seeking[p] = true;
     }
 
+    /// Every unit of an industry lays off `share_ppm` of its employees (a
+    /// starting edit): the first in keyed priority, rounded per unit.
+    pub(super) fn lay_off_share(&mut self, industry: usize, share_ppm: u32) {
+        let today = self.today;
+        for u in 0..self.units.industry.len() {
+            if usize::from(self.units.industry[u]) != industry {
+                continue;
+            }
+            let target =
+                u64::try_from(i128::from(self.units.staff[u]) * i128::from(share_ppm) / ONE)
+                    .expect("persons");
+            let mut members = self.uu.members[u].clone();
+            members.sort_by_key(|&i| {
+                (
+                    self.seed
+                        .fast_u64(Stream::Labour, today.0, u64::from(i), DRAW_LAYOFF),
+                    i,
+                )
+            });
+            for i in take(&members, |i| self.person_weight(i), target) {
+                self.separate(i, 0, true);
+            }
+        }
+    }
+
     /// Phase 3: layoffs, vacancies and hires of each unit whose day it is.
     #[allow(clippy::too_many_lines)]
     pub(super) fn staffing(&mut self, cohort: u8) {
@@ -313,6 +338,9 @@ impl World {
             payments.push((u32::try_from(p).expect("id"), e, gross, declared));
         }
         payments.extend(std::mem::take(&mut self.mac.owed));
+        let today = self.today;
+        let n_hh = self.households.hh_weight.len();
+        self.slips.start(today, n_p, n_hh);
         let mut unit_pays = vec![0i128; self.units.industry.len()];
         let mut withheld = super::fiscal::Withheld::default();
         let (mut gross_total, mut net_total) = (0i128, 0i128);
@@ -320,6 +348,15 @@ impl World {
             let p = i as usize;
             let tax = self.wage_tax(p, u, gross, declared);
             let w = i128::from(self.person_weight(i));
+            let s = &mut self.slips;
+            s.gross_wage[p] += gross;
+            s.declared_wage[p] += declared;
+            s.cas_public[p] += tax.cas_public;
+            s.cas_pillar2[p] += tax.cas_pillar2;
+            s.cass[p] += tax.cass;
+            s.income_tax[p] += tax.income_tax;
+            s.cam[p] += tax.cam;
+            s.net_wage[p] += tax.net;
             self.persons.last_pay[p] += gross;
             let h = self.persons.household_id[p] as usize;
             got[h] += tax.net;
@@ -353,6 +390,8 @@ impl World {
         let (mut pensions, mut pension_tax) = (0i128, 0i128);
         for p in 0..n_p {
             let (gross, tax) = self.pension_of(p);
+            self.slips.pension[p] = gross;
+            self.slips.pension_tax[p] = tax;
             if gross > Bani::ZERO {
                 let h = self.persons.household_id[p] as usize;
                 got[h] += gross - tax;
@@ -398,6 +437,7 @@ impl World {
             if placed < want {
                 owed[h] = bani(i128::from(owed[h].get()) * placed / want.max(1));
             }
+            self.slips.mixed_income[h] = owed[h];
             if owed[h] > Bani::ZERO {
                 got[h] += owed[h];
                 paid_out += i128::from(self.households.hh_weight[h]) * i128::from(owed[h].get());
@@ -425,6 +465,7 @@ impl World {
                 let h = self.persons.household_id[p] as usize;
                 let tax = tax.min(got[h]);
                 got[h] -= tax;
+                self.slips.self_employment_tax[h] += tax;
                 self_tax += i128::from(self.households.hh_weight[h]) * i128::from(tax.get());
             }
         }
@@ -437,6 +478,7 @@ impl World {
             self.quarter_taxes(&mut post);
         }
         for (h, &g) in got.iter().enumerate() {
+            self.slips.received[h] = g;
             if g > Bani::ZERO {
                 self.households.hh_deposits[h] += g;
                 self.households.hh_income_received[h] += g;

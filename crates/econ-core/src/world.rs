@@ -77,7 +77,6 @@ mod labour;
 #[allow(clippy::needless_range_loop)]
 mod load;
 mod money;
-#[cfg(feature = "pay_day")]
 mod pay_day;
 #[cfg(feature = "fiscal")]
 mod treasury;
@@ -102,7 +101,6 @@ pub use central_bank::{CentralBankState, MonetaryParams};
 pub use fiscal::{IncomeTaxLaw, TransferLaw};
 #[cfg(feature = "trade")]
 pub use foreign::{Foreign, TradeMonth, TradeParams};
-#[cfg(feature = "pay_day")]
 pub use pay_day::PaySlips;
 #[cfg(feature = "fiscal")]
 pub use treasury::{FiscalMonth, FiscalParams, Treasury};
@@ -880,6 +878,7 @@ pub struct World {
     ii: IndustryState,
     mac: MacroState,
     fs: fiscal::FiscalState,
+    slips: PaySlips,
     demand: DayDemand,
     months: Vec<MonthStats>,
 }
