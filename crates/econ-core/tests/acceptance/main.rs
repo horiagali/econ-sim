@@ -16,3 +16,5 @@ mod production;
 mod support;
 #[cfg(feature = "world")]
 mod world;
+#[cfg(feature = "world")]
+mod world_golden;
