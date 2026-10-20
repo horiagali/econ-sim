@@ -113,10 +113,10 @@ IDs are stable (added 2026-10-14). Tests go in `crates/econ-mech-tax/tests/accep
 - [ ] **AC-TAX-12** `[sim]` *(M15)* At extreme rates (a 90% flat income tax) revenue is lower than at moderate rates, through informality and reported income (an emergent Laffer curve).
 - [ ] **AC-TAX-13** `[sim]` *(M15)* Raising social contributions raises the informal share of employment.
 
+AC-TAX-08 and 09 were written on 2026-10-20 on the `World` under `Law::law_2021()`, in `crates/econ-core/tests/acceptance/taxation_world.rs`, behind the crate feature `pay_day` (the test writer's read-only record of the latest pay day, `World::pay_slips`). AC-TAX-09 compares with 2021's revenue from Eurostat (`gov_10a_taxag`: D51A 28,493.9, D51B 26,285.3, actual social contributions D611 + D613 124,334.0 million lei), cited in the test; the budget fixture holds spending only.
+
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-TAX-08: the World's pay-day phase calling `econ-mech-tax`'s income taxes and posting through the ledger (roadmap M3)
-- AC-TAX-09: the World's pay-day phase calling `econ-mech-tax`'s income taxes and posting through the ledger (roadmap M3)
 - AC-TAX-10: roadmap M4
 - AC-TAX-11: roadmap M4
 - AC-TAX-12: roadmap M15

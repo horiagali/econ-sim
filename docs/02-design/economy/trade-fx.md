@@ -120,13 +120,10 @@ IDs are stable (added 2026-10-20). Tests go in `crates/econ-core/tests/acceptanc
 - [ ] **AC-TFX-08** `[sim]` *(M18)* A change in the EU common external tariff on a good raises its domestic price and lowers non-EU imports.
 - [ ] **AC-TFX-09** `[sim]` *(later, two blocs)* An EU recession lowers exports more than a non-EU recession of the same size.
 
+AC-TFX-01 and 02 (`[unit]`) were written on 2026-10-20 in the mechanic's crate, `crates/econ-mech-trade/tests/acceptance/`, behind the crate feature `mechanic`; AC-TFX-03 to 05 in `crates/econ-core/tests/acceptance/trade.rs`, behind the crate feature `trade`, against the outside world's read-only state (`World::foreign`), the monthly rest-of-world report (`World::trade_months`), trade's parameters (`WorldParams::trade`) and a world-constants edit (`StartEdit::WorldPrices`). AC-TFX-04's depreciation is every euro price times 1.1: for import prices in lei and export demand it is the same as e times 1.1, and the euro prices are the world's constants.
+
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-TFX-01: the trade mechanic on the `World` (roadmap M3)
-- AC-TFX-02: the trade mechanic on the `World` (roadmap M3)
-- AC-TFX-03: the trade mechanic on the `World` (roadmap M3)
-- AC-TFX-04: the trade mechanic on the `World` (roadmap M3)
-- AC-TFX-05: the trade mechanic on the `World` (roadmap M3)
 - AC-TFX-06: roadmap M4
 - AC-TFX-07: roadmap M20
 - AC-TFX-08: roadmap M18
