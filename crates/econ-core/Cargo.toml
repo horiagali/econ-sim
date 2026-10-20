@@ -36,6 +36,7 @@ econ-io.workspace = true
 serde_json.workspace = true
 
 [features]
+default = ["world"]
 # Gates the `World` of spec game/world-loop and its acceptance tests (AC-WLD-*
 # and the owed `[sim]` criteria of the four M2 mechanics), written before the
 # code (ADR-0014); the implementation adds it to `default`.
