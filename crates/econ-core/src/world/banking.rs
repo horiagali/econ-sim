@@ -277,6 +277,15 @@ impl World {
         {
             *r += i128::from(t.get());
         }
+        self.bank_rebalance_reserves();
+    }
+
+    /// Reserves brought up to the requirement with central bank advances, or
+    /// advances repaid out of reserves above it (step 5).
+    pub(super) fn bank_rebalance_reserves(&mut self) {
+        if !self.bk.active {
+            return;
+        }
         let l = &self.ledger;
         let reserves = i128::from(l.balance(Sector::Banks, Instrument::Reserves).get());
         let deposits = -i128::from(l.balance(Sector::Banks, Instrument::Deposits).get());

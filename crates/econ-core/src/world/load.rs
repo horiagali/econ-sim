@@ -557,9 +557,7 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
                 later.push(e.clone());
             }
             #[cfg(feature = "monetary")]
-            StartEdit::CentralBankFinancing { .. } => {
-                unimplemented!("econ-core monetary: written in the implementation change")
-            }
+            StartEdit::CentralBankFinancing { .. } => later.push(e.clone()),
             #[cfg(feature = "trade")]
             StartEdit::WorldPrices { factor_ppm } => world_factor = *factor_ppm,
         }
@@ -748,6 +746,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         bk: super::banking::Banks::default(),
         #[cfg(feature = "trade")]
         fx: super::foreign::ForeignState::default(),
+        #[cfg(feature = "monetary")]
+        cb: super::central_bank::CentralBank::default(),
         #[cfg(feature = "fiscal")]
         tr: super::treasury::TreasuryState::default(),
         slips: super::PaySlips::default(),
@@ -785,12 +785,16 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     );
     #[cfg(feature = "trade")]
     world.start_trade(world_factor);
+    #[cfg(feature = "monetary")]
+    world.start_central_bank();
     for e in later {
         match e {
             #[cfg(feature = "banking")]
             StartEdit::PolicyRate { from, rate_ppm } => world.bank_policy_change(from, rate_ppm),
             #[cfg(feature = "banking")]
             StartEdit::ExtraLoan { unit, amount } => world.bank_extra_loan(unit, amount),
+            #[cfg(feature = "monetary")]
+            StartEdit::CentralBankFinancing { months } => world.treasury_cb_financing(months),
             _ => {}
         }
     }

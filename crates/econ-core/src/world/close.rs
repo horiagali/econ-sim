@@ -177,6 +177,16 @@ impl World {
         post.commit(&mut self.ledger);
     }
 
+    /// The central bank's credibility once it exists, else the constant of
+    /// M2's expectations.
+    fn expectations_credibility(&self) -> u32 {
+        #[cfg(feature = "monetary")]
+        if let Some(c) = self.cb_credibility() {
+            return c;
+        }
+        CREDIBILITY_PPM
+    }
+
     /// Phase 12: the month's statistics and what next month runs on.
     #[allow(clippy::too_many_lines)]
     pub(super) fn monthly_close(&mut self) -> Vec<InvariantError> {
@@ -208,7 +218,7 @@ impl World {
             self.mac.expected_inflation_ppm,
             inflation_ppm,
             self.mac.target_ppm,
-            CREDIBILITY_PPM,
+            self.expectations_credibility(),
             LEARNING_PPM,
         );
         // People: employment, seekers by tier, tightness by group.
@@ -359,7 +369,7 @@ impl World {
         #[cfg(feature = "fiscal")]
         if self.tr_active() {
             self.settle_credit();
-            self.treasury_month_end();
+            self.treasury_payments();
         }
         // The banks after it (they move no government money): interest on
         // what the month's payments left, repayments, write-offs, rates.
@@ -368,9 +378,22 @@ impl World {
             self.bank_month_end();
             self.bank_close();
         }
-        // The exchange rate last: the month's current account is complete.
+        // The central bank's interest and its profit, remitted before the
+        // treasury's financing.
+        #[cfg(feature = "monetary")]
+        self.cb_month_end();
+        // The exchange rate: the month's current account is complete.
         #[cfg(feature = "trade")]
         self.trade_close();
+        // The treasury's financing last: the day's shortfalls settled, so its
+        // deposits at the central bank end the day at their target.
+        #[cfg(feature = "fiscal")]
+        if self.tr_active() {
+            self.settle_credit();
+            self.treasury_financing();
+        }
+        #[cfg(feature = "monetary")]
+        self.cb_close();
         failed
     }
 
@@ -559,6 +582,8 @@ impl World {
         self.bank_hash(&mut |w| h.write_word(w));
         #[cfg(feature = "trade")]
         self.trade_hash(&mut |w| h.write_word(w));
+        #[cfg(feature = "monetary")]
+        self.cb_hash(&mut |w| h.write_word(w));
         let mut ledger = StateHasher::default();
         self.ledger.hash_into(&mut |bytes| ledger.write(bytes));
         h.write_word(ledger.finish());

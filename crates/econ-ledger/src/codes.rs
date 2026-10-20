@@ -28,6 +28,12 @@ impl FlowCode {
     pub const INTEREST_LOAN: FlowCode = FlowCode(2004);
     /// Interest the banks pay depositors.
     pub const INTEREST_DEPOSIT: FlowCode = FlowCode(2005);
+    /// Interest the central bank pays on excess reserves and charges on
+    /// advances.
+    pub const INTEREST_RESERVES: FlowCode = FlowCode(2006);
+    /// What the central bank's foreign assets earn, paid by the rest of the
+    /// world.
+    pub const INTEREST_CB_FOREIGN: FlowCode = FlowCode(2007);
     /// Self-employment and informal income paid out of firm units' surplus
     /// to households (M2 placeholder of spec `economy/households`).
     pub const MIXED_INCOME: FlowCode = FlowCode(2003);
@@ -66,6 +72,8 @@ impl FlowCode {
     pub const TRANSFER_OTHER_CURRENT: FlowCode = FlowCode(4102);
     /// Capital transfers (D9).
     pub const TRANSFER_CAPITAL: FlowCode = FlowCode(4103);
+    /// The central bank's profit remitted to the government.
+    pub const TRANSFER_CB_PROFIT: FlowCode = FlowCode(4104);
     // 5xxx — subsidies
     /// Subsidies on production (D3).
     pub const SUBSIDY_PRODUCTION: FlowCode = FlowCode(5001);
@@ -89,7 +97,7 @@ impl FlowCode {
 
     /// Every code the ledger knows, in ascending order. A new code is added here
     /// and in [`FlowCode::name`] in the same change.
-    pub const ALL: [FlowCode; 33] = [
+    pub const ALL: [FlowCode; 36] = [
         Self::CONSUMPTION,
         Self::GOV_PURCHASES,
         Self::EXPORTS,
@@ -99,6 +107,8 @@ impl FlowCode {
         Self::MIXED_INCOME,
         Self::INTEREST_LOAN,
         Self::INTEREST_DEPOSIT,
+        Self::INTEREST_RESERVES,
+        Self::INTEREST_CB_FOREIGN,
         Self::TAX_INCOME,
         Self::TAX_VAT,
         Self::TAX_EMPLOYER_CONTRIBUTION,
@@ -115,6 +125,7 @@ impl FlowCode {
         Self::TRANSFER_EU_BUDGET,
         Self::TRANSFER_OTHER_CURRENT,
         Self::TRANSFER_CAPITAL,
+        Self::TRANSFER_CB_PROFIT,
         Self::SUBSIDY_PRODUCTION,
         Self::CASH_DEPOSIT,
         Self::BONDS,
@@ -143,6 +154,8 @@ impl FlowCode {
             2002 => "interest.gov_debt",
             2004 => "interest.loan",
             2005 => "interest.deposit",
+            2006 => "interest.reserves",
+            2007 => "interest.cb_foreign",
             2003 => "income.mixed",
             3001 => "tax.income",
             3002 => "tax.vat",
@@ -160,6 +173,7 @@ impl FlowCode {
             4101 => "transfer.eu_budget",
             4102 => "transfer.other_current",
             4103 => "transfer.capital",
+            4104 => "transfer.cb_profit",
             5001 => "subsidy.production",
             7001 => "finance.cash_deposit",
             7002 => "finance.bonds",
