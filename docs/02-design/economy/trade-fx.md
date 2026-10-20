@@ -1,7 +1,7 @@
 ---
 id: economy/trade-fx
 title: Trade & Exchange Rate
-status: draft
+status: locked
 owner: horia
 depends_on: [economy/production, economy/prices-inflation, economy/money-banking, economy/monetary-policy, economy/opening-balance-sheet, game/world-loop, adr/0017-time-base]
 research: []
@@ -120,6 +120,18 @@ IDs are stable (added 2026-10-20). Tests go in `crates/econ-core/tests/acceptanc
 - [ ] **AC-TFX-08** `[sim]` *(M18)* A change in the EU common external tariff on a good raises its domestic price and lowers non-EU imports.
 - [ ] **AC-TFX-09** `[sim]` *(later, two blocs)* An EU recession lowers exports more than a non-EU recession of the same size.
 
+### Tests owed
+The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-TFX-01: the trade mechanic on the `World` (roadmap M3)
+- AC-TFX-02: the trade mechanic on the `World` (roadmap M3)
+- AC-TFX-03: the trade mechanic on the `World` (roadmap M3)
+- AC-TFX-04: the trade mechanic on the `World` (roadmap M3)
+- AC-TFX-05: the trade mechanic on the `World` (roadmap M3)
+- AC-TFX-06: roadmap M4
+- AC-TFX-07: roadmap M20
+- AC-TFX-08: roadmap M18
+- AC-TFX-09: after v1
+
 ## API sketch
 ```rust
 // crate econ-mech-trade (no I/O); prices, shares and rates in millionths
@@ -134,7 +146,7 @@ pub fn fx_step(rate_ppm: u32, real_gap_ppm: i32, ca_over_gdp_ppm: i32, reserves_
 Powers through `econ_num::math` (ADR-0006). The monthly close and the settlement live with the `World`.
 
 ## Open questions
-- [ ] **Settlement in the rest of the world's lei deposits** (M2's placeholder) instead of foreign assets per sector: proposed for M3; residents' foreign assets move only by the central bank's intervention. A portfolio of foreign assets per sector comes with the capital account.
-- [ ] **One price bloc** (the euro area) in M3; the two blocs of the draft when the outside world becomes dynamic (D8).
+- [x] **Settlement in the rest of the world's lei deposits** (M2's placeholder) instead of foreign assets per sector: proposed for M3; residents' foreign assets move only by the central bank's intervention. A portfolio of foreign assets per sector comes with the capital account. **Decided (owner, 2026-10-20): as proposed.**
+- [x] **One price bloc** (the euro area) in M3; the two blocs of the draft when the outside world becomes dynamic (D8). **Decided (owner, 2026-10-20): as proposed.**
 - [ ] Name more partner blocs later (e.g. separate China, US, Turkey, Ukraine/Moldova)?
-- [ ] Tourism as a services export via `hotels_tourism` and `restaurants` (proposed)?
+- [x] Tourism as a services export via `hotels_tourism` and `restaurants` (proposed)? **Decided (owner, 2026-10-20): as proposed.**
