@@ -53,7 +53,7 @@ pub(super) struct Postings {
 }
 
 impl Postings {
-    fn leg(
+    pub(super) fn leg(
         &mut self,
         payer: Sector,
         payee: Sector,

@@ -246,7 +246,11 @@ impl World {
     fn treasury_policy_rate(&self) -> i32 {
         #[cfg(feature = "banking")]
         {
-            self.params.policy_rate_ppm
+            if self.banks_active() {
+                self.bank_policy_rate()
+            } else {
+                self.params.policy_rate_ppm
+            }
         }
         #[cfg(not(feature = "banking"))]
         {

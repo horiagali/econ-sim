@@ -414,6 +414,9 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     s.investment_domestic = money_of(&formation);
     s.investment_imported = money_of(&inv_imp);
     s.exports = money_of(&exports);
+    s.unit_loans = money(&fb, ff, "loans")?;
+    s.hh_mortgage = money(&hb, hf, "hh_mortgage")?;
+    s.hh_consumer_debt = money(&hb, hf, "hh_consumer_debt")?;
     s.gov_debt_profile = debt_profile(&scenario)?;
     s.gov_transfers_year = budget_transfers(scenario_dir)?;
     Ok(s)
