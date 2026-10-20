@@ -129,13 +129,11 @@ IDs are stable (added 2026-10-20). Tests go in `crates/econ-core/tests/acceptanc
 - [ ] **AC-FIS-07** `[sim]` *(M4)* Persistent primary deficits with $r > g$ produce rising debt over GDP and rising yields.
 - [ ] **AC-FIS-08** `[sim]` *(M12)* A consumer energy subsidy lowers measured CPI and raises energy demand and the fiscal cost.
 
+AC-FIS-04 (`[unit]`) was written on 2026-10-20 in the mechanic's crate, `crates/econ-mech-fiscal/tests/acceptance/`, behind the crate feature `mechanic`; AC-FIS-02, 03 and 05 in `crates/econ-core/tests/acceptance/fiscal.rs`, behind the crate feature `fiscal`, against the government's debt (`World::treasury`), its monthly budget report (`World::fiscal_months`) and parameters (`WorldParams::fiscal`). AC-FIS-05 reads "moves by the deficit less nominal growth" as Δb = deficit/Y1 − b0·g/(1+g), to within one point of GDP.
+
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-FIS-01: the debt mechanic on the `World` (roadmap M3)
-- AC-FIS-02: the debt mechanic on the `World` (roadmap M3)
-- AC-FIS-03: the debt mechanic on the `World` (roadmap M3)
-- AC-FIS-04: the debt mechanic on the `World` (roadmap M3)
-- AC-FIS-05: the debt mechanic on the `World` (roadmap M3)
+- AC-FIS-01: the identity as written does not hold: with a deficit financed by bonds, a rise of the government's deposits needs more debt, not less (debt = debt a month earlier + deficit + change of deposits), and bonds the central bank buys are already in the debt; waits for the owner to restate it (test session, 2026-10-20)
 - AC-FIS-06: roadmap M4
 - AC-FIS-07: roadmap M4
 - AC-FIS-08: roadmap M12

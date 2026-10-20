@@ -175,28 +175,15 @@ macro_rules! col {
     }};
 }
 
+#[cfg(feature = "budget")]
+pub mod budget;
 pub mod popgen;
+pub mod table;
 
-/// The starting state of a `World` (spec `game/world-loop`): a scenario
-/// folder written by the scenario builder (its tables, firm units and opening
-/// balances) and the input-output table (`io_table2021_ro.json`: input
-/// coefficients, the household basket, the placeholder final demand).
-///
-/// **Skeleton** (ADR-0014): the API of the spec's sketch, written with the
-/// acceptance tests; the body comes with the implementation. It reads; it
-/// does not check the tables against the opening ledger, which is the
-/// `World`'s check (AC-WLD-08).
-///
-/// # Errors
-/// A file is missing or malformed.
 #[cfg(feature = "world")]
-pub fn read_start_state(
-    scenario_dir: &std::path::Path,
-    io_table: &std::path::Path,
-) -> Result<econ_core::world::StartState, SaveError> {
-    let _ = (scenario_dir, io_table);
-    unimplemented!("game/world-loop: read a scenario folder as a StartState")
-}
+mod start;
+#[cfg(feature = "world")]
+pub use start::read_start_state;
 
 /// Serialise a world + command log into save bytes (a ZIP archive).
 ///

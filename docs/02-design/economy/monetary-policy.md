@@ -104,13 +104,10 @@ IDs are stable (added 2026-10-20). Tests go in `crates/econ-core/tests/acceptanc
 - [ ] **AC-MP-07** `[sim]` *(M13)* A rate cut raises credit growth and house prices.
 - [ ] **AC-MP-08** `[unit]` *(M4)* The rate cannot go below the floor.
 
+AC-MP-01 and 02 (`[unit]`) were written on 2026-10-20 in the mechanic's crate, `crates/econ-mech-monetary/tests/acceptance/`, against the API skeleton, behind the crate feature `mechanic`; AC-MP-03 to 05 in `crates/econ-core/tests/acceptance/monetary.rs`, behind the crate feature `monetary`, against the central bank's read-only state (`World::central_bank`), its parameters (`WorldParams::monetary`) and a start edit (`StartEdit::CentralBankFinancing`) by which AC-MP-05 compares two worlds.
+
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-MP-01: the monetary mechanic on the `World` (roadmap M3)
-- AC-MP-02: the monetary mechanic on the `World` (roadmap M3)
-- AC-MP-03: the monetary mechanic on the `World` (roadmap M3)
-- AC-MP-04: the monetary mechanic on the `World` (roadmap M3)
-- AC-MP-05: the monetary mechanic on the `World` (roadmap M3)
 - AC-MP-06: roadmap M4
 - AC-MP-07: roadmap M13
 - AC-MP-08: roadmap M4

@@ -144,6 +144,9 @@ pub struct Stages<'a> {
     pub incomes: Option<(&'a OtherIncomes, &'a Value)>,
     /// Stage J: industry and employer.
     pub employers: Option<(&'a PersonEmployers, &'a Value)>,
+    /// The region of each county (stage C's margins): with it, the
+    /// households table has `hh_region`.
+    pub region_of_county: Option<&'a [u8]>,
 }
 
 fn stage_err(file: &str, what: &str) -> SaveError {
@@ -708,6 +711,17 @@ pub fn households_table(pop: &Population, stages: &Stages<'_>) -> Result<Vec<u8>
             Arc::new(BooleanArray::from(hh.hh_collective.clone())),
         ),
     ];
+    if let Some(regions) = stages.region_of_county {
+        columns.push((
+            "hh_region",
+            DataType::UInt8,
+            codes(
+                hh.hh_county
+                    .iter()
+                    .map(|&c| regions.get(usize::from(c)).copied().unwrap_or(u8::MAX)),
+            ),
+        ));
+    }
     if let Some((housing, _)) = stages.housing {
         columns.extend([
             (
@@ -1097,6 +1111,7 @@ mod tests {
             wealth: Some((&wealth, &wealth_file.provenance)),
             incomes: Some((&incomes, &income_file.provenance)),
             employers: Some((&employers, &firm_file.provenance)),
+            region_of_county: None,
         };
 
         let r = fit_report(&file, &params, &pop, &stages);

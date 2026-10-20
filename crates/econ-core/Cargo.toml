@@ -20,7 +20,13 @@ econ-mech-households = { workspace = true, optional = true }
 econ-mech-labour = { workspace = true, optional = true }
 econ-mech-production = { workspace = true, optional = true }
 econ-mech-prices = { workspace = true, optional = true }
+econ-mech-transfers = { workspace = true, optional = true }
 econ-popgen = { workspace = true, optional = true }
+# The M3 mechanics (features `banking`, `monetary`, `fiscal`, `trade`).
+econ-mech-banking = { workspace = true, optional = true }
+econ-mech-monetary = { workspace = true, optional = true }
+econ-mech-fiscal = { workspace = true, optional = true }
+econ-mech-trade = { workspace = true, optional = true }
 
 [dev-dependencies]
 # The acceptance tests of the `World` build the Romania scenario and read it
@@ -30,6 +36,7 @@ econ-io.workspace = true
 serde_json.workspace = true
 
 [features]
+default = ["world"]
 # Gates the `World` of spec game/world-loop and its acceptance tests (AC-WLD-*
 # and the owed `[sim]` criteria of the four M2 mechanics), written before the
 # code (ADR-0014); the implementation adds it to `default`.
@@ -38,10 +45,25 @@ world = [
     "dep:econ-mech-labour",
     "dep:econ-mech-production",
     "dep:econ-mech-prices",
+    "dep:econ-mech-transfers",
     "dep:econ-popgen",
     # `econ_io::read_start_state`, for the tests only.
     "econ-io/world",
 ]
+
+# The read-only record of the latest pay day (`World::pay_slips`) and the
+# layoff edit, for the `[sim]` criteria of taxation and social transfers
+# (AC-TAX-08, 09, AC-ST-05..08). Test-writer additions to the `World`
+# (ADR-0014); the implementation adds them to `default`.
+pay_day = ["world"]
+# The M3 mechanics on the `World` (specs economy/money-banking,
+# monetary-policy, fiscal-policy, trade-fx): their parameters, read-only
+# state and start edits, as API skeletons written with their acceptance
+# tests before the code (ADR-0014); the implementation adds them to `default`.
+banking = ["world", "dep:econ-mech-banking"]
+fiscal = ["world", "dep:econ-mech-fiscal"]
+monetary = ["banking", "fiscal", "dep:econ-mech-monetary"]
+trade = ["world", "dep:econ-mech-trade"]
 
 [[test]]
 name = "acceptance"

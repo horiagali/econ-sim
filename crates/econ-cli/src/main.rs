@@ -8,6 +8,7 @@
 //!                           [--housing FILE [--wealth FILE]] [--incomes FILE]
 //!                           [--employers FILE]
 //! econ-cli sim-population --margins FILE --sample-scale N [--seed S] [--ticks N]
+//! econ-cli build-scenario --sample-scale N [--seed S] [--fixtures DIR] --out DIR
 //! ```
 //! Default output of `sim` is CSV: tick,Y,T,YD,C,G,H,GOV_DEFICIT,state_hash
 //! (money in bani). `rng-raw` writes raw `fast_u64` output to stdout for
@@ -21,6 +22,10 @@
 //! file) needs the jobs stage.
 //! `sim-population` generates the same population and
 //! runs the scale world on it, printing one CSV line per month.
+//! `build-scenario` is the scenario builder (spec `game/scenario-builder`): it
+//! exits 0 if the report is consistent, 1 if a check fails (the scenario is
+//! still written), 2 for bad arguments or an unreadable input, 3 if the
+//! opening ledger fails its invariants (nothing written).
 
 use std::io::Write;
 use std::process::ExitCode;
@@ -32,7 +37,8 @@ fn usage() -> ExitCode {
     eprintln!(
         "usage:\n  econ-cli sim [--ticks N] [--hashes] [--check-golden FILE] [--mutate tax-sign|consume-gross]\n  econ-cli bench-scale [--scales 1000,100,10] [--ticks N]\n  econ-cli bench-save [--scales 100,10]\n  econ-cli bench-days [--scales 1000,100,10] [--years N]\n  econ-cli rng-raw [--pattern entity|tick|grid] [--entities N] [--bytes N] [--seed S]
   econ-cli synth-population --margins FILE --sample-scale N [--seed S] --out DIR [--attributes FILE [--jobs FILE [--wages FILE]] [--pensions FILE]] [--housing FILE [--wealth FILE]] [--incomes FILE] [--employers FILE]
-  econ-cli sim-population --margins FILE --sample-scale N [--seed S] [--ticks N]"
+  econ-cli sim-population --margins FILE --sample-scale N [--seed S] [--ticks N]
+  econ-cli build-scenario --sample-scale N [--seed S] [--fixtures DIR] --out DIR"
     );
     ExitCode::from(2)
 }
@@ -47,7 +53,77 @@ fn main() -> ExitCode {
         Some("rng-raw") => rng_raw(&args[1..]),
         Some("synth-population") => synth_population(&args[1..]),
         Some("sim-population") => sim_population(&args[1..]),
+        Some("build-scenario") => build_scenario(&args[1..]),
         _ => usage(),
+    }
+}
+
+/// The scenario builder (spec `game/scenario-builder`): the world on the
+/// start date at one `sample_scale`, as a folder, with its consistency report.
+fn build_scenario(args: &[String]) -> ExitCode {
+    let mut sample_scale: Option<u32> = None;
+    let mut seed: u64 = 42;
+    let mut fixtures = String::from("python/pipeline/fixtures");
+    let mut out: Option<&String> = None;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--sample-scale" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(n) if n > 0 => sample_scale = Some(n),
+                _ => return usage(),
+            },
+            "--seed" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(s) => seed = s,
+                None => return usage(),
+            },
+            "--fixtures" => match it.next() {
+                Some(d) => fixtures.clone_from(d),
+                None => return usage(),
+            },
+            "--out" => out = it.next(),
+            _ => return usage(),
+        }
+    }
+    let (Some(sample_scale), Some(out)) = (sample_scale, out) else {
+        return usage();
+    };
+    let params = econ_scenario::BuildParams {
+        sample_scale,
+        rng_seed: seed,
+    };
+    match econ_scenario::run(
+        std::path::Path::new(&fixtures),
+        &params,
+        std::path::Path::new(out),
+    ) {
+        Ok(report) => {
+            for c in &report.checks {
+                let verdict = match (c.ok, c.known_gap) {
+                    (true, _) => "ok",
+                    (false, Some(_)) => "known gap",
+                    (false, None) => "FAILED",
+                };
+                println!("{:<40} {verdict}", c.name);
+            }
+            let consistent = report.consistent();
+            println!(
+                "1:{sample_scale} seed {seed}: {} {out}",
+                if consistent {
+                    "consistent, wrote"
+                } else {
+                    "NOT consistent, wrote"
+                }
+            );
+            if consistent {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            }
+        }
+        Err(e) => {
+            eprintln!("build-scenario: {e:?}; nothing written");
+            ExitCode::from(e.exit_status())
+        }
     }
 }
 
@@ -292,6 +368,9 @@ fn synth_population(args: &[String]) -> ExitCode {
         wealth: wealth.as_ref().map(|(f, w)| (w, &f.provenance)),
         incomes: incomes.as_ref().map(|(f, i)| (i, &f.provenance)),
         employers: employers.as_ref().map(|(f, e)| (e, &f.provenance)),
+        region_of_county: attributes
+            .as_ref()
+            .map(|(f, _)| f.margins.region_of_county.as_slice()),
     };
     if let Err(e) = write_population(std::path::Path::new(out), &file, &params, &pop, &stages) {
         return fail(format!("cannot write to {out}: {e:?}"));

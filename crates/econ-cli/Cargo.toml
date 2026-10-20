@@ -16,6 +16,7 @@ econ-types.workspace = true
 econ-core.workspace = true
 econ-io.workspace = true
 econ-popgen.workspace = true
+econ-scenario.workspace = true
 econ-rng.workspace = true
 
 [lints]

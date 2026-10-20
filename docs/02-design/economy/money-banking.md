@@ -130,16 +130,10 @@ IDs are stable (added 2026-10-20). Tests go in `crates/econ-core/tests/acceptanc
 - [ ] **AC-BANK-10** `[sim]` *(M9)* Cohort defaults lower `firm_count` and bank loans by the defaulting firms' share; the loan book still equals the count-weighted sum of firm-unit loans.
 - [ ] **AC-BANK-11** `[sim]` *(later; crisis dynamics, D10)* A bank run can occur with low capital and low deposit insurance, and not with high capital.
 
+AC-BANK-01 to 08 were written on 2026-10-20 in `crates/econ-core/tests/acceptance/banking.rs`, behind the crate feature `banking`, against the test writer's additions to the `World`: the banks' read-only state (`World::bank`), their parameters (`WorldParams::banking`, `WorldParams::policy_rate_ppm`) and two start edits (`StartEdit::PolicyRate`, a change of the policy rate from a given day, for AC-BANK-05; `StartEdit::ExtraLoan`, a loan drawn on day 0, for AC-BANK-06). The crate `econ-mech-banking` holds the API sketch as a skeleton. Flow codes are found by the names above.
+
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-BANK-01: the banking mechanic on the `World` (roadmap M3)
-- AC-BANK-02: the banking mechanic on the `World` (roadmap M3)
-- AC-BANK-03: the banking mechanic on the `World` (roadmap M3)
-- AC-BANK-04: the banking mechanic on the `World` (roadmap M3)
-- AC-BANK-05: the banking mechanic on the `World` (roadmap M3)
-- AC-BANK-06: the banking mechanic on the `World` (roadmap M3)
-- AC-BANK-07: the banking mechanic on the `World` (roadmap M3)
-- AC-BANK-08: the banking mechanic on the `World` (roadmap M3)
 - AC-BANK-09: roadmap M9
 - AC-BANK-10: roadmap M9
 - AC-BANK-11: after v1

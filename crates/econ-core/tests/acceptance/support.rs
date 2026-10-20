@@ -160,7 +160,7 @@ pub fn params() -> WorldParams {
     assert_eq!(p.rng_seed, SEED);
     assert_eq!(
         p.households.mpc,
-        [950_000, 900_000, 850_000, 750_000, 600_000]
+        [1_000_000, 1_000_000, 1_000_000, 980_000, 950_000]
     );
     assert_eq!(p.households.mpc_wealth_ppm, 5_000);
     assert_eq!(p.households.subsistence_basket, Bani::from_lei(700));

@@ -19,7 +19,7 @@ arrow-array.workspace = true
 arrow-ipc.workspace = true
 
 [features]
-default = ["opening", "firm-opening"]
+default = ["opening", "firm-opening", "builder"]
 # Gate the acceptance tests, written before the code (ADR-0014); the
 # implementation adds them to `default`.
 # `opening`: the opening balance sheet (AC-OBS-*).

@@ -1,0 +1,20 @@
+[package]
+name = "econ-mech-banking"
+description = "Money and banking: loan and deposit rates, interest, credit lines, write-offs, capital adequacy (spec: economy/money-banking)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+econ-types.workspace = true
+
+[features]
+# Gates the acceptance tests: they were written before the code (ADR-0014), and
+# the implementation adds `mechanic` to `default`.
+default = []
+mechanic = []
+
+[lints]
+workspace = true

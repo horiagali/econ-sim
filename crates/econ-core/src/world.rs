@@ -4,38 +4,192 @@
 //! ([`crate::schedule`]), every leu moved through the ledger and the
 //! invariants checked every day.
 //!
-//! **Skeleton** (ADR-0014): the API of the spec's sketch, written with the
-//! acceptance tests (`tests/acceptance/`, feature `world`); the bodies come
-//! with the implementation. Beyond the sketch, for the tests: the read-only
-//! column tables ([`HouseholdColumns`], [`PersonColumns`],
-//! [`FirmUnitColumns`], [`IndustryColumns`]), [`WorldParams::spec_defaults`],
+//! Beyond the spec's sketch, for the tests: the read-only column tables
+//! ([`HouseholdColumns`], [`PersonColumns`], [`FirmUnitColumns`],
+//! [`IndustryColumns`]), [`WorldParams::spec_defaults`],
 //! [`World::inflation_target_ppm`], and [`StartEdit`], the edits of a
 //! starting state by which two worlds are compared where a criterion needs a
 //! change that M2 has no lever for.
 //!
 //! Money columns are whole bani per record (a household's amounts before its
-//! `hh_weight`; a firm unit's are already totals). Quantities are real units
-//! (lei at starting prices); prices and shares are millionths.
+//! `hh_weight`; a firm unit's are already totals). Quantities are real units:
+//! bani at starting prices. Prices and shares are millionths.
+//!
+//! Choices of this first version where the specs leave room:
+//! - `employer` is employment by a firm unit as an employee. Employers,
+//!   own-account and family workers keep their status (labour market, M2
+//!   simplification) and earn their business's self-employment income; the
+//!   unit stage J gave them is not an employer in the `World`.
+//! - The normal tightness of the January wage round (θ*) is the tightness of
+//!   normal turnover in the starting economy: vacancies of one month of quits
+//!   over the qualified seekers at load.
+//! - Households buy the imported part of each good (its share in the
+//!   input-output table's household column) from the rest of the world at the
+//!   starting price, through the seller industry's clearing account; the
+//!   domestic part is served from inventories.
+//! - Households pay the legal VAT rates less Romania's VAT gap (36.7%): the
+//!   input-output table's taxes on household consumption are what was
+//!   collected. Who evades is the informal economy's (M15).
+//! - Fixed investment includes the table's change in inventories: capital
+//!   formation, bought by firms.
+//! - A unit holds stocks of its essential inputs, a target of 60 days of use
+//!   (the firm units' materials and goods for resale are about 2.4 months of
+//!   inputs at the start), ordering its daily use and a thirtieth of the gap
+//!   to the target; an essential input is short, and cuts output, only when
+//!   its stock runs out (production, edge cases). Other inputs are bought as
+//!   used.
+//! - An input is essential when it is at least 1% of the buyer's output.
+//! - Staff is counted in whole records, so a unit's staff meets its
+//!   requirement when it is within half of one of its records; matching
+//!   reaches the job seekers of the regions where the unit has staff.
+//! - Cohort units pay the investment goods of the fixed final demand in
+//!   proportion to their starting surplus, out of what they can spare beyond
+//!   a month of wages; the domestic cohort units pay self-employment and
+//!   informal income the same way. Cash takings are paid into the bank the
+//!   same day.
+//! - The clock starts just after November's pay day: on day 0, before the
+//!   first phase, each household is paid the starting month's income of its
+//!   members by their payers, so that the income its first decision counts as
+//!   received is in its accounts ("Starting the clock").
+//! - The government pays from its deposits at the central bank, which may go
+//!   below zero in M2 (the central bank finances it until bonds exist, M3).
+//! - A public producer short of money is paid the shortfall by the
+//!   government, as non-market output valued at cost (ADR-0016). A cohort
+//!   unit short of money borrows it from the spare money of the other units
+//!   and repays out of later revenue: credit inside the firm sector, which
+//!   leaves the sector's balances unchanged (banks lend from M3).
+
+// The phases walk several aligned columns by record index.
+#[cfg(feature = "banking")]
+mod banking;
+#[cfg(feature = "monetary")]
+mod central_bank;
+#[allow(clippy::needless_range_loop)]
+mod close;
+#[allow(clippy::needless_range_loop)]
+mod fiscal;
+#[cfg(feature = "trade")]
+mod foreign;
+#[allow(clippy::needless_range_loop)]
+mod goods;
+#[allow(clippy::needless_range_loop)]
+mod labour;
+#[allow(clippy::needless_range_loop)]
+mod load;
+mod money;
+#[cfg(feature = "pay_day")]
+mod pay_day;
+#[cfg(feature = "fiscal")]
+mod treasury;
 
 use econ_ledger::{InvariantError, Ledger};
 use econ_mech_households::HouseholdParams;
 use econ_mech_labour::LabourParams;
 use econ_mech_prices::PriceParams;
 use econ_mech_production::ProductionParams;
-use econ_mech_tax::vat::{VatCategory, VatSchedule};
+use econ_mech_tax::vat::{VatCategory, VatRate, VatSchedule};
 use econ_popgen::EduLevel;
-use econ_types::{Bani, Date, Day, Month};
+use econ_rng::KeyedRng;
+use econ_types::{Bani, Calendar, Date, Day, Month};
 
 use crate::Command;
+use crate::schedule::{Due, Period};
+
+#[cfg(feature = "banking")]
+pub use banking::BankState;
+#[cfg(feature = "monetary")]
+pub use central_bank::{CentralBankState, MonetaryParams};
+pub use fiscal::{IncomeTaxLaw, TransferLaw};
+#[cfg(feature = "trade")]
+pub use foreign::{Foreign, TradeMonth, TradeParams};
+#[cfg(feature = "pay_day")]
+pub use pay_day::PaySlips;
+#[cfg(feature = "fiscal")]
+pub use treasury::{FiscalMonth, FiscalParams, Treasury};
 
 /// What a `World` starts from: the population and stage columns, the firm-unit
 /// table, the opening balances, the input coefficients, the basket shares and
 /// the placeholder final demand. Read from a scenario folder by
-/// `econ_io::read_start_state`.
-#[derive(Debug, Clone)]
+/// `econ_io::read_start_state`. Money in bani; flows of the firm units and
+/// the final demand are a year's; coefficients and shares are millionths.
+#[derive(Debug, Clone, Default)]
+#[allow(missing_docs)]
 pub struct StartState {
-    // The implementation holds the tables here.
-    _unbuilt: (),
+    /// The scenario's `sample_scale`.
+    pub sample_scale: u32,
+    /// The scenario's `rng_seed`.
+    pub rng_seed: u64,
+    // Households.
+    pub hh_weight: Vec<u32>,
+    pub hh_county: Vec<u8>,
+    /// A collective household (institution).
+    pub hh_collective: Vec<bool>,
+    /// The region of the household's county.
+    pub hh_region: Vec<u8>,
+    pub hh_cash: Vec<Bani>,
+    pub hh_deposits: Vec<Bani>,
+    /// Food grown at home, a month (in kind).
+    pub hh_subsistence_income: Vec<Bani>,
+    // Persons.
+    pub household_id: Vec<u32>,
+    /// Age in months.
+    pub age: Vec<u16>,
+    pub edu_level: Vec<EduLevel>,
+    /// Stage C's activity code (4 = unemployed).
+    pub activity: Vec<u8>,
+    /// Stage D's status in employment (0 none, 1 employee, 2 employer, 3
+    /// own-account, 4 family worker).
+    pub employment_status: Vec<u8>,
+    pub occupation: Vec<u8>,
+    pub wage: Vec<Bani>,
+    pub wage_declared: Vec<Bani>,
+    pub pension: Vec<Bani>,
+    /// Self-employment and informal income, a month.
+    pub other_income: Vec<Bani>,
+    /// The declared part of self-employment income, a month.
+    pub self_employment_declared: Vec<Bani>,
+    /// Stage J's firm unit, or `econ_popgen::NO_EMPLOYER`.
+    pub employer: Vec<u16>,
+    // Firm units, in the order of the scenario's table.
+    pub unit_industry: Vec<u8>,
+    /// A cohort unit (not a public producer).
+    pub unit_cohort: Vec<bool>,
+    /// Size class: micro 0, small 1, large 2, public 3.
+    pub unit_size: Vec<u8>,
+    /// Real firms the unit stands for.
+    pub unit_firm_count: Vec<u32>,
+    /// A cohort unit controlled from Romania (not public, not foreign).
+    pub unit_domestic_cohort: Vec<bool>,
+    pub unit_output: Vec<Bani>,
+    pub unit_value_added: Vec<Bani>,
+    pub unit_wages: Vec<Bani>,
+    pub unit_currency: Vec<Bani>,
+    pub unit_deposits: Vec<Bani>,
+    /// The opening balance sheet, `[instrument][sector]` in matrix order.
+    pub balances: Vec<[Bani; 8]>,
+    // Catalogue industries.
+    pub industry_id: Vec<String>,
+    pub industry_group: Vec<u8>,
+    /// Storable goods (one month of inventory); the rest a quarter month.
+    pub goods: Vec<bool>,
+    /// `price_flexibility`, a month.
+    pub flexibility_ppm: Vec<u32>,
+    /// `[buyer][supplier]`: home inputs per unit of the buyer's output.
+    pub home_coefficient_ppm: Vec<Vec<u32>>,
+    /// Imported inputs per unit of output.
+    pub import_coefficient_ppm: Vec<u32>,
+    /// Other costs (taxes on production and on inputs) per unit of output.
+    pub other_cost_ppm: Vec<u32>,
+    /// `basket_share[g]`, summing to 1,000,000.
+    pub basket_ppm: Vec<u32>,
+    /// The imported part of the households' purchases of each good.
+    pub basket_import_ppm: Vec<u32>,
+    pub gov_domestic: Vec<Bani>,
+    pub gov_imported: Vec<Bani>,
+    pub investment_domestic: Vec<Bani>,
+    pub investment_imported: Vec<Bani>,
+    pub exports: Vec<Bani>,
+    edits: Vec<StartEdit>,
 }
 
 /// A change to a starting state, applied by [`World::new`] after it has
@@ -79,6 +233,52 @@ pub enum StartEdit {
         /// Millionths.
         factor_ppm: u32,
     },
+    /// On day 0, before the first phase, every unit of the industry lays off
+    /// this share of its employees (rounded per unit), as layoffs: they become
+    /// unemployed job seekers and their unemployment claims open on their
+    /// wage (AC-ST-08).
+    #[cfg(feature = "pay_day")]
+    Layoff {
+        /// Catalogue index.
+        industry: usize,
+        /// Millionths.
+        share_ppm: u32,
+    },
+    /// The policy rate becomes `rate_ppm` from the day given, as a command of
+    /// the lever system would set it (M4); the banks reprice at the next
+    /// monthly close (AC-BANK-05).
+    #[cfg(feature = "banking")]
+    PolicyRate {
+        /// The first day of the new rate.
+        from: Day,
+        /// Millionths a year.
+        rate_ppm: i32,
+    },
+    /// On day 0, before the first phase, the firm unit borrows this amount
+    /// from the banks: its loans and its deposits grow by it (AC-BANK-06).
+    #[cfg(feature = "banking")]
+    ExtraLoan {
+        /// Index into the firm units.
+        unit: usize,
+        /// Bani.
+        amount: Bani,
+    },
+    /// For the first `months` months the government's deficit is financed by
+    /// the central bank (its deposits at the central bank may fall below
+    /// zero, or the central bank buys the month's issue) instead of by bonds
+    /// sold to the other holders (AC-MP-05).
+    #[cfg(feature = "monetary")]
+    CentralBankFinancing {
+        /// Months from the start.
+        months: u32,
+    },
+    /// Every good's euro price in the outside world times `factor_ppm` /
+    /// 1,000,000, for the whole run: a world-constants edit (AC-TFX-04).
+    #[cfg(feature = "trade")]
+    WorldPrices {
+        /// Millionths.
+        factor_ppm: u32,
+    },
 }
 
 impl StartState {
@@ -86,8 +286,7 @@ impl StartState {
     /// and refuses an edit that does not fit the tables with
     /// [`WorldError::Shape`].
     pub fn apply(&mut self, edit: StartEdit) {
-        let _ = edit;
-        unimplemented!("game/world-loop: edits of a starting state")
+        self.edits.push(edit);
     }
 }
 
@@ -101,14 +300,130 @@ pub struct Law {
     pub vat_category: Vec<VatCategory>,
     /// The gross minimum wage a month.
     pub minimum_wage: Bani,
+    /// Taxes on income and profits; `None` in M2's placeholder law.
+    pub income: Option<IncomeTaxLaw>,
+    /// Social transfers; `None` in M2's placeholder law (pensions are then
+    /// paid at their starting amounts).
+    pub transfers: Option<TransferLaw>,
 }
+
+/// The catalogue industries in the order of the firm-unit file, with the VAT
+/// category of their good on 1 December 2021 (spec `economy/vat`: 9% for
+/// food, medicines and water; 5% for books and newspapers, cultural events,
+/// accommodation and restaurants; financial services, health, education,
+/// social care, rents and public services exempt).
+pub const CATALOGUE_VAT: [(&str, VatCategory); 90] = {
+    use VatCategory::{Exempt as E, Reduced as R, Reduced2 as R2, Standard as S};
+    [
+        ("admin_support", S),
+        ("agri_cereals", R),
+        ("agri_construction_machinery", S),
+        ("agri_fruit_veg", R),
+        ("agri_oilseeds", R),
+        ("agri_vineyards", R),
+        ("air_transport", S),
+        ("aircraft", S),
+        ("banking_services", E),
+        ("beverages", S),
+        ("building_materials", S),
+        ("car_parts", S),
+        ("cars", S),
+        ("chemicals", S),
+        ("coal_mining", S),
+        ("computers_comms", S),
+        ("construction_buildings", S),
+        ("construction_civil", S),
+        ("consumer_electronics", S),
+        ("crude_oil", S),
+        ("data_centres", S),
+        ("defence_equipment", S),
+        ("defence_services", E),
+        ("education_services", E),
+        ("electrical_equipment", S),
+        ("electronic_components", S),
+        ("engineering_rnd", S),
+        ("fertilisers", S),
+        ("fishing", R),
+        ("food_bakery_milling", R),
+        ("food_meat_dairy", R),
+        ("food_other", R),
+        ("forestry", S),
+        ("furniture", S),
+        ("gas_heat_supply", S),
+        ("health_services", E),
+        ("hotels_tourism", R2),
+        ("industrial_machinery", S),
+        ("insurance_pensions", E),
+        ("it_software", S),
+        ("leather_footwear", S),
+        ("livestock_dairy", R),
+        ("livestock_meat", R),
+        ("media_publishing", R2),
+        ("medical_devices", S),
+        ("metal_ores", S),
+        ("metal_products", S),
+        ("natural_gas", S),
+        ("nonferrous_metals", S),
+        ("other_manufacturing", S),
+        ("paper_printing", S),
+        ("passenger_transport", S),
+        ("personal_services", S),
+        ("pharmaceuticals", R),
+        ("plastics_rubber", S),
+        ("post_logistics", S),
+        ("power_biomass", S),
+        ("power_coal", S),
+        ("power_gas", S),
+        ("power_grid", S),
+        ("power_hydro", S),
+        ("power_nuclear", S),
+        ("power_solar", S),
+        ("power_storage", S),
+        ("power_supply", S),
+        ("power_wind", S),
+        ("professional_services", S),
+        ("public_administration", E),
+        ("quarrying", S),
+        ("rail_equipment", S),
+        ("rail_transport", S),
+        ("real_estate", E),
+        ("recreation_culture", R2),
+        ("refined_petroleum", S),
+        ("restaurants", R2),
+        ("retail_trade", S),
+        ("road_freight", S),
+        ("shipbuilding", S),
+        ("social_care", E),
+        ("steel", S),
+        ("telecom_services", S),
+        ("textiles_apparel", S),
+        ("tobacco", S),
+        ("trucks_buses", S),
+        ("uranium_fuel", S),
+        ("vehicle_trade_repair", S),
+        ("water_transport", S),
+        ("water_waste", R),
+        ("wholesale_trade", S),
+        ("wood_products", S),
+    ]
+};
 
 impl Law {
     /// The law of 1 December 2021: VAT 19%, 9% and 5% with each good's category
     /// from the law in force; a minimum wage of 2,300 lei.
     #[must_use]
     pub fn placeholder_2021() -> Law {
-        unimplemented!("game/world-loop: the placeholder law")
+        Law {
+            vat: VatSchedule {
+                standard: VatRate::percent(19),
+                reduced: VatRate::percent(9),
+                reduced_2: VatRate::percent(5),
+            },
+            vat_category: CATALOGUE_VAT.iter().map(|&(_, c)| c).collect(),
+            minimum_wage: Bani::from_lei(2_300),
+            income: None,
+            transfers: None,
+        }
     }
 }
 
@@ -125,14 +440,64 @@ pub struct WorldParams {
     pub prices: PriceParams,
     /// Master seed of the keyed draws (the scenario's `rng_seed`).
     pub rng_seed: u64,
+    /// The banks.
+    #[cfg(feature = "banking")]
+    pub banking: econ_mech_banking::BankParams,
+    /// The policy rate at the start, millionths a year (1.75%; constant until
+    /// the lever system, M4).
+    #[cfg(feature = "banking")]
+    pub policy_rate_ppm: i32,
+    /// The central bank.
+    #[cfg(feature = "monetary")]
+    pub monetary: MonetaryParams,
+    /// The government's debt.
+    #[cfg(feature = "fiscal")]
+    pub fiscal: FiscalParams,
+    /// Trade and the exchange rate.
+    #[cfg(feature = "trade")]
+    pub trade: TradeParams,
 }
 
 impl WorldParams {
     /// Every parameter at its spec's default, with this seed.
     #[must_use]
     pub fn spec_defaults(rng_seed: u64) -> WorldParams {
-        let _ = rng_seed;
-        unimplemented!("game/world-loop: the mechanics' default parameters")
+        WorldParams {
+            households: HouseholdParams {
+                mpc: [1_000_000, 1_000_000, 1_000_000, 980_000, 950_000],
+                mpc_wealth_ppm: 5_000,
+                subsistence_basket: Bani::from_lei(700),
+            },
+            labour: LabourParams {
+                matching_efficiency_ppm: 500_000,
+                matching_elasticity_ppm: 500_000,
+                max_layoff_share_ppm: 100_000,
+                quit_rate_ppm: 10_000,
+                wage_tightness_response_ppm: 100_000,
+            },
+            production: ProductionParams {
+                theta_ppm: 300_000,
+                phi_ppm: 250_000,
+            },
+            prices: PriceParams {
+                indexation_ppm: 500_000,
+                eta_utilisation_ppm: 200_000,
+                eta_inventory_ppm: 100_000,
+                normal_utilisation_ppm: 800_000,
+                max_daily_move_ppm: 20_000,
+            },
+            rng_seed,
+            #[cfg(feature = "banking")]
+            banking: econ_mech_banking::BankParams::spec_defaults(),
+            #[cfg(feature = "banking")]
+            policy_rate_ppm: 17_500,
+            #[cfg(feature = "monetary")]
+            monetary: MonetaryParams::spec_defaults(),
+            #[cfg(feature = "fiscal")]
+            fiscal: FiscalParams::spec_defaults(),
+            #[cfg(feature = "trade")]
+            trade: TradeParams::spec_defaults(),
+        }
     }
 }
 
@@ -154,6 +519,23 @@ pub enum PhaseId {
     MonthlyClose,
     Checks,
 }
+
+/// The phases of a day and their periods: the one list of the spec.
+pub const PHASES: [(PhaseId, Period); 13] = [
+    (PhaseId::Commands, Period::Daily),
+    (PhaseId::Plan, Period::Staggered),
+    (PhaseId::Staffing, Period::Staggered),
+    (PhaseId::Prices, Period::Daily),
+    (PhaseId::OutputAndInputs, Period::Daily),
+    (PhaseId::FixedDemand, Period::Daily),
+    (PhaseId::Households, Period::Staggered),
+    (PhaseId::GoodsMarket, Period::Daily),
+    (PhaseId::Quits, Period::MonthEnd),
+    (PhaseId::Pay, Period::MonthEnd),
+    (PhaseId::WageRound, Period::Yearly { month: 1, day: 1 }),
+    (PhaseId::MonthlyClose, Period::MonthEnd),
+    (PhaseId::Checks, Period::Daily),
+];
 
 /// What a day returns.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -326,12 +708,180 @@ pub struct IndustryColumns {
     pub sales_value_today: Vec<Bani>,
 }
 
+/// Per person, what the tables do not show.
+#[derive(Debug, Clone, Default)]
+struct PersonState {
+    /// Status in employment (0 none, 1 employee, 2 to 4 the self-employed).
+    status: Vec<u8>,
+    /// Looking for work.
+    seeking: Vec<bool>,
+    /// Region of the person's household.
+    region: Vec<u8>,
+    pension: Vec<Bani>,
+    /// Age in months.
+    age: Vec<u16>,
+    /// Self-employment and informal income at the start, a month.
+    other_income: Vec<Bani>,
+}
+
+/// Per household, what the tables do not show.
+#[derive(Debug, Clone, Default)]
+struct HouseholdState {
+    /// Equivalised adults, thousandths.
+    eq_adults_milli: Vec<u32>,
+    subsistence: Vec<Bani>,
+    /// Money received in the current and in the previous calendar month.
+    income_this_month: Vec<Bani>,
+    income_last_month: Vec<Bani>,
+}
+
+/// Per firm unit, what the tables do not show.
+#[derive(Debug, Clone, Default)]
+struct UnitState {
+    /// Staff and a month's output at the start: the labour requirement.
+    staff0: Vec<u64>,
+    output0: Vec<i64>,
+    /// `ScaleLabourRequirement`, millionths.
+    labour_factor_ppm: u32,
+    /// Weight for paying investment goods (cohort units' starting surplus).
+    invest_weight: Vec<u64>,
+    /// A public producer, paid at cost by the government.
+    public: Vec<bool>,
+    /// A month of wages at the start of the day.
+    wage_reserve: Vec<i128>,
+    /// Credit inside the firm sector: what a unit owes the others, and what
+    /// it has lent them (the two columns sum to the same).
+    owes: Vec<Bani>,
+    lent: Vec<Bani>,
+    /// The current plan: a month's output, spread over `plan_days` days.
+    plan_output: Vec<i64>,
+    plan_days: Vec<u8>,
+    /// Days of the current plan already produced.
+    plan_done: Vec<u8>,
+    /// Worst share of yesterday's input orders served, millionths.
+    inputs_served_ppm: Vec<u32>,
+    /// Stocks of its essential inputs, in the order of its industry's
+    /// essential inputs (real units).
+    input_stock: Vec<Vec<i64>>,
+    /// Its employees, ascending.
+    members: Vec<Vec<u32>>,
+    /// Employees by occupation at the start (a fallback mix for vacancies).
+    start_mix: Vec<[u64; 10]>,
+    /// The fraction of a hire carried to next month, by tier.
+    hire_carry: Vec<[u32; 3]>,
+    /// Vacancies opened this month, by tier.
+    vacancies_month: Vec<[u64; 3]>,
+    /// Weight for paying self-employment and informal income.
+    mixed_weight: Vec<u64>,
+}
+
+/// Per industry, what the tables do not show.
+#[derive(Debug, Clone, Default)]
+struct IndustryState {
+    /// Home inputs of the industry's output: (supplier, coefficient ppm).
+    inputs: Vec<Vec<(usize, u32)>>,
+    /// Its essential inputs (suppliers), ascending.
+    essential: Vec<Vec<usize>>,
+    import_ppm: Vec<u32>,
+    other_ppm: Vec<u32>,
+    markup0_ppm: Vec<i32>,
+    flex_daily_ppm: Vec<u32>,
+    /// Wage cost per unit of output, of the last month.
+    wage_cost_ppm: Vec<u32>,
+    basket_import_ppm: Vec<u32>,
+    /// Fixed final demand a day: quantities and the imported parts in money.
+    gov_q: Vec<i64>,
+    inv_q: Vec<i64>,
+    exp_q: Vec<i64>,
+    gov_imp: Vec<Bani>,
+    inv_imp: Vec<Bani>,
+    /// The month so far.
+    output_month: Vec<i64>,
+    wages_month: Vec<Bani>,
+    shortage_month: Vec<i64>,
+}
+
+/// The month so far, for its statistics.
+#[derive(Debug, Clone, Default)]
+struct MonthAcc {
+    output_value: i128,
+    inputs_home: i128,
+    inputs_imported: i128,
+    vat: i128,
+    consumption: i128,
+    government: i128,
+    investment: i128,
+    exports: i128,
+    imports: i128,
+    sales_value: i128,
+    wages: i128,
+    employer_contributions: i128,
+}
+
+/// Economy-wide state.
+#[derive(Debug, Clone, Default)]
+struct MacroState {
+    expected_inflation_ppm: i32,
+    target_ppm: i32,
+    /// CPI at each close, millionths.
+    cpi: Vec<u32>,
+    /// Bounds of the income fifths (income per equivalised adult, bani ×
+    /// 1,000), from the latest close.
+    fifth_bounds: [i128; 4],
+    /// Qualified seekers and vacancies by tier at the latest close.
+    tier_seekers: [u64; 3],
+    tier_vacancies: [u64; 3],
+    /// Tightness by industry group at each close, millionths (latest last).
+    tightness: Vec<Vec<u32>>,
+    normal_tightness: Vec<u32>,
+    /// Reference wage `[group][occupation]`.
+    reference_wage: Vec<[Bani; 10]>,
+    /// Consumption of the first and of the latest closed month.
+    first_consumption: Bani,
+    last_consumption: Bani,
+    /// Separations of the month still to be paid: (person, unit, pay, its
+    /// declared part).
+    owed: Vec<(u32, u16, Bani, Bani)>,
+    /// The one-off transfer of a [`StartEdit::Transfer`], paid on day 0.
+    transfer: Vec<Bani>,
+    /// The starting month's income is still to be paid (day 0).
+    start_pay: bool,
+    /// Clearing accounts left non-zero today (I-8): flow, industry, amount.
+    clearing: Vec<(econ_ledger::FlowCode, usize, Bani)>,
+    month: MonthAcc,
+}
+
+/// The day's demand on the industries, before the goods market.
+#[derive(Debug, Clone, Default)]
+struct DayDemand {
+    /// `[industry]`: per buying unit (unit, quantity).
+    units: Vec<Vec<(usize, i64)>>,
+    /// Per household buying today: its month's spending, VAT included.
+    households: Vec<(usize, Bani)>,
+}
+
 /// The simulated economy.
 #[derive(Debug, Clone)]
 pub struct World {
-    // The implementation holds the calendar, today, the column tables, the
-    // ledger and the macro state here.
-    _unbuilt: (),
+    sample_scale: u32,
+    law: Law,
+    params: WorldParams,
+    seed: KeyedRng,
+    calendar: Calendar,
+    today: Day,
+    ledger: Ledger,
+    households: HouseholdColumns,
+    persons: PersonColumns,
+    units: FirmUnitColumns,
+    industries: IndustryColumns,
+    hh: HouseholdState,
+    pp: PersonState,
+    uu: UnitState,
+    ii: IndustryState,
+    mac: MacroState,
+    fs: fiscal::FiscalState,
+    demand: DayDemand,
+    months: Vec<MonthStats>,
 }
 
 impl World {
@@ -341,8 +891,7 @@ impl World {
     /// # Errors
     /// [`WorldError::TablesDisagreeWithLedger`], [`WorldError::Shape`].
     pub fn new(start: StartState, law: Law, params: WorldParams) -> Result<World, WorldError> {
-        let _ = (start, law, params);
-        unimplemented!("game/world-loop: load a world")
+        load::new(start, law, params)
     }
 
     /// Run today's phases and move to the next day. `commands` must be empty
@@ -351,68 +900,120 @@ impl World {
     /// # Errors
     /// [`WorldError::CommandsNotYet`]; nothing changes.
     pub fn step(&mut self, commands: &[Command]) -> Result<DayReport, WorldError> {
-        let _ = commands;
-        unimplemented!("game/world-loop: one day")
+        if !commands.is_empty() {
+            return Err(WorldError::CommandsNotYet);
+        }
+        let day = self.today;
+        let date = self.calendar.date(day);
+        self.ledger.begin_tick(day.0);
+        self.begin_day();
+        let mut phases = Vec::with_capacity(PHASES.len());
+        let mut failed = Vec::new();
+        for (id, period) in PHASES {
+            let due = period.due(date);
+            if due == Due::No {
+                continue;
+            }
+            phases.push(id);
+            let cohort = match due {
+                Due::Cohort(d) => d,
+                _ => 0,
+            };
+            match id {
+                PhaseId::Commands => self.pay_transfer(),
+                PhaseId::Plan => self.plan(cohort),
+                PhaseId::Staffing => self.staffing(cohort),
+                PhaseId::Prices => self.prices(),
+                PhaseId::OutputAndInputs => self.output_and_inputs(),
+                PhaseId::FixedDemand => self.fixed_demand(),
+                PhaseId::Households => self.household_decisions(cohort),
+                PhaseId::GoodsMarket => self.goods_market(),
+                PhaseId::Quits => self.quits(),
+                PhaseId::Pay => self.pay(),
+                PhaseId::WageRound => self.wage_round(),
+                PhaseId::MonthlyClose => failed.extend(self.monthly_close()),
+                PhaseId::Checks => failed.extend(self.checks()),
+            }
+        }
+        self.today = day.next();
+        let state_hash = self.state_hash();
+        Ok(DayReport {
+            day,
+            date,
+            phases,
+            checks_ok: failed.is_empty(),
+            failed,
+            state_hash,
+        })
     }
 
     /// The date of [`World::day`].
     #[must_use]
     pub fn date(&self) -> Date {
-        unimplemented!("game/world-loop: today's date")
+        self.calendar.date(self.today)
     }
 
     /// The day the next [`World::step`] runs (day 0 after [`World::new`]).
     #[must_use]
     pub fn day(&self) -> Day {
-        unimplemented!("game/world-loop: today")
-    }
-
-    /// The hash of the whole state.
-    #[must_use]
-    pub fn state_hash(&self) -> u64 {
-        unimplemented!("game/world-loop: the state hash")
+        self.today
     }
 
     /// The ledger.
     #[must_use]
     pub fn ledger(&self) -> &Ledger {
-        unimplemented!("game/world-loop: the ledger")
+        &self.ledger
     }
 
     /// The statistics of every closed month, in order.
     #[must_use]
     pub fn months(&self) -> &[MonthStats] {
-        unimplemented!("game/world-loop: the monthly statistics")
+        &self.months
     }
 
     /// The households table.
     #[must_use]
     pub fn households(&self) -> &HouseholdColumns {
-        unimplemented!("game/world-loop: the households table")
+        &self.households
     }
 
     /// The persons table.
     #[must_use]
     pub fn persons(&self) -> &PersonColumns {
-        unimplemented!("game/world-loop: the persons table")
+        &self.persons
     }
 
     /// The firm units.
     #[must_use]
     pub fn firm_units(&self) -> &FirmUnitColumns {
-        unimplemented!("game/world-loop: the firm units")
+        &self.units
     }
 
     /// The industries.
     #[must_use]
     pub fn industries(&self) -> &IndustryColumns {
-        unimplemented!("game/world-loop: the industries")
+        &self.industries
     }
 
     /// The inflation target, millionths a year (the starting expected
     /// inflation).
     #[must_use]
     pub fn inflation_target_ppm(&self) -> i32 {
-        unimplemented!("game/world-loop: the inflation target")
+        self.mac.target_ppm
+    }
+
+    /// Clear what "today" columns hold from the day before.
+    fn begin_day(&mut self) {
+        let u = &mut self.units;
+        u.output_today.iter_mut().for_each(|v| *v = 0);
+        u.sales_today.iter_mut().for_each(|v| *v = 0);
+        u.revenue_today.iter_mut().for_each(|v| *v = Bani::ZERO);
+        let i = &mut self.industries;
+        i.demand_today.iter_mut().for_each(|v| *v = 0);
+        i.shortage_today.iter_mut().for_each(|v| *v = 0);
+        i.sales_value_today.iter_mut().for_each(|v| *v = Bani::ZERO);
+        self.demand.households.clear();
+        self.demand.units.iter_mut().for_each(Vec::clear);
+        self.uu.wage_reserve = self.wage_reserves();
     }
 }

@@ -199,22 +199,36 @@ pub fn split_largest_remainder(total: Bani, weights: &[u64]) -> Vec<Bani> {
     let mut parts: Vec<u128> = Vec::with_capacity(weights.len());
     let mut rems: Vec<(u128, usize)> = Vec::with_capacity(weights.len());
     let mut assigned: u128 = 0;
+    // 64-bit division when every product fits (the common case: a budget
+    // over shares in millionths); the result is the same.
+    let small = u64::try_from(w_sum).is_ok()
+        && weights
+            .iter()
+            .all(|&w| u64::try_from(t).is_ok_and(|t| t.checked_mul(w).is_some()));
     for (i, &w) in weights.iter().enumerate() {
-        let num = t * u128::from(w);
-        let q = num / w_sum;
+        let (q, r) = if small {
+            let t64 = u64::try_from(t).expect("checked above");
+            let (num, den) = (t64 * w, u64::try_from(w_sum).expect("checked above"));
+            (u128::from(num / den), u128::from(num % den))
+        } else {
+            let num = t * u128::from(w);
+            (num / w_sum, num % w_sum)
+        };
         parts.push(q);
-        rems.push((num % w_sum, i));
+        rems.push((r, i));
         assigned += q;
     }
-    let mut left = t - assigned; // < weights.len()
-    // Largest remainder first; ties → lower index first.
-    rems.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
-    for &(_, i) in &rems {
-        if left == 0 {
-            break;
+    let left = usize::try_from(t - assigned).expect("fewer than the weights");
+    // Largest remainder first; ties → lower index first. Only the set of the
+    // first `left` matters, so a selection does instead of a sort.
+    if left > 0 {
+        let order = |a: &(u128, usize), b: &(u128, usize)| b.0.cmp(&a.0).then(a.1.cmp(&b.1));
+        if left < rems.len() {
+            rems.select_nth_unstable_by(left - 1, order);
         }
-        parts[i] += 1;
-        left -= 1;
+        for &(_, i) in &rems[..left] {
+            parts[i] += 1;
+        }
     }
     parts
         .into_iter()

@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [society/population-groups, economy/labor-market, economy/taxation, economy/social-transfers, economy/money-banking, economy/prices-inflation, economy/vat, adr/0017-time-base]
 research: [research/household-wealth-romania, research/informal-economy-romania]
-updated: 2026-10-15
+updated: 2026-10-20
 ---
 
 # Households — Budgets, Consumption, Saving & Borrowing
@@ -84,7 +84,7 @@ C_h = \min\Big(\max\big(\lfloor c_y(q_h) \cdot Y_h + c_w \cdot M_h \rceil,\ \tex
 ```
 
    - $Y_h$ = `hh_income_received`; $M_h$ = `hh_cash` + `hh_deposits` after income; $q_h$ = the household's fifth by last month's income per equivalised adult (the fifths' bounds are those of the previous monthly close).
-   - $c_y(q)$ = `mpc[q]`, from 0.95 in the poorest fifth to 0.60 in the richest; $c_w$ = `mpc_wealth`, 0.5% a month.
+   - $c_y(q)$ = `mpc[q]`, from 1.00 in the three poorest fifths to 0.95 in the richest; $c_w$ = `mpc_wealth`, 0.5% a month.
    - $\text{floor}_h$ = `subsistence_basket` × equivalised adults (1 for the first adult, 0.5 per further adult, 0.3 per child under 14) × the consumer price index, less `hh_subsistence_income`, not below zero.
    - `hh_hardship` is set when $M_h$ is below the floor.
 3. **The basket:** $C_h$ is split over the goods by fixed shares `basket_share[g]`, the same for every household: the household consumption column of the input-output table, mapped to the catalogue's goods. Largest-remainder split to whole bani.
@@ -103,7 +103,7 @@ Consumption by good (demand for production), saving, credit demand, real income,
 ## Tuning parameters
 | Parameter | Default | Effect |
 |---|---|---|
-| `mpc[q]` | 0.95, 0.90, 0.85, 0.75, 0.60 by income fifth | share of the month's income spent |
+| `mpc[q]` | 1.00, 1.00, 1.00, 0.98, 0.95 by income fifth (owner, 2026-10-17; was 0.95, 0.90, 0.85, 0.75, 0.60) | share of the month's income spent |
 | `mpc_wealth` | 0.005 a month | share of cash and deposits spent each month |
 | `subsistence_basket` | 700 lei a month per equivalised adult at starting prices | the floor |
 | later | LES parameters by class, age and place; confidence sensitivity; default threshold; durable replacement cycle | |
@@ -137,6 +137,7 @@ IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, `crates/eco
 
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-HH-05: M3's benefits, the minimum income and child allowance that give the poorest households an income (owner, 2026-10-20); its test is ignored until then
 - AC-HH-09: borrowing and interest (roadmap M3)
 - AC-HH-10: baskets by group (roadmap M6)
 
@@ -159,3 +160,5 @@ The phase that walks today's households, calls these, posts through the ledger a
 - [x] Landlords: households own the dwellings they let; rents are part of [housing](housing.md) (M13). Decided 2026-10-11 under the owner's delegation.
 - [x] First version, periods and parameters as above: accepted by the owner's delegation, 2026-10-11 ("accept the drafts").
 - [ ] `mpc[q]` and the floor are guesses until calibration (M7); the survey behind the fifths is Eurostat's income-consumption statistics for 2020.
+- [x] **The defaults of `mpc[q]`** (owner, 2026-10-17). The first values (0.95 to 0.60) made the starting population spend 537 billion lei in its first year, 25% under the input-output table's 720 billion (AC-HH-08 allows 10%): in M2 households keep their gross income (there are no taxes yet), so they match the table only by spending nearly all of it. 1.00, 1.00, 1.00, 0.98, 0.95 give 720.1 billion. Revisit in M3, when taxes cut disposable income.
+- [x] **AC-HH-05 and the defaults.** With them, a transfer to the poorest fifth raises consumption less than the same total to the richest (0.85 against 0.97 of the transfer over two months, 1:1000): a third of the poorest households have no income in M2 (no benefits before M3) and already spend the subsistence floor out of savings, so a transfer first replaces that. The criterion holds with a richest-fifth `mpc` of 0.80, but then demand falls short of starting output and the quiet baseline (AC-WLD-07) fails. **Decided (owner, 2026-10-20):** the criterion waits for the benefits of M3 (the minimum income and child allowance give the poorest households an income); its test is marked as owed until then.
