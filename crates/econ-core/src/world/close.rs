@@ -354,12 +354,19 @@ impl World {
             });
         }
         self.months.push(stats);
-        // The treasury last: the units' shortfalls of the day settled first,
-        // so its deposits at the central bank end the day at their target.
+        // The treasury: the units' shortfalls of the day settled first, so
+        // its deposits at the central bank end the day at their target.
         #[cfg(feature = "fiscal")]
         if self.tr_active() {
             self.settle_credit();
             self.treasury_month_end();
+        }
+        // The banks after it (they move no government money): interest on
+        // what the month's payments left, repayments, write-offs, rates.
+        #[cfg(feature = "banking")]
+        {
+            self.bank_month_end();
+            self.bank_close();
         }
         failed
     }
@@ -368,6 +375,11 @@ impl World {
     /// (I-4), no negative money or inventory, the clearing accounts (I-8).
     pub(super) fn checks(&mut self) -> Vec<InvariantError> {
         self.settle_credit();
+        #[cfg(feature = "banking")]
+        {
+            self.bank_note_firm_credit();
+            self.bank_day_end();
+        }
         let mut failed = match self.ledger.check_invariants() {
             Ok(()) => Vec::new(),
             Err(e) => e,
@@ -540,6 +552,8 @@ impl World {
         }
         #[cfg(feature = "fiscal")]
         self.treasury_hash(&mut |w| h.write_word(w));
+        #[cfg(feature = "banking")]
+        self.bank_hash(&mut |w| h.write_word(w));
         let mut ledger = StateHasher::default();
         self.ledger.hash_into(&mut |bytes| ledger.write(bytes));
         h.write_word(ledger.finish());

@@ -61,6 +61,7 @@
 
 // The phases walk several aligned columns by record index.
 #[cfg(feature = "banking")]
+#[allow(clippy::needless_range_loop)]
 mod banking;
 #[cfg(feature = "monetary")]
 mod central_bank;
@@ -196,6 +197,12 @@ pub struct StartState {
     /// the yearly amount (spec `economy/fiscal-policy`, "In", step 1); empty
     /// when the scenario has no budget.
     pub gov_transfers_year: Vec<(econ_ledger::FlowCode, econ_ledger::Sector, Bani)>,
+    /// Each firm unit's loans in the firm-unit table (all lenders).
+    pub unit_loans: Vec<Bani>,
+    /// Each household's mortgage (stage H).
+    pub hh_mortgage: Vec<Bani>,
+    /// Each household's consumer debt (stage H).
+    pub hh_consumer_debt: Vec<Bani>,
     edits: Vec<StartEdit>,
 }
 
@@ -893,6 +900,8 @@ pub struct World {
     fs: fiscal::FiscalState,
     #[cfg(feature = "fiscal")]
     tr: treasury::TreasuryState,
+    #[cfg(feature = "banking")]
+    bk: banking::Banks,
     slips: PaySlips,
     demand: DayDemand,
     months: Vec<MonthStats>,
@@ -921,6 +930,8 @@ impl World {
         let date = self.calendar.date(day);
         self.ledger.begin_tick(day.0);
         self.begin_day();
+        #[cfg(feature = "banking")]
+        self.bank_begin_day();
         let mut phases = Vec::with_capacity(PHASES.len());
         let mut failed = Vec::new();
         for (id, period) in PHASES {

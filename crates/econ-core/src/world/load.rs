@@ -487,6 +487,9 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     let mut transfer = Vec::new();
     #[cfg_attr(not(feature = "pay_day"), allow(unused_mut))]
     let mut layoffs: Vec<(usize, u32)> = Vec::new();
+    // Edits applied once the world exists, in order.
+    #[cfg_attr(not(feature = "banking"), allow(unused_mut))]
+    let mut later: Vec<StartEdit> = Vec::new();
 
     // The edits, in order.
     for e in &s.edits {
@@ -545,8 +548,11 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
                 layoffs.push((*industry, *share_ppm));
             }
             #[cfg(feature = "banking")]
-            StartEdit::PolicyRate { .. } | StartEdit::ExtraLoan { .. } => {
-                unimplemented!("econ-core banking: written in the implementation change")
+            StartEdit::PolicyRate { .. } => later.push(e.clone()),
+            #[cfg(feature = "banking")]
+            StartEdit::ExtraLoan { unit, .. } => {
+                shape(*unit < n_u, "a firm unit that does not exist")?;
+                later.push(e.clone());
             }
             #[cfg(feature = "monetary")]
             StartEdit::CentralBankFinancing { .. } => {
@@ -738,6 +744,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         &s.unit_firm_count,
     );
     let mut world = World {
+        #[cfg(feature = "banking")]
+        bk: super::banking::Banks::default(),
         #[cfg(feature = "fiscal")]
         tr: super::treasury::TreasuryState::default(),
         slips: super::PaySlips::default(),
@@ -766,6 +774,22 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     };
     #[cfg(feature = "fiscal")]
     world.start_treasury(&s.gov_debt_profile, &s.gov_transfers_year);
+    #[cfg(feature = "banking")]
+    world.start_banks(
+        &s.unit_loans,
+        &s.hh_mortgage,
+        &s.hh_consumer_debt,
+        &s.unit_output,
+    );
+    for e in later {
+        match e {
+            #[cfg(feature = "banking")]
+            StartEdit::PolicyRate { from, rate_ppm } => world.bank_policy_change(from, rate_ppm),
+            #[cfg(feature = "banking")]
+            StartEdit::ExtraLoan { unit, amount } => world.bank_extra_loan(unit, amount),
+            _ => {}
+        }
+    }
     // Layoffs of a starting edit, before the first day (AC-ST-08).
     for (industry, share_ppm) in layoffs {
         world.lay_off_share(industry, share_ppm);

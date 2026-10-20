@@ -265,6 +265,9 @@ impl World {
     /// they owe the sector out of what they can spare, and a unit short of
     /// money borrows it from the others' spare money.
     pub(super) fn settle_credit(&mut self) {
+        // The banks' credit lines first, where they exist (M3).
+        #[cfg(feature = "banking")]
+        self.bank_credit_lines();
         let n_u = self.units.industry.len();
         let mut post = Postings::default();
         let mut at_cost = 0i128;
@@ -410,18 +413,27 @@ impl World {
         let today = self.today;
         let cpi = self.mac.cpi.last().copied().unwrap_or(1_000_000);
         let scale = self.mixed_scale_ppm();
+        // The month's interest on the household's loans, known in advance:
+        // disposable income is net of it (spec economy/households), so the
+        // household keeps it aside for the month end (M3, with the banks).
+        #[cfg(feature = "banking")]
+        let dues = self.hh_interest_due();
         let h = &mut self.households;
         for k in 0..h.hh_weight.len() {
             if h.hh_stagger_day[k] != cohort {
                 continue;
             }
+            #[cfg(feature = "banking")]
+            let due = dues.get(k).copied().unwrap_or(Bani::ZERO);
+            #[cfg(not(feature = "banking"))]
+            let due = Bani::ZERO;
             let per_adult = i128::from(self.hh.income_last_month[k].get()) * 1_000
                 / i128::from(self.hh.eq_adults_milli[k].max(1));
             let fifth = super::close::fifth_of(per_adult, &self.mac.fifth_bounds);
             h.hh_fifth[k] = fifth;
             let b = Budget {
-                income_received: h.hh_income_received[k],
-                money: h.hh_cash[k] + h.hh_deposits[k],
+                income_received: (h.hh_income_received[k] - due).max(Bani::ZERO),
+                money: (h.hh_cash[k] + h.hh_deposits[k] - due).max(Bani::ZERO),
                 fifth,
                 equivalised_adults_milli: self.hh.eq_adults_milli[k],
                 subsistence_income: bani(ratio(
