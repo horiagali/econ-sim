@@ -1,53 +1,115 @@
-import { useEffect, useState } from "react";
-import { backend, type ContributionNode, type Series } from "./api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { backend, type Series, type WorldStatus } from "./api";
 import { Chart } from "./components/Chart";
-import { CountyMap } from "./components/CountyMap";
-import { WhyTree } from "./components/WhyTree";
 
-const N_CHARTS = 40;
-const MONTHS = 600; // 50 years
+// The thin UI of roadmap M2: time controls and a dozen monthly charts on the
+// real `World` (the Romania scenario under the placeholder law, no levers).
+const STEPS: [string, number][] = [
+  ["+1 day", 1],
+  ["+1 month", 30],
+  ["+1 year", 365],
+];
+const PLAY_DAYS = 30; // days per frame while playing
 
-// Spike 8 UI slice: 40 charts × 600 months, a county map, a nested "why" tree.
 export default function App() {
+  const [scale, setScale] = useState(1000);
+  const [status, setStatus] = useState<WorldStatus | null>(null);
   const [series, setSeries] = useState<Series[]>([]);
-  const [counties, setCounties] = useState<Record<string, number>>({});
-  const [why, setWhy] = useState<ContributionNode | null>(null);
-  const [timing, setTiming] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [error, setError] = useState("");
+  const playRef = useRef(false);
 
-  useEffect(() => {
-    const t0 = performance.now();
-    Promise.all([backend.runSeries(N_CHARTS, MONTHS), backend.countyValues("unemployment"), backend.explain("inflation")]).then(
-      ([s, c, w]) => {
-        const t1 = performance.now();
-        setSeries(s);
-        setCounties(c);
-        setWhy(w);
-        requestAnimationFrame(() => {
-          const t2 = performance.now();
-          const msg = `backend=${backend.kind} data=${(t1 - t0).toFixed(1)}ms render=${(t2 - t1).toFixed(1)}ms`;
-          setTiming(msg);
-          (window as unknown as { __econTiming: string }).__econTiming = msg;
-        });
-      },
-    );
+  const run = useCallback(async (job: () => Promise<WorldStatus>) => {
+    setBusy(true);
+    setError("");
+    try {
+      const s = await job();
+      setStatus(s);
+      setSeries(await backend.worldSeries());
+      return s;
+    } catch (e) {
+      setError(String(e));
+      return null;
+    } finally {
+      setBusy(false);
+    }
   }, []);
 
+  const open = () => {
+    playRef.current = false;
+    setPlaying(false);
+    setSeries([]);
+    void run(() => backend.worldOpen(scale));
+  };
+  const step = (days: number) => run(() => backend.worldStep(days, scale));
+
+  // Play: one step after another until paused or a check fails.
+  useEffect(() => {
+    playRef.current = playing;
+    if (!playing) return;
+    let alive = true;
+    (async () => {
+      while (alive && playRef.current) {
+        const s = await step(PLAY_DAYS);
+        if (!s || s.failed.length) {
+          setPlaying(false);
+          break;
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing]);
+
+  const isOpen = status?.open ?? false;
   return (
     <main style={{ fontFamily: "system-ui, sans-serif", padding: 12 }}>
-      <h1 style={{ fontSize: 18 }}>econ-sim — UI spike</h1>
-      <p style={{ fontSize: 12, color: "#555" }} id="timing">{timing}</p>
-      <section style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-        <CountyMap values={counties} />
-        <div style={{ minWidth: 320 }}>
-          <h2 style={{ fontSize: 15 }}>Why did inflation change?</h2>
-          {why ? <WhyTree node={why} /> : null}
-        </div>
+      <h1 style={{ fontSize: 18, margin: "0 0 8px" }}>econ-sim</h1>
+      <section style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
+        <label>
+          Scale 1:
+          <select value={scale} onChange={(e) => setScale(Number(e.target.value))} disabled={busy || playing}>
+            {[1000, 100].map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button onClick={open} disabled={busy || playing}>
+          {isOpen ? "Restart" : "Open Romania 2021"}
+        </button>
+        {STEPS.map(([label, days]) => (
+          <button key={label} onClick={() => void step(days)} disabled={!isOpen || busy || playing}>
+            {label}
+          </button>
+        ))}
+        <button onClick={() => setPlaying((p) => !p)} disabled={!isOpen}>
+          {playing ? "Pause" : "Play"}
+        </button>
+        <span style={{ fontSize: 13, color: "#444" }}>
+          {isOpen
+            ? `${status!.date} · day ${status!.day} · ${status!.months} months closed · 1:${status!.sample_scale}`
+            : "No world open"}
+          {busy && !playing ? " · working…" : ""}
+          {` · backend=${backend.kind}`}
+        </span>
       </section>
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, 300px)", gap: 8 }}>
+      {status?.failed.length ? (
+        <p style={{ color: "#b00020", fontSize: 13 }}>Checks failed on day {status.day}: {status.failed.join(", ")}</p>
+      ) : null}
+      {error ? <p style={{ color: "#b00020", fontSize: 13 }}>{error}</p> : null}
+      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, 320px)", gap: 8 }}>
         {series.map((s) => (
-          <Chart key={s.name} series={s} />
+          <Chart key={s.name} series={s} width={320} height={160} />
         ))}
       </section>
+      {isOpen && series.length && series[0].values.length === 0 ? (
+        <p style={{ fontSize: 13, color: "#555" }}>The charts start at the first monthly close.</p>
+      ) : null}
     </main>
   );
 }

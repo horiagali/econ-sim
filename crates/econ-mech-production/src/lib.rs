@@ -30,12 +30,25 @@ fn apportion(total: i64, weights: &[i64]) -> Vec<i64> {
         return vec![0; weights.len()];
     }
     let t = i128::from(total.max(0));
-    let mut parts: Vec<i128> = w.iter().map(|&x| t * x / sum).collect();
-    let mut order: Vec<usize> = (0..w.len()).collect();
-    order.sort_by_key(|&i| (std::cmp::Reverse(t * w[i] % sum), i));
+    let mut parts = Vec::with_capacity(w.len());
+    let mut rems = Vec::with_capacity(w.len());
+    for &x in &w {
+        let q = t * x / sum;
+        parts.push(q);
+        rems.push(t * x - q * sum);
+    }
     let missing = usize::try_from(t - parts.iter().sum::<i128>()).expect("fewer than the parts");
-    for &i in order.iter().take(missing) {
-        parts[i] += 1;
+    if missing > 0 {
+        // The largest remainders, ties to the lower index: a strict order,
+        // so selecting them is the same as sorting and taking.
+        let mut order: Vec<usize> = (0..w.len()).collect();
+        let key = |&i: &usize| (std::cmp::Reverse(rems[i]), i);
+        if missing < order.len() {
+            order.select_nth_unstable_by_key(missing - 1, key);
+        }
+        for &i in order.iter().take(missing) {
+            parts[i] += 1;
+        }
     }
     parts.into_iter().map(qty).collect()
 }

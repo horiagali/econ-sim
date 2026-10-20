@@ -10,7 +10,7 @@ use econ_mech_tax::vat::VatCategory;
 use econ_num::math::powf;
 use econ_types::Bani;
 
-use super::money::{Postings, bani, ratio, split};
+use super::money::{Postings, bani, ratio, split, split2};
 use super::{UnitState, World};
 
 const ONE: i128 = 1_000_000;
@@ -40,16 +40,6 @@ pub(super) fn desired(uu: &UnitState, u: usize, y: i64) -> u64 {
     let need = i128::from(y.max(0)) * staff0 * factor;
     let den = out0 * ONE;
     u64::try_from((need + den - 1) / den).expect("persons")
-}
-
-impl super::IndustryState {
-    /// The coefficient of input `i` in industry `j`'s output, millionths.
-    fn coefficient_of(&self, j: usize, i: usize) -> u32 {
-        self.inputs[j]
-            .iter()
-            .find(|&&(k, _)| k == i)
-            .map_or(0, |&(_, a)| a)
-    }
 }
 
 impl World {
@@ -190,16 +180,15 @@ impl World {
                 ONE
             };
             let mut share = staff_ppm;
-            for (k, &e) in self.ii.essential[j].iter().enumerate() {
-                let a = self.ii.coefficient_of(j, e);
+            for (k, &a) in self.ii.essential_ppm[j].iter().enumerate() {
                 let need = i128::from(part) * i128::from(a) / ONE;
                 if need > 0 {
                     share = share.min(i128::from(self.uu.input_stock[u][k].max(0)) * ONE / need);
                 }
             }
             let out = i64::try_from(i128::from(part) * share.min(ONE) / ONE).expect("an output");
-            for (k, &e) in self.ii.essential[j].iter().enumerate() {
-                let a = i64::from(self.ii.coefficient_of(j, e));
+            for (k, &a) in self.ii.essential_ppm[j].iter().enumerate() {
+                let a = i64::from(a);
                 self.uu.input_stock[u][k] -= (out * a + 500_000) / 1_000_000;
             }
             self.units.inventory[u] += out;
@@ -212,10 +201,10 @@ impl World {
             );
             self.mac.month.output_value += value;
             self.fs.add_value(u, value);
-            for &(i, a) in &self.ii.inputs[j] {
+            for (&(i, a), &slot) in self.ii.inputs[j].iter().zip(&self.ii.essential_slot[j]) {
                 // A day's part is far below 2^43 real units: the product fits i64.
                 let mut q = (part * i64::from(a) + 500_000) / 1_000_000;
-                if let Ok(k) = self.ii.essential[j].binary_search(&i) {
+                if let Some(k) = slot {
                     // The target is days of an average day of the plan (a
                     // thirtieth of the month), so short months do not restock.
                     let target = (y / 30 * i64::from(a) + 500_000) / 1_000_000 * INPUT_STOCK_DAYS;
@@ -560,13 +549,13 @@ impl World {
                 paid += v;
                 self.mac.month.inputs_home += v;
                 self.fs.add_inputs(u, v);
-                let share = if q > 0 {
-                    u32::try_from(i128::from(s) * ONE / i128::from(q)).expect("a share")
-                } else {
-                    1_000_000
-                };
                 let buyer = usize::from(self.units.industry[u]);
                 if let Ok(k) = self.ii.essential[buyer].binary_search(&i) {
+                    let share = if q > 0 {
+                        u32::try_from(i128::from(s) * ONE / i128::from(q)).expect("a share")
+                    } else {
+                        1_000_000
+                    };
                     self.uu.input_stock[u][k] += s;
                     worst[u] = worst[u].min(share);
                 }
@@ -648,11 +637,12 @@ impl World {
                 continue;
             }
             let (cash, dep) = (self.households.hh_cash[k], self.households.hh_deposits[k]);
-            let split_money = split(
+            let (pc, pd) = split2(
                 i128::from(gross.get()),
-                &[i128::from(cash.get()), i128::from(dep.get())],
+                i128::from(cash.get()),
+                i128::from(dep.get()),
             );
-            let (pc, pd) = (bani(split_money[0]), bani(split_money[1]));
+            let (pc, pd) = (bani(pc), bani(pd));
             self.households.hh_cash[k] -= pc;
             self.households.hh_deposits[k] -= pd;
             self.households.spending_to_date[k] += gross;

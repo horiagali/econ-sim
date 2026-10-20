@@ -14,7 +14,7 @@ path = "src/main.rs"
 [dependencies]
 econ-types.workspace = true
 econ-core.workspace = true
-econ-io.workspace = true
+econ-io = { workspace = true, features = ["world"] }
 econ-popgen.workspace = true
 econ-scenario.workspace = true
 econ-rng.workspace = true

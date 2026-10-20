@@ -97,6 +97,35 @@ impl Lanes {
         self.n = self.n.wrapping_add(1);
     }
 
+    /// [`Lanes::write_word`] for each word in turn, with the lanes held in
+    /// locals: the same hash, without a store and load per word.
+    fn write_words(&mut self, words: impl IntoIterator<Item = u64>) {
+        const P: u64 = 0x0100_0000_01b3;
+        let mut words = words.into_iter();
+        // Up to the first lane.
+        while self.n & 3 != 0 {
+            let Some(w) = words.next() else { return };
+            self.write_word(w);
+        }
+        let [mut a, mut b, mut c, mut d] = self.lanes;
+        let mut n = self.n;
+        while let Some(w) = words.next() {
+            a = (a ^ w).wrapping_mul(P);
+            n = n.wrapping_add(1);
+            let Some(w) = words.next() else { break };
+            b = (b ^ w).wrapping_mul(P);
+            n = n.wrapping_add(1);
+            let Some(w) = words.next() else { break };
+            c = (c ^ w).wrapping_mul(P);
+            n = n.wrapping_add(1);
+            let Some(w) = words.next() else { break };
+            d = (d ^ w).wrapping_mul(P);
+            n = n.wrapping_add(1);
+        }
+        self.lanes = [a, b, c, d];
+        self.n = n;
+    }
+
     fn finish(&self) -> u64 {
         let mut h = StateHasher::default();
         for &lane in &self.lanes {
@@ -404,10 +433,10 @@ impl World {
         let mut h = Lanes::new();
         // Word by word: the persons' columns are millions of values a day.
         #[allow(clippy::cast_sign_loss)]
-        let b = |h: &mut Lanes, v: &[Bani]| v.iter().for_each(|x| h.write_word(x.get() as u64));
+        let b = |h: &mut Lanes, v: &[Bani]| h.write_words(v.iter().map(|x| x.get() as u64));
         #[allow(clippy::cast_sign_loss)]
-        let i = |h: &mut Lanes, v: &[i64]| v.iter().for_each(|&x| h.write_word(x as u64));
-        let u = |h: &mut Lanes, v: &[u64]| v.iter().for_each(|&x| h.write_word(x));
+        let i = |h: &mut Lanes, v: &[i64]| h.write_words(v.iter().map(|&x| x as u64));
+        let u = |h: &mut Lanes, v: &[u64]| h.write_words(v.iter().copied());
         // Byte columns eight bytes to a word.
         let bytes = |h: &mut Lanes, v: &mut dyn Iterator<Item = u8>| {
             let mut word = 0u64;
@@ -427,31 +456,29 @@ impl World {
         b(&mut h, &hh.hh_cash);
         b(&mut h, &hh.hh_deposits);
         b(&mut h, &hh.hh_income_received);
-        for k in 0..hh.hh_weight.len() {
-            h.write_word(
-                u64::from(hh.hh_stagger_day[k])
-                    | u64::from(hh.hh_hardship[k]) << 8
-                    | u64::from(hh.hh_fifth[k]) << 16,
-            );
-        }
+        h.write_words((0..hh.hh_weight.len()).map(|k| {
+            u64::from(hh.hh_stagger_day[k])
+                | u64::from(hh.hh_hardship[k]) << 8
+                | u64::from(hh.hh_fifth[k]) << 16
+        }));
         b(&mut h, &self.hh.income_this_month);
         b(&mut h, &self.hh.income_last_month);
         let p = &self.persons;
         // A person's small fields in one word.
-        for i in 0..p.employer.len() {
-            h.write_word(
-                u64::from(p.employer[i])
-                    | u64::from(p.months_unemployed[i]) << 16
-                    | u64::from(p.occupation[i]) << 32
-                    | u64::from(self.pp.status[i]) << 40
-                    | u64::from(self.pp.seeking[i]) << 48,
-            );
-        }
+        h.write_words((0..p.employer.len()).map(|i| {
+            u64::from(p.employer[i])
+                | u64::from(p.months_unemployed[i]) << 16
+                | u64::from(p.occupation[i]) << 32
+                | u64::from(self.pp.status[i]) << 40
+                | u64::from(self.pp.seeking[i]) << 48
+        }));
         b(&mut h, &p.wage);
         b(&mut h, &p.wage_declared);
-        p.hired_on
-            .iter()
-            .for_each(|x| h.write_word(u64::from(x.map_or(u32::MAX, |d| d.0))));
+        h.write_words(
+            p.hired_on
+                .iter()
+                .map(|x| u64::from(x.map_or(u32::MAX, |d| d.0))),
+        );
         b(&mut h, &p.last_pay);
         let f = &self.units;
         u(&mut h, &f.staff);

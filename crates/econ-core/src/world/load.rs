@@ -645,8 +645,27 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         })
         .collect();
     uu.input_stock = input_stock;
+    let essential_ppm = (0..n_i)
+        .map(|j| {
+            inputs[j]
+                .iter()
+                .filter(|&&(_, a)| a >= super::goods::ESSENTIAL_INPUT_PPM)
+                .map(|&(_, a)| a)
+                .collect()
+        })
+        .collect();
+    let essential_slot = (0..n_i)
+        .map(|j| {
+            inputs[j]
+                .iter()
+                .map(|(i, _)| essential[j].binary_search(i).ok())
+                .collect()
+        })
+        .collect();
     let ii = IndustryState {
         essential,
+        essential_ppm,
+        essential_slot,
         inputs,
         import_ppm: s.import_coefficient_ppm.clone(),
         other_ppm: s.other_cost_ppm.clone(),
