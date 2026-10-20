@@ -26,6 +26,10 @@
 //! exits 0 if the report is consistent, 1 if a check fails (the scenario is
 //! still written), 2 for bad arguments or an unreadable input, 3 if the
 //! opening ledger fails its invariants (nothing written).
+//! `run-world` builds the scenario at one scale and runs the `World` (spec
+//! `game/world-loop`) under the placeholder law with no command, printing one
+//! CSV line per year; it exits 1 if a check of the day fails or a year takes
+//! longer than `--budget-ms` (roadmap M2: the three scales and the long run).
 
 use std::io::Write;
 use std::process::ExitCode;
@@ -38,7 +42,8 @@ fn usage() -> ExitCode {
         "usage:\n  econ-cli sim [--ticks N] [--hashes] [--check-golden FILE] [--mutate tax-sign|consume-gross]\n  econ-cli bench-scale [--scales 1000,100,10] [--ticks N]\n  econ-cli bench-save [--scales 100,10]\n  econ-cli bench-days [--scales 1000,100,10] [--years N]\n  econ-cli rng-raw [--pattern entity|tick|grid] [--entities N] [--bytes N] [--seed S]
   econ-cli synth-population --margins FILE --sample-scale N [--seed S] --out DIR [--attributes FILE [--jobs FILE [--wages FILE]] [--pensions FILE]] [--housing FILE [--wealth FILE]] [--incomes FILE] [--employers FILE]
   econ-cli sim-population --margins FILE --sample-scale N [--seed S] [--ticks N]
-  econ-cli build-scenario --sample-scale N [--seed S] [--fixtures DIR] --out DIR"
+  econ-cli build-scenario --sample-scale N [--seed S] [--fixtures DIR] --out DIR
+  econ-cli run-world --sample-scale N [--years N] [--seed S] [--fixtures DIR] [--out DIR] [--budget-ms MS]"
     );
     ExitCode::from(2)
 }
@@ -54,6 +59,7 @@ fn main() -> ExitCode {
         Some("synth-population") => synth_population(&args[1..]),
         Some("sim-population") => sim_population(&args[1..]),
         Some("build-scenario") => build_scenario(&args[1..]),
+        Some("run-world") => run_world(&args[1..]),
         _ => usage(),
     }
 }
@@ -834,4 +840,158 @@ fn bench_save(args: &[String]) -> ExitCode {
         println!("1:{s},{},{mb:.1},{save_ms:.0},{load_ms:.0}", w.n_persons());
     }
     ExitCode::SUCCESS
+}
+
+/// The `World` on the Romania scenario at one scale, for years, with no
+/// command: one CSV line per year (wall time, the December figures).
+/// Wall-clock timing is allowed here: it never reaches simulation state.
+#[allow(clippy::disallowed_types, clippy::disallowed_methods)]
+fn run_world(args: &[String]) -> ExitCode {
+    use econ_core::world::{Law, World, WorldParams};
+    let mut sample_scale: Option<u32> = None;
+    let mut years: u32 = 1;
+    let mut seed: u64 = 42;
+    let mut fixtures = String::from("python/pipeline/fixtures");
+    let mut out: Option<String> = None;
+    let mut budget_ms: Option<u128> = None;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--sample-scale" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(n) if n > 0 => sample_scale = Some(n),
+                _ => return usage(),
+            },
+            "--years" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(n) if n > 0 => years = n,
+                _ => return usage(),
+            },
+            "--seed" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(s) => seed = s,
+                None => return usage(),
+            },
+            "--fixtures" => match it.next() {
+                Some(d) => fixtures.clone_from(d),
+                None => return usage(),
+            },
+            "--out" => match it.next() {
+                Some(d) => out = Some(d.clone()),
+                None => return usage(),
+            },
+            "--budget-ms" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(ms) => budget_ms = Some(ms),
+                None => return usage(),
+            },
+            _ => return usage(),
+        }
+    }
+    let Some(sample_scale) = sample_scale else {
+        return usage();
+    };
+    let fixtures = std::path::Path::new(&fixtures);
+    let out = out.map_or_else(
+        || std::env::temp_dir().join(format!("econ-run-world-{sample_scale}")),
+        std::path::PathBuf::from,
+    );
+    let started = std::time::Instant::now();
+    let built = econ_scenario::read_inputs(fixtures).and_then(|inputs| {
+        let params = econ_scenario::BuildParams {
+            sample_scale,
+            rng_seed: seed,
+        };
+        let scenario = econ_scenario::build(&inputs, &params)?;
+        if out.exists() {
+            std::fs::remove_dir_all(&out).map_err(|e| econ_scenario::BuildError::Input {
+                file: out.display().to_string(),
+                why: e.to_string(),
+            })?;
+        }
+        econ_scenario::write(&scenario, &inputs, &out)
+    });
+    if let Err(e) = built {
+        eprintln!("run-world: the scenario does not build: {e:?}");
+        return ExitCode::from(2);
+    }
+    let start = match econ_io::read_start_state(&out, &fixtures.join("io_table2021_ro.json")) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("run-world: the scenario does not read: {e:?}");
+            return ExitCode::from(2);
+        }
+    };
+    let mut world = match World::new(
+        start,
+        Law::placeholder_2021(),
+        WorldParams::spec_defaults(seed),
+    ) {
+        Ok(w) => w,
+        Err(e) => {
+            eprintln!("run-world: the world does not build: {e:?}");
+            return ExitCode::from(2);
+        }
+    };
+    eprintln!(
+        "run-world: 1:{sample_scale} built in {} ms",
+        started.elapsed().as_millis()
+    );
+    let mut stdout = std::io::stdout().lock();
+    let _ = writeln!(
+        stdout,
+        "year,ms,unemployment_pct,inflation_pct,wage_share_pct,consumption_share_pct"
+    );
+    let mut failed = false;
+    for year in 1..=years {
+        let t0 = std::time::Instant::now();
+        let mut closed = world.months().len();
+        while world.months().len() < closed + 12 {
+            match world.step(&[]) {
+                Ok(r) if r.checks_ok => {}
+                Ok(r) => {
+                    eprintln!(
+                        "run-world: day {} fails its checks: {:?}",
+                        r.day.0, r.failed
+                    );
+                    return ExitCode::from(1);
+                }
+                Err(e) => {
+                    eprintln!("run-world: day {} does not run: {e:?}", world.day().0);
+                    return ExitCode::from(1);
+                }
+            }
+        }
+        closed += 12;
+        let ms = t0.elapsed().as_millis();
+        let m = &world.months()[closed - 1];
+        let pct = |a: i128, b: i128| {
+            if b == 0 {
+                0.0
+            } else {
+                a as f64 * 100.0 / b as f64
+            }
+        };
+        let gdp = i128::from(m.gdp_production.get());
+        let _ = writeln!(
+            stdout,
+            "{year},{ms},{:.2},{:.2},{:.2},{:.2}",
+            pct(
+                i128::from(m.unemployed),
+                i128::from(m.employed) + i128::from(m.unemployed)
+            ),
+            f64::from(m.inflation_ppm) / 10_000.0,
+            pct(i128::from(m.wage_bill.get()), gdp),
+            pct(i128::from(m.consumption.get()), gdp),
+        );
+        if budget_ms.is_some_and(|b| ms > b) {
+            eprintln!("run-world: year {year} took {ms} ms, over the budget");
+            failed = true;
+        }
+    }
+    eprintln!(
+        "run-world: {years} years in {} s",
+        started.elapsed().as_secs()
+    );
+    if failed {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
 }
