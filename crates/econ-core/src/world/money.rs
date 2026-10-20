@@ -118,6 +118,77 @@ impl Postings {
         );
     }
 
+    /// The government pays any sector: banks in reserves, the central bank
+    /// in the government's own account, the rest through the banks as in
+    /// [`Postings::gov_pays`].
+    #[cfg(feature = "fiscal")]
+    pub(super) fn gov_pays_any(&mut self, payee: Sector, amount: Bani, code: FlowCode) {
+        match payee {
+            Sector::Banks => {
+                self.leg(
+                    Sector::Government,
+                    Sector::CentralBank,
+                    Instrument::GovDepositsAtCb,
+                    amount,
+                    code,
+                );
+                self.leg(
+                    Sector::CentralBank,
+                    Sector::Banks,
+                    Instrument::Reserves,
+                    amount,
+                    code,
+                );
+            }
+            Sector::CentralBank => self.leg(
+                Sector::Government,
+                Sector::CentralBank,
+                Instrument::GovDepositsAtCb,
+                amount,
+                code,
+            ),
+            _ => self.gov_pays(payee, amount, code),
+        }
+    }
+
+    /// Any sector pays the government: the legs of [`Postings::gov_pays_any`] in
+    /// reverse.
+    #[cfg(feature = "fiscal")]
+    pub(super) fn pay_gov_any(&mut self, payer: Sector, amount: Bani, code: FlowCode) {
+        match payer {
+            Sector::Banks => {
+                self.leg(
+                    Sector::Banks,
+                    Sector::CentralBank,
+                    Instrument::Reserves,
+                    amount,
+                    code,
+                );
+                self.leg(
+                    Sector::CentralBank,
+                    Sector::Government,
+                    Instrument::GovDepositsAtCb,
+                    amount,
+                    code,
+                );
+            }
+            Sector::CentralBank => self.leg(
+                Sector::CentralBank,
+                Sector::Government,
+                Instrument::GovDepositsAtCb,
+                amount,
+                code,
+            ),
+            _ => self.pays_gov(payer, amount, code),
+        }
+    }
+
+    /// Government bonds pass from `payer` to `payee` at book value.
+    #[cfg(feature = "fiscal")]
+    pub(super) fn bonds(&mut self, payer: Sector, payee: Sector, amount: Bani) {
+        self.leg(payer, payee, Instrument::Bonds, amount, FlowCode::BONDS);
+    }
+
     /// Firms pay their cash takings into the bank.
     pub(super) fn cash_into_bank(&mut self, amount: Bani) {
         self.leg(

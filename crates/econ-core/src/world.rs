@@ -187,6 +187,15 @@ pub struct StartState {
     pub investment_domestic: Vec<Bani>,
     pub investment_imported: Vec<Bani>,
     pub exports: Vec<Bani>,
+    /// Government bonds by residual maturity at the start, as (from year, to
+    /// year, amount) buckets of the debt profile; empty when the scenario has
+    /// none (spec `economy/fiscal-policy`, "Starting state").
+    pub gov_debt_profile: Vec<(u8, u8, Bani)>,
+    /// The budget lines the `World` pays as a twelfth of the year at each
+    /// month end until a lever changes them: flow code, the sector paid and
+    /// the yearly amount (spec `economy/fiscal-policy`, "In", step 1); empty
+    /// when the scenario has no budget.
+    pub gov_transfers_year: Vec<(econ_ledger::FlowCode, econ_ledger::Sector, Bani)>,
     edits: Vec<StartEdit>,
 }
 
@@ -882,6 +891,8 @@ pub struct World {
     ii: IndustryState,
     mac: MacroState,
     fs: fiscal::FiscalState,
+    #[cfg(feature = "fiscal")]
+    tr: treasury::TreasuryState,
     slips: PaySlips,
     demand: DayDemand,
     months: Vec<MonthStats>,
@@ -938,6 +949,8 @@ impl World {
                 PhaseId::Checks => failed.extend(self.checks()),
             }
         }
+        #[cfg(feature = "fiscal")]
+        self.treasury_day_end();
         self.today = day.next();
         let state_hash = self.state_hash();
         Ok(DayReport {

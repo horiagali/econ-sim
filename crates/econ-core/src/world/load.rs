@@ -738,6 +738,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         &s.unit_firm_count,
     );
     let mut world = World {
+        #[cfg(feature = "fiscal")]
+        tr: super::treasury::TreasuryState::default(),
         slips: super::PaySlips::default(),
         fs,
         sample_scale: s.sample_scale,
@@ -762,6 +764,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         },
         months: Vec::new(),
     };
+    #[cfg(feature = "fiscal")]
+    world.start_treasury(&s.gov_debt_profile, &s.gov_transfers_year);
     // Layoffs of a starting edit, before the first day (AC-ST-08).
     for (industry, share_ppm) in layoffs {
         world.lay_off_share(industry, share_ppm);
