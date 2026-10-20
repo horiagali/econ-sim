@@ -60,10 +60,16 @@
 //!   leaves the sector's balances unchanged (banks lend from M3).
 
 // The phases walk several aligned columns by record index.
+#[cfg(feature = "banking")]
+mod banking;
+#[cfg(feature = "monetary")]
+mod central_bank;
 #[allow(clippy::needless_range_loop)]
 mod close;
 #[allow(clippy::needless_range_loop)]
 mod fiscal;
+#[cfg(feature = "trade")]
+mod foreign;
 #[allow(clippy::needless_range_loop)]
 mod goods;
 #[allow(clippy::needless_range_loop)]
@@ -71,12 +77,6 @@ mod labour;
 #[allow(clippy::needless_range_loop)]
 mod load;
 mod money;
-#[cfg(feature = "banking")]
-mod banking;
-#[cfg(feature = "monetary")]
-mod central_bank;
-#[cfg(feature = "trade")]
-mod foreign;
 #[cfg(feature = "pay_day")]
 mod pay_day;
 #[cfg(feature = "fiscal")]
