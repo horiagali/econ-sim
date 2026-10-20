@@ -534,6 +534,22 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
                 basket.clone_from(v);
             }
             StartEdit::ScaleWages { factor_ppm } => wage_scale = Some(*factor_ppm),
+            #[cfg(feature = "pay_day")]
+            StartEdit::Layoff { .. } => {
+                unimplemented!("econ-core pay_day: written in the implementation change")
+            }
+            #[cfg(feature = "banking")]
+            StartEdit::PolicyRate { .. } | StartEdit::ExtraLoan { .. } => {
+                unimplemented!("econ-core banking: written in the implementation change")
+            }
+            #[cfg(feature = "monetary")]
+            StartEdit::CentralBankFinancing { .. } => {
+                unimplemented!("econ-core monetary: written in the implementation change")
+            }
+            #[cfg(feature = "trade")]
+            StartEdit::WorldPrices { .. } => {
+                unimplemented!("econ-core trade: written in the implementation change")
+            }
         }
     }
     if let Some(f) = wage_scale {

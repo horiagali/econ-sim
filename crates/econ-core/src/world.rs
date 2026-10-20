@@ -71,6 +71,16 @@ mod labour;
 #[allow(clippy::needless_range_loop)]
 mod load;
 mod money;
+#[cfg(feature = "banking")]
+mod banking;
+#[cfg(feature = "monetary")]
+mod central_bank;
+#[cfg(feature = "trade")]
+mod foreign;
+#[cfg(feature = "pay_day")]
+mod pay_day;
+#[cfg(feature = "fiscal")]
+mod treasury;
 
 use econ_ledger::{InvariantError, Ledger};
 use econ_mech_households::HouseholdParams;
@@ -85,7 +95,17 @@ use econ_types::{Bani, Calendar, Date, Day, Month};
 use crate::Command;
 use crate::schedule::{Due, Period};
 
+#[cfg(feature = "banking")]
+pub use banking::BankState;
+#[cfg(feature = "monetary")]
+pub use central_bank::{CentralBankState, MonetaryParams};
 pub use fiscal::{IncomeTaxLaw, TransferLaw};
+#[cfg(feature = "trade")]
+pub use foreign::{Foreign, TradeMonth, TradeParams};
+#[cfg(feature = "pay_day")]
+pub use pay_day::PaySlips;
+#[cfg(feature = "fiscal")]
+pub use treasury::{FiscalMonth, FiscalParams, Treasury};
 
 /// What a `World` starts from: the population and stage columns, the firm-unit
 /// table, the opening balances, the input coefficients, the basket shares and
@@ -210,6 +230,52 @@ pub enum StartEdit {
     /// `factor_ppm` / 1,000,000, after the starting markups and unit costs are
     /// set: a wage rise on day 0 (AC-PRICE-05).
     ScaleWages {
+        /// Millionths.
+        factor_ppm: u32,
+    },
+    /// On day 0, before the first phase, every unit of the industry lays off
+    /// this share of its employees (rounded per unit), as layoffs: they become
+    /// unemployed job seekers and their unemployment claims open on their
+    /// wage (AC-ST-08).
+    #[cfg(feature = "pay_day")]
+    Layoff {
+        /// Catalogue index.
+        industry: usize,
+        /// Millionths.
+        share_ppm: u32,
+    },
+    /// The policy rate becomes `rate_ppm` from the day given, as a command of
+    /// the lever system would set it (M4); the banks reprice at the next
+    /// monthly close (AC-BANK-05).
+    #[cfg(feature = "banking")]
+    PolicyRate {
+        /// The first day of the new rate.
+        from: Day,
+        /// Millionths a year.
+        rate_ppm: i32,
+    },
+    /// On day 0, before the first phase, the firm unit borrows this amount
+    /// from the banks: its loans and its deposits grow by it (AC-BANK-06).
+    #[cfg(feature = "banking")]
+    ExtraLoan {
+        /// Index into the firm units.
+        unit: usize,
+        /// Bani.
+        amount: Bani,
+    },
+    /// For the first `months` months the government's deficit is financed by
+    /// the central bank (its deposits at the central bank may fall below
+    /// zero, or the central bank buys the month's issue) instead of by bonds
+    /// sold to the other holders (AC-MP-05).
+    #[cfg(feature = "monetary")]
+    CentralBankFinancing {
+        /// Months from the start.
+        months: u32,
+    },
+    /// Every good's euro price in the outside world times `factor_ppm` /
+    /// 1,000,000, for the whole run: a world-constants edit (AC-TFX-04).
+    #[cfg(feature = "trade")]
+    WorldPrices {
         /// Millionths.
         factor_ppm: u32,
     },
@@ -374,6 +440,22 @@ pub struct WorldParams {
     pub prices: PriceParams,
     /// Master seed of the keyed draws (the scenario's `rng_seed`).
     pub rng_seed: u64,
+    /// The banks.
+    #[cfg(feature = "banking")]
+    pub banking: econ_mech_banking::BankParams,
+    /// The policy rate at the start, millionths a year (1.75%; constant until
+    /// the lever system, M4).
+    #[cfg(feature = "banking")]
+    pub policy_rate_ppm: i32,
+    /// The central bank.
+    #[cfg(feature = "monetary")]
+    pub monetary: MonetaryParams,
+    /// The government's debt.
+    #[cfg(feature = "fiscal")]
+    pub fiscal: FiscalParams,
+    /// Trade and the exchange rate.
+    #[cfg(feature = "trade")]
+    pub trade: TradeParams,
 }
 
 impl WorldParams {
@@ -405,6 +487,16 @@ impl WorldParams {
                 max_daily_move_ppm: 20_000,
             },
             rng_seed,
+            #[cfg(feature = "banking")]
+            banking: econ_mech_banking::BankParams::spec_defaults(),
+            #[cfg(feature = "banking")]
+            policy_rate_ppm: 17_500,
+            #[cfg(feature = "monetary")]
+            monetary: MonetaryParams::spec_defaults(),
+            #[cfg(feature = "fiscal")]
+            fiscal: FiscalParams::spec_defaults(),
+            #[cfg(feature = "trade")]
+            trade: TradeParams::spec_defaults(),
         }
     }
 }

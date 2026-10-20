@@ -230,11 +230,15 @@ version = "0.1.0"
 dependencies = [
  "econ-io",
  "econ-ledger",
+ "econ-mech-banking",
+ "econ-mech-fiscal",
  "econ-mech-households",
  "econ-mech-labour",
+ "econ-mech-monetary",
  "econ-mech-prices",
  "econ-mech-production",
  "econ-mech-tax",
+ "econ-mech-trade",
  "econ-mech-transfers",
  "econ-num",
  "econ-popgen",
@@ -268,6 +272,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "econ-mech-banking"
+version = "0.1.0"
+dependencies = [
+ "econ-types",
+]
+
+[[package]]
+name = "econ-mech-fiscal"
+version = "0.1.0"
+dependencies = [
+ "econ-types",
+]
+
+[[package]]
 name = "econ-mech-households"
 version = "0.1.0"
 dependencies = [
@@ -279,6 +297,13 @@ name = "econ-mech-labour"
 version = "0.1.0"
 dependencies = [
  "econ-num",
+ "econ-types",
+]
+
+[[package]]
+name = "econ-mech-monetary"
+version = "0.1.0"
+dependencies = [
  "econ-types",
 ]
 
@@ -298,6 +323,14 @@ name = "econ-mech-tax"
 version = "0.1.0"
 dependencies = [
  "econ-ledger",
+ "econ-types",
+]
+
+[[package]]
+name = "econ-mech-trade"
+version = "0.1.0"
+dependencies = [
+ "econ-num",
  "econ-types",
 ]
 

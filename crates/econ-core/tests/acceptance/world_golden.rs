@@ -13,14 +13,17 @@ const GOLDEN: &str = "tests/golden/world_ro_2021.hashes";
 /// The committed state hash of day 31 at a scale.
 fn golden(scale: u32) -> u64 {
     let path = repo_root().join(GOLDEN);
-    let text = std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("golden {}: {e}", path.display()));
+    let text =
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("golden {}: {e}", path.display()));
     let line = text
         .lines()
         .map(str::trim)
         .find(|l| l.split_whitespace().next() == Some(&scale.to_string()))
         .unwrap_or_else(|| panic!("no 1:{scale} line in {GOLDEN}"));
-    let hex = line.split_whitespace().nth(1).expect("a hash after the scale");
+    let hex = line
+        .split_whitespace()
+        .nth(1)
+        .expect("a hash after the scale");
     u64::from_str_radix(hex, 16).expect("a hexadecimal hash")
 }
 
