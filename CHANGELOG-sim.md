@@ -3,6 +3,14 @@
 Every change to a golden hash or snapshot needs an entry here with the reason
 (ADR-0010). Newest first.
 
+## 2026-10-20 — The starting budget: first golden hash
+- Added `tests/golden/budget_ro_2021.hashes` (AC-BUD-11): the budget hash of the fixture `budget2021_ro.json` (lines, sectors and public units in bani; spec `economy/budget-2021`): `fixture ffd4772468f8552e`. Reason: initial baseline. The value is that of the spec, reproduced on the day with the Python reference (`python/reference/budget_reference.py`); the Rust loader does not exist yet.
+- **Unchanged:** every other golden.
+
+## 2026-10-20 — The World: first golden state hash
+- Added `tests/golden/world_ro_2021.hashes` (AC-WLD-05): the `World`'s state hash on day 31 (after days 0 to 30 have run) on the Romania scenario at 1:1000, seed 42, under the placeholder law of M2: `407f56fb8ccd24ea`. Reason: initial baseline. The value comes from the first implementation (2026-10-17) and was approved by the owner on 2026-10-20; it is unchanged by the taxes on income and social transfers of `Law::law_2021`, which the placeholder law leaves out.
+- **Unchanged:** every other golden.
+
 ## 2026-10-17 — Ledger: the sectors and instruments of the accounting matrix
 - **Re-golden (owner approved, 2026-10-17):** the ledger grows to the columns and rows of spec `economy/accounting`, section 1: sectors pension funds and other financial firms; instruments government deposits at the central bank, reserves, central bank advances, equity, pension and insurance claims, foreign assets; both in matrix order (bonds now before loans). The ledger's state hash now leaves out zero balances, so a sector or instrument nobody holds, including any added later, no longer moves it. Every SIM value is identical, bani for bani, for 200 ticks (the differential test against the Python reference passes); only the hash changes.
   - `tests/golden/sim_200.hashes`: tick 0 `bf0ede85aad42f54` → `d1e54593570b3e11`; tick 1 `a1701aebfab7e071` → `21072aff0b55c3d8`; tick 199 `bc327d584e566547` → `c876f1991d9ed71a`; every line changes.

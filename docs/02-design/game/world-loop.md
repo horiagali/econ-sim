@@ -114,10 +114,6 @@ IDs are stable. Tests in `crates/econ-core/tests/acceptance/` (protected), writt
 
 The tests were written on 2026-10-15 against the API skeleton (`econ_core::world`, `econ_io::read_start_state`), compiled only with the crate feature `world` until the implementation turns it on. They build the Romania scenario with `econ_scenario::build`, write it and read it back with `econ_io::read_start_state`. Additions to the sketch, for the tests: read-only column tables (`households()`, `persons()`, `firm_units()`, `industries()`, with the per-record columns the criteria observe), `WorldParams::spec_defaults`, `World::inflation_target_ppm`, and `StartEdit`: edits of a starting state, applied at load, by which the mechanics' criteria that need a change M2 has no lever for compare two worlds (a one-off transfer, an industry with nothing to sell, scaled inventories, labour requirement or wages, other basket shares). AC-WLD-10 runs in release builds only (`cargo test --release -p econ-core --features world --test acceptance ac_wld_10`); debug builds skip it.
 
-### Tests owed
-The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-WLD-05: the golden value comes from the first implementation: `407f56fb8ccd24ea`, the state hash on day 31 at 1:1000, seed 42 (2026-10-17), approved by the owner on 2026-10-20; the test session commits it
-
 ## API sketch
 In `econ-core` (no I/O); loading the scenario's files is `econ-io`'s.
 

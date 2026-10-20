@@ -137,6 +137,7 @@ IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, `crates/eco
 
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-HH-05: M3's benefits, the minimum income and child allowance that give the poorest households an income (owner, 2026-10-20); its test is ignored until then
 - AC-HH-09: borrowing and interest (roadmap M3)
 - AC-HH-10: baskets by group (roadmap M6)
 

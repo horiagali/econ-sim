@@ -1,11 +1,11 @@
 ---
 id: economy/trade-fx
 title: Trade & Exchange Rate
-status: draft
+status: locked
 owner: horia
-depends_on: [economy/production, economy/prices-inflation, economy/money-banking]
+depends_on: [economy/production, economy/prices-inflation, economy/money-banking, economy/monetary-policy, economy/opening-balance-sheet, game/world-loop, adr/0017-time-base]
 research: []
-updated: 2026-10-08
+updated: 2026-10-20
 ---
 
 # Trade & Exchange Rate
@@ -18,6 +18,7 @@ Connect the country to the rest of the world: per-good exports and imports, tari
 - Export demand depends on foreign income and the relative price in foreign currency; trade elasticities ~0.5–1.5; **J-curve** (trade balance worsens before improving after depreciation).
 - Exchange rates respond to interest differentials, risk and the current account (uncovered interest parity with a risk premium, plus BoP flow pressure).
 - Exchange-rate pass-through to import prices is high, to CPI lower.
+- **Romania, 2021** (input-output table; the exchange rate from memory, high confidence): exports 425 billion lei, imports 483 billion; the BNR ran a tightly managed float, EUR/RON 4.92 to 4.95 through 2021 (the table's 4.9215 is its average). Its foreign assets in the opening balance sheet are 228.5 billion lei.
 
 ## Rest of world: two partner blocs (exogenous, data-driven)
 - **EU** (single market; euro as currency) and **non-EU** (everyone else; USD as reference currency). Each has, per good: price, demand index; plus interest rate, inflation, growth.
@@ -47,6 +48,56 @@ with the risk premium rp rising with debt, inflation, political instability (lat
 
 **Balance of payments:** current account (goods, services incl. tourism, primary income incl. dividends of foreign-owned firms ([foreign-ownership](foreign-ownership.md)) and interest, secondary income incl. remittances ([demographics](demographics.md)) and EU current transfers) + capital account (EU capital transfers, [eu-funds](eu-funds.md)) + financial account = −Δ reserves. Booked SFC.
 
+## Periods
+A tick is one day ([ADR-0017](../../03-architecture/decisions/0017-time-base.md)).
+
+| What | When |
+|---|---|
+| Import and export purchases, at the day's prices in lei | daily, as in the `World` |
+| The exchange rate | monthly close |
+| Import shares and export volumes adjust to relative prices | monthly close, for the next month |
+| The central bank's intervention | monthly close, with the rate |
+
+## State variables
+| Symbol | code_name | Meaning | Unit |
+|---|---|---|---|
+| $e$ | `exchange_rate` | lei per euro (the dollar follows at a constant cross rate) | ratio |
+| — | `import_share[g]` | imported part of the uses of good $g$, by use (inputs, households, government, investment) | ratio |
+| $\bar X_g$ | `export_base[g]` | exports of the table at starting relative prices | real units / day |
+| — | `world.*` | the outside world's constants (decision D8): price of each good in euro, foreign policy rate and expected inflation, demand index, EUR/USD | table |
+
+## First version (roadmap M3)
+What is built first, on the `World` of [game/world-loop](../game/world-loop.md). It replaces M2's imports at the fixed starting price and exports at fixed real levels.
+
+**The outside world** (decision D8) is a table of constants in the scenario (`world.json`), each changeable later by a world-settings command (M4): the euro price of every good (1 at the start), the foreign policy rate (ECB: −0.5%), foreign expected inflation (2%), a demand index per bloc (1), EUR/USD (1.13). Until `world.json` exists the `World` holds these constants.
+
+**In:**
+1. **Import prices** in lei are the euro price times $e$ over its starting value. Imported inputs, the imported part of household purchases and the imported parts of government purchases and investment pay that price instead of 1.
+2. **Import shares, monthly** (Armington): each use's import share of good $g$ moves toward
+   $$s_g = \frac{s^0_g\, (p^M_g)^{1-\sigma}}{s^0_g\, (p^M_g)^{1-\sigma} + (1-s^0_g)\, p_g^{1-\sigma}}$$
+   by `share_adjustment` a month, where $s^0_g$ is the starting share, $p^M_g$ the import price and $p_g$ the domestic price (both 1 at the start).
+3. **Exports, monthly:** each day's export demand on good $g$ is $\bar X_g \cdot \big(\tfrac{p_g}{e/e_0 \cdot p^*_g}\big)^{-\epsilon} \cdot \text{demand index}$; the rest of the world pays in lei as in M2.
+4. **The exchange rate, monthly close:**
+   $$\frac{\Delta e}{e} = -\gamma_1\big[(i - \pi^e) - (i^* - \pi^{*e}) - \text{rp}\big] - \gamma_2\,\frac{CA}{GDP} + \text{intervention}$$
+   with $CA$ the month's current account (exports less imports, less primary income paid abroad, from the ledger) over the month's GDP, and $\text{rp}$ a constant risk premium. **Managed float:** the central bank offsets `intervention_share` of the move by selling or buying foreign assets against the rest of the world's lei deposits (flow code `finance.fx_intervention`), as long as its foreign assets stay above `reserve_floor` months of imports.
+5. **Settlement.** The rest of the world keeps paying and being paid in its lei deposits at Romanian banks (M2's placeholder); a deficit of the current account is the growth of those deposits, and the central bank's intervention converts them against its foreign assets.
+
+> **Simplification (M3):** one foreign bloc for prices (the euro area) with the dollar at a constant cross rate; no tariffs (EU single market; the common external tariff on non-EU goods is small and constant); no capital account beyond the rest of the world's deposits and the central bank's intervention; no J-curve beyond what the monthly adjustment gives.
+
+**Not in M3:** two blocs with their own demand (when D8 becomes dynamic), pegs and ERM II ([euro](euro.md), M20), tariffs and capital controls (EU rules, M18), remittances (M5), dividends of foreign-owned firms (with investment and capital, M3, owner of that spec).
+
+## Tuning parameters
+| Parameter | Default | Effect |
+|---|---|---|
+| `armington_sigma` $\sigma$ | 1.5 | how far import shares move with relative prices |
+| `share_adjustment` | 0.1 a month | how fast they move |
+| `export_elasticity` $\epsilon$ | 1.0 | export volume per relative price |
+| $\gamma_1$ | 0.02 a month per point of real-rate gap | interest parity pull |
+| $\gamma_2$ | 0.05 a month per unit of CA/GDP | flow pressure |
+| `risk_premium` rp | 3 points | Romania's premium over the euro area (medium confidence) |
+| `intervention_share` | 0.8 | share of a move the BNR offsets (a tightly managed float) |
+| `reserve_floor` | 3 months of imports | below it the BNR stops selling |
+
 ## Player levers
 FX regime (float, managed, peg), FX intervention, export promotion. **Tariffs and capital controls are locked while Romania is in the EU** ([eu-membership](eu-membership.md)); export subsidies count as state aid.
 
@@ -57,13 +108,42 @@ Exports and imports by good, trade balance, current account, terms of trade, exc
 10% depreciation → export prices in foreign currency −10% → export volumes ↑ over 3–12 ticks (car makers, chemicals, tourism) → those industries hire. Import prices +10% in LCU immediately → CPI ↑ (energy, electronics, car parts) → real wages ↓ for import-heavy baskets. Short-run trade balance may worsen (J-curve), then improve.
 
 ## Acceptance tests
-- [ ] A permanent 10% depreciation raises export volumes and import prices, with the trade balance improving after an initial dip.
-- [ ] A 2-point rise in the domestic policy rate appreciates the currency under a float.
-- [ ] A peg defended with insufficient reserves eventually breaks.
-- [ ] A change in the EU common external tariff (scenario) on a good raises its domestic price and lowers non-EU imports.
-- [ ] An EU recession lowers exports more than a non-EU recession of the same size (trade weights).
-- [ ] BoP identity holds every tick.
+IDs are stable (added 2026-10-20). Tests go in `crates/econ-core/tests/acceptance/` (protected).
+
+- [ ] **AC-TFX-01** `[unit]` The Armington share is the formula of step 2: at equal prices it is the starting share, and it rises when the domestic good becomes dearer.
+- [ ] **AC-TFX-02** `[unit]` The exchange-rate step is the formula of step 4, with the intervention offsetting its share of the move while reserves are above the floor and none below it.
+- [ ] **AC-TFX-03** `[sim]` The balance of payments closes every month end: current account + the change in the rest of the world's lei deposits + the central bank's intervention = 0, to the ban.
+- [ ] **AC-TFX-04** `[sim]` A permanent 10% depreciation (a world-constants edit) raises import prices at once, export volumes over the following months and CPI by less than 10%.
+- [ ] **AC-TFX-05** `[sim]` Quiet baseline: on the Romania scenario with the 2021 law and constant world, the exchange rate over 120 months stays within 10% of its start and the central bank's reserves above their floor.
+- [ ] **AC-TFX-06** `[sim]` *(M4)* A 2-point rise in the domestic policy rate appreciates the currency.
+- [ ] **AC-TFX-07** `[sim]` *(M20)* A peg defended with insufficient reserves eventually breaks.
+- [ ] **AC-TFX-08** `[sim]` *(M18)* A change in the EU common external tariff on a good raises its domestic price and lowers non-EU imports.
+- [ ] **AC-TFX-09** `[sim]` *(later, two blocs)* An EU recession lowers exports more than a non-EU recession of the same size.
+
+AC-TFX-01 and 02 (`[unit]`) were written on 2026-10-20 in the mechanic's crate, `crates/econ-mech-trade/tests/acceptance/`, behind the crate feature `mechanic`; AC-TFX-03 to 05 in `crates/econ-core/tests/acceptance/trade.rs`, behind the crate feature `trade`, against the outside world's read-only state (`World::foreign`), the monthly rest-of-world report (`World::trade_months`), trade's parameters (`WorldParams::trade`) and a world-constants edit (`StartEdit::WorldPrices`). AC-TFX-04's depreciation is every euro price times 1.1: for import prices in lei and export demand it is the same as e times 1.1, and the euro prices are the world's constants.
+
+### Tests owed
+The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-TFX-06: roadmap M4
+- AC-TFX-07: roadmap M20
+- AC-TFX-08: roadmap M18
+- AC-TFX-09: after v1
+
+## API sketch
+```rust
+// crate econ-mech-trade (no I/O); prices, shares and rates in millionths
+pub fn armington_share_ppm(start_share_ppm: u32, import_price_ppm: u32, domestic_price_ppm: u32, sigma_ppm: u32) -> u32;   // AC-TFX-01
+pub fn export_demand(base: i64, domestic_price_ppm: u32, rate_index_ppm: u32, world_price_ppm: u32,
+                     demand_index_ppm: u32, elasticity_ppm: u32) -> i64;
+pub struct FxParams { pub gamma1_ppm: u32, pub gamma2_ppm: u32, pub risk_premium_ppm: i32, pub intervention_ppm: u32 }
+pub struct FxStep { pub rate_ppm: u32, pub intervention: Bani /* > 0: the BNR sells foreign assets */ }
+pub fn fx_step(rate_ppm: u32, real_gap_ppm: i32, ca_over_gdp_ppm: i32, reserves_above_floor: bool,
+               gdp_month: Bani, p: &FxParams) -> FxStep;                                                                 // AC-TFX-02
+```
+Powers through `econ_num::math` (ADR-0006). The monthly close and the settlement live with the `World`.
 
 ## Open questions
+- [x] **Settlement in the rest of the world's lei deposits** (M2's placeholder) instead of foreign assets per sector: proposed for M3; residents' foreign assets move only by the central bank's intervention. A portfolio of foreign assets per sector comes with the capital account. **Decided (owner, 2026-10-20): as proposed.**
+- [x] **One price bloc** (the euro area) in M3; the two blocs of the draft when the outside world becomes dynamic (D8). **Decided (owner, 2026-10-20): as proposed.**
 - [ ] Name more partner blocs later (e.g. separate China, US, Turkey, Ukraine/Moldova)?
-- [ ] Tourism as a services export via `hotels_tourism` and `restaurants` (proposed)?
+- [x] Tourism as a services export via `hotels_tourism` and `restaurants` (proposed)? **Decided (owner, 2026-10-20): as proposed.**

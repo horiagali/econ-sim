@@ -88,12 +88,10 @@ IDs are stable (added 2026-10-14). Tests go in a new crate `crates/econ-mech-tra
 - [ ] **AC-ST-11** `[sim]` *(M14)* A charity drive lowers the wealth of donor households and raises the consumption of recipient households by the same total, less its administrative cost.
 - [ ] **AC-ST-12** `[sim]` *(M5)* Minimum income with a 100% withdrawal rate produces lower participation among eligible persons than with 50%.
 
+AC-ST-05 to 08 were written on 2026-10-20 on the `World` under `Law::law_2021()`, in `crates/econ-core/tests/acceptance/transfers_world.rs`, behind the crate feature `pay_day`: the read-only record of the latest pay day (`World::pay_slips`) and a layoff applied at load (`StartEdit::Layoff`), by which AC-ST-08 compares two worlds. AC-ST-07 doubles the allowance in the law a world is built under.
+
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-ST-05: the World's pay-day phase calling `econ-mech-transfers` and posting through the ledger (roadmap M3)
-- AC-ST-06: the World's pay-day phase calling `econ-mech-transfers` and posting through the ledger (roadmap M3)
-- AC-ST-07: the World's pay-day phase calling `econ-mech-transfers` and posting through the ledger (roadmap M3)
-- AC-ST-08: the World's pay-day phase calling `econ-mech-transfers` and posting through the ledger (roadmap M3)
 - AC-ST-09: roadmap M6
 - AC-ST-10: roadmap M14
 - AC-ST-11: roadmap M14

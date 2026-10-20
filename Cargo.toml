@@ -24,6 +24,10 @@ econ-mech-households = { path = "crates/econ-mech-households" }
 econ-mech-labour = { path = "crates/econ-mech-labour" }
 econ-mech-production = { path = "crates/econ-mech-production" }
 econ-mech-prices = { path = "crates/econ-mech-prices" }
+econ-mech-banking = { path = "crates/econ-mech-banking" }
+econ-mech-monetary = { path = "crates/econ-mech-monetary" }
+econ-mech-fiscal = { path = "crates/econ-mech-fiscal" }
+econ-mech-trade = { path = "crates/econ-mech-trade" }
 econ-popgen = { path = "crates/econ-popgen" }
 econ-scenario = { path = "crates/econ-scenario" }
 arrow-array = "=59.0.0"

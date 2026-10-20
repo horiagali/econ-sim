@@ -116,6 +116,7 @@ fn ac_hh_04() {
 /// poorest fifth raises aggregate consumption over the next two months by
 /// more than the same total given to the richest fifth.
 #[test]
+#[ignore = "waits for M3's benefits (owner 2026-10-20): without the minimum income and child allowance the poorest fifth spends a transfer less than the richest"]
 fn ac_hh_05() {
     // The fifths at load, from the starting income.
     let mut base = world(1000);

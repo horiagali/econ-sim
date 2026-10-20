@@ -220,7 +220,7 @@ Closes the loop: after this, every sector of the [economy overview](02-design/ec
 - [ ] **The outside world** as decided in D8: a table of constants read by the mechanics, each changeable by a world-settings command.
 - [ ] PC model added to the differential test (open follow-up of Spike 2).
 
-**Owner:** lock the specs above, one or two at a time.
+**Owner:** lock the specs above, one or two at a time. **2026-10-20:** money and banking, monetary policy, fiscal policy and trade reworked for M3 and locked by the owner's delegation (the open questions decided as proposed), with the budget of 2021; every criterion listed as owed until the test session.
 **Exit:** the full transaction matrix balances every tick; a 50-year quiet baseline is stable; government debt, the current account and bank balance sheets move for reasons that can be read off the ledger.
 
 ### M4 — Lever system and alpha levers

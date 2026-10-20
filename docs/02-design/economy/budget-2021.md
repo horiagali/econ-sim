@@ -1,11 +1,11 @@
 ---
 id: economy/budget-2021
 title: The Starting Budget — Spending by Ministry Line, Public Employment and Wages
-status: draft
+status: locked
 owner: horia
 depends_on: [economy/fiscal-policy, economy/accounting, economy/social-transfers, economy/industries, economy/state-capacity, society/population-employers, game/levers, adr/0007-money-and-ledger, adr/0016-firm-representation, adr/0017-time-base, adr/0018-scenario-and-commands, adr/0014-agent-workflow-guardrails]
 research: [research/budget-romania-2021, research/law-in-force-romania-2021]
-updated: 2026-10-15
+updated: 2026-10-20
 ---
 
 # The Starting Budget — Spending by Ministry Line, Public Employment and Wages
@@ -235,7 +235,7 @@ None. The guesses are data, in the fixture's `provenance.guesses`:
 - **Overflow:** the largest amount (old-age pensions, 1.1 × 10^13 bani) is far inside `i64`; sums use checked arithmetic.
 
 ## Acceptance tests
-IDs are stable. Tests are to be written in a test-authoring session (ADR-0014), in `crates/econ-io/tests/acceptance/budget.rs` (protected), against the loader sketched below. "The fixture" is `python/pipeline/fixtures/budget2021_ro.json`. Measured values are from the Python reference on 2026-10-13; those of AC-BUD-05, 06 and 09 on 2026-10-15, after the public units were rebuilt from this table.
+IDs are stable. Tests are to be written in a test-authoring session (ADR-0014), in `crates/econ-io/tests/acceptance/budget.rs` (protected), against the loader sketched below. "The fixture" is `python/pipeline/fixtures/budget2021_ro.json`. Measured values are from the Python reference on 2026-10-13; those of AC-BUD-05, 06 and 09 on 2026-10-15, after the public units were rebuilt from this table. AC-BUD-01 to 13 were written there on 2026-10-20 against the API skeleton (`econ_io::budget`), compiled only with the crate feature `budget` until the implementation turns it on; the reconciliations AC-BUD-05 to 09 read the committed fixtures and the scenario that `econ_scenario::build` makes, since the builder's report has no budget section yet, and AC-BUD-12 runs the reference with `--tables`. AC-BUD-14 waits for the proposed flow codes and a function that posts a month of the budget, which the sketch does not have.
 
 - [ ] **AC-BUD-01** `[unit]` For each of the twelve types, the amounts of the thirteen lines add up exactly (in bani) to the published national total the fixture carries (D11, D12, P2, D62, D632, D3, D4, P5, NP, D7, D9, D29+D5+D8), and the lines add up to total expenditure, 474,031,500,000 lei, exactly.
 - [ ] **AC-BUD-02** `[unit]` The lines are a partition of the COFOG subgroups (no subgroup in two lines); for each of the ten divisions, the amounts of its subgroups add up exactly to Eurostat's published division total.
@@ -251,6 +251,10 @@ IDs are stable. Tests are to be written in a test-authoring session (ADR-0014), 
 - [ ] **AC-BUD-12** `[diff]` On the fixture, the Rust loader and the Python reference (`python/reference/budget_reference.py`) give the same lines, programmes, sectors, public units, first-month amounts in bani and hash.
 - [ ] **AC-BUD-13** `[unit]` A line with the wrong number of amounts, an unknown or repeated type or line, a type whose lines do not add up to its published total, a sector whose unit is not a public firm unit, posts that do not add up, and a public unit with wages and no posts are each rejected with a named error, and nothing is loaded.
 - [ ] **AC-BUD-14** `[unit]` Posting the first month of every cell under the flow codes of "Ledger mapping" moves exactly the monthly amounts from the government to the payees, and the ledger's invariants hold. (Waits for the proposed flow codes.)
+
+### Tests owed
+The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-BUD-14: the proposed flow codes in `codes.rs` and a function that posts a month of the budget (not in the API sketch)
 
 ## API sketch (Rust, no implementation)
 In `econ-io` (loading) behind an off-by-default feature `budget`; the types in `econ-types` if fiscal policy needs them without the loader.
@@ -313,5 +317,5 @@ The reconciliations (AC-BUD-05 to 09) read other parts of the scenario and belon
 - [x] **Accepted: `budget.json`, ADR-0018 Amendment 1 (owner, 2026-10-14).** **Scenario part.** ADR-0018 lists the scenario's parts; the table needs a place. Proposed: a new part `budget.json` (the fixture's shape), with the lever values in `law.json` as usual. Needs an amendment to ADR-0018.
 - [x] **Yes, included (owner, 2026-10-14).** **Does "Budget per ministry" include the line's investment,** or does investment get its own lever until the projects of M11? Proposed: included, so one number per ministry, as the catalogue has it.
 - [x] **Held, no lever in v1 (owner, 2026-10-14).** **Defence:** held at its starting value with no lever in v1 (the catalogue's "Not in v1: military budget"), or a key of Budget per ministry? Proposed: held.
-- [ ] **Public units whose wages exceed their output** (social care by 4.5 billion lei, administration's wages above its value added by 1.7 billion), since the rebuild. Before production or fiscal policy uses a public unit's costs: map the wages of the social-protection functions (GF1001, GF1004, GF1006, GF1007) to the industry that pays them in the national accounts (mostly public administration), or raise the public units' output to their cost (non-market output is the sum of costs) and take the difference out of the input-output table's other industries. Owner's decision.
+- [x] **Public units whose wages exceed their output** (social care by 4.5 billion lei, administration's wages above its value added by 1.7 billion), since the rebuild. Before production or fiscal policy uses a public unit's costs: map the wages of the social-protection functions (GF1001, GF1004, GF1006, GF1007) to the industry that pays them in the national accounts (mostly public administration), or raise the public units' output to their cost (non-market output is the sum of costs) and take the difference out of the input-output table's other industries. Owner's decision. **Decided (owner, 2026-10-20):** the `World` pays a public producer's shortfall at cost (spec game/world-loop, open questions), so its costs are covered whatever the table's output; the mapping of social-protection wages stays for when ministries' budgets drive purchases (M4).
 - [ ] **Check the guesses** of health and social care posts against the Ministry of Finance's full monthly staffing table (by ministry and financing), and the D11/D12 split against Eurostat's ESA table 11 detail if a breakdown of D12 by function exists.

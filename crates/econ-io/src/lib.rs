@@ -175,6 +175,8 @@ macro_rules! col {
     }};
 }
 
+#[cfg(feature = "budget")]
+pub mod budget;
 pub mod popgen;
 pub mod table;
 

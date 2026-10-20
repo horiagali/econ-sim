@@ -16,3 +16,27 @@ mod production;
 mod support;
 #[cfg(feature = "world")]
 mod world;
+#[cfg(feature = "world")]
+mod world_golden;
+
+// The M3 criteria on the `World`, each behind the feature of the test
+// writer's additions it reads, which the implementation adds to `default`.
+#[cfg(feature = "banking")]
+mod banking;
+#[cfg(feature = "fiscal")]
+mod fiscal;
+#[cfg(feature = "monetary")]
+mod monetary;
+#[cfg(any(
+    feature = "pay_day",
+    feature = "banking",
+    feature = "fiscal",
+    feature = "trade"
+))]
+mod support_m3;
+#[cfg(feature = "pay_day")]
+mod taxation_world;
+#[cfg(feature = "trade")]
+mod trade;
+#[cfg(feature = "pay_day")]
+mod transfers_world;
