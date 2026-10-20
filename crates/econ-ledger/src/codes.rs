@@ -80,13 +80,16 @@ impl FlowCode {
     pub const WRITE_OFF: FlowCode = FlowCode(7004);
     /// Central bank advances to the banks, drawn or repaid.
     pub const CB_ADVANCE: FlowCode = FlowCode(7005);
+    /// The central bank sells (or buys) foreign assets against the rest of
+    /// the world's lei deposits.
+    pub const FX_INTERVENTION: FlowCode = FlowCode(7006);
     // 9xxx — opening balances and discrepancies
     /// Opening balance sheet entry.
     pub const OPENING: FlowCode = FlowCode(9001);
 
     /// Every code the ledger knows, in ascending order. A new code is added here
     /// and in [`FlowCode::name`] in the same change.
-    pub const ALL: [FlowCode; 32] = [
+    pub const ALL: [FlowCode; 33] = [
         Self::CONSUMPTION,
         Self::GOV_PURCHASES,
         Self::EXPORTS,
@@ -118,6 +121,7 @@ impl FlowCode {
         Self::LOAN,
         Self::WRITE_OFF,
         Self::CB_ADVANCE,
+        Self::FX_INTERVENTION,
         Self::OPENING,
     ];
 
@@ -162,6 +166,7 @@ impl FlowCode {
             7003 => "finance.loan",
             7004 => "finance.write_off",
             7005 => "finance.cb_advance",
+            7006 => "finance.fx_intervention",
             9001 => "opening",
             _ => "unknown",
         }

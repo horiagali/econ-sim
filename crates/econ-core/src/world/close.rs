@@ -368,6 +368,9 @@ impl World {
             self.bank_month_end();
             self.bank_close();
         }
+        // The exchange rate last: the month's current account is complete.
+        #[cfg(feature = "trade")]
+        self.trade_close();
         failed
     }
 
@@ -554,6 +557,8 @@ impl World {
         self.treasury_hash(&mut |w| h.write_word(w));
         #[cfg(feature = "banking")]
         self.bank_hash(&mut |w| h.write_word(w));
+        #[cfg(feature = "trade")]
+        self.trade_hash(&mut |w| h.write_word(w));
         let mut ledger = StateHasher::default();
         self.ledger.hash_into(&mut |bytes| ledger.write(bytes));
         h.write_word(ledger.finish());

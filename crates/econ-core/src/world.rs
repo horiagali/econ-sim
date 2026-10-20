@@ -70,6 +70,7 @@ mod close;
 #[allow(clippy::needless_range_loop)]
 mod fiscal;
 #[cfg(feature = "trade")]
+#[allow(clippy::needless_range_loop)]
 mod foreign;
 #[allow(clippy::needless_range_loop)]
 mod goods;
@@ -902,6 +903,8 @@ pub struct World {
     tr: treasury::TreasuryState,
     #[cfg(feature = "banking")]
     bk: banking::Banks,
+    #[cfg(feature = "trade")]
+    fx: foreign::ForeignState,
     slips: PaySlips,
     demand: DayDemand,
     months: Vec<MonthStats>,
@@ -932,6 +935,8 @@ impl World {
         self.begin_day();
         #[cfg(feature = "banking")]
         self.bank_begin_day();
+        #[cfg(feature = "trade")]
+        self.trade_begin_day();
         let mut phases = Vec::with_capacity(PHASES.len());
         let mut failed = Vec::new();
         for (id, period) in PHASES {
@@ -962,6 +967,8 @@ impl World {
         }
         #[cfg(feature = "fiscal")]
         self.treasury_day_end();
+        #[cfg(feature = "trade")]
+        self.trade_day_end();
         self.today = day.next();
         let state_hash = self.state_hash();
         Ok(DayReport {

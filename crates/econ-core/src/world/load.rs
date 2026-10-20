@@ -487,6 +487,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     let mut transfer = Vec::new();
     #[cfg_attr(not(feature = "pay_day"), allow(unused_mut))]
     let mut layoffs: Vec<(usize, u32)> = Vec::new();
+    #[cfg_attr(not(feature = "trade"), allow(unused_mut, unused_variables))]
+    let mut world_factor: u32 = 1_000_000;
     // Edits applied once the world exists, in order.
     #[cfg_attr(not(feature = "banking"), allow(unused_mut))]
     let mut later: Vec<StartEdit> = Vec::new();
@@ -559,9 +561,7 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
                 unimplemented!("econ-core monetary: written in the implementation change")
             }
             #[cfg(feature = "trade")]
-            StartEdit::WorldPrices { .. } => {
-                unimplemented!("econ-core trade: written in the implementation change")
-            }
+            StartEdit::WorldPrices { factor_ppm } => world_factor = *factor_ppm,
         }
     }
     if let Some(f) = wage_scale {
@@ -746,6 +746,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     let mut world = World {
         #[cfg(feature = "banking")]
         bk: super::banking::Banks::default(),
+        #[cfg(feature = "trade")]
+        fx: super::foreign::ForeignState::default(),
         #[cfg(feature = "fiscal")]
         tr: super::treasury::TreasuryState::default(),
         slips: super::PaySlips::default(),
@@ -781,6 +783,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         &s.hh_consumer_debt,
         &s.unit_output,
     );
+    #[cfg(feature = "trade")]
+    world.start_trade(world_factor);
     for e in later {
         match e {
             #[cfg(feature = "banking")]
