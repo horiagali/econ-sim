@@ -151,7 +151,7 @@ A thin UI does not wait for M8. From the end of M2 a minimal window (time contro
 
 ## Part 1 — Alpha: the core, playable
 
-### M0 — Decisions
+### M0 — Decisions ✅ (closed 2026-10-20)
 Mostly owner time. Nothing here is code; all of it unblocks code.
 - [x] **D1 Order:** the three parts and the order of M9–M20 as written (owner, 2026-10-13).
 - [x] **D2 Lever list.** Tagged by milestone in [levers](02-design/game/levers.md) ("When each lever arrives"), 2026-10-10. The owner changes it there.
@@ -169,7 +169,7 @@ Mostly owner time. Nothing here is code; all of it unblocks code.
 - [x] **Locked 2026-10-10:** [population-groups](02-design/society/population-groups.md) and [accounting](02-design/economy/accounting.md).
 - [x] **D12 Lock rule relaxed** (owner, 2026-10-10; [ADR-0014](03-architecture/decisions/0014-agent-workflow-guardrails.md) Amendment 1): a spec can be locked before its tests; each criterion without a live test is listed in the spec under "Tests owed", and `just trace` checks that list. Ten criteria of the two specs are owed.
 - [x] **[vat](02-design/economy/vat.md):** two reduced rates (19%, 9% and 5% on the start date). Test for AC-VAT-06 and code written 2026-10-13; locked by the owner 2026-10-14.
-- [ ] Owner review pass over the open questions of the alpha specs (households, labour market, taxation, production, prices, money-banking, monetary policy, fiscal policy, trade-fx, social transfers, demographics). The other specs are reviewed when their milestone starts.
+- [x] Owner review pass over the open questions of the alpha specs (households, labour market, taxation, production, prices, money-banking, monetary policy, fiscal policy, trade-fx, social transfers, demographics). The other specs are reviewed when their milestone starts. **Closed by the owner 2026-10-20:** the questions were decided as proposed when the specs were locked; the twelve still open each wait for a later step and are not alpha decisions: starting values to collect (household spending propensities, utilisation, inflation, BNR rates), legal amounts to check when the lever registry is filled in M4 (pension tax, health contribution, benefit floors), regional tightness if the runs call for it, and later scope (central-bank independence, the euro, more partner blocs, diaspora destinations, ministries' minimum budgets).
 
 **Exit:** VAT tests and code done, then locked. **Reached 2026-10-14** (D1 to D6 and D8 to D12 are recorded; ADR-0017 accepted; seven specs locked). The rewording of older specs and the review of open questions continue milestone by milestone.
 
