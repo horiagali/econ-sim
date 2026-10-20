@@ -170,14 +170,51 @@ pub(super) fn split(total: i128, weights: &[i128]) -> Vec<i128> {
     if sum == 0 || total <= 0 {
         return vec![0; weights.len()];
     }
-    let mut parts: Vec<i128> = weights.iter().map(|&w| total * w.max(0) / sum).collect();
+    let mut parts = Vec::with_capacity(weights.len());
+    let mut rems = Vec::with_capacity(weights.len());
+    let mut given = 0i128;
+    for &w in weights {
+        let x = total * w.max(0);
+        let q = x / sum;
+        parts.push(q);
+        rems.push(x - q * sum);
+        given += q;
+    }
+    let left = usize::try_from(total - given).unwrap_or(0);
+    if left == 0 {
+        return parts;
+    }
+    // The `left` largest remainders, ties to the lower index: a strict
+    // order, so selecting them is the same as sorting and taking.
     let mut order: Vec<usize> = (0..weights.len()).collect();
-    order.sort_by_key(|&i| (std::cmp::Reverse(total * weights[i].max(0) % sum), i));
-    let left = usize::try_from(total - parts.iter().sum::<i128>()).unwrap_or(0);
+    let key = |&i: &usize| (std::cmp::Reverse(rems[i]), i);
+    if left < order.len() {
+        order.select_nth_unstable_by_key(left - 1, key);
+    }
     for &i in order.iter().take(left) {
         parts[i] += 1;
     }
     parts
+}
+
+/// [`split`] over two weights, without allocating.
+pub(super) fn split2(total: i128, a: i128, b: i128) -> (i128, i128) {
+    let (a, b) = (a.max(0), b.max(0));
+    let sum = a + b;
+    if sum == 0 || total <= 0 {
+        return (0, 0);
+    }
+    let (xa, xb) = (total * a, total * b);
+    let (qa, qb) = (xa / sum, xb / sum);
+    if total - qa - qb == 0 {
+        return (qa, qb);
+    }
+    // One left over: to the larger remainder, a tie to the first.
+    if xa - qa * sum >= xb - qb * sum {
+        (qa + 1, qb)
+    } else {
+        (qa, qb + 1)
+    }
 }
 
 #[cfg(test)]
@@ -189,6 +226,25 @@ mod tests {
         assert_eq!(split(10, &[1, 1, 1]), vec![4, 3, 3]);
         assert_eq!(split(7, &[0, 0]), vec![0, 0]);
         assert_eq!(split(100, &[3, 1, 0]), vec![75, 25, 0]);
+        assert_eq!(split(5, &[1, 1, 1, 1, 1, 1, 1]), vec![1, 1, 1, 1, 1, 0, 0]);
+    }
+
+    #[test]
+    fn a_split_in_two_is_the_split() {
+        for total in [0, 1, 2, 7, 99, 1_000_003] {
+            for (a, b) in [
+                (0, 0),
+                (1, 1),
+                (3, 1),
+                (1, 3),
+                (-2, 5),
+                (7, 0),
+                (123_457, 98_765),
+            ] {
+                let s = split(total, &[a, b]);
+                assert_eq!(split2(total, a, b), (s[0], s[1]), "{total} over {a}, {b}");
+            }
+        }
     }
 
     #[test]

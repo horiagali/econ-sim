@@ -780,6 +780,10 @@ struct IndustryState {
     inputs: Vec<Vec<(usize, u32)>>,
     /// Its essential inputs (suppliers), ascending.
     essential: Vec<Vec<usize>>,
+    /// Their coefficients, ppm, aligned with `essential`.
+    essential_ppm: Vec<Vec<u32>>,
+    /// For each of `inputs`, its place in `essential`, if it is one.
+    essential_slot: Vec<Vec<Option<usize>>>,
     import_ppm: Vec<u32>,
     other_ppm: Vec<u32>,
     markup0_ppm: Vec<i32>,
