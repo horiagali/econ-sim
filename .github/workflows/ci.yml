@@ -114,7 +114,7 @@ jobs:
           key: release
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: the World at 1:1000, 1:100 and 1:10
-        run: cargo test --release -p econ-core --test acceptance -- --include-ignored --test-threads=1 world::
+        run: "cargo test --release -p econ-core --test acceptance -- --include-ignored --test-threads=1 world::"
 
   ui:
     # The thin UI's frontend type-checks and builds (the Tauri host is
