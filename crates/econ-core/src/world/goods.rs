@@ -43,6 +43,24 @@ pub(super) fn desired(uu: &UnitState, u: usize, y: i64) -> u64 {
 }
 
 impl World {
+    /// The day's import price index, millionths: 1,000,000 until trade acts.
+    pub(super) fn import_index(&self) -> i128 {
+        #[cfg(feature = "trade")]
+        {
+            i128::from(self.import_index_ppm())
+        }
+        #[cfg(not(feature = "trade"))]
+        {
+            ONE
+        }
+    }
+
+    /// An amount at the starting import price, at the day's.
+    pub(super) fn at_import_price(&self, v: i128) -> i128 {
+        let mi = self.import_index();
+        if mi == ONE { v } else { ratio(v, mi, ONE) }
+    }
+
     /// The VAT households pay on good `j`, basis points: the legal rate less
     /// the VAT gap (M2 placeholder until the informal economy, M15).
     fn rate_bp(&self, j: usize) -> Option<u32> {
@@ -118,7 +136,8 @@ impl World {
                 .collect();
             let uc = unit_cost_ppm(
                 &home,
-                self.ii.import_ppm[j],
+                u32::try_from(self.at_import_price(i128::from(self.ii.import_ppm[j])))
+                    .unwrap_or(u32::MAX),
                 self.ii.wage_cost_ppm[j],
                 self.ii.other_ppm[j],
             );
@@ -214,11 +233,11 @@ impl World {
                     self.demand.units[i].push((u, q));
                 }
             }
-            let imported = bani(ratio(
+            let imported = bani(self.at_import_price(ratio(
                 i128::from(part),
                 i128::from(self.ii.import_ppm[j]),
                 ONE,
-            ));
+            )));
             if imported > Bani::ZERO {
                 self.units.deposits[u] -= imported;
                 post.deposits(
@@ -377,10 +396,12 @@ impl World {
     pub(super) fn fixed_demand(&mut self) {
         let mut post = Postings::default();
         let gov: Bani = self.ii.gov_imp.iter().copied().sum();
+        let gov = bani(self.at_import_price(i128::from(gov.get())));
         post.gov_pays(Sector::RestOfWorld, gov, FlowCode::IMPORTS);
         self.mac.month.government += i128::from(gov.get());
         self.mac.month.imports += i128::from(gov.get());
         let inv: i128 = self.ii.inv_imp.iter().map(|b| i128::from(b.get())).sum();
+        let inv = self.at_import_price(inv);
         let caps = self.spare_money();
         let parts = Self::capped_split(inv, &self.investment_weights(), &caps);
         let paid: i128 = parts.iter().sum();
@@ -528,6 +549,8 @@ impl World {
                 served.sold[nb + 2],
                 served.sold[nb + 3],
             );
+            #[cfg(feature = "trade")]
+            self.trade_exported(x_s);
             let unit_sold: i64 = served.sold[..nb].iter().sum();
             let sold = i128::from(unit_sold) + hh_sold + i128::from(g_s + i_s + x_s);
             let sold = i64::try_from(sold).expect("sales");
