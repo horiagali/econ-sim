@@ -9,6 +9,7 @@ publish.workspace = true
 
 [dependencies]
 econ-core.workspace = true
+econ-ledger.workspace = true
 econ-popgen.workspace = true
 econ-types.workspace = true
 arrow-array.workspace = true
@@ -21,7 +22,7 @@ serde_json.workspace = true
 [features]
 # `read_start_state`: a built scenario folder as the `StartState` of the
 # `World` (spec game/world-loop). Off until the `World` exists (ADR-0014).
-world = ["econ-core/world"]
+world = ["econ-core/world", "budget"]
 # `budget`: the starting budget's loader (spec economy/budget-2021). Gates the
 # acceptance tests, written before the code (ADR-0014); on by default since the
 # implementation.

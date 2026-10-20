@@ -27,7 +27,7 @@ use crate::{
 };
 
 /// The input files of the spec's table, in its order.
-pub(crate) const INPUT_FILES: [&str; 13] = [
+pub(crate) const INPUT_FILES: [&str; 14] = [
     MARGINS,
     ATTRIBUTES,
     JOBS,
@@ -41,6 +41,7 @@ pub(crate) const INPUT_FILES: [&str; 13] = [
     SHEETS,
     DETAILS,
     IO,
+    BUDGET,
 ];
 const MARGINS: &str = "census2021_margins_ro.json";
 const ATTRIBUTES: &str = "census2021_edu_activity_ro.json";
@@ -55,6 +56,9 @@ pub(crate) const FIRM_SHEETS: &str = "firm_balance_sheets2021_ro.json";
 pub(crate) const SHEETS: &str = "balance_sheets2021q4_ro.json";
 const DETAILS: &str = "sector_details2021_ro.json";
 pub(crate) const IO: &str = "io_table2021_ro.json";
+/// The starting budget (spec `economy/budget-2021`), written to the scenario
+/// as `budget.json` as it is (ADR-0018 Amendment 1).
+pub(crate) const BUDGET: &str = "budget2021_ro.json";
 
 /// The margin files of the stages, parsed.
 #[derive(Debug, Clone)]

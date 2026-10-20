@@ -414,5 +414,77 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     s.investment_domestic = money_of(&formation);
     s.investment_imported = money_of(&inv_imp);
     s.exports = money_of(&exports);
+    s.gov_debt_profile = debt_profile(&scenario)?;
+    s.gov_transfers_year = budget_transfers(scenario_dir)?;
     Ok(s)
+}
+
+/// The buckets of `gov_debt_by_maturity` in `scenario.json`: up to 1 year,
+/// 1–3, 3–5, 5–10 and over 10 years (taken as 10 to 20).
+const DEBT_BUCKETS: [(u8, u8); 5] = [(0, 1), (1, 3), (3, 5), (5, 10), (10, 20)];
+
+/// The debt profile of `scenario.json`; none when it has no
+/// `gov_debt_by_maturity` (a scenario written before it existed).
+fn debt_profile(scenario: &Value) -> Result<Vec<(u8, u8, Bani)>, SaveError> {
+    let Some(v) = scenario.get("gov_debt_by_maturity") else {
+        return Ok(Vec::new());
+    };
+    let amounts = v
+        .as_array()
+        .filter(|a| a.len() == DEBT_BUCKETS.len())
+        .ok_or_else(|| parse("scenario.json: gov_debt_by_maturity has five buckets"))?;
+    DEBT_BUCKETS
+        .iter()
+        .zip(amounts)
+        .map(|(&(from, to), a)| {
+            a.as_i64()
+                .map(|b| (from, to, Bani(b)))
+                .ok_or_else(|| parse("scenario.json: gov_debt_by_maturity in whole bani"))
+        })
+        .collect()
+}
+
+/// The yearly budget lines the `World` does not pay through its own phases
+/// (spec `economy/fiscal-policy`, "In", step 1), from `budget.json`: the
+/// EU budget (D76) to the rest of the world; the other current transfers and
+/// the other taxes to households; capital transfers and subsidies to firms.
+/// None when the scenario has no budget.
+fn budget_transfers(
+    scenario_dir: &Path,
+) -> Result<Vec<(econ_ledger::FlowCode, econ_ledger::Sector, Bani)>, SaveError> {
+    use crate::budget::{Budget, EconType};
+    use econ_ledger::{FlowCode, Sector};
+    let path = scenario_dir.join("budget.json");
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let bytes = std::fs::read(&path).map_err(|e| SaveError::Io(format!("budget.json: {e}")))?;
+    let b = Budget::from_json(&bytes).map_err(|e| parse(format!("budget.json: {e:?}")))?;
+    let published = |code: &str| {
+        b.published
+            .0
+            .iter()
+            .find(|(c, _)| c == code)
+            .map_or(Bani::ZERO, |&(_, v)| v)
+    };
+    let eu = published("D76");
+    let current = b.total(EconType::CurrentTransfers);
+    Ok(vec![
+        (FlowCode::TRANSFER_EU_BUDGET, Sector::RestOfWorld, eu),
+        (
+            FlowCode::TRANSFER_OTHER_CURRENT,
+            Sector::Households,
+            current - eu + b.total(EconType::OtherTaxes),
+        ),
+        (
+            FlowCode::TRANSFER_CAPITAL,
+            Sector::Firms,
+            b.total(EconType::CapitalTransfers),
+        ),
+        (
+            FlowCode::SUBSIDY_PRODUCTION,
+            Sector::Firms,
+            b.total(EconType::Subsidies),
+        ),
+    ])
 }

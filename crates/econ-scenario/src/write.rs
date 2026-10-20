@@ -169,6 +169,10 @@ fn files(scenario: &Scenario, inputs: &Inputs) -> Result<BTreeMap<String, Vec<u8
         firm_units_table(&scenario.firm_units)?,
     );
     out.insert("balances.arrow".to_string(), balances_table(scenario)?);
+    // The starting budget, as the fixture is.
+    if let Some((_, bytes)) = inputs.files.iter().find(|(n, _)| n == crate::build::BUDGET) {
+        out.insert("budget.json".to_string(), bytes.clone());
+    }
     out.insert("report.json".to_string(), pretty(&report_json(scenario))?);
     Ok(out)
 }
@@ -211,6 +215,16 @@ fn scenario_json(scenario: &Scenario, inputs: &Inputs, files: &BTreeMap<String, 
         "engine_version": env!("CARGO_PKG_VERSION"),
         "stage_hashes": stage_hashes,
         "opening_hash": hex(scenario.opening.state_hash()),
+        // Government bonds by residual maturity (up to 1 year, 1–3, 3–5,
+        // 5–10, over 10), bani: the shape of the opening debt (spec
+        // economy/fiscal-policy, "Starting state").
+        "gov_debt_by_maturity": inputs
+            .details
+            .government_debt
+            .by_residual_maturity
+            .iter()
+            .map(|b| b.get())
+            .collect::<Vec<_>>(),
         "inputs": input_hashes,
         "files": file_hashes,
         "law": Value::Null,

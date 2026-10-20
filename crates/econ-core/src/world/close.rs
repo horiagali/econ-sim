@@ -354,6 +354,13 @@ impl World {
             });
         }
         self.months.push(stats);
+        // The treasury last: the units' shortfalls of the day settled first,
+        // so its deposits at the central bank end the day at their target.
+        #[cfg(feature = "fiscal")]
+        if self.tr_active() {
+            self.settle_credit();
+            self.treasury_month_end();
+        }
         failed
     }
 
@@ -531,6 +538,8 @@ impl World {
         if self.law.income.is_some() || self.law.transfers.is_some() {
             self.fs.hash(&mut |w| h.write_word(w));
         }
+        #[cfg(feature = "fiscal")]
+        self.treasury_hash(&mut |w| h.write_word(w));
         let mut ledger = StateHasher::default();
         self.ledger.hash_into(&mut |bytes| ledger.write(bytes));
         h.write_word(ledger.finish());
