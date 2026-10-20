@@ -279,13 +279,14 @@ impl World {
             imports,
             sales_value,
             wages,
+            employer_contributions,
         } = m;
         let production = output_value - inputs_home - inputs_imported + vat;
         let expenditure =
             consumption + government + investment + exports + (output_value - sales_value)
                 - imports;
-        let surplus = output_value - inputs_home - inputs_imported - wages;
-        let income = wages + surplus + vat;
+        let surplus = output_value - inputs_home - inputs_imported - wages - employer_contributions;
+        let income = wages + employer_contributions + surplus + vat;
         let consumption = bani(consumption);
         if t == 0 {
             self.mac.first_consumption = consumption;
@@ -498,6 +499,11 @@ impl World {
             .iter()
             .flatten()
             .for_each(|x| h.write_word(x.get() as u64));
+        // The taxes' and transfers' own state, under a law that has them (M2's
+        // hash is the same as before they existed).
+        if self.law.income.is_some() || self.law.transfers.is_some() {
+            self.fs.hash(&mut |w| h.write_word(w));
+        }
         let mut ledger = StateHasher::default();
         self.ledger.hash_into(&mut |bytes| ledger.write(bytes));
         h.write_word(ledger.finish());

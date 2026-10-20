@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [society/population-groups, economy/households, economy/production, economy/accounting, economy/vat, economy/labor-market, society/population-incomes, economy/firm-units-undeclared-inventories, economy/budget-2021, adr/0017-time-base]
 research: [research/law-in-force-romania-2021]
-updated: 2026-10-15
+updated: 2026-10-20
 ---
 
 # Taxation
@@ -90,6 +90,8 @@ The taxes Romania levied on 1 December 2021 ([law in force](../../01-research/no
 **Worked example** (the law note's): a gross declared wage of 5,000 lei, no dependants. CAS 1,250 (of which 187.50 to Pillar II), CASS 500, deduction 0 (gross above 3,600), taxable 3,250, income tax 325, net 2,925 (58.5%). The employer also pays CAM 112.50, so the labour cost is 5,112.50 lei.
 
 **Flow codes** (proposed; added to `econ-ledger` with the code): 3003 `tax.employer_contribution` (CAM, as proposed by [budget-2021](budget-2021.md)), 3004 `contrib.pension` (CAS to the government), 3005 `contrib.pension_pillar2`, 3006 `contrib.health` (CASS), 3007 `tax.profit`, 3008 `tax.micro`, 3009 `tax.dividend`, 3010 `tax.interest`. Income tax keeps 3001 `tax.income`.
+
+**2026-10-20:** the pay-day and quarter-end phases built in the `World` (`econ_core::world::fiscal`, `Law::law_2021()`; M2's placeholder law keeps VAT only, so M2's results and hash are unchanged). On the Romania scenario at 1:1000 every daily check holds for 24 months. First year: income tax 29.3 bn lei, CAS 86.6 bn to the government and 15.4 bn to Pillar II, CASS 38.8 bn, CAM 9.3 bn, profit tax 55.9 bn and micro tax 3.4 bn; pensions 113.4 bn, child allowance 11.2 bn, unemployment benefit 4.2 bn, minimum income 0.5 bn. Findings for M3: households spend 21% less once taxes apply (the spending defaults were set on gross income), so output falls and unemployment rises to about 15%; profit tax is about three times 2021's because there is no depreciation, interest or undeclared part to deduct yet; pensions are 8% above 2021's bill because the 800-lei minimum lifts many of stage G's pensions (AC-ST-06 allows 2%). The criteria's tests are owed.
 
 ## Outputs
 Revenue by tax and by group (who pays what); effective and marginal tax rates for any group; tax wedge; distributional incidence charts; revenue vs rate history (Laffer exploration).

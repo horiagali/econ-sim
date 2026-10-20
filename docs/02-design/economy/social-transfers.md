@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [society/population-groups, economy/fiscal-policy, economy/households, economy/taxation, economy/labor-market, society/population-pensions, economy/budget-2021, game/world-loop, adr/0017-time-base]
 research: [research/law-in-force-romania-2021]
-updated: 2026-10-15
+updated: 2026-10-20
 ---
 
 # Social Transfers — Pensions, Benefits, Student Finance, Charity
@@ -66,6 +66,8 @@ The four core programmes of 1 December 2021 ([law in force](../../01-research/no
 **Not in M3:** retirement and new pensioners (people over time, M5); pension indexation rules (the point's value is a lever, M4); child-raising leave, disability and sickness benefits, housing benefit, student grants and loans (M4 and M14); the charity drive (M14); behavioural side effects (reservation wages, participation, fertility: M5 and later).
 
 **Flow codes** (proposed; consistent with [budget-2021](budget-2021.md)): 4001 `benefit.pension`, 4003 `benefit.family` (child allowance), 4004 `benefit.unemployment`, 4006 `benefit.social_assistance` (minimum income).
+
+**2026-10-20:** the pay-day and quarter-end phases built in the `World` (`econ_core::world::fiscal`, `Law::law_2021()`; M2's placeholder law keeps VAT only, so M2's results and hash are unchanged). On the Romania scenario at 1:1000 every daily check holds for 24 months. First year: income tax 29.3 bn lei, CAS 86.6 bn to the government and 15.4 bn to Pillar II, CASS 38.8 bn, CAM 9.3 bn, profit tax 55.9 bn and micro tax 3.4 bn; pensions 113.4 bn, child allowance 11.2 bn, unemployment benefit 4.2 bn, minimum income 0.5 bn. Findings for M3: households spend 21% less once taxes apply (the spending defaults were set on gross income), so output falls and unemployment rises to about 15%; profit tax is about three times 2021's because there is no depreciation, interest or undeclared part to deduct yet; pensions are 8% above 2021's bill because the 800-lei minimum lifts many of stage G's pensions (AC-ST-06 allows 2%). The criteria's tests are owed.
 
 ## Player levers
 All parameters in the table, plus programme on/off. See [levers](../game/levers.md).

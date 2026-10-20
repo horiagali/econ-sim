@@ -84,6 +84,7 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     );
     for len in [
         s.hh_county.len(),
+        s.hh_collective.len(),
         s.hh_region.len(),
         s.hh_cash.len(),
         s.hh_deposits.len(),
@@ -101,12 +102,15 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         s.wage_declared.len(),
         s.pension.len(),
         s.other_income.len(),
+        s.self_employment_declared.len(),
         s.employer.len(),
     ] {
         shape(len == n_p, "the person columns differ in length")?;
     }
     for len in [
         s.unit_cohort.len(),
+        s.unit_size.len(),
+        s.unit_firm_count.len(),
         s.unit_domestic_cohort.len(),
         s.unit_output.len(),
         s.unit_value_added.len(),
@@ -657,6 +661,7 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         seeking,
         region,
         pension: s.pension.clone(),
+        age: s.age.clone(),
         other_income: s.other_income.clone(),
     };
     let mac = MacroState {
@@ -677,7 +682,22 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         clearing: Vec::new(),
         month: super::MonthAcc::default(),
     };
+    let fs = super::fiscal::FiscalState::new(
+        &law,
+        seed,
+        &s.household_id,
+        &s.age,
+        &s.edu_level,
+        &s.pension,
+        &s.self_employment_declared,
+        &s.hh_collective,
+        &(0..n_u)
+            .map(|u| s.unit_cohort[u] && s.unit_size[u] == 0)
+            .collect::<Vec<_>>(),
+        &s.unit_firm_count,
+    );
     Ok(World {
+        fs,
         sample_scale: s.sample_scale,
         law,
         params,

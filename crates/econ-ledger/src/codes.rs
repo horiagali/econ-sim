@@ -30,9 +30,27 @@ impl FlowCode {
     pub const TAX_INCOME: FlowCode = FlowCode(3001);
     /// Value-added tax collected on household purchases.
     pub const TAX_VAT: FlowCode = FlowCode(3002);
+    /// Employers' labour insurance contribution (CAM).
+    pub const TAX_EMPLOYER_CONTRIBUTION: FlowCode = FlowCode(3003);
+    /// Employees' pension contribution (CAS) to the government.
+    pub const CONTRIB_PENSION: FlowCode = FlowCode(3004);
+    /// The part of CAS that goes to the person's Pillar II pension fund.
+    pub const CONTRIB_PENSION_PILLAR2: FlowCode = FlowCode(3005);
+    /// Employees' health contribution (CASS).
+    pub const CONTRIB_HEALTH: FlowCode = FlowCode(3006);
+    /// Corporate profit tax.
+    pub const TAX_PROFIT: FlowCode = FlowCode(3007);
+    /// Micro-enterprise tax on turnover.
+    pub const TAX_MICRO: FlowCode = FlowCode(3008);
     // 4xxx — social transfers (numbering of spec `economy/budget-2021`)
     /// Old-age and survivors' pensions.
     pub const BENEFIT_PENSION: FlowCode = FlowCode(4001);
+    /// Child allowance.
+    pub const BENEFIT_FAMILY: FlowCode = FlowCode(4003);
+    /// Unemployment benefit.
+    pub const BENEFIT_UNEMPLOYMENT: FlowCode = FlowCode(4004);
+    /// Guaranteed minimum income.
+    pub const BENEFIT_SOCIAL_ASSISTANCE: FlowCode = FlowCode(4006);
     /// Other social protection (and one-off transfers).
     pub const BENEFIT_OTHER: FlowCode = FlowCode(4008);
     // 7xxx — financial transactions
@@ -44,7 +62,7 @@ impl FlowCode {
 
     /// Every code the ledger knows, in ascending order. A new code is added here
     /// and in [`FlowCode::name`] in the same change.
-    pub const ALL: [FlowCode; 12] = [
+    pub const ALL: [FlowCode; 21] = [
         Self::CONSUMPTION,
         Self::GOV_PURCHASES,
         Self::EXPORTS,
@@ -53,7 +71,16 @@ impl FlowCode {
         Self::MIXED_INCOME,
         Self::TAX_INCOME,
         Self::TAX_VAT,
+        Self::TAX_EMPLOYER_CONTRIBUTION,
+        Self::CONTRIB_PENSION,
+        Self::CONTRIB_PENSION_PILLAR2,
+        Self::CONTRIB_HEALTH,
+        Self::TAX_PROFIT,
+        Self::TAX_MICRO,
         Self::BENEFIT_PENSION,
+        Self::BENEFIT_FAMILY,
+        Self::BENEFIT_UNEMPLOYMENT,
+        Self::BENEFIT_SOCIAL_ASSISTANCE,
         Self::BENEFIT_OTHER,
         Self::CASH_DEPOSIT,
         Self::OPENING,
@@ -77,7 +104,16 @@ impl FlowCode {
             2003 => "income.mixed",
             3001 => "tax.income",
             3002 => "tax.vat",
+            3003 => "tax.employer_contribution",
+            3004 => "contrib.pension",
+            3005 => "contrib.pension_pillar2",
+            3006 => "contrib.health",
+            3007 => "tax.profit",
+            3008 => "tax.micro",
             4001 => "benefit.pension",
+            4003 => "benefit.family",
+            4004 => "benefit.unemployment",
+            4006 => "benefit.social_assistance",
             4008 => "benefit.other",
             7001 => "finance.cash_deposit",
             9001 => "opening",

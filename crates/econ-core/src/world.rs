@@ -63,6 +63,8 @@
 #[allow(clippy::needless_range_loop)]
 mod close;
 #[allow(clippy::needless_range_loop)]
+mod fiscal;
+#[allow(clippy::needless_range_loop)]
 mod goods;
 #[allow(clippy::needless_range_loop)]
 mod labour;
@@ -83,6 +85,8 @@ use econ_types::{Bani, Calendar, Date, Day, Month};
 use crate::Command;
 use crate::schedule::{Due, Period};
 
+pub use fiscal::{IncomeTaxLaw, TransferLaw};
+
 /// What a `World` starts from: the population and stage columns, the firm-unit
 /// table, the opening balances, the input coefficients, the basket shares and
 /// the placeholder final demand. Read from a scenario folder by
@@ -98,6 +102,8 @@ pub struct StartState {
     // Households.
     pub hh_weight: Vec<u32>,
     pub hh_county: Vec<u8>,
+    /// A collective household (institution).
+    pub hh_collective: Vec<bool>,
     /// The region of the household's county.
     pub hh_region: Vec<u8>,
     pub hh_cash: Vec<Bani>,
@@ -120,12 +126,18 @@ pub struct StartState {
     pub pension: Vec<Bani>,
     /// Self-employment and informal income, a month.
     pub other_income: Vec<Bani>,
+    /// The declared part of self-employment income, a month.
+    pub self_employment_declared: Vec<Bani>,
     /// Stage J's firm unit, or `econ_popgen::NO_EMPLOYER`.
     pub employer: Vec<u16>,
     // Firm units, in the order of the scenario's table.
     pub unit_industry: Vec<u8>,
     /// A cohort unit (not a public producer).
     pub unit_cohort: Vec<bool>,
+    /// Size class: micro 0, small 1, large 2, public 3.
+    pub unit_size: Vec<u8>,
+    /// Real firms the unit stands for.
+    pub unit_firm_count: Vec<u32>,
     /// A cohort unit controlled from Romania (not public, not foreign).
     pub unit_domestic_cohort: Vec<bool>,
     pub unit_output: Vec<Bani>,
@@ -222,6 +234,11 @@ pub struct Law {
     pub vat_category: Vec<VatCategory>,
     /// The gross minimum wage a month.
     pub minimum_wage: Bani,
+    /// Taxes on income and profits; `None` in M2's placeholder law.
+    pub income: Option<IncomeTaxLaw>,
+    /// Social transfers; `None` in M2's placeholder law (pensions are then
+    /// paid at their starting amounts).
+    pub transfers: Option<TransferLaw>,
 }
 
 /// The catalogue industries in the order of the firm-unit file, with the VAT
@@ -338,6 +355,8 @@ impl Law {
             },
             vat_category: CATALOGUE_VAT.iter().map(|&(_, c)| c).collect(),
             minimum_wage: Bani::from_lei(2_300),
+            income: None,
+            transfers: None,
         }
     }
 }
@@ -607,6 +626,8 @@ struct PersonState {
     /// Region of the person's household.
     region: Vec<u8>,
     pension: Vec<Bani>,
+    /// Age in months.
+    age: Vec<u16>,
     /// Self-employment and informal income at the start, a month.
     other_income: Vec<Bani>,
 }
@@ -702,6 +723,7 @@ struct MonthAcc {
     imports: i128,
     sales_value: i128,
     wages: i128,
+    employer_contributions: i128,
 }
 
 /// Economy-wide state.
@@ -725,8 +747,9 @@ struct MacroState {
     /// Consumption of the first and of the latest closed month.
     first_consumption: Bani,
     last_consumption: Bani,
-    /// Separations of the month still to be paid: (person, unit, pay).
-    owed: Vec<(u32, u16, Bani)>,
+    /// Separations of the month still to be paid: (person, unit, pay, its
+    /// declared part).
+    owed: Vec<(u32, u16, Bani, Bani)>,
     /// The one-off transfer of a [`StartEdit::Transfer`], paid on day 0.
     transfer: Vec<Bani>,
     /// The starting month's income is still to be paid (day 0).
@@ -764,6 +787,7 @@ pub struct World {
     uu: UnitState,
     ii: IndustryState,
     mac: MacroState,
+    fs: fiscal::FiscalState,
     demand: DayDemand,
     months: Vec<MonthStats>,
 }

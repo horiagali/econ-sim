@@ -59,8 +59,9 @@ impl World {
     }
 
     /// A person leaves their unit: paid at month end for the days worked
-    /// (`last_day` included), then a job seeker.
-    fn separate(&mut self, i: u32, last_day: u8) {
+    /// (`last_day` included), then a job seeker; a layoff opens an
+    /// unemployment claim when the law has the benefit.
+    fn separate(&mut self, i: u32, last_day: u8, layoff: bool) {
         let p = i as usize;
         let u = self.persons.employer[p];
         let first = self.month_first();
@@ -68,9 +69,12 @@ impl World {
         let dim = self.calendar.date(self.today).days_in_month();
         let worked = last_day.saturating_add(1).saturating_sub(start);
         let pay = part_month_pay(self.persons.wage[p], worked, dim);
+        let declared = part_month_pay(self.persons.wage_declared[p], worked, dim);
         if pay > Bani::ZERO {
-            self.mac.owed.push((i, u, pay));
+            self.mac.owed.push((i, u, pay, declared));
         }
+        let last_wage = self.persons.wage[p];
+        self.open_claim(p, last_wage, layoff);
         let w = self.person_weight(i);
         let k = usize::from(u);
         self.units.staff[k] -= w;
@@ -129,7 +133,7 @@ impl World {
                 let out = take(&members, |i| self.person_weight(i), n);
                 let last = date.day.saturating_sub(1);
                 for i in out {
-                    self.separate(i, last);
+                    self.separate(i, last, true);
                 }
                 continue;
             }
@@ -266,7 +270,7 @@ impl World {
             ))
             .expect("quits");
             for i in take(&order, |i| self.person_weight(i), target) {
-                self.separate(i, dim);
+                self.separate(i, dim, false);
             }
         }
     }
@@ -295,53 +299,66 @@ impl World {
             .last_pay
             .iter_mut()
             .for_each(|v| *v = Bani::ZERO);
-        // Wages: employees of each unit, and the separations of the month.
-        let mut unit_pays = vec![0i128; self.units.industry.len()];
+        // Wages: employees of each unit, and the separations of the month,
+        // each payment taxed under the law in force.
+        let mut payments: Vec<(u32, u16, Bani, Bani)> = Vec::new();
         for p in 0..n_p {
             let e = self.persons.employer[p];
             if e == NO_EMPLOYER {
                 continue;
             }
-            let start = self.job_start(p, first);
-            let pay = part_month_pay(self.persons.wage[p], dim + 1 - start, dim);
-            self.persons.last_pay[p] += pay;
-            unit_pays[usize::from(e)] +=
-                i128::from(self.person_weight(u32::try_from(p).expect("id")))
-                    * i128::from(pay.get());
+            let days = dim + 1 - self.job_start(p, first);
+            let gross = part_month_pay(self.persons.wage[p], days, dim);
+            let declared = part_month_pay(self.persons.wage_declared[p], days, dim);
+            payments.push((u32::try_from(p).expect("id"), e, gross, declared));
         }
-        for (i, u, pay) in std::mem::take(&mut self.mac.owed) {
-            self.persons.last_pay[i as usize] += pay;
-            unit_pays[usize::from(u)] += i128::from(self.person_weight(i)) * i128::from(pay.get());
-        }
-        let mut wages = 0i128;
-        for p in 0..n_p {
-            let pay = self.persons.last_pay[p];
-            if pay > Bani::ZERO {
-                let h = self.persons.household_id[p] as usize;
-                got[h] += pay;
-            }
+        payments.extend(std::mem::take(&mut self.mac.owed));
+        let mut unit_pays = vec![0i128; self.units.industry.len()];
+        let mut withheld = super::fiscal::Withheld::default();
+        let (mut gross_total, mut net_total) = (0i128, 0i128);
+        for &(i, u, gross, declared) in &payments {
+            let p = i as usize;
+            let tax = self.wage_tax(p, u, gross, declared);
+            let w = i128::from(self.person_weight(i));
+            self.persons.last_pay[p] += gross;
+            let h = self.persons.household_id[p] as usize;
+            got[h] += tax.net;
+            let cost = w * i128::from((gross + tax.cam).get());
+            unit_pays[usize::from(u)] += cost;
+            self.fs.add_labour(usize::from(u), cost);
+            gross_total += w * i128::from(gross.get());
+            net_total += w * i128::from(tax.net.get());
+            withheld.cas_public += w * i128::from(tax.cas_public.get());
+            withheld.cas_pillar2 += w * i128::from(tax.cas_pillar2.get());
+            withheld.cass += w * i128::from(tax.cass.get());
+            withheld.income_tax += w * i128::from(tax.income_tax.get());
+            withheld.cam += w * i128::from(tax.cam.get());
         }
         for (u, &paid) in unit_pays.iter().enumerate() {
             self.units.deposits[u] -= bani(paid);
             let j = usize::from(self.units.industry[u]);
             self.ii.wages_month[j] += bani(paid);
-            wages += paid;
         }
         post.deposits(
             Sector::Firms,
             Sector::Households,
-            bani(wages),
+            bani(net_total),
             FlowCode::WAGES,
         );
-        self.mac.month.wages += wages;
-        // Pensions, at their starting amounts.
-        let mut pensions = 0i128;
+        Self::post_withheld(&mut post, &withheld);
+        self.mac.month.wages += gross_total;
+        self.mac.month.employer_contributions += withheld.cam;
+        // Pensions: at their starting amounts, or by points under a law with
+        // transfers; taxed above the tax-free part under a law with income tax.
+        let (mut pensions, mut pension_tax) = (0i128, 0i128);
         for p in 0..n_p {
-            let pension = self.pp.pension[p];
-            if pension > Bani::ZERO {
+            let (gross, tax) = self.pension_of(p);
+            if gross > Bani::ZERO {
                 let h = self.persons.household_id[p] as usize;
-                got[h] += pension;
-                pensions += i128::from(self.households.hh_weight[h]) * i128::from(pension.get());
+                got[h] += gross - tax;
+                let w = i128::from(self.households.hh_weight[h]);
+                pensions += w * i128::from(gross.get());
+                pension_tax += w * i128::from(tax.get());
             }
         }
         post.gov_pays(
@@ -349,6 +366,7 @@ impl World {
             bani(pensions),
             FlowCode::BENEFIT_PENSION,
         );
+        post.pays_gov(Sector::Households, bani(pension_tax), FlowCode::TAX_INCOME);
         // Self-employment and informal income: the starting amounts, scaled,
         // paid by the domestic cohort units out of what they can spare.
         let scale = self.mixed_scale_ppm();
@@ -399,6 +417,25 @@ impl World {
             bani(paid_out),
             FlowCode::MIXED_INCOME,
         );
+        // Income tax on declared self-employment income.
+        let mut self_tax = 0i128;
+        for p in 0..n_p {
+            let tax = self.self_employment_tax(p, scale);
+            if tax > Bani::ZERO {
+                let h = self.persons.household_id[p] as usize;
+                let tax = tax.min(got[h]);
+                got[h] -= tax;
+                self_tax += i128::from(self.households.hh_weight[h]) * i128::from(tax.get());
+            }
+        }
+        post.pays_gov(Sector::Households, bani(self_tax), FlowCode::TAX_INCOME);
+        // Unemployment benefit, child allowance, minimum income.
+        self.pay_transfers(&mut got, &mut post);
+        // The quarter's taxes of the firm units.
+        let date = self.calendar.date(self.today);
+        if date.month.is_multiple_of(3) {
+            self.quarter_taxes(&mut post);
+        }
         for (h, &g) in got.iter().enumerate() {
             if g > Bani::ZERO {
                 self.households.hh_deposits[h] += g;

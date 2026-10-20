@@ -235,6 +235,7 @@ dependencies = [
  "econ-mech-prices",
  "econ-mech-production",
  "econ-mech-tax",
+ "econ-mech-transfers",
  "econ-num",
  "econ-popgen",
  "econ-rng",

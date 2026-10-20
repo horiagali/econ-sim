@@ -20,6 +20,7 @@ econ-mech-households = { workspace = true, optional = true }
 econ-mech-labour = { workspace = true, optional = true }
 econ-mech-production = { workspace = true, optional = true }
 econ-mech-prices = { workspace = true, optional = true }
+econ-mech-transfers = { workspace = true, optional = true }
 econ-popgen = { workspace = true, optional = true }
 
 [dev-dependencies]
@@ -38,6 +39,7 @@ world = [
     "dep:econ-mech-labour",
     "dep:econ-mech-production",
     "dep:econ-mech-prices",
+    "dep:econ-mech-transfers",
     "dep:econ-popgen",
     # `econ_io::read_start_state`, for the tests only.
     "econ-io/world",

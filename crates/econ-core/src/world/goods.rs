@@ -205,11 +205,13 @@ impl World {
             self.units.inventory[u] += out;
             self.units.output_today[u] = out;
             self.ii.output_month[j] += out;
-            self.mac.month.output_value += ratio(
+            let value = ratio(
                 i128::from(out),
                 i128::from(self.industries.price_ppm[j]),
                 ONE,
             );
+            self.mac.month.output_value += value;
+            self.fs.add_value(u, value);
             for &(i, a) in &self.ii.inputs[j] {
                 // A day's part is far below 2^43 real units: the product fits i64.
                 let mut q = (part * i64::from(a) + 500_000) / 1_000_000;
@@ -237,6 +239,7 @@ impl World {
                     FlowCode::IMPORTS,
                 );
                 self.mac.month.inputs_imported += i128::from(imported.get());
+                self.fs.add_inputs(u, i128::from(imported.get()));
                 self.mac.month.imports += i128::from(imported.get());
             }
             self.uu.inputs_served_ppm[u] = 1_000_000;
@@ -556,6 +559,7 @@ impl World {
                 self.units.deposits[u] -= bani(v);
                 paid += v;
                 self.mac.month.inputs_home += v;
+                self.fs.add_inputs(u, v);
                 let share = if q > 0 {
                     u32::try_from(i128::from(s) * ONE / i128::from(q)).expect("a share")
                 } else {
@@ -588,6 +592,7 @@ impl World {
             for (&u, &r) in sellers.iter().zip(&revenue) {
                 self.units.deposits[u] += bani(r);
                 self.units.revenue_today[u] = bani(r);
+                self.fs.add_sales(u, r);
                 out += r;
             }
             let left = paid - out;
@@ -672,6 +677,7 @@ impl World {
                 for (&u, &r) in units_of[j].iter().zip(&revenue) {
                     self.units.deposits[u] += bani(r);
                     self.units.revenue_today[u] += bani(r);
+                    self.fs.add_sales(u, r);
                 }
                 self.industries.sales_value_today[j] += bani(dom_net);
                 self.mac.month.sales_value += dom_net;

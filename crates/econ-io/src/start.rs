@@ -13,7 +13,8 @@
 use std::path::Path;
 
 use arrow_array::{
-    Array, Int64Array, RecordBatch, StringArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
+    Array, BooleanArray, Int64Array, RecordBatch, StringArray, UInt8Array, UInt16Array,
+    UInt32Array, UInt64Array,
 };
 use econ_core::world::StartState;
 use econ_popgen::EduLevel;
@@ -337,6 +338,10 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     let hh_weight = u32s(&hb, hf, "hh_weight")?;
     let hh_county = u8s(&hb, hf, "hh_county")?;
     let hh_region = u8s(&hb, hf, "hh_region")?;
+    let hh_collective = column::<BooleanArray>(&hb, hf, "hh_collective")?;
+    let hh_collective: Vec<bool> = (0..hh_collective.len())
+        .map(|k| hh_collective.value(k))
+        .collect();
     let hh_cash = money(&hb, hf, "hh_cash")?;
     let hh_deposits = money(&hb, hf, "hh_deposits")?;
     let hh_subsistence_income = money(&hb, hf, "hh_subsistence_income")?;
@@ -357,6 +362,10 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     s.hh_weight = hh_weight;
     s.hh_county = hh_county;
     s.hh_region = hh_region;
+    s.hh_collective = hh_collective;
+    s.self_employment_declared = money(&pb, pf, "self_employment_declared")?;
+    s.unit_size = u8s(&fb, ff, "size")?;
+    s.unit_firm_count = u32s(&fb, ff, "firm_count")?;
     s.hh_cash = hh_cash;
     s.hh_deposits = hh_deposits;
     s.hh_subsistence_income = hh_subsistence_income;
