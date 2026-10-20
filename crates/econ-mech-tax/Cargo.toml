@@ -14,7 +14,7 @@ econ-ledger.workspace = true
 [features]
 # Gates the acceptance test of the second reduced VAT rate (AC-VAT-06), written
 # before the code (ADR-0014); on by default now that the code exists.
-default = ["reduced-2"]
+default = ["reduced-2", "taxation"]
 reduced-2 = []
 # Gates the acceptance tests of the taxes on income (AC-TAX-01..07), written
 # before the code (ADR-0014); the implementation adds it to `default`.
