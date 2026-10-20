@@ -256,6 +256,7 @@ dependencies = [
  "arrow-ipc",
  "arrow-schema",
  "econ-core",
+ "econ-ledger",
  "econ-popgen",
  "econ-scenario",
  "econ-types",
