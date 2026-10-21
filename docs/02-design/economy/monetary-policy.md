@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/money-banking, economy/prices-inflation, economy/fiscal-policy, economy/opening-balance-sheet, game/world-loop, adr/0017-time-base]
 research: []
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # Monetary Policy & Central Bank
@@ -76,6 +76,7 @@ What is built first, on the `World` of [game/world-loop](../game/world-loop.md).
 3. **Profit, month end.** The central bank's income (interest on advances and on bonds it holds; its foreign assets earn `foreign_yield` a year, paid by the rest of the world) less what it pays on reserves is remitted to the government the same day (flow code `transfer.cb_profit`); a loss is borne by its equity.
 4. **Monetary financing.** The government's deposits below zero (M2's placeholder) and any bonds the central bank buys from the government count as `monetary_financing`. Once bonds exist ([fiscal-policy](fiscal-policy.md), M3) the government's deposits are kept at or above zero by its bond issues; what remains is a choice of the player (M4).
 5. **Credibility, at the monthly close,** by the update rule above, with `track record` the share of the last twelve closes with twelve-month inflation within the target band, and `monfin/GDP` the year's increase of `monetary_financing` over GDP.
+   **Monetary financing in expectations** (owner, 2026-10-21, for AC-MP-05): after the expectations of [prices](prices-inflation.md), expected inflation rises by `monfin_pass` times the year's increase of `monetary_financing` over GDP (the same ratio as in credibility). Credibility only weights the target against past inflation, so with inflation below the target less credibility would lower expectations; financing the deficit by the central bank unanchors them upward whatever the inflation of the past.
 6. **The advisory rule** is computed at each close and reported (an output for the UI, M8).
 
 > **Simplification (M3):** no QE or FX intervention (FX intervention comes with [trade-fx](trade-fx.md)); the target band is fixed; the output gap of the rule is GDP against its trend over the last 24 months.
@@ -88,6 +89,7 @@ What is built first, on the `World` of [game/world-loop](../game/world-loop.md).
 | `corridor` | ±1 point | facility rates around the policy rate |
 | `foreign_yield` | 0.5% a year | what the central bank's foreign assets earn |
 | `credibility_speed` $\lambda_c$ | 0.05 a month | how fast credibility moves |
+| `monfin_pass` | 0.5 | expected inflation per unit of the year's monetary financing over GDP (owner, 2026-10-21; low confidence) |
 | $k_1, k_2, k_3, k_4$ | 1, 10, 20, 1 | weights of the track record, the miss, monetary financing and target changes |
 | `target_band` | ±1 point | what counts as hitting the target |
 | $\rho, r^*, \phi_\pi, \phi_y$ | 0.8, 1%, 1.5, 0.5 | the advisory rule |

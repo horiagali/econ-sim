@@ -214,13 +214,24 @@ impl World {
             let v = (annual * 1e6).round().clamp(-1e9, 1e9) as i32;
             v
         };
+        // The previous expectation without last month's push of monetary
+        // financing: the push is a level, not a ratchet.
+        #[cfg(feature = "monetary")]
+        let previous = self.mac.expected_inflation_ppm - self.cb_expectations_push();
+        #[cfg(not(feature = "monetary"))]
+        let previous = self.mac.expected_inflation_ppm;
         self.mac.expected_inflation_ppm = expectations_ppm(
-            self.mac.expected_inflation_ppm,
+            previous,
             inflation_ppm,
             self.mac.target_ppm,
             self.expectations_credibility(),
             LEARNING_PPM,
         );
+        // The central bank's financing of the deficit unanchors them upward.
+        #[cfg(feature = "monetary")]
+        {
+            self.mac.expected_inflation_ppm += self.cb_next_push();
+        }
         // People: employment, seekers by tier, tightness by group.
         let n_p = self.persons.employer.len();
         let weight =

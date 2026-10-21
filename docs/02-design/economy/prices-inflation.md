@@ -160,6 +160,9 @@ pub fn expectations_ppm(previous: i32, actual: i32, target: i32, credibility_ppm
 
 Powers go through `econ_num::math` (ADR-0006). The daily phase over industries and the monthly CPI live with the `World`.
 
+## M3 addition (owner, 2026-10-21)
+- Expected inflation also rises with the central bank's financing of the deficit: `monfin_pass` times the year's monetary financing over GDP ([monetary policy](monetary-policy.md), step 5).
+
 ## Open questions
 - [x] Negative markups are allowed (a firm can sell below cost to clear stock); the price cannot fall below a tenth of unit cost. Decided 2026-10-11 under the owner's delegation.
 - [x] Rationing under shortages: every buyer gets the same share ([production](production.md)); a player-chosen rule can come with price caps (M9). Decided 2026-10-11.
