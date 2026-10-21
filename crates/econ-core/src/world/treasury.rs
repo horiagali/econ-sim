@@ -363,9 +363,23 @@ impl World {
                     _ => Bani::ZERO,
                 })
                 .collect();
-            let parts = split_by_holdings(issue, &buying);
+            // No buyer pays more than it has: the part a buyer cannot pay
+            // goes to the others by their holdings, the last of it to the
+            // rest of the world (whose lei deposits may go below zero, see
+            // the module's simplification).
+            let caps: Vec<i128> = holders.iter().map(|&s| self.bond_means(s)).collect();
+            let weights: Vec<i128> = buying.iter().map(|b| i128::from(b.get())).collect();
+            let mut parts = Self::capped_split(i128::from(issue.get()), &weights, &caps);
+            let placed: i128 = parts.iter().sum();
+            if placed < i128::from(issue.get()) {
+                let row = holders
+                    .iter()
+                    .position(|&s| s == Sector::RestOfWorld)
+                    .expect("the rest of the world holds bonds");
+                parts[row] += i128::from(issue.get()) - placed;
+            }
             for (&s, &part) in holders.iter().zip(&parts) {
-                net += self.buy_bonds(s, part);
+                net += self.buy_bonds(s, bani(part));
             }
         } else if issue < Bani::ZERO {
             let parts = split_by_holdings(Bani::ZERO - issue, &holdings);
@@ -481,6 +495,26 @@ impl World {
         post.bonds(sector, Sector::Government, paid);
         post.commit(&mut self.ledger);
         paid
+    }
+
+    /// What a holder can pay for new bonds: banks their reserves, the rest
+    /// of the world and the central bank without limit, households nine
+    /// tenths of their deposits, every other sector its deposits.
+    fn bond_means(&self, s: Sector) -> i128 {
+        let l = &self.ledger;
+        let pos = |b: Bani| i128::from(b.get()).max(0);
+        match s {
+            Sector::Banks => pos(l.balance(s, Instrument::Reserves)),
+            Sector::RestOfWorld | Sector::CentralBank => i128::MAX / 4,
+            Sector::Households => pos(l.balance(s, Instrument::Deposits)) * 9 / 10,
+            Sector::Firms => self
+                .units
+                .deposits
+                .iter()
+                .map(|d| i128::from(d.get()).max(0))
+                .sum(),
+            _ => pos(l.balance(s, Instrument::Deposits)),
+        }
     }
 
     /// A holder buys new bonds out of its deposits (banks out of reserves);

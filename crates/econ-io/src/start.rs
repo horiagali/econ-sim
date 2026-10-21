@@ -415,6 +415,16 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     s.investment_imported = money_of(&inv_imp);
     s.exports = money_of(&exports);
     s.unit_loans = money(&fb, ff, "loans")?;
+    s.unit_fixed_assets = money(&fb, ff, "fixed_assets")?;
+    s.unit_controller = controller.clone();
+    let (own_s, own_d, own_f) = (
+        u32s(&fb, ff, "own_state")?,
+        u32s(&fb, ff, "own_domestic_private")?,
+        u32s(&fb, ff, "own_foreign")?,
+    );
+    s.unit_ownership_ppm = (0..own_s.len())
+        .map(|u| [own_s[u], own_d[u], own_f[u]])
+        .collect();
     s.hh_mortgage = money(&hb, hf, "hh_mortgage")?;
     s.hh_consumer_debt = money(&hb, hf, "hh_consumer_debt")?;
     s.gov_debt_profile = debt_profile(&scenario)?;

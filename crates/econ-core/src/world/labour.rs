@@ -450,6 +450,7 @@ impl World {
         };
         for (u, &p) in paid_by.iter().enumerate() {
             self.units.deposits[u] -= bani(p);
+            self.fs.add_mixed(u, p);
         }
         post.deposits(
             Sector::Firms,

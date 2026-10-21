@@ -27,6 +27,7 @@ econ-mech-banking = { workspace = true, optional = true }
 econ-mech-monetary = { workspace = true, optional = true }
 econ-mech-fiscal = { workspace = true, optional = true }
 econ-mech-trade = { workspace = true, optional = true }
+econ-mech-investment = { workspace = true, optional = true }
 
 [dev-dependencies]
 # The acceptance tests of the `World` build the Romania scenario and read it
@@ -64,6 +65,10 @@ banking = ["world", "dep:econ-mech-banking"]
 fiscal = ["world", "dep:econ-mech-fiscal"]
 monetary = ["banking", "fiscal", "dep:econ-mech-monetary"]
 trade = ["world", "dep:econ-mech-trade"]
+# Investment and capital (spec economy/investment-capital): the capital book,
+# profit and dividends on the `World`. Written before its acceptance tests by
+# the owner's decision (2026-10-21); off by default until they exist.
+investment = ["fiscal", "dep:econ-mech-investment"]
 
 [[test]]
 name = "acceptance"

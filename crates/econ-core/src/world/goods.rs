@@ -407,6 +407,8 @@ impl World {
         let paid: i128 = parts.iter().sum();
         for (u, &p) in parts.iter().enumerate() {
             self.units.deposits[u] -= bani(p);
+            #[cfg(feature = "investment")]
+            self.invest_spent(u, p);
         }
         post.deposits(
             Sector::Firms,
@@ -635,6 +637,8 @@ impl World {
         let placed: i128 = parts.iter().sum();
         for (u, &p) in parts.iter().enumerate() {
             self.units.deposits[u] -= bani(p);
+            #[cfg(feature = "investment")]
+            self.invest_spent(u, p);
         }
         if placed < investment_value {
             // Nobody could pay the rest: the sellers' cohort pays it as a
@@ -648,6 +652,8 @@ impl World {
                 .collect();
             for (u, p) in split(rest, &deposits).into_iter().enumerate() {
                 self.units.deposits[u] -= bani(p);
+                #[cfg(feature = "investment")]
+                self.invest_spent(u, p);
             }
         }
         self.mac.month.investment += investment_value;

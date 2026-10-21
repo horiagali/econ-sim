@@ -233,6 +233,7 @@ dependencies = [
  "econ-mech-banking",
  "econ-mech-fiscal",
  "econ-mech-households",
+ "econ-mech-investment",
  "econ-mech-labour",
  "econ-mech-monetary",
  "econ-mech-prices",
@@ -289,6 +290,13 @@ dependencies = [
 
 [[package]]
 name = "econ-mech-households"
+version = "0.1.0"
+dependencies = [
+ "econ-types",
+]
+
+[[package]]
+name = "econ-mech-investment"
 version = "0.1.0"
 dependencies = [
  "econ-types",

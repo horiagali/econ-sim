@@ -1,0 +1,14 @@
+[package]
+name = "econ-mech-investment"
+description = "Investment and capital: the capital book, depreciation, the investment budget and dividends (spec: economy/investment-capital)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+econ-types.workspace = true
+
+[lints]
+workspace = true

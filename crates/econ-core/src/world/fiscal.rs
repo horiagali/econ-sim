@@ -160,6 +160,18 @@ pub(super) struct FiscalState {
     q_inputs: Vec<i128>,
     q_labour: Vec<i128>,
     q_sales: Vec<i128>,
+    /// The quarter's self-employment and informal income paid (out of the
+    /// profit-tax base, spec economy/taxation's 2026-10-20 decision) and
+    /// depreciation (spec economy/investment-capital, step 4).
+    q_mixed: Vec<i128>,
+    q_dep: Vec<i128>,
+    /// The month's value of output, inputs, labour cost, sales and mixed
+    /// income paid: the profit of investment and capital's step 4.
+    m_value: Vec<i128>,
+    m_inputs: Vec<i128>,
+    m_labour: Vec<i128>,
+    m_sales: Vec<i128>,
+    m_mixed: Vec<i128>,
     sales_4q: Vec<[i128; 4]>,
     losses: Vec<Bani>,
     micro: Vec<bool>,
@@ -248,6 +260,13 @@ impl FiscalState {
             q_inputs: vec![0; n_u],
             q_labour: vec![0; n_u],
             q_sales: vec![0; n_u],
+            q_mixed: vec![0; n_u],
+            q_dep: vec![0; n_u],
+            m_value: vec![0; n_u],
+            m_inputs: vec![0; n_u],
+            m_labour: vec![0; n_u],
+            m_sales: vec![0; n_u],
+            m_mixed: vec![0; n_u],
             sales_4q: vec![[0; 4]; n_u],
             losses: vec![Bani::ZERO; n_u],
             micro: unit_micro.to_vec(),
@@ -257,15 +276,54 @@ impl FiscalState {
 
     pub(super) fn add_value(&mut self, u: usize, v: i128) {
         self.q_value[u] += v;
+        self.m_value[u] += v;
     }
     pub(super) fn add_inputs(&mut self, u: usize, v: i128) {
         self.q_inputs[u] += v;
+        self.m_inputs[u] += v;
     }
     pub(super) fn add_labour(&mut self, u: usize, v: i128) {
         self.q_labour[u] += v;
+        self.m_labour[u] += v;
     }
     pub(super) fn add_sales(&mut self, u: usize, v: i128) {
         self.q_sales[u] += v;
+        self.m_sales[u] += v;
+    }
+    pub(super) fn add_mixed(&mut self, u: usize, v: i128) {
+        self.q_mixed[u] += v;
+        self.m_mixed[u] += v;
+    }
+    #[cfg_attr(not(feature = "investment"), allow(dead_code))]
+    pub(super) fn add_depreciation(&mut self, u: usize, v: i128) {
+        self.q_dep[u] += v;
+    }
+
+    /// The month's value of output, inputs, labour cost, sales and mixed
+    /// income of a unit, emptied for the next month.
+    #[cfg_attr(not(feature = "investment"), allow(dead_code))]
+    pub(super) fn take_month(&mut self, u: usize) -> [i128; 5] {
+        let out = [
+            self.m_value[u],
+            self.m_inputs[u],
+            self.m_labour[u],
+            self.m_sales[u],
+            self.m_mixed[u],
+        ];
+        self.m_value[u] = 0;
+        self.m_inputs[u] = 0;
+        self.m_labour[u] = 0;
+        self.m_sales[u] = 0;
+        self.m_mixed[u] = 0;
+        out
+    }
+
+    /// Whether a unit pays the micro tax this quarter, by its last four
+    /// quarters' sales per firm.
+    pub(super) fn is_micro(&self, u: usize, threshold: Bani) -> bool {
+        let year_per_firm =
+            self.sales_4q[u].iter().sum::<i128>() / i128::from(self.firm_count[u].max(1));
+        self.micro[u] && year_per_firm < i128::from(threshold.get())
     }
 
     /// Hash what the taxes and transfers carry from one day to the next.
@@ -280,6 +338,11 @@ impl FiscalState {
         }
         for &l in &self.losses {
             write(l.get().unsigned_abs());
+        }
+        for v in [&self.q_mixed, &self.q_dep, &self.m_value, &self.m_mixed] {
+            for &x in v {
+                write(x.unsigned_abs() as u64);
+            }
         }
     }
 }
@@ -459,12 +522,13 @@ impl World {
             let fs = &mut self.fs;
             fs.sales_4q[u].rotate_left(1);
             fs.sales_4q[u][3] = fs.q_sales[u];
-            let profit = bani(fs.q_value[u] - fs.q_inputs[u] - fs.q_labour[u]);
-            let year_per_firm =
-                fs.sales_4q[u].iter().sum::<i128>() / i128::from(fs.firm_count[u].max(1));
-            let micro = (fs.micro[u]
-                && year_per_firm < i128::from(law.profit.micro_threshold.get()))
-            .then(|| (bani(fs.q_sales[u]), self.units.staff[u] > 0));
+            // Value less inputs, labour, the mixed income paid and the
+            // depreciation (spec economy/taxation, 2026-10-20 decision).
+            let profit =
+                bani(fs.q_value[u] - fs.q_inputs[u] - fs.q_labour[u] - fs.q_mixed[u] - fs.q_dep[u]);
+            let micro = fs
+                .is_micro(u, law.profit.micro_threshold)
+                .then(|| (bani(fs.q_sales[u]), self.units.staff[u] > 0));
             let tax = tax_quarter(profit, &mut fs.losses[u], micro, &law.profit);
             if tax > Bani::ZERO {
                 self.units.deposits[u] -= tax;
@@ -478,6 +542,8 @@ impl World {
             fs.q_inputs[u] = 0;
             fs.q_labour[u] = 0;
             fs.q_sales[u] = 0;
+            fs.q_mixed[u] = 0;
+            fs.q_dep[u] = 0;
         }
         post.pays_gov(Sector::Firms, bani(profit_tax), FlowCode::TAX_PROFIT);
         post.pays_gov(Sector::Firms, bani(micro_tax), FlowCode::TAX_MICRO);
