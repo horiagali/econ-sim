@@ -96,6 +96,16 @@ impl World {
             u_cols.sales_since_plan[u] = 0;
             u_cols.last_plan[u] = Some(today);
         }
+        // The month's investment budget of the same units (investment and
+        // capital, step 1).
+        #[cfg(feature = "investment")]
+        if self.invest_rule_active() {
+            for u in 0..self.units.industry.len() {
+                if self.units.unit_stagger_day[u] == cohort {
+                    self.invest_budget(u, days);
+                }
+            }
+        }
     }
 
     /// Expected inflation a day, millionths.
@@ -394,6 +404,8 @@ impl World {
     /// investment, paid to the rest of the world; their domestic parts and
     /// the exports are demand in the goods market.
     pub(super) fn fixed_demand(&mut self) {
+        #[cfg(feature = "investment")]
+        self.invest_demand_today();
         let mut post = Postings::default();
         let gov: Bani = self.ii.gov_imp.iter().copied().sum();
         let gov = bani(self.at_import_price(i128::from(gov.get())));
@@ -402,8 +414,25 @@ impl World {
         self.mac.month.imports += i128::from(gov.get());
         let inv: i128 = self.ii.inv_imp.iter().map(|b| i128::from(b.get())).sum();
         let inv = self.at_import_price(inv);
-        let caps = self.spare_money();
-        let parts = Self::capped_split(inv, &self.investment_weights(), &caps);
+        // Who pays: with the investment rule, the government its share
+        // (step 3) and each unit by its budget; else M2's units by surplus,
+        // out of what they can spare.
+        let (gov_part, parts) = match self.investment_payers() {
+            Some((gov_ppm, weights)) => {
+                let g = ratio(inv, gov_ppm, ONE);
+                (g, split(inv - g, &weights))
+            }
+            None => {
+                let caps = self.spare_money();
+                (
+                    0,
+                    Self::capped_split(inv, &self.investment_weights(), &caps),
+                )
+            }
+        };
+        post.gov_pays(Sector::RestOfWorld, bani(gov_part), FlowCode::IMPORTS);
+        self.mac.month.investment += gov_part;
+        self.mac.month.imports += gov_part;
         let paid: i128 = parts.iter().sum();
         for (u, &p) in parts.iter().enumerate() {
             self.units.deposits[u] -= bani(p);
@@ -419,6 +448,20 @@ impl World {
         self.mac.month.investment += paid;
         self.mac.month.imports += paid;
         post.commit(&mut self.ledger);
+    }
+
+    /// Who pays today's investment under the investment rule: the
+    /// government's share and the units' weights; `None` under M2's
+    /// placeholder.
+    fn investment_payers(&self) -> Option<(i128, Vec<i128>)> {
+        #[cfg(feature = "investment")]
+        {
+            self.invest_payers()
+        }
+        #[cfg(not(feature = "investment"))]
+        {
+            None
+        }
     }
 
     /// Who pays the investment goods: cohort units, by their starting surplus.
@@ -633,8 +676,18 @@ impl World {
         self.uu.inputs_served_ppm = worst;
         // Investment goods: paid by cohort units by their surplus, out of
         // what they can spare.
-        let parts = Self::capped_split(investment_value, &inv_weights, &caps_inv);
-        let placed: i128 = parts.iter().sum();
+        let (gov_part, parts) = match self.investment_payers() {
+            Some((gov_ppm, weights)) => {
+                let g = ratio(investment_value, gov_ppm, ONE);
+                (g, split(investment_value - g, &weights))
+            }
+            None => (
+                0,
+                Self::capped_split(investment_value, &inv_weights, &caps_inv),
+            ),
+        };
+        post.gov_pays(Sector::Firms, bani(gov_part), FlowCode::GOV_INVESTMENT);
+        let placed: i128 = parts.iter().sum::<i128>() + gov_part;
         for (u, &p) in parts.iter().enumerate() {
             self.units.deposits[u] -= bani(p);
             #[cfg(feature = "investment")]

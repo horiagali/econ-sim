@@ -1,17 +1,25 @@
 //! Investment and capital on the `World` (feature `investment`; spec
 //! `economy/investment-capital`, "First version", roadmap M3): the capital
-//! book of each firm unit, its monthly profit and its dividends. The
-//! investment rule (steps 1, 2, 7 and 8) comes later; until then the units
-//! keep buying M2's investment at fixed real levels, and what each one buys
-//! goes into its capital after the gestation.
+//! book of each firm unit, its investment budget, its monthly profit and its
+//! dividends, and the government's investment.
+//! - **Each unit's plan day (step 1):** the month's budget by
+//!   `desired_investment`, as far as spare money and credit room finance it;
+//!   public producers and units without capital invest nothing.
+//! - **Each day (steps 2, 3):** the units' budgets and the government's
+//!   investment (its budget lines, at fixed real levels) are spent over the
+//!   goods by the investment column's starting shares; the domestic part is
+//!   demand in the goods market, the imported part paid to the rest of the
+//!   world; each unit pays by its budget, the government under
+//!   `gov.investment` and `imports`.
 //!
 //! It acts under a law with the income taxes of 2021, as the treasury does.
 //! - **Each day:** what each unit pays for investment goods is recorded.
-//! - **Monthly close (step 4 and 6):** each market unit's profit of the
+//! - **Monthly close (steps 4, 6, 7, 8):** each market unit's profit of the
 //!   month (value of output less inputs, labour cost, depreciation, net
 //!   interest, the mixed income it paid and the accrued tax); its capital
 //!   book closes the month; the depreciation goes into the quarter's
-//!   profit-tax base.
+//!   profit-tax base; capacity follows capital; expected growth follows
+//!   realised sales; productivity grows by `TFP_GROWTH_PPM`.
 //! - **The 15th (step 5):** last month's profit paid out by
 //!   `econ_mech_investment::dividend` and split by ownership: the state's
 //!   share to the government, the foreign share to the rest of the world,
@@ -19,9 +27,9 @@
 //!   equity at the start) and households (by their money at load), less the
 //!   dividend tax, which the unit withholds and pays the government.
 //!
-//! > **Simplification (M3, until the investment rule):** the starting work in
-//! > progress is a month of depreciation per slot; the price of investment
-//! > goods is taken as one, so real capital is the value bought.
+//! > **Simplification (M3):** the starting work in progress is a month of
+//! > depreciation per slot; the price of investment goods is taken as one,
+//! > so real capital is the value bought.
 
 use econ_ledger::{FlowCode, Instrument, Sector};
 use econ_mech_investment::{CapitalBook, Controller, InvestParams, dividend, split_by_ownership};
@@ -34,6 +42,12 @@ use super::money::{Postings, bani, ratio};
 const DIVIDEND_TAX_PPM: i128 = 50_000;
 /// The day of the month dividends are paid.
 const DIVIDEND_DAY: u8 = 15;
+/// `tfp_base_growth`, a year (production's 1%; spec open question 7: run
+/// at 1% and at 0%, keep 1% if the quiet baseline holds).
+const TFP_GROWTH_PPM: i128 = 0;
+/// The firms' loan rate when there are no banks: the starting policy rate
+/// plus money and banking's spread for firms.
+const LOAN_RATE_NO_BANKS_PPM: i32 = 47_500;
 
 /// Each firm unit's capital and what it paid out, after the latest day.
 /// Money in bani, capital in real bani; aligned with
@@ -74,6 +88,39 @@ pub(super) struct Investment {
     hh_key: Vec<i128>,
     /// Pension funds' share of the domestic dividends, millionths.
     pf_share_ppm: i128,
+    /// The investment rule.
+    rule: Rule,
+}
+
+/// What the investment rule keeps (steps 1 to 3, 6 to 8).
+#[derive(Debug, Clone, Default)]
+struct Rule {
+    /// Each unit's spending a day this month.
+    budget_day: Vec<i128>,
+    /// Each unit's expected growth, millionths a year.
+    growth: Vec<i32>,
+    /// Each unit's capital per unit of capacity a month, millionths.
+    kappa: Vec<i128>,
+    /// Each unit's utilisation at the last three closes, millionths.
+    cu: Vec<Vec<i64>>,
+    /// Each unit's output and sales this month, real.
+    out_month: Vec<i64>,
+    sales_month: Vec<i64>,
+    /// Each unit's real sales of the last thirteen months.
+    sales_year: Vec<Vec<i64>>,
+    /// The investment column's starting shares by good, millionths of the
+    /// day's value: domestic and imported.
+    dom_share: Vec<i128>,
+    imp_share: Vec<i128>,
+    /// The government's investment a day.
+    gov_day: i128,
+    /// The real loan rate of the start.
+    rho0: i32,
+    /// The productivity index, millionths.
+    tfp: i128,
+    /// Today's spending and its government part.
+    today_total: i128,
+    today_gov: i128,
 }
 
 impl World {
@@ -89,6 +136,7 @@ impl World {
     }
 
     /// At load: the capital books, the cash ratios, the owners.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn start_investment(
         &mut self,
         fixed_assets: &[Bani],
@@ -97,6 +145,7 @@ impl World {
         output: &[Bani],
         value_added: &[Bani],
         wages: &[Bani],
+        gov_investment_year: Bani,
     ) {
         let n_u = self.units.industry.len();
         let active = self.law.income.is_some() && fixed_assets.len() == n_u;
@@ -170,6 +219,204 @@ impl World {
         v.depreciation = vec![0; n_u];
         v.profit_after_tax = vec![Bani::ZERO; n_u];
         v.dividends_today = vec![Bani::ZERO; n_u];
+        self.start_rule(gov_investment_year);
+    }
+
+    /// The rule at load: the column's shares, the government's part, each
+    /// unit's starting investment and expected growth (spec, "Starting
+    /// state").
+    fn start_rule(&mut self, gov_investment_year: Bani) {
+        let p = self.invest_params();
+        let n_u = self.units.industry.len();
+        let dom: Vec<i128> = self.ii.inv_q.iter().map(|&q| i128::from(q)).collect();
+        let imp: Vec<i128> = self
+            .ii
+            .inv_imp
+            .iter()
+            .map(|b| i128::from(b.get()))
+            .collect();
+        let v0: i128 = dom.iter().sum::<i128>() + imp.iter().sum::<i128>();
+        let gov_day = (i128::from(gov_investment_year.get()) / 365).clamp(0, v0);
+        let firms_year = (v0 - gov_day) * 365;
+        let market: Vec<bool> = (0..n_u).map(|u| !self.uu.public[u]).collect();
+        let total_k: i128 = (0..n_u)
+            .filter(|&u| market[u])
+            .map(|u| i128::from(self.inv.books[u].capital.max(0)))
+            .sum();
+        let r = &mut self.inv.rule;
+        r.dom_share = dom
+            .iter()
+            .map(|&q| if v0 > 0 { q * 1_000_000 / v0 } else { 0 })
+            .collect();
+        r.imp_share = imp
+            .iter()
+            .map(|&q| if v0 > 0 { q * 1_000_000 / v0 } else { 0 })
+            .collect();
+        r.gov_day = gov_day;
+        r.tfp = 1_000_000;
+        r.growth = vec![0; n_u];
+        r.kappa = vec![0; n_u];
+        r.budget_day = vec![0; n_u];
+        r.cu = vec![Vec::new(); n_u];
+        r.out_month = vec![0; n_u];
+        r.sales_month = vec![0; n_u];
+        r.sales_year = vec![Vec::new(); n_u];
+        for u in 0..n_u {
+            let k = i128::from(self.inv.books[u].capital.max(0));
+            if !market[u] || k == 0 || total_k == 0 {
+                continue;
+            }
+            let i0_year = firms_year * k / total_k;
+            r.growth[u] = econ_mech_investment::starting_growth_ppm(
+                bani(i0_year),
+                self.inv.books[u].capital,
+                &p,
+            );
+            r.budget_day[u] = i0_year / 365;
+            let cap = i128::from(self.units.capacity[u]);
+            if cap > 0 {
+                r.kappa[u] = k * 1_000_000 / cap;
+            }
+        }
+        let rho0 = self.invest_loan_rate() - self.mac.expected_inflation_ppm;
+        self.inv.rule.rho0 = rho0;
+    }
+
+    /// The firms' loan rate: the banks' when they act.
+    fn invest_loan_rate(&self) -> i32 {
+        #[cfg(feature = "banking")]
+        if self.banks_active() {
+            return i32::try_from(self.bank().rates.firms_ppm).unwrap_or(i32::MAX);
+        }
+        LOAN_RATE_NO_BANKS_PPM
+    }
+
+    /// Whether the investment rule acts.
+    pub(super) fn invest_rule_active(&self) -> bool {
+        self.inv.active
+    }
+
+    /// Step 1, on the unit's plan day: the month's budget.
+    pub(super) fn invest_budget(&mut self, u: usize, days: u8) {
+        if !self.inv.active || self.uu.public[u] || self.inv.books[u].capital <= 0 {
+            return;
+        }
+        let p = self.invest_params();
+        let r = &self.inv.rule;
+        let cu = if r.cu[u].is_empty() {
+            i64::from(p.cu_target_ppm)
+        } else {
+            r.cu[u].iter().sum::<i64>() / i64::try_from(r.cu[u].len()).expect("3")
+        };
+        let gap = (self.invest_loan_rate() - self.mac.expected_inflation_ppm) - r.rho0;
+        let desired = econ_mech_investment::desired_investment(
+            self.inv.books[u].capital,
+            1_000_000,
+            u32::try_from(cu.clamp(0, 2_000_000)).expect("a share"),
+            gap,
+            r.growth[u],
+            &p,
+        );
+        let spare =
+            bani((i128::from(self.units.deposits[u].get()) - self.uu.wage_reserve[u]).max(0));
+        #[cfg(feature = "banking")]
+        let room = self.bank_credit_room(u);
+        #[cfg(not(feature = "banking"))]
+        let room = Bani::ZERO;
+        let month = econ_mech_investment::financed(desired, spare, room);
+        self.inv.rule.budget_day[u] = i128::from(month.get()) / i128::from(days.max(1));
+    }
+
+    /// Steps 2 and 3, before the day's goods market: the day's investment
+    /// demand by good, the units' budgets and the government's part.
+    pub(super) fn invest_demand_today(&mut self) {
+        if !self.inv.active {
+            return;
+        }
+        let r = &mut self.inv.rule;
+        let units: i128 = r.budget_day.iter().sum();
+        let total = units + r.gov_day;
+        r.today_total = total;
+        r.today_gov = r.gov_day;
+        for g in 0..self.ii.inv_q.len() {
+            let value = total * r.dom_share[g] / 1_000_000;
+            let price = i128::from(self.industries.price_ppm[g].max(1));
+            self.ii.inv_q[g] = i64::try_from(value * 1_000_000 / price).expect("a quantity");
+            self.ii.inv_imp[g] = bani(total * r.imp_share[g] / 1_000_000);
+        }
+    }
+
+    /// Who pays today's investment: the government's share, millionths, and
+    /// the units' weights (their budgets); `None` when the rule does not act.
+    pub(super) fn invest_payers(&self) -> Option<(i128, Vec<i128>)> {
+        if !self.inv.active {
+            return None;
+        }
+        let r = &self.inv.rule;
+        let gov = if r.today_total > 0 {
+            r.today_gov * 1_000_000 / r.today_total
+        } else {
+            0
+        };
+        Some((gov, r.budget_day.clone()))
+    }
+
+    /// After the day's last phase: each unit's real output and sales into
+    /// the month's.
+    pub(super) fn invest_day_end(&mut self) {
+        if !self.inv.active {
+            return;
+        }
+        let r = &mut self.inv.rule;
+        for u in 0..r.out_month.len() {
+            r.out_month[u] += self.units.output_today[u];
+            r.sales_month[u] += self.units.sales_today[u];
+        }
+    }
+
+    /// Steps 6 to 8 at the close: utilisation, capacity from capital,
+    /// expected growth, productivity.
+    fn rule_close(&mut self) {
+        let p = self.invest_params();
+        self.inv.rule.tfp += self.inv.rule.tfp * TFP_GROWTH_PPM / 12 / 1_000_000;
+        let tfp = self.inv.rule.tfp;
+        for u in 0..self.units.industry.len() {
+            let r = &mut self.inv.rule;
+            let out = std::mem::take(&mut r.out_month[u]);
+            let sold = std::mem::take(&mut r.sales_month[u]);
+            if self.uu.public[u] {
+                continue;
+            }
+            let cap = self.units.capacity[u];
+            if cap > 0 {
+                let cu = i64::try_from(i128::from(out) * 1_000_000 / i128::from(cap))
+                    .unwrap_or(i64::MAX);
+                r.cu[u].push(cu);
+                if r.cu[u].len() > 3 {
+                    let _ = r.cu[u].remove(0);
+                }
+            }
+            r.sales_year[u].push(sold);
+            if r.sales_year[u].len() > 13 {
+                let _ = r.sales_year[u].remove(0);
+            }
+            if r.sales_year[u].len() == 13 && r.sales_year[u][0] > 0 {
+                let realised = (i128::from(r.sales_year[u][12]) - i128::from(r.sales_year[u][0]))
+                    * 1_000_000
+                    / i128::from(r.sales_year[u][0]);
+                r.growth[u] = econ_mech_investment::next_expected_growth_ppm(
+                    r.growth[u],
+                    i32::try_from(realised).unwrap_or(0),
+                    &p,
+                );
+            }
+            if r.kappa[u] > 0 {
+                let k = i128::from(self.inv.books[u].capital.max(0));
+                self.units.capacity[u] = i64::try_from(tfp * k / r.kappa[u]).unwrap_or(i64::MAX);
+            }
+        }
+        self.uu.labour_factor_ppm =
+            u32::try_from(1_000_000_000_000 / tfp.max(1)).unwrap_or(u32::MAX);
     }
 
     /// A unit paid `amount` for investment goods today.
@@ -246,6 +493,7 @@ impl World {
             };
             self.inv.view.profit_after_tax[u] = bani(pre - tax);
         }
+        self.rule_close();
     }
 
     /// Step 5: every market unit's dividend, split by its owners.
@@ -345,6 +593,15 @@ impl World {
                 write(x as u64);
             }
             write(*s as u64);
+        }
+        #[allow(clippy::cast_sign_loss)]
+        {
+            let r = &self.inv.rule;
+            write(r.tfp as u64);
+            for u in 0..r.budget_day.len() {
+                write(r.budget_day[u] as u64 ^ (r.growth[u] as u64).rotate_left(32));
+                write(r.out_month[u] as u64 ^ (r.sales_month[u] as u64).rotate_left(21));
+            }
         }
         #[allow(clippy::cast_sign_loss)]
         for (p, c) in self

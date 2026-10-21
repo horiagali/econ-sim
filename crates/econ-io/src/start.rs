@@ -429,6 +429,7 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     s.hh_consumer_debt = money(&hb, hf, "hh_consumer_debt")?;
     s.gov_debt_profile = debt_profile(&scenario)?;
     s.gov_transfers_year = budget_transfers(scenario_dir)?;
+    s.gov_investment_year = budget_investment(scenario_dir)?;
     Ok(s)
 }
 
@@ -455,6 +456,19 @@ fn debt_profile(scenario: &Value) -> Result<Vec<(u8, u8, Bani)>, SaveError> {
                 .ok_or_else(|| parse("scenario.json: gov_debt_by_maturity in whole bani"))
         })
         .collect()
+}
+
+/// The government's fixed investment and land a year, from `budget.json`;
+/// none when the scenario has no budget.
+fn budget_investment(scenario_dir: &Path) -> Result<Bani, SaveError> {
+    use crate::budget::{Budget, EconType};
+    let path = scenario_dir.join("budget.json");
+    if !path.exists() {
+        return Ok(Bani::ZERO);
+    }
+    let bytes = std::fs::read(&path).map_err(|e| SaveError::Io(format!("budget.json: {e}")))?;
+    let b = Budget::from_json(&bytes).map_err(|e| parse(format!("budget.json: {e:?}")))?;
+    Ok(b.total(EconType::Investment) + b.total(EconType::NonProducedAssets))
 }
 
 /// The yearly budget lines the `World` does not pay through its own phases

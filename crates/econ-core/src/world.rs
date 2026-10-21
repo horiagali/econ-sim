@@ -216,6 +216,9 @@ pub struct StartState {
     /// Each unit's ownership shares, millionths: the state, domestic private
     /// owners, foreign owners.
     pub unit_ownership_ppm: Vec<[u32; 3]>,
+    /// The government's fixed investment and land a year (the budget's
+    /// `investment` and `non_produced_assets` lines).
+    pub gov_investment_year: Bani,
     edits: Vec<StartEdit>,
 }
 
@@ -989,6 +992,8 @@ impl World {
         self.treasury_day_end();
         #[cfg(feature = "trade")]
         self.trade_day_end();
+        #[cfg(feature = "investment")]
+        self.invest_day_end();
         self.today = day.next();
         let state_hash = self.state_hash();
         Ok(DayReport {

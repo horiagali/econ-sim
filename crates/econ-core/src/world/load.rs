@@ -797,6 +797,7 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         &s.unit_output,
         &s.unit_value_added,
         &s.unit_wages,
+        s.gov_investment_year,
     );
     for e in later {
         match e {
