@@ -76,7 +76,7 @@ impl World {
 
     /// The VAT households pay on good `j`, basis points: the legal rate less
     /// the VAT gap (M2 placeholder until the informal economy, M15).
-    fn rate_bp(&self, j: usize) -> Option<u32> {
+    pub(super) fn rate_bp(&self, j: usize) -> Option<u32> {
         let cat: VatCategory = self.law.vat_category[j];
         self.law
             .vat
@@ -112,7 +112,7 @@ impl World {
         // The month's investment budget of the same units (investment and
         // capital, step 1).
         #[cfg(feature = "investment")]
-        if self.invest_rule_active() {
+        if self.invest_active() {
             for u in 0..self.units.industry.len() {
                 if self.units.unit_stagger_day[u] == cohort {
                     self.invest_budget(u, days);
@@ -129,6 +129,35 @@ impl World {
         #[allow(clippy::cast_possible_truncation)]
         let v = (daily * 1e6).round() as i32;
         v
+    }
+
+    /// Industry `j`'s unit cost at the prices `prices` (prices, step 1).
+    pub(super) fn unit_cost_at(&self, j: usize, prices: &[u32]) -> u32 {
+        let home: Vec<(u32, u32)> = self.ii.inputs[j]
+            .iter()
+            .map(|&(i, a)| (a, prices[i]))
+            .collect();
+        unit_cost_ppm(
+            &home,
+            u32::try_from(self.at_import_price(i128::from(self.ii.import_ppm[j])))
+                .unwrap_or(u32::MAX),
+            self.ii.wage_cost_ppm[j],
+            self.ii.other_ppm[j],
+        )
+    }
+
+    /// Good `j`'s consumer price at producer price `p` (with excise and VAT
+    /// when the revenue of 2021 acts; else the producer price).
+    fn consumer_price_at(&self, j: usize, p: u32) -> u32 {
+        #[cfg(feature = "revenue")]
+        {
+            self.rev_consumer_price(j, p)
+        }
+        #[cfg(not(feature = "revenue"))]
+        {
+            let _ = j;
+            p
+        }
     }
 
     /// Phase 4: unit cost, markup, target and the day's price of each industry.
@@ -153,17 +182,7 @@ impl World {
         let old: Vec<u32> = self.industries.price_ppm.clone();
         let p = &self.params.prices;
         for j in 0..n_i {
-            let home: Vec<(u32, u32)> = self.ii.inputs[j]
-                .iter()
-                .map(|&(i, a)| (a, old[i]))
-                .collect();
-            let uc = unit_cost_ppm(
-                &home,
-                u32::try_from(self.at_import_price(i128::from(self.ii.import_ppm[j])))
-                    .unwrap_or(u32::MAX),
-                self.ii.wage_cost_ppm[j],
-                self.ii.other_ppm[j],
-            );
+            let uc = self.unit_cost_at(j, &old);
             let cu = if capacity[j] > 0 {
                 u32::try_from(ratio(planned[j], ONE, capacity[j]).clamp(0, 10 * ONE))
                     .expect("small")
@@ -180,7 +199,7 @@ impl World {
             let target = target_price_ppm(uc, mu);
             let next = step_price_ppm(old[j], target, self.ii.flex_daily_ppm[j], expected, p);
             self.industries.price_ppm[j] = next;
-            self.industries.consumer_price_ppm[j] = next;
+            self.industries.consumer_price_ppm[j] = self.consumer_price_at(j, next);
         }
     }
 
@@ -451,6 +470,8 @@ impl World {
             }
         };
         post.gov_pays(Sector::RestOfWorld, bani(gov_part), FlowCode::IMPORTS);
+        #[cfg(feature = "investment")]
+        self.invest_gov_spent(gov_part);
         self.mac.month.investment += gov_part;
         self.mac.month.imports += gov_part;
         let paid: i128 = parts.iter().sum();
@@ -715,6 +736,8 @@ impl World {
             ),
         };
         post.gov_pays(Sector::Firms, bani(gov_part), FlowCode::GOV_INVESTMENT);
+        #[cfg(feature = "investment")]
+        self.invest_gov_spent(gov_part);
         let placed: i128 = parts.iter().sum::<i128>() + gov_part;
         for (u, &p) in parts.iter().enumerate() {
             self.units.deposits[u] -= bani(p);
@@ -783,15 +806,25 @@ impl World {
         for j in 0..n_i {
             let (mut dom_net, mut imp_net) = (paid_parts[4 * j], paid_parts[4 * j + 2]);
             hh_vat += paid_parts[4 * j + 1] + paid_parts[4 * j + 3];
-            // Excise: of the amount before VAT, the duty's part is the
-            // government's, the price's the seller's.
+            // What the amounts before VAT bought, home at the price, imported
+            // at the import price, each with the duty on top; the duty is the
+            // government's, the rest the seller's.
             let d = self.excise_of(j);
-            if d > 0 {
-                let p = i128::from(self.industries.price_ppm[j].max(1));
-                let (dom_firm, imp_firm) = (dom_net * p / (p + d), imp_net * p / (p + d));
-                hh_excise += (dom_net - dom_firm) + (imp_net - imp_firm);
-                (dom_net, imp_net) = (dom_firm, imp_firm);
-            }
+            let p = i128::from(self.industries.price_ppm[j].max(1));
+            let pm = self.import_index().max(1);
+            let (q_dom, q_imp) = (dom_net * ONE / (p + d), imp_net * ONE / (pm + d));
+            let duty = if d > 0 {
+                let (dd, di) = (ratio(q_dom, d, ONE), ratio(q_imp, d, ONE));
+                (dom_net, imp_net) = (dom_net - dd, imp_net - di);
+                dd + di
+            } else {
+                0
+            };
+            hh_excise += duty;
+            #[cfg(feature = "revenue")]
+            self.rev_household_good(j, q_dom + q_imp, duty);
+            #[cfg(not(feature = "revenue"))]
+            let _ = (q_dom, q_imp);
             firms_imports += imp_net;
             if dom_net > 0 {
                 let w: Vec<i128> = units_of[j]
@@ -813,8 +846,6 @@ impl World {
         self.mac.month.consumption += paid_total;
         // Excise counts with VAT among the taxes on products.
         self.mac.month.vat += hh_vat + hh_excise;
-        #[cfg(feature = "revenue")]
-        self.rev_household_excise(hh_excise);
         let firms_vat = hh_vat;
         self.mac.month.imports += firms_imports;
         post.cash(

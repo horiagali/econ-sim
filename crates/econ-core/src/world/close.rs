@@ -317,6 +317,8 @@ impl World {
             std::mem::replace(&mut self.hh.income_this_month, vec![Bani::ZERO; n_hh]);
         // GDP three ways.
         let m = std::mem::take(&mut self.mac.month);
+        #[cfg(feature = "investment")]
+        self.invest_note_gdp(m.investment);
         let MonthAcc {
             output_value,
             inputs_home,

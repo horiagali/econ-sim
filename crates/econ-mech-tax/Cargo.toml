@@ -14,14 +14,14 @@ econ-ledger.workspace = true
 [features]
 # Gates the acceptance test of the second reduced VAT rate (AC-VAT-06), written
 # before the code (ADR-0014); on by default now that the code exists.
-default = ["reduced-2", "taxation"]
+default = ["reduced-2", "taxation", "excise"]
 reduced-2 = []
 # Gates the acceptance tests of the taxes on income (AC-TAX-01..07), written
 # before the code (ADR-0014); the implementation adds it to `default`.
 taxation = []
 # Gates excise (AC-EXC-01..05): the module is declared by the test writer from
 # the spec (ADR-0014), and its acceptance tests are compiled with it; the
-# implementation fills it and adds `excise` to `default`.
+# implementation fills it; on by default now that the code exists.
 excise = []
 
 [dev-dependencies]

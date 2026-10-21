@@ -170,13 +170,13 @@ impl World {
     /// The closed months of investment, oldest first.
     #[must_use]
     pub fn investment_months(&self) -> &[InvestmentMonth] {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.invest_months_view()
     }
 
     /// Each unit's latest investment budget.
     #[must_use]
     pub fn investment_plans(&self) -> &InvestmentPlans {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.invest_plans_view()
     }
 }
 
@@ -185,32 +185,35 @@ impl World {
     /// The latest day's taxes on purchases and the EU's payments to units.
     #[must_use]
     pub fn revenue_today(&self) -> &RevenueDay {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.rev_day_view()
     }
 
     /// The closed months of revenue, oldest first.
     #[must_use]
     pub fn revenue_months(&self) -> &[RevenueMonth] {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.rev_months_view()
     }
 
     /// The held benefits of the latest pay day, in the spec's order.
     #[must_use]
     pub fn held_benefits(&self) -> &[HeldBenefit] {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.rev_held_view()
     }
 
     /// The latest payment of imputed rent.
     #[must_use]
     pub fn imputed_rent(&self) -> &ImputedRentPayment {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.rev_rent_view()
     }
 
     /// Each industry's unit cost today, millionths of a ban per real unit
     /// (spec economy/prices-inflation, step 1).
     #[must_use]
     pub fn unit_costs_ppm(&self) -> Vec<u32> {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        let prices = self.industries.price_ppm.clone();
+        (0..prices.len())
+            .map(|j| self.unit_cost_at(j, &prices))
+            .collect()
     }
 }
 
@@ -220,8 +223,20 @@ impl World {
 /// `month` is 0 to 11, counted from the start month, as in
 /// `econ_io::budget::Budget::monthly`.
 #[cfg(feature = "revenue")]
-#[must_use]
 pub fn eu_month(per_year: Bani, month: u8, rate_index_ppm: u32) -> Bani {
-    let _ = (per_year, month, rate_index_ppm);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    // Budget-2021's monthly rule (`econ_io::budget::Budget::monthly`):
+    // q = |A| / 12, the first |A| mod 12 months one ban more, sign kept.
+    let a = i128::from(per_year.get().unsigned_abs());
+    let m = i128::from(month % 12);
+    let v = a / 12 + i128::from(m < a % 12);
+    let base = if per_year.get() < 0 { -v } else { v };
+    // Times the index, rounded half away from zero.
+    let num = base * i128::from(rate_index_ppm);
+    let (q, r) = (num / 1_000_000, (num % 1_000_000).abs());
+    let out = if 2 * r >= 1_000_000 {
+        q + num.signum()
+    } else {
+        q
+    };
+    Bani(i64::try_from(out).unwrap_or(if out < 0 { i64::MIN } else { i64::MAX }))
 }
