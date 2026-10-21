@@ -105,6 +105,9 @@ pub(super) struct TreasuryState {
     closing: Option<Month>,
     /// The budget lines it pays: code, sector paid, yearly amount.
     transfers: Vec<(FlowCode, Sector, Bani)>,
+    /// For how many month ends the central bank buys the whole issue (a
+    /// start edit; monetary financing).
+    cb_financing_months: u32,
 }
 
 impl Default for TreasuryState {
@@ -127,6 +130,7 @@ impl Default for TreasuryState {
             month_ends: 0,
             closing: None,
             transfers: Vec::new(),
+            cb_financing_months: 0,
         }
     }
 }
@@ -236,6 +240,13 @@ impl World {
         }
     }
 
+    /// The central bank buys the whole issue for the first `months` month
+    /// ends (a start edit).
+    #[cfg(feature = "monetary")]
+    pub(super) fn treasury_cb_financing(&mut self, months: u32) {
+        self.tr.cb_financing_months = months;
+    }
+
     /// Whether the treasury acts.
     pub(super) fn tr_active(&self) -> bool {
         self.tr.active
@@ -274,7 +285,7 @@ impl World {
 
     /// Phase 12, last, at a month end: the budget lines, the coupon, the
     /// bonds that fall due and the financing (spec, "In", steps 1 to 4).
-    pub(super) fn treasury_month_end(&mut self) {
+    pub(super) fn treasury_payments(&mut self) {
         if !self.tr.active {
             return;
         }
@@ -303,8 +314,17 @@ impl World {
         for (&s, &part) in holders.iter().zip(&parts) {
             self.gov_transfer(s, part, FlowCode::INTEREST_GOV_DEBT);
         }
-        // Step 3: redemptions at maturity, then the issue that brings the
-        // deposits back to the target.
+    }
+
+    /// Month end, last of all (after the central bank's remittance): the
+    /// bonds that fall due, then the issue that brings the government's
+    /// deposits back to the target (step 3). Under a central bank financing
+    /// edit, the central bank buys the whole issue (step 5).
+    pub(super) fn treasury_financing(&mut self) {
+        if !self.tr.active || self.tr.closing.is_none() {
+            return;
+        }
+        let (holders, holdings) = self.bond_holders();
         let matured = self.tr.view.book.mature(self.tr.month_ends);
         let parts = split_by_holdings(matured, &holdings);
         let mut redeemed = Bani::ZERO;
@@ -331,16 +351,16 @@ impl World {
         let mut net = Bani::ZERO;
         if issue > Bani::ZERO {
             // Buyers by their holdings; the central bank buys none (no
-            // monetary financing unless the player chooses it, step 5).
+            // monetary financing unless the player chooses it, step 5), or
+            // all of it while a financing edit lasts.
+            let cb_finances = self.tr.month_ends < self.tr.cb_financing_months;
             let buying: Vec<Bani> = holders
                 .iter()
                 .zip(&holdings)
-                .map(|(&s, &h)| {
-                    if s == Sector::CentralBank {
-                        Bani::ZERO
-                    } else {
-                        h
-                    }
+                .map(|(&s, &h)| match (s == Sector::CentralBank, cb_finances) {
+                    (true, true) => Bani(1),
+                    (false, false) => h,
+                    _ => Bani::ZERO,
                 })
                 .collect();
             let parts = split_by_holdings(issue, &buying);

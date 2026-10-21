@@ -905,6 +905,8 @@ pub struct World {
     bk: banking::Banks,
     #[cfg(feature = "trade")]
     fx: foreign::ForeignState,
+    #[cfg(feature = "monetary")]
+    cb: central_bank::CentralBank,
     slips: PaySlips,
     demand: DayDemand,
     months: Vec<MonthStats>,
@@ -935,6 +937,8 @@ impl World {
         self.begin_day();
         #[cfg(feature = "banking")]
         self.bank_begin_day();
+        #[cfg(feature = "monetary")]
+        self.cb_begin_day();
         #[cfg(feature = "trade")]
         self.trade_begin_day();
         let mut phases = Vec::with_capacity(PHASES.len());
