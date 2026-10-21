@@ -32,6 +32,9 @@ pub struct MonetaryParams {
     pub credibility: CredibilityParams,
     /// The advisory rule.
     pub rule: RuleParams,
+    /// `monfin_pass`: expected inflation per unit of the year's monetary
+    /// financing over GDP (0.5).
+    pub monfin_pass_ppm: u32,
 }
 
 impl MonetaryParams {
@@ -44,6 +47,7 @@ impl MonetaryParams {
             target_band_ppm: 10_000,
             credibility: CredibilityParams::spec_defaults(),
             rule: RuleParams::spec_defaults(),
+            monfin_pass_ppm: 500_000,
         }
     }
 }
@@ -83,6 +87,10 @@ pub(super) struct CentralBank {
     monfin_year: Vec<Bani>,
     /// Whether each of the last twelve closes had inflation in the band.
     in_band: Vec<bool>,
+    /// The year's increase of monetary financing over GDP at the last close.
+    monfin_ppm: u32,
+    /// What it added to expected inflation at the last close.
+    push_ppm: i32,
 }
 
 impl World {
@@ -107,6 +115,26 @@ impl World {
             v.credibility_ppm = START_CREDIBILITY_PPM;
             v.advisory_rate_ppm = v.policy_rate_ppm;
         }
+    }
+
+    /// What monetary financing added to expected inflation at the last
+    /// close (step 5), millionths a year; none when the central bank does not
+    /// act.
+    pub(super) fn cb_expectations_push(&self) -> i32 {
+        if self.cb.active { self.cb.push_ppm } else { 0 }
+    }
+
+    /// The push of this close, from the year's monetary financing over GDP
+    /// at the last close; remembered so the next close can take it out.
+    pub(super) fn cb_next_push(&mut self) -> i32 {
+        if !self.cb.active {
+            return 0;
+        }
+        let push = i128::from(self.params.monetary.monfin_pass_ppm)
+            * i128::from(self.cb.monfin_ppm)
+            / 1_000_000;
+        self.cb.push_ppm = i32::try_from(push).unwrap_or(i32::MAX);
+        self.cb.push_ppm
     }
 
     /// The credibility expectations use.
@@ -241,6 +269,7 @@ impl World {
         } else {
             0
         };
+        self.cb.monfin_ppm = monfin_ppm;
         let in_band = u8::try_from(self.cb.in_band.iter().filter(|&&b| b).count()).expect("12");
         self.cb.view.credibility_ppm = credibility_ppm(
             self.cb.view.credibility_ppm,
