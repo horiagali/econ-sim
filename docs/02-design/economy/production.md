@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/accounting, economy/industries, economy/labor-market, economy/investment-capital, adr/0016-firm-representation, adr/0017-time-base]
 research: []
-updated: 2026-10-15
+updated: 2026-10-21
 ---
 
 # Production & Supply Chains
@@ -181,6 +181,9 @@ pub fn share_sales(sold: i64, inventories: &[i64]) -> Vec<i64>;                 
 ```
 
 The daily phases (output, input purchases, the goods market, postings) live with the `World`.
+
+## M3 addition (owner, 2026-10-21)
+- The real-estate units' payback of imputed rent to owner households ([imputed rent](imputed-rent.md)) is not a cost of production: it is left out of their profit and taxable profit, and their prices do not change.
 
 ## Open questions
 - [x] Fixed proportions (Leontief) for all inputs in v1; substitution for energy over years comes with [energy](energy.md). Decided 2026-10-11 under the owner's delegation.

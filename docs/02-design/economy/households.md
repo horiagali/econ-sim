@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [society/population-groups, economy/labor-market, economy/taxation, economy/social-transfers, economy/money-banking, economy/prices-inflation, economy/vat, adr/0017-time-base]
 research: [research/household-wealth-romania, research/informal-economy-romania]
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # Households — Budgets, Consumption, Saving & Borrowing
@@ -155,6 +155,9 @@ pub fn split_basket(spending: Bani, basket_share_ppm: &[u32]) -> Vec<Bani>;     
 ```
 
 The phase that walks today's households, calls these, posts through the ledger and the VAT mechanic and records shortages lives with the `World` (roadmap M2).
+
+## M3 addition (owner, 2026-10-21)
+- **Imputed rent** is both spending and income, as in the national accounts: households keep buying `real_estate` through the basket, and the real-estate units pay owner households back the imputed rent of their dwellings each month end, as income (`income.imputed_rent`), by [imputed rent](imputed-rent.md).
 
 ## Open questions
 - [x] Landlords: households own the dwellings they let; rents are part of [housing](housing.md) (M13). Decided 2026-10-11 under the owner's delegation.
