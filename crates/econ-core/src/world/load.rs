@@ -489,6 +489,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     let mut layoffs: Vec<(usize, u32)> = Vec::new();
     #[cfg_attr(not(feature = "trade"), allow(unused_mut, unused_variables))]
     let mut world_factor: u32 = 1_000_000;
+    #[cfg(feature = "revenue")]
+    let mut without_revenue: Vec<super::RevenuePart> = Vec::new();
     // Edits applied once the world exists, in order.
     #[cfg_attr(not(feature = "banking"), allow(unused_mut))]
     let mut later: Vec<StartEdit> = Vec::new();
@@ -561,9 +563,7 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             #[cfg(feature = "trade")]
             StartEdit::WorldPrices { factor_ppm } => world_factor = *factor_ppm,
             #[cfg(feature = "revenue")]
-            StartEdit::WithoutRevenue(_) => {
-                unimplemented!("test writer's addition (ADR-0014): the implementation applies it")
-            }
+            StartEdit::WithoutRevenue(part) => without_revenue.push(*part),
         }
     }
     if let Some(f) = wage_scale {
@@ -794,7 +794,7 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     #[cfg(feature = "trade")]
     world.start_trade(world_factor);
     #[cfg(feature = "revenue")]
-    world.start_revenue(&s);
+    world.start_revenue(&s, &without_revenue);
     #[cfg(feature = "monetary")]
     world.start_central_bank();
     #[cfg(feature = "investment")]

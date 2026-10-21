@@ -9,7 +9,30 @@
 //! it. The `World` charges excise in its goods market; these are its pure
 //! rules.
 
-use econ_types::Bani;
+use econ_types::{Bani, split_largest_remainder};
+
+/// One, in millionths.
+const ONE: i128 = 1_000_000;
+/// Basis points in one.
+const BP: i128 = 10_000;
+/// The spec's bound on a purchase's real units ("Edge cases": `q < 2^43`).
+const MAX_QUANTITY: i64 = (1 << 43) - 1;
+
+/// `num / den` rounded half away from zero (`den > 0`).
+fn round_div(num: i128, den: i128) -> i128 {
+    let (q, r) = (num / den, (num % den).abs());
+    if 2 * r >= den { q + num.signum() } else { q }
+}
+
+/// An `i128` amount as bani; beyond `i64` it saturates.
+fn to_bani(v: i128) -> Bani {
+    Bani(i64::try_from(v).unwrap_or(if v < 0 { i64::MIN } else { i64::MAX }))
+}
+
+/// Bani × millionths as bani, rounded once.
+fn from_ppm(v: i128) -> Bani {
+    to_bani(round_div(v, ONE))
+}
 
 /// A duty on one real unit of a good, millionths of a ban.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -17,10 +40,8 @@ pub struct ExciseDuty(pub u32);
 
 /// The duty on `quantity` real units: `q · d / 10^6`, rounded half away from
 /// zero to whole bani (AC-EXC-01).
-#[must_use]
 pub fn excise_on(quantity: i64, duty: ExciseDuty) -> Bani {
-    let _ = (quantity, duty);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    from_ppm(i128::from(quantity) * i128::from(duty.0))
 }
 
 /// A purchase split into its parts.
@@ -40,32 +61,73 @@ pub struct ExciseSplit {
 /// duty, and VAT charged on net plus duty (AC-EXC-02).
 #[must_use]
 pub fn gross_of(quantity: i64, price_ppm: u32, duty: ExciseDuty, vat_bp: u32) -> ExciseSplit {
-    let _ = (quantity, price_ppm, duty, vat_bp);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let net = from_ppm(i128::from(quantity) * i128::from(price_ppm));
+    let excise = excise_on(quantity, duty);
+    let vat = to_bani(round_div(
+        (i128::from(net.get()) + i128::from(excise.get())) * i128::from(vat_bp),
+        BP,
+    ));
+    ExciseSplit {
+        quantity,
+        net,
+        excise,
+        vat,
+    }
 }
 
 /// What a gross budget buys: the largest whole number of real units whose
 /// net + duty + VAT does not exceed it (AC-EXC-03).
 #[must_use]
 pub fn split_budget(budget: Bani, price_ppm: u32, duty: ExciseDuty, vat_bp: u32) -> ExciseSplit {
-    let _ = (budget, price_ppm, duty, vat_bp);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let fits = |q: i64| {
+        let s = gross_of(q, price_ppm, duty, vat_bp);
+        i128::from(s.net.get()) + i128::from(s.excise.get()) + i128::from(s.vat.get())
+            <= i128::from(budget.get())
+    };
+    // A unit cheaper than half a ban rounds to nothing: even a zero budget
+    // may buy one.
+    if !fits(1) {
+        return gross_of(0, price_ppm, duty, vat_bp);
+    }
+    // The gross price is non-decreasing in the quantity: find a quantity that
+    // does not fit by doubling, then bisect. A free unit (zero price and duty)
+    // stops at the spec's bound on quantities.
+    let (mut lo, mut hi) = (1_i64, 2_i64);
+    while hi < MAX_QUANTITY && fits(hi) {
+        lo = hi;
+        hi = hi.saturating_mul(2).min(MAX_QUANTITY);
+    }
+    if fits(hi) {
+        return gross_of(hi, price_ppm, duty, vat_bp);
+    }
+    // Invariant: `lo` fits, `hi` does not.
+    while hi - lo > 1 {
+        let mid = lo + (hi - lo) / 2;
+        if fits(mid) { lo = mid } else { hi = mid }
+    }
+    gross_of(lo, price_ppm, duty, vat_bp)
 }
 
 /// The duty after the 1 January indexation: `round(d (1 + π12))`, unchanged
 /// for `π12 ≤ 0` (AC-EXC-04).
 #[must_use]
 pub fn index_duty(duty: ExciseDuty, inflation_ppm: i32) -> ExciseDuty {
-    let _ = (duty, inflation_ppm);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    if inflation_ppm <= 0 {
+        return duty;
+    }
+    let d = round_div(i128::from(duty.0) * (ONE + i128::from(inflation_ppm)), ONE);
+    ExciseDuty(u32::try_from(d).unwrap_or(u32::MAX))
 }
 
 /// The starting duty: a group's revenue over the value at basic prices of
 /// the purchases that pay it, in millionths (AC-EXC-05).
 #[must_use]
 pub fn calibrate_duty_ppm(target: Bani, base_value: Bani) -> ExciseDuty {
-    let _ = (target, base_value);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    if base_value <= Bani::ZERO || target <= Bani::ZERO {
+        return ExciseDuty(0);
+    }
+    let d = round_div(i128::from(target.get()) * ONE, i128::from(base_value.get()));
+    ExciseDuty(u32::try_from(d).unwrap_or(u32::MAX))
 }
 
 /// The law's duties, per catalogue good and buying industry.
@@ -85,6 +147,18 @@ pub struct ExciseSchedule {
 /// the shares renormalised to 1,000,000 by largest remainder.
 #[must_use]
 pub fn basket_with_excise(basket_ppm: &[u32], duty: &[ExciseDuty]) -> Vec<u32> {
-    let _ = (basket_ppm, duty);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    assert_eq!(basket_ppm.len(), duty.len(), "a duty per basket good");
+    if basket_ppm.is_empty() {
+        return Vec::new();
+    }
+    // Share × (10^6 + d): below 2^20 · 2^33, far inside u64.
+    let weights: Vec<u64> = basket_ppm
+        .iter()
+        .zip(duty)
+        .map(|(&b, d)| u64::from(b) * (1_000_000 + u64::from(d.0)))
+        .collect();
+    split_largest_remainder(Bani(1_000_000), &weights)
+        .into_iter()
+        .map(|b| u32::try_from(b.get()).expect("a share of 10^6 fits u32"))
+        .collect()
 }

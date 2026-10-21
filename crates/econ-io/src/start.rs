@@ -267,6 +267,15 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     // inputs (spec economy/excise, step 2).
     let mut fuel_import_ppm = vec![0u32; n_i];
     let c19 = codes.iter().position(|c| c == "C19");
+    // The product-tax rate is net of the starting fuel duty, which excise
+    // now charges (spec economy/government-revenue-2021, part 1): the
+    // excise spec's duty on refined petroleum's share of each industry's C19
+    // purchases, home and imported, but for its exempt buyers.
+    let fuel_c = industry_id.iter().position(|x| x == "refined_petroleum");
+    let fuel_share = match (c19, fuel_c) {
+        (Some(t), Some(c)) => share[t][c],
+        _ => 0,
+    };
     for c in 0..n_i {
         if out_c[c] <= 0 {
             continue;
@@ -275,6 +284,8 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
         let (mut imported, mut other) = (0i128, 0i128);
         let (mut bought, mut ptax, mut d29) = (0i128, 0i128, 0i128);
         let mut fuel_imp = 0i128;
+        let mut fuel_duty = 0i128;
+        let exempt = FUEL_EXEMPT.contains(&industry_id[c].as_str());
         for t in 0..n_t {
             let s = share[t][c];
             if s == 0 {
@@ -296,6 +307,11 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
             ptax += s * product_taxes[t];
             if let Some(f) = c19 {
                 fuel_imp += s * (imports_eu[f][t] + imports_non_eu[f][t]);
+                if !exempt {
+                    let c19_bought = domestic[f][t] + imports_eu[f][t] + imports_non_eu[f][t];
+                    fuel_duty +=
+                        s * c19_bought * fuel_share / ONE * i128::from(FUEL_DUTY_PPM) / ONE;
+                }
             }
             d29 += s * other_taxes[t].max(0);
             bought += s
@@ -304,7 +320,7 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
                     .sum::<i128>();
         }
         if bought > 0 {
-            product_tax_ppm[c] = ppm(rdiv(ptax * ONE, bought));
+            product_tax_ppm[c] = ppm(rdiv((ptax - fuel_duty).max(0) * ONE, bought));
         }
         production_tax_ppm[c] = ppm(rdiv(d29 * ONE, out_c[c]));
         if imported > 0 {
@@ -486,6 +502,17 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     s.gov_investment_year = budget_investment(scenario_dir)?;
     Ok(s)
 }
+
+/// The excise spec's starting duty on refined petroleum, millionths of a ban
+/// per real unit, and the industries whose fuel pays none (spec
+/// economy/excise, "Starting state").
+const FUEL_DUTY_PPM: u32 = 512_500;
+const FUEL_EXEMPT: [&str; 4] = [
+    "refined_petroleum",
+    "chemicals",
+    "fertilisers",
+    "air_transport",
+];
 
 /// The buckets of `gov_debt_by_maturity` in `scenario.json`: up to 1 year,
 /// 1–3, 3–5, 5–10 and over 10 years (taken as 10 to 20).

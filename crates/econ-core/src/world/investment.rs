@@ -37,6 +37,7 @@ use econ_types::Bani;
 
 use super::World;
 use super::money::{Postings, bani, ratio};
+use super::observe::{InvestmentMonth, InvestmentPlans};
 
 /// The dividend tax, millionths (5% in 2021, spec economy/taxation step 10).
 const DIVIDEND_TAX_PPM: i128 = 50_000;
@@ -100,6 +101,13 @@ pub(super) struct Investment {
     pf_share_ppm: i128,
     /// The investment rule.
     rule: Rule,
+    /// The views of `observe.rs`: each closed month, each unit's latest plan.
+    months: Vec<InvestmentMonth>,
+    plans: InvestmentPlans,
+    /// The month's investment in GDP by expenditure (from the close), and
+    /// the government's investment of the month.
+    gdp_month: i128,
+    gov_month: i128,
 }
 
 /// What the investment rule keeps (steps 1 to 3, 6 to 8).
@@ -229,6 +237,12 @@ impl World {
         v.depreciation = vec![0; n_u];
         v.profit_after_tax = vec![Bani::ZERO; n_u];
         v.dividends_today = vec![Bani::ZERO; n_u];
+        i.plans = InvestmentPlans {
+            desired: vec![Bani::ZERO; n_u],
+            budget: vec![Bani::ZERO; n_u],
+            spare: vec![Bani::ZERO; n_u],
+            credit_room: vec![Bani::ZERO; n_u],
+        };
         self.start_rule(gov_investment_year);
     }
 
@@ -307,8 +321,10 @@ impl World {
     }
 
     /// Step 1, on the unit's plan day: the month's budget.
+    /// The plan is computed and reported whether or not the rule acts; only
+    /// the rule spends it.
     pub(super) fn invest_budget(&mut self, u: usize, days: u8) {
-        if !self.invest_rule_active() || self.uu.public[u] || self.inv.books[u].capital <= 0 {
+        if !self.inv.active || self.uu.public[u] || self.inv.books[u].capital <= 0 {
             return;
         }
         let p = self.invest_params();
@@ -334,7 +350,40 @@ impl World {
         #[cfg(not(feature = "banking"))]
         let room = Bani::ZERO;
         let month = econ_mech_investment::financed(desired, spare, room);
-        self.inv.rule.budget_day[u] = i128::from(month.get()) / i128::from(days.max(1));
+        let v = &mut self.inv.plans;
+        v.desired[u] = desired;
+        v.budget[u] = month;
+        v.spare[u] = spare;
+        v.credit_room[u] = room;
+        if self.invest_rule_active() {
+            self.inv.rule.budget_day[u] = i128::from(month.get()) / i128::from(days.max(1));
+        }
+    }
+
+    /// Whether investment and capital act (plans are reported even with the
+    /// rule off).
+    pub(super) fn invest_active(&self) -> bool {
+        self.inv.active
+    }
+
+    /// The month's investment in GDP by expenditure, at the close.
+    pub(super) fn invest_note_gdp(&mut self, investment: i128) {
+        self.inv.gdp_month = investment;
+    }
+
+    /// The government paid `amount` of its own investment today.
+    pub(super) fn invest_gov_spent(&mut self, amount: i128) {
+        if self.inv.active {
+            self.inv.gov_month += amount;
+        }
+    }
+
+    /// The views of `observe.rs`.
+    pub(super) fn invest_months_view(&self) -> &[InvestmentMonth] {
+        &self.inv.months
+    }
+    pub(super) fn invest_plans_view(&self) -> &InvestmentPlans {
+        &self.inv.plans
     }
 
     /// Steps 2 and 3, before the day's goods market: the day's investment
@@ -462,9 +511,13 @@ impl World {
             .income
             .as_ref()
             .map(|l| (l.profit.micro_threshold, l.profit));
-        for u in 0..self.units.industry.len() {
+        let n_u = self.units.industry.len();
+        let mut spent_view = vec![Bani::ZERO; n_u];
+        let mut profit_view = vec![Bani::ZERO; n_u];
+        for u in 0..n_u {
             let [value, inputs, labour, sales, mixed] = self.fs.take_month(u);
             let spent = std::mem::take(&mut self.inv.spent_month[u]);
+            spent_view[u] = bani(spent);
             let dep = self.inv.books[u].depreciation(&p);
             let (dep_month, _) = self.inv.books[u]
                 .close_month(i64::try_from(spent).expect("a month of investment"), &p);
@@ -487,6 +540,7 @@ impl World {
             #[cfg(not(feature = "banking"))]
             let interest = 0i128;
             let pre = value - inputs - labour - i128::from(dep) - interest - mixed;
+            profit_view[u] = bani(pre);
             // The accrued tax: the profit rate on a profit, the micro rate on
             // the month's sales of a micro unit.
             let tax = match &threshold {
@@ -506,6 +560,20 @@ impl World {
         if self.invest_rule_active() {
             self.rule_close();
         }
+        let private: Bani = spent_view.iter().copied().fold(Bani::ZERO, |a, b| a + b);
+        let month =
+            econ_types::Month(u32::try_from(self.months.len().saturating_sub(1)).expect("months"));
+        let government = bani(std::mem::take(&mut self.inv.gov_month));
+        self.inv.months.push(InvestmentMonth {
+            month,
+            spent_real: spent_view.iter().map(|b| b.get()).collect(),
+            spent: spent_view,
+            private,
+            government,
+            gdp_investment: bani(self.inv.gdp_month),
+            price_index_ppm: 1_000_000,
+            profit_before_tax: profit_view,
+        });
     }
 
     /// Step 5: every market unit's dividend, split by its owners.
