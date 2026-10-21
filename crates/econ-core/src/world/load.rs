@@ -790,13 +790,7 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     #[cfg(feature = "trade")]
     world.start_trade(world_factor);
     #[cfg(feature = "revenue")]
-    world.start_revenue(
-        &s.hh_tenure,
-        &s.hh_dwelling_value,
-        &s.product_tax_ppm,
-        &s.production_tax_ppm,
-        s.investment_product_tax_ppm,
-    );
+    world.start_revenue(&s);
     #[cfg(feature = "monetary")]
     world.start_central_bank();
     #[cfg(feature = "investment")]

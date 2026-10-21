@@ -23,12 +23,79 @@
 //! government under `tax.products`; they are an input cost. **Other taxes on
 //! production** (part 2): at the monthly close each unit pays its
 //! industry's rate on the month's value of output under `tax.production`.
+//! **Small revenue lines** (part 3): at the month end a twelfth of each
+//! 2021 amount from its payers. **Other cash benefits** (part 4): on the 15th
+//! (as imputed rent, so that a pay day's income stays the pay slips', the
+//! owner's decision of 2026-10-21 applied here too) a twelfth of each
+//! programme to its key group.
+//!
+//! > **Simplification (M3, until the inactivity and enrolment stage is in
+//! > the scenario):** disability benefits go to persons whose activity is
+//! > other inactive, education grants to pupils and students.
 
-use econ_ledger::{FlowCode, Sector};
+use econ_ledger::{FlowCode, Instrument, Sector};
+use econ_popgen::NO_EMPLOYER;
 use econ_types::Bani;
 
-use super::World;
 use super::money::{Postings, bani, ratio};
+use super::{StartState, World};
+
+/// A million lei, in bani.
+const M_LEI: i64 = 100_000_000;
+/// Part 4's programmes: code, yearly amount (bani) and key.
+const BENEFITS: [(FlowCode, i64, Key); 7] = [
+    (
+        FlowCode::BENEFIT_DISABILITY,
+        71_388 * M_LEI / 10,
+        Key::InactiveOther,
+    ),
+    (
+        FlowCode::BENEFIT_DISABILITY,
+        30_595 * M_LEI / 10,
+        Key::DeclaredWages,
+    ),
+    (FlowCode::BENEFIT_FAMILY, 7_736 * M_LEI, Key::ChildrenUnder2),
+    (
+        FlowCode::BENEFIT_SOCIAL_ASSISTANCE,
+        1_107 * M_LEI,
+        Key::PoorestFifth,
+    ),
+    (
+        FlowCode::BENEFIT_HOUSING,
+        687 * M_LEI / 10,
+        Key::PoorestFifth,
+    ),
+    (FlowCode::BENEFIT_OTHER, 15_206 * M_LEI / 10, Key::Aged65),
+    (
+        FlowCode::BENEFIT_STUDENT,
+        29_263 * M_LEI / 10,
+        Key::InEducation,
+    ),
+];
+
+/// Who a held benefit goes to.
+#[derive(Debug, Clone, Copy)]
+enum Key {
+    InactiveOther,
+    DeclaredWages,
+    ChildrenUnder2,
+    PoorestFifth,
+    Aged65,
+    InEducation,
+}
+
+/// `activity` codes of stage C.
+const PUPIL: u8 = 1;
+const STUDENT: u8 = 2;
+const INACTIVE_OTHER: u8 = 6;
+/// The extraction industries that pay royalties.
+const EXTRACTION: [&str; 5] = [
+    "crude_oil",
+    "natural_gas",
+    "coal_mining",
+    "metal_ores",
+    "quarrying",
+];
 
 /// θ: the share of households' real-estate spending that is owner-occupiers'
 /// imputed rent less the industry's costs on it (spec, "Starting state").
@@ -60,18 +127,17 @@ pub(super) struct Revenue {
     products_today: i128,
     /// Each unit's value of output this month.
     output_month: Vec<i128>,
+    /// Each person's activity (stage C).
+    activity: Vec<u8>,
+    /// Firm units' keys: starting value added, extraction output.
+    va_key: Vec<i128>,
+    royalty_key: Vec<i128>,
 }
 
 impl World {
     /// At load: the real-estate industry and the owners' keys.
-    pub(super) fn start_revenue(
-        &mut self,
-        tenure: &[u8],
-        dwelling: &[Bani],
-        product_tax_ppm: &[u32],
-        production_tax_ppm: &[u32],
-        investment_tax_ppm: u32,
-    ) {
+    pub(super) fn start_revenue(&mut self, s: &StartState) {
+        let (tenure, dwelling) = (&s.hh_tenure, &s.hh_dwelling_value);
         let n_h = self.households.hh_weight.len();
         let active = self.law.income.is_some() && tenure.len() == n_h;
         self.rev = Revenue {
@@ -105,10 +171,200 @@ impl World {
             .collect();
         r.rent_month = vec![0; n_u];
         r.rent_last = vec![0; n_u];
-        r.product_tax_ppm = product_tax_ppm.to_vec();
-        r.production_tax_ppm = production_tax_ppm.to_vec();
-        r.investment_tax_ppm = investment_tax_ppm;
+        r.product_tax_ppm.clone_from(&s.product_tax_ppm);
+        r.production_tax_ppm.clone_from(&s.production_tax_ppm);
+        r.investment_tax_ppm = s.investment_product_tax_ppm;
         r.output_month = vec![0; n_u];
+        r.activity.clone_from(&s.activity);
+        r.va_key = s
+            .unit_value_added
+            .iter()
+            .map(|b| i128::from(b.get()).max(0))
+            .collect();
+        let ids = &self.industries.id;
+        r.royalty_key = (0..n_u)
+            .map(|u| {
+                let j = usize::from(self.units.industry[u]);
+                if EXTRACTION.contains(&ids[j].as_str()) {
+                    i128::from(s.unit_output[u].get()).max(0)
+                } else {
+                    0
+                }
+            })
+            .collect();
+    }
+
+    /// A twelfth of a yearly amount for the month of the year `k` (0 to 11):
+    /// the remainder to the first months (budget-2021's rule).
+    fn twelfth(year: i64, k: u32) -> i128 {
+        let (q, r) = (year / 12, year % 12);
+        i128::from(q + i64::from(i64::from(k) < r))
+    }
+
+    /// Each household's key for a held benefit, now.
+    fn benefit_key(&self, key: Key) -> Vec<i128> {
+        let n_h = self.households.hh_weight.len();
+        let mut k = vec![0i128; n_h];
+        match key {
+            Key::PoorestFifth => {
+                for h in 0..n_h {
+                    k[h] = i128::from(self.households.hh_fifth[h] == 0);
+                }
+            }
+            _ => {
+                let p = &self.persons;
+                for i in 0..p.household_id.len() {
+                    let h = p.household_id[i] as usize;
+                    let age = self.pp.age[i];
+                    k[h] += match key {
+                        Key::InactiveOther => {
+                            i128::from(self.rev.activity.get(i) == Some(&INACTIVE_OTHER))
+                        }
+                        Key::DeclaredWages => {
+                            if p.employer[i] == NO_EMPLOYER {
+                                0
+                            } else {
+                                i128::from(p.wage_declared[i].get()).max(0)
+                            }
+                        }
+                        Key::ChildrenUnder2 => i128::from(age < 24),
+                        Key::Aged65 => i128::from(age >= 65 * 12),
+                        Key::InEducation => {
+                            i128::from(matches!(self.rev.activity.get(i), Some(&PUPIL | &STUDENT)))
+                        }
+                        Key::PoorestFifth => 0,
+                    };
+                }
+            }
+        }
+        k
+    }
+
+    /// Part 4 on the 15th: a twelfth of each held programme to its group.
+    fn pay_held_benefits(&mut self) {
+        let k = u32::try_from(self.months.len() % 12).expect("a month");
+        for (code, year, key) in BENEFITS {
+            let due = Self::twelfth(year, k);
+            let keys = self.benefit_key(key);
+            let Some(parts) =
+                super::treasury::weighted_parts(due, &self.households.hh_weight, &keys)
+            else {
+                continue;
+            };
+            let mut paid = 0i128;
+            for (h, &a) in parts.iter().enumerate() {
+                if a == 0 {
+                    continue;
+                }
+                let x = bani(a);
+                let hh = &mut self.households;
+                hh.hh_deposits[h] += x;
+                hh.hh_income_received[h] += x;
+                hh.income_to_date[h] += x;
+                self.hh.income_this_month[h] += x;
+                paid += i128::from(hh.hh_weight[h]) * a;
+            }
+            let mut post = Postings::default();
+            post.gov_pays(Sector::Households, bani(paid), code);
+            post.commit(&mut self.ledger);
+        }
+    }
+
+    /// Households pay `total` by `keys`, exactly in whole bani per record,
+    /// none more than its money; returns what they paid.
+    fn households_pay(&mut self, total: i128, keys: &[i128]) -> i128 {
+        let Some(parts) = super::treasury::weighted_parts(total, &self.households.hh_weight, keys)
+        else {
+            return 0;
+        };
+        let mut paid = 0i128;
+        for (h, &a) in parts.iter().enumerate() {
+            let hh = &mut self.households;
+            let x = a.min(i128::from(hh.hh_deposits[h].get()).max(0));
+            if x > 0 {
+                hh.hh_deposits[h] -= bani(x);
+                paid += i128::from(hh.hh_weight[h]) * x;
+            }
+        }
+        paid
+    }
+
+    /// Firm units pay `total` by `keys` (a unit short of money borrows at
+    /// the day's checks).
+    fn units_pay(&mut self, total: i128, keys: &[i128]) -> i128 {
+        let parts = super::money::split(total, keys);
+        let paid: i128 = parts.iter().sum();
+        for (u, &p) in parts.iter().enumerate() {
+            self.units.deposits[u] -= bani(p);
+        }
+        paid
+    }
+
+    /// Part 3 at the month end: a twelfth of each small revenue line.
+    fn pay_held_revenue(&mut self) {
+        let k = u32::try_from(self.months.len().saturating_sub(1) % 12).expect("a month");
+        let n_h = self.households.hh_weight.len();
+        let owners: Vec<i128> = self
+            .rev
+            .rent_key
+            .iter()
+            .map(|&x| i128::from(x > 0))
+            .collect();
+        let income: Vec<i128> = (0..n_h)
+            .map(|h| i128::from(self.hh.income_last_month[h].get()).max(0))
+            .collect();
+        let equal = vec![1i128; n_h];
+        let va = self.rev.va_key.clone();
+        let royalty = self.rev.royalty_key.clone();
+        let mut post = Postings::default();
+        let property = self.households_pay(Self::twelfth(38_641 * M_LEI / 10, k), &owners);
+        post.pays_gov(Sector::Households, bani(property), FlowCode::TAX_PROPERTY);
+        let gambling = self.households_pay(Self::twelfth(23_763 * M_LEI / 10, k), &income);
+        post.pays_gov(Sector::Households, bani(gambling), FlowCode::TAX_GAMBLING);
+        let other = Self::twelfth(64_187 * M_LEI / 10, k);
+        let other_hh = self.households_pay(other / 2, &equal);
+        post.pays_gov(
+            Sector::Households,
+            bani(other_hh),
+            FlowCode::TRANSFER_OTHER_RECEIVED,
+        );
+        let other_f = self.units_pay(other - other / 2, &va);
+        post.pays_gov(
+            Sector::Firms,
+            bani(other_f),
+            FlowCode::TRANSFER_OTHER_RECEIVED,
+        );
+        let capital = self.units_pay(Self::twelfth(48_572 * M_LEI / 10, k), &va);
+        post.pays_gov(
+            Sector::Firms,
+            bani(capital),
+            FlowCode::TRANSFER_CAPITAL_RECEIVED,
+        );
+        let royalties = self.units_pay(Self::twelfth(26_196 * M_LEI / 10, k), &royalty);
+        post.pays_gov(
+            Sector::Firms,
+            bani(royalties),
+            FlowCode::RENT_NATURAL_RESOURCES,
+        );
+        post.commit(&mut self.ledger);
+        // Interest received: the banks pay it from their reserves.
+        let interest = Self::twelfth(12_871 * M_LEI / 10, k);
+        let mut post = Postings::default();
+        post.leg(
+            Sector::Banks,
+            Sector::CentralBank,
+            Instrument::Reserves,
+            bani(interest),
+            FlowCode::INTEREST_GOV_RECEIVED,
+        );
+        post.leg(
+            Sector::CentralBank,
+            Sector::Government,
+            Instrument::GovDepositsAtCb,
+            bani(interest),
+            FlowCode::INTEREST_GOV_RECEIVED,
+        );
+        post.commit(&mut self.ledger);
     }
 
     /// A unit bought inputs worth `value` today: its product tax.
@@ -172,6 +428,9 @@ impl World {
         self.rev.imputed_today = Bani::ZERO;
         if self.calendar.date(self.today).day == PAYBACK_DAY {
             self.pay_imputed_rent();
+            if !self.months.is_empty() {
+                self.pay_held_benefits();
+            }
         }
     }
 
@@ -196,6 +455,7 @@ impl World {
         let mut post = Postings::default();
         post.pays_gov(Sector::Firms, bani(total), FlowCode::TAX_PRODUCTION);
         post.commit(&mut self.ledger);
+        self.pay_held_revenue();
         let r = &mut self.rev;
         r.rent_last = std::mem::replace(&mut r.rent_month, vec![0; r.rent_last.len()]);
     }
