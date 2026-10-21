@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [society/population-groups, economy/fiscal-policy, economy/households, economy/taxation, economy/labor-market, society/population-pensions, economy/budget-2021, game/world-loop, adr/0017-time-base]
 research: [research/law-in-force-romania-2021]
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # Social Transfers — Pensions, Benefits, Student Finance, Charity
@@ -92,6 +92,7 @@ AC-ST-05 to 08 were written on 2026-10-20 on the `World` under `Law::law_2021()`
 
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-ST-08: the calibration under the 2021 law (roadmap M7), by the owner's decision of 2026-10-21; its test is written and ignored
 - AC-ST-09: roadmap M6
 - AC-ST-10: roadmap M14
 - AC-ST-11: roadmap M14

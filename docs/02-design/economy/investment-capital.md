@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/production, economy/money-banking, economy/taxation, economy/trade-fx, economy/fiscal-policy, economy/budget-2021, economy/households, economy/opening-balance-sheet, economy/industries, game/world-loop, adr/0016-firm-representation, adr/0017-time-base]
 research: [research/investment-dividends-romania-2021]
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # Investment & Capital
@@ -259,18 +259,17 @@ IDs are stable (added 2026-10-20). Tests go in `crates/econ-core/tests/acceptanc
 - [ ] **AC-INV-12** `[sim]` *(M9)* Firms entering a cohort bring their start-up capital as investment.
 - [ ] **AC-INV-13** `[sim]` *(M17)* Expropriation in any industry lowers foreign investment in all industries.
 
+AC-INV-01 to 10 were written on 2026-10-21, after the code (owner's decision of 2026-10-21), from this spec and its API sketch only:
+- **The `[unit]` criteria (AC-INV-01 to 03)** are in `crates/econ-mech-investment/tests/acceptance/`, behind the crate feature `mechanic`.
+- **The `[sim]` criteria (AC-INV-04 to 10)** are in `crates/econ-core/tests/acceptance/investment.rs`, behind the feature `investment`. AC-INV-05 also needs `trade`, and AC-INV-07 and 08 need `banking`.
+- **What they read:** the capital and dividends view (`World::investment`), plus two test writer's additions declared from this spec, which the implementation fills: the closed months of investment (`World::investment_months`: spending by unit at current and starting prices, private and government investment, investment in GDP, `p^I`, profit before tax) and the latest budgets (`World::investment_plans`).
+- **Dividend days.** Dividends are paid on the 15th (step 5), so AC-INV-04 checks every day dividends are paid.
+- **AC-INV-08 and 09** are written but ignored, because the investment rule is off until M7 (`INVESTMENT_RULE`).
+
 ### Tests owed
 Locked 2026-10-20 under the owner's delegation, before its tests (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-INV-01: the test session of M3's investment
-- AC-INV-02: the test session of M3's investment
-- AC-INV-03: the test session of M3's investment
-- AC-INV-04: the test session of M3's investment
-- AC-INV-05: the test session of M3's investment (with trade on the `World`)
-- AC-INV-06: the test session of M3's investment
-- AC-INV-07: the test session of M3's investment
-- AC-INV-08: the test session of M3's investment
-- AC-INV-09: the test session of M3's investment
-- AC-INV-10: the test session of M3's investment
+- AC-INV-08: roadmap M7 (the investment rule is off until then, `INVESTMENT_RULE`; the test is written and ignored)
+- AC-INV-09: roadmap M7 (the investment rule is off until then, `INVESTMENT_RULE`; the test is written and ignored)
 - AC-INV-11: roadmap M9
 - AC-INV-12: roadmap M9
 - AC-INV-13: roadmap M17

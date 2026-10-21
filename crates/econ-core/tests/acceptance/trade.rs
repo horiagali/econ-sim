@@ -24,16 +24,25 @@ use super::support::{month_stats, params, step};
 use super::support_m3::{FlowSum, is_financing, world_2021, world_2021_with};
 
 /// **AC-TFX-03** `[sim]` The balance of payments closes every month end:
-/// current account + the change in the rest of the world's lei deposits +
-/// the central bank's intervention = 0, to the ban.
+/// current and capital account + the change in the rest of the world's lei
+/// deposits + its purchases of government bonds less redemptions − the
+/// change of the central bank's foreign assets = 0, to the ban (restated
+/// 2026-10-21: the bonds, and the capital account of the EU's grants).
+///
+/// The bonds' purchases less redemptions are the change of the rest of the
+/// world's holding; the foreign assets' change includes their yield.
 #[test]
 fn ac_tfx_03() {
     let mut w = world_2021(1000);
-    let row_deposits = |w: &econ_core::world::World| {
-        w.ledger()
-            .balance(Sector::RestOfWorld, Instrument::Deposits)
+    let balances = |w: &econ_core::world::World| {
+        let l = w.ledger();
+        (
+            l.balance(Sector::RestOfWorld, Instrument::Deposits),
+            l.balance(Sector::RestOfWorld, Instrument::Bonds),
+            l.balance(Sector::CentralBank, Instrument::ForeignAssets),
+        )
     };
-    let mut before = row_deposits(&w);
+    let mut before = balances(&w);
     let mut month = FlowSum::default();
     let mut closed = 0;
     while closed < 12 {
@@ -57,15 +66,15 @@ fn ac_tfx_03() {
             .map(|(_, v)| Bani::ZERO - v)
             .fold(Bani::ZERO, |a, b| a + b);
         assert_eq!(m.current_account, ca, "{:?}: the current account", m.month);
-        let after = row_deposits(&w);
+        let after = balances(&w);
+        let (deposits, bonds, foreign_assets) =
+            (after.0 - before.0, after.1 - before.1, after.2 - before.2);
         assert_eq!(
-            m.current_account + (after - before) + m.intervention,
+            m.current_account + deposits + bonds - foreign_assets,
             Bani::ZERO,
-            "{:?}: CA {:?}, change of the rest of the world's deposits {:?}, intervention {:?}",
+            "{:?}: CA {:?}, change of the rest of the world's deposits {deposits:?}, its bonds {bonds:?}, the central bank's foreign assets {foreign_assets:?}",
             m.month,
             m.current_account,
-            after - before,
-            m.intervention
         );
         before = after;
         month = FlowSum::default();

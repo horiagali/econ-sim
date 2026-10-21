@@ -205,16 +205,14 @@ Both directories are protected. The tests are written in a test-authoring sessio
 - [ ] **AC-EXC-09** `[sim]` *(M4)* Doubling the fuel duty raises the consumer price of fuel at once by the duty's rise times one plus VAT. It raises the price of road freight within three months and lowers households' fuel quantity.
 - [ ] **AC-EXC-10** `[sim]` *(M12)* Duties on electricity and gas raise the household price of electricity by the duty per MWh, and the fuel duty's target is restated without them.
 
+AC-EXC-01 to 08 were written on 2026-10-21, after the code (owner's decision of 2026-10-21), from this spec only:
+- **The `[unit]` criteria (AC-EXC-01 to 05)** are in `crates/econ-mech-tax/tests/acceptance/excise.rs`, behind the crate feature `excise`. They test the module of the API sketch, `econ_mech_tax::excise`, which the test writer declared and the implementation fills. AC-EXC-04's "indexation off" is the `World`'s, on 1 January.
+- **The `[sim]` criteria (AC-EXC-06 to 08)** are in `crates/econ-core/tests/acceptance/excise.rs`, behind the feature `revenue`.
+- **What the `[sim]` tests read:** three test writer's additions, which the implementation fills: the day's duties and purchases (`World::revenue_today`), the closed months of revenue (`World::revenue_months`) and each industry's unit cost (`World::unit_costs_ppm`). They also use a world without excise (`StartEdit::WithoutRevenue(RevenuePart::Excise)`).
+- **AC-EXC-07's spending ratio.** For every good, the day's spending net of the duty's weight in the basket, over the table's purchases, is one ratio.
+
 ### Tests owed
 Ready for the test session of M3's revenue once the owner locks the spec (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-EXC-01: the test session of M3's revenue
-- AC-EXC-02: the test session of M3's revenue
-- AC-EXC-03: the test session of M3's revenue
-- AC-EXC-04: the test session of M3's revenue
-- AC-EXC-05: the test session of M3's revenue
-- AC-EXC-06: the test session of M3's revenue
-- AC-EXC-07: the test session of M3's revenue
-- AC-EXC-08: the test session of M3's revenue
 - AC-EXC-09: roadmap M4
 - AC-EXC-10: roadmap M12
 

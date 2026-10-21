@@ -124,15 +124,13 @@ Draft IDs (2026-10-21). Tests go in `crates/econ-core/tests/acceptance/revenue.r
 - [ ] **AC-GRV-06** `[sim]` On every pay day each held benefit pays exactly its monthly amount, less rounding under one ban per record, to its key group only. Recipients' `hh_income_received` grows by it. Twelve months add to the programme's held amount.
 - [ ] **AC-GRV-07** `[sim]` The first year's fiscal report (AC-FIS-05) lists revenue by ESA line next to the research note's 2021 figures, and total revenue against TR less public units' sales and imputed contributions (352.8 billion lei). With excise and EU funds on, the total is within 15% (a check, not a target, as AC-TAX-09).
 
+AC-GRV-01 to 07 were written on 2026-10-21, after the code (owner's decision of 2026-10-21), from this spec only:
+- **Where.** They are in `crates/econ-core/tests/acceptance/revenue.rs`, behind the feature `revenue`; AC-GRV-06 also needs `pay_day`.
+- **What they read:** the starting state's rates, plus four test writer's additions, which the implementation fills: the day's purchases and taxes (`World::revenue_today`), the closed months of revenue (`World::revenue_months`, with the held lines and each household's property tax), the held benefits of the pay day (`World::held_benefits`) and each industry's unit cost (`World::unit_costs_ppm`). They also use a world without parts 1 and 2 (`StartEdit::WithoutRevenue(RevenuePart::ProductTaxes)`).
+- **Amounts.** The held amounts are this spec's tables, because the budget fixture has no `revenue_held` or `benefits_held` section yet.
+
 ### Tests owed
-Ready for the test session of M3's revenue once the owner locks the spec (ADR-0014, Amendment 1).
-- AC-GRV-01: the test session of M3's revenue
-- AC-GRV-02: the test session of M3's revenue
-- AC-GRV-03: the test session of M3's revenue
-- AC-GRV-04: the test session of M3's revenue
-- AC-GRV-05: the test session of M3's revenue
-- AC-GRV-06: the test session of M3's revenue
-- AC-GRV-07: the test session of M3's revenue
+Ready for the test session of M3's revenue once the owner locks the spec (ADR-0014, Amendment 1). A line is removed when its test is written.
 
 ## API sketch
 In the `World` (`econ_core::world::treasury` and the goods market). The pure parts:

@@ -11,3 +11,8 @@ mod vat_reduced_2;
 // feature `taxation`, which their implementation adds to `default`.
 #[cfg(feature = "taxation")]
 mod taxation;
+
+// Excise (AC-EXC-01..05): compiled with the crate feature `excise`, which its
+// implementation adds to `default`.
+#[cfg(feature = "excise")]
+mod excise;

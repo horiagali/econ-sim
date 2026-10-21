@@ -10,5 +10,15 @@ publish.workspace = true
 [dependencies]
 econ-types.workspace = true
 
+[features]
+# Gates the acceptance tests: written after the code by the owner's decision
+# (2026-10-21), from the spec only; the implementation adds `mechanic` to
+# `default` once they pass.
+mechanic = []
+
+[[test]]
+name = "acceptance"
+path = "tests/acceptance/main.rs"
+
 [lints]
 workspace = true
