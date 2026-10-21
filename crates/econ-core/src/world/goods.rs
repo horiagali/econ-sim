@@ -230,6 +230,8 @@ impl World {
             );
             self.mac.month.output_value += value;
             self.fs.add_value(u, value);
+            #[cfg(feature = "revenue")]
+            self.rev_output_value(u, value);
             for (&(i, a), &slot) in self.ii.inputs[j].iter().zip(&self.ii.essential_slot[j]) {
                 // A day's part is far below 2^43 real units: the product fits i64.
                 let mut q = (part * i64::from(a) + 500_000) / 1_000_000;
@@ -258,6 +260,8 @@ impl World {
                 );
                 self.mac.month.inputs_imported += i128::from(imported.get());
                 self.fs.add_inputs(u, i128::from(imported.get()));
+                #[cfg(feature = "revenue")]
+                self.rev_input_purchase(u, i128::from(imported.get()));
                 self.mac.month.imports += i128::from(imported.get());
             }
             self.uu.inputs_served_ppm[u] = 1_000_000;
@@ -438,6 +442,8 @@ impl World {
             self.units.deposits[u] -= bani(p);
             #[cfg(feature = "investment")]
             self.invest_spent(u, p);
+            #[cfg(feature = "revenue")]
+            self.rev_investment_purchase(u, p);
         }
         post.deposits(
             Sector::Firms,
@@ -629,6 +635,8 @@ impl World {
                 paid += v;
                 self.mac.month.inputs_home += v;
                 self.fs.add_inputs(u, v);
+                #[cfg(feature = "revenue")]
+                self.rev_input_purchase(u, v);
                 let buyer = usize::from(self.units.industry[u]);
                 if let Ok(k) = self.ii.essential[buyer].binary_search(&i) {
                     let share = if q > 0 {
@@ -692,6 +700,8 @@ impl World {
             self.units.deposits[u] -= bani(p);
             #[cfg(feature = "investment")]
             self.invest_spent(u, p);
+            #[cfg(feature = "revenue")]
+            self.rev_investment_purchase(u, p);
         }
         if placed < investment_value {
             // Nobody could pay the rest: the sellers' cohort pays it as a
@@ -707,6 +717,8 @@ impl World {
                 self.units.deposits[u] -= bani(p);
                 #[cfg(feature = "investment")]
                 self.invest_spent(u, p);
+                #[cfg(feature = "revenue")]
+                self.rev_investment_purchase(u, p);
             }
         }
         self.mac.month.investment += investment_value;
@@ -762,6 +774,8 @@ impl World {
                     self.units.deposits[u] += bani(r);
                     self.units.revenue_today[u] += bani(r);
                     self.fs.add_sales(u, r);
+                    #[cfg(feature = "revenue")]
+                    self.rev_household_sale(j, u, r);
                 }
                 self.industries.sales_value_today[j] += bani(dom_net);
                 self.mac.month.sales_value += dom_net;
@@ -792,5 +806,7 @@ impl World {
         post.pays_gov(Sector::Firms, bani(firms_vat), FlowCode::TAX_VAT);
         post.cash_into_bank(bani(by_cash));
         post.commit(&mut self.ledger);
+        #[cfg(feature = "revenue")]
+        self.rev_post_products();
     }
 }

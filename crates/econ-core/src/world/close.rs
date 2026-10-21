@@ -378,7 +378,10 @@ impl World {
             self.bank_month_end();
             self.bank_close();
         }
-        // Each unit's profit and capital, its interest known.
+        // The other taxes on production, then each unit's profit and capital,
+        // its interest known.
+        #[cfg(feature = "revenue")]
+        self.rev_close();
         #[cfg(feature = "investment")]
         self.invest_close();
         // The central bank's interest and its profit, remitted before the
@@ -589,6 +592,8 @@ impl World {
         self.cb_hash(&mut |w| h.write_word(w));
         #[cfg(feature = "investment")]
         self.invest_hash(&mut |w| h.write_word(w));
+        #[cfg(feature = "revenue")]
+        self.rev_hash(&mut |w| h.write_word(w));
         let mut ledger = StateHasher::default();
         self.ledger.hash_into(&mut |bytes| ledger.write(bytes));
         h.write_word(ledger.finish());

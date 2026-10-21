@@ -750,6 +750,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         cb: super::central_bank::CentralBank::default(),
         #[cfg(feature = "investment")]
         inv: super::investment::Investment::default(),
+        #[cfg(feature = "revenue")]
+        rev: super::revenue::Revenue::default(),
         #[cfg(feature = "fiscal")]
         tr: super::treasury::TreasuryState::default(),
         slips: super::PaySlips::default(),
@@ -787,6 +789,14 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     );
     #[cfg(feature = "trade")]
     world.start_trade(world_factor);
+    #[cfg(feature = "revenue")]
+    world.start_revenue(
+        &s.hh_tenure,
+        &s.hh_dwelling_value,
+        &s.product_tax_ppm,
+        &s.production_tax_ppm,
+        s.investment_product_tax_ppm,
+    );
     #[cfg(feature = "monetary")]
     world.start_central_bank();
     #[cfg(feature = "investment")]

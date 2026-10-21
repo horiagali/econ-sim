@@ -38,6 +38,8 @@ impl FlowCode {
     pub const INTEREST_CB_FOREIGN: FlowCode = FlowCode(2007);
     /// Dividends firm units pay their owners.
     pub const INCOME_DIVIDEND: FlowCode = FlowCode(2010);
+    /// Owner-occupiers' imputed rent paid back by the real-estate units.
+    pub const INCOME_IMPUTED_RENT: FlowCode = FlowCode(2013);
     /// Self-employment and informal income paid out of firm units' surplus
     /// to households (M2 placeholder of spec `economy/households`).
     pub const MIXED_INCOME: FlowCode = FlowCode(2003);
@@ -60,6 +62,10 @@ impl FlowCode {
     pub const TAX_MICRO: FlowCode = FlowCode(3008);
     /// The tax on dividends, withheld by the paying unit.
     pub const TAX_DIVIDEND: FlowCode = FlowCode(3009);
+    /// Taxes on products that firms pay on their inputs and investment.
+    pub const TAX_PRODUCTS: FlowCode = FlowCode(3012);
+    /// Other taxes on production (D29).
+    pub const TAX_PRODUCTION: FlowCode = FlowCode(3013);
     // 4xxx — social transfers (numbering of spec `economy/budget-2021`)
     /// Old-age and survivors' pensions.
     pub const BENEFIT_PENSION: FlowCode = FlowCode(4001);
@@ -103,7 +109,7 @@ impl FlowCode {
 
     /// Every code the ledger knows, in ascending order. A new code is added here
     /// and in [`FlowCode::name`] in the same change.
-    pub const ALL: [FlowCode; 39] = [
+    pub const ALL: [FlowCode; 42] = [
         Self::CONSUMPTION,
         Self::GOV_PURCHASES,
         Self::GOV_INVESTMENT,
@@ -117,6 +123,7 @@ impl FlowCode {
         Self::INTEREST_RESERVES,
         Self::INTEREST_CB_FOREIGN,
         Self::INCOME_DIVIDEND,
+        Self::INCOME_IMPUTED_RENT,
         Self::TAX_INCOME,
         Self::TAX_VAT,
         Self::TAX_EMPLOYER_CONTRIBUTION,
@@ -126,6 +133,8 @@ impl FlowCode {
         Self::TAX_PROFIT,
         Self::TAX_MICRO,
         Self::TAX_DIVIDEND,
+        Self::TAX_PRODUCTS,
+        Self::TAX_PRODUCTION,
         Self::BENEFIT_PENSION,
         Self::BENEFIT_FAMILY,
         Self::BENEFIT_UNEMPLOYMENT,
@@ -167,6 +176,7 @@ impl FlowCode {
             2006 => "interest.reserves",
             2007 => "interest.cb_foreign",
             2010 => "income.dividend",
+            2013 => "income.imputed_rent",
             2003 => "income.mixed",
             3001 => "tax.income",
             3002 => "tax.vat",
@@ -177,6 +187,8 @@ impl FlowCode {
             3007 => "tax.profit",
             3008 => "tax.micro",
             3009 => "tax.dividend",
+            3012 => "tax.products",
+            3013 => "tax.production",
             4001 => "benefit.pension",
             4003 => "benefit.family",
             4004 => "benefit.unemployment",
