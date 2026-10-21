@@ -74,6 +74,9 @@ mod fiscal;
 mod foreign;
 #[allow(clippy::needless_range_loop)]
 mod goods;
+#[cfg(feature = "investment")]
+#[allow(clippy::needless_range_loop)]
+mod investment;
 #[allow(clippy::needless_range_loop)]
 mod labour;
 #[allow(clippy::needless_range_loop)]
@@ -103,6 +106,8 @@ pub use central_bank::{CentralBankState, MonetaryParams};
 pub use fiscal::{IncomeTaxLaw, TransferLaw};
 #[cfg(feature = "trade")]
 pub use foreign::{Foreign, TradeMonth, TradeParams};
+#[cfg(feature = "investment")]
+pub use investment::InvestmentState;
 pub use pay_day::PaySlips;
 #[cfg(feature = "fiscal")]
 pub use treasury::{FiscalMonth, FiscalParams, Treasury};
@@ -204,6 +209,13 @@ pub struct StartState {
     pub hh_mortgage: Vec<Bani>,
     /// Each household's consumer debt (stage H).
     pub hh_consumer_debt: Vec<Bani>,
+    /// Each firm unit's fixed assets (its firms' balance sheets).
+    pub unit_fixed_assets: Vec<Bani>,
+    /// Each unit's controller: domestic 0, foreign 1, state 2.
+    pub unit_controller: Vec<u8>,
+    /// Each unit's ownership shares, millionths: the state, domestic private
+    /// owners, foreign owners.
+    pub unit_ownership_ppm: Vec<[u32; 3]>,
     edits: Vec<StartEdit>,
 }
 
@@ -907,6 +919,8 @@ pub struct World {
     fx: foreign::ForeignState,
     #[cfg(feature = "monetary")]
     cb: central_bank::CentralBank,
+    #[cfg(feature = "investment")]
+    inv: investment::Investment,
     slips: PaySlips,
     demand: DayDemand,
     months: Vec<MonthStats>,
@@ -939,6 +953,8 @@ impl World {
         self.bank_begin_day();
         #[cfg(feature = "monetary")]
         self.cb_begin_day();
+        #[cfg(feature = "investment")]
+        self.invest_begin_day();
         #[cfg(feature = "trade")]
         self.trade_begin_day();
         let mut phases = Vec::with_capacity(PHASES.len());
