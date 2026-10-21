@@ -334,6 +334,7 @@ version = "0.1.0"
 dependencies = [
  "econ-ledger",
  "econ-types",
+ "serde_json",
 ]
 
 [[package]]

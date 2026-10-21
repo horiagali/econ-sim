@@ -242,7 +242,11 @@ fn ac_bank_03() {
 
 /// **AC-BANK-04** `[sim]` No firm unit's deposits are negative at the end of
 /// any day, with no credit inside the firm sector.
+///
+/// Owed to the M1 item "refine the 64 into the 90" (the data-centre unit's
+/// wage bill), by the owner's decision of 2026-10-21.
 #[test]
+#[ignore = "owed to the M1 item: refine the 64 into the 90 (the data-centre unit's wage bill)"]
 fn ac_bank_04() {
     let mut w = world_2021(1000);
     for _ in 0..183 {

@@ -200,13 +200,13 @@ IDs are stable (added 2026-10-21).
 - [ ] **AC-EUF-08** `[sim]` *(M18)* A suspended commitment (fiscal-rule breach) reduces new fund flows.
 - [ ] **AC-EUF-09** `[sim]` *(M18)* EU-funded projects raise construction output and public capital like other projects, but cost the budget only the co-financing share (after reimbursement).
 
+AC-EUF-01 to 05 were written on 2026-10-21, after the code (owner's decision of 2026-10-21), from this spec only:
+- **Where.** They are in `crates/econ-core/tests/acceptance/eu_funds.rs`, behind the feature `revenue`; AC-EUF-03 and 05 also need `trade`.
+- **What they read:** three test writer's additions, which the implementation fills: the month rule of the API sketch (`econ_core::world::eu_month`, months 0 to 11 as in `Budget::monthly`), each unit's receipts of the day (`World::revenue_today`) and the closed months of revenue (`World::revenue_months`, the net EU balance).
+- **Amounts.** The yearly amounts are this spec's table, because the budget fixture has no `eu_receipts` section yet.
+
 ### Tests owed
 Ready for the test session of M3's revenue once the owner locks the spec (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-EUF-01: the test session of M3's revenue
-- AC-EUF-02: the test session of M3's revenue
-- AC-EUF-03: the test session of M3's revenue
-- AC-EUF-04: the test session of M3's revenue
-- AC-EUF-05: the test session of M3's revenue
 - AC-EUF-06: roadmap M18
 - AC-EUF-07: roadmap M18
 - AC-EUF-08: roadmap M18

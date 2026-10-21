@@ -82,6 +82,9 @@ mod labour;
 #[allow(clippy::needless_range_loop)]
 mod load;
 mod money;
+// The test writer's additions of M3's investment and revenue (ADR-0014).
+#[cfg(any(feature = "investment", feature = "revenue"))]
+mod observe;
 mod pay_day;
 #[cfg(feature = "revenue")]
 #[allow(clippy::needless_range_loop)]
@@ -111,6 +114,12 @@ pub use fiscal::{IncomeTaxLaw, TransferLaw};
 pub use foreign::{Foreign, TradeMonth, TradeParams};
 #[cfg(feature = "investment")]
 pub use investment::InvestmentState;
+#[cfg(feature = "revenue")]
+pub use observe::{
+    HeldBenefit, HeldPayment, ImputedRentPayment, RevenueDay, RevenueMonth, eu_month,
+};
+#[cfg(feature = "investment")]
+pub use observe::{InvestmentMonth, InvestmentPlans};
 pub use pay_day::PaySlips;
 #[cfg(feature = "fiscal")]
 pub use treasury::{FiscalMonth, FiscalParams, Treasury};
@@ -327,6 +336,29 @@ pub enum StartEdit {
         /// Millionths.
         factor_ppm: u32,
     },
+    /// The world runs without one part of the 2021 law's revenue, for the
+    /// whole run, so that a test can compare it with the world that has it
+    /// (AC-EXC-07, AC-GRV-03, AC-IMP-03 and 04). A test writer's addition
+    /// (ADR-0014).
+    #[cfg(feature = "revenue")]
+    WithoutRevenue(RevenuePart),
+}
+
+/// A part of the 2021 law's revenue that [`StartEdit::WithoutRevenue`] leaves
+/// out.
+#[cfg(feature = "revenue")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RevenuePart {
+    /// Excise duties (spec economy/excise): no duty is charged, and other
+    /// costs keep the starting duty as the table has it (the world before
+    /// excise was charged).
+    Excise,
+    /// Product taxes on firms' purchases and other taxes on production
+    /// (spec economy/government-revenue-2021, parts 1 and 2).
+    ProductTaxes,
+    /// The imputed rent paid back to owner-occupiers (spec
+    /// economy/imputed-rent).
+    ImputedRent,
 }
 
 impl StartState {

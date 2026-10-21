@@ -133,7 +133,6 @@ AC-FIS-04 (`[unit]`) was written on 2026-10-20 in the mechanic's crate, `crates/
 
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
-- AC-FIS-01: the identity as written does not hold: with a deficit financed by bonds, a rise of the government's deposits needs more debt, not less (debt = debt a month earlier + deficit + change of deposits), and bonds the central bank buys are already in the debt; waits for the owner to restate it (test session, 2026-10-20)
 - AC-FIS-06: roadmap M4
 - AC-FIS-07: roadmap M4
 - AC-FIS-08: roadmap M12

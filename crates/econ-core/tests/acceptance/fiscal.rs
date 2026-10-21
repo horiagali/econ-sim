@@ -1,12 +1,11 @@
-//! Acceptance tests for AC-FIS-02, 03 and 05 (spec: economy/fiscal-policy),
+//! Acceptance tests for AC-FIS-01, 02, 03 and 05 (spec: economy/fiscal-policy),
 //! M3 `[sim]` criteria, on the `World` under `Law::law_2021()`. Written in a
 //! test-authoring session (ADR-0014) against the test writer's additions
 //! behind the feature `fiscal`: the government's debt (`World::treasury`), its
 //! monthly budget report (`World::fiscal_months`) and parameters
-//! (`WorldParams::fiscal`). AC-FIS-04 is in `econ-mech-fiscal`. AC-FIS-01 is
-//! not written: its identity, as the spec states it, does not hold (see the
-//! test-session report). The flow codes are found by the names the spec
-//! gives them.
+//! (`WorldParams::fiscal`). AC-FIS-04 is in `econ-mech-fiscal`. AC-FIS-01 was
+//! written on 2026-10-21 as the owner restated it. The flow codes are found
+//! by the names the spec gives them.
 
 use std::collections::BTreeMap;
 
@@ -20,6 +19,44 @@ use super::support_m3::{FlowSum, code, gdp_2021, is_financing, ratio_ppm, world_
 /// Government bonds outstanding in the ledger.
 fn debt(w: &econ_core::world::World) -> Bani {
     Bani::ZERO - w.ledger().balance(Sector::Government, Instrument::Bonds)
+}
+
+/// **AC-FIS-01** `[sim]` Debt identity, every month end: debt = debt a
+/// month earlier + the month's deficit + the change of the government's
+/// deposits at the central bank, to the ban. Bonds the central bank holds are
+/// part of the debt (restated 2026-10-21).
+///
+/// The deficit is the month's in the fiscal report; the debt is the
+/// government's bonds in the ledger, whoever holds them.
+#[test]
+fn ac_fis_01() {
+    let mut w = world_2021(1000);
+    let deposits = |w: &econ_core::world::World| {
+        w.ledger()
+            .balance(Sector::Government, Instrument::GovDepositsAtCb)
+    };
+    let mut debt_before = debt(&w);
+    let mut deposits_before = deposits(&w);
+    let mut checked = 0;
+    while checked < 24 {
+        step(&mut w);
+        if w.fiscal_months().len() == checked {
+            continue;
+        }
+        let m = &w.fiscal_months()[checked];
+        let (d, g) = (debt(&w), deposits(&w));
+        assert_eq!(
+            d,
+            debt_before + m.deficit + (g - deposits_before),
+            "{:?}: debt {d:?}, a month earlier {debt_before:?}, deficit {:?}, change of deposits {:?}",
+            m.month,
+            m.deficit,
+            g - deposits_before
+        );
+        debt_before = d;
+        deposits_before = g;
+        checked += 1;
+    }
 }
 
 /// **AC-FIS-02** `[sim]` After every month end the government's deposits at

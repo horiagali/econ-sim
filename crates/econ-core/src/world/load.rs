@@ -560,6 +560,10 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             StartEdit::CentralBankFinancing { .. } => later.push(e.clone()),
             #[cfg(feature = "trade")]
             StartEdit::WorldPrices { factor_ppm } => world_factor = *factor_ppm,
+            #[cfg(feature = "revenue")]
+            StartEdit::WithoutRevenue(_) => {
+                unimplemented!("test writer's addition (ADR-0014): the implementation applies it")
+            }
         }
     }
     if let Some(f) = wage_scale {

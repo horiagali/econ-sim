@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/accounting, economy/monetary-policy, economy/opening-balance-sheet, game/world-loop, adr/0016-firm-representation, adr/0017-time-base]
 research: []
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # Money & Banking
@@ -134,6 +134,7 @@ AC-BANK-01 to 08 were written on 2026-10-20 in `crates/econ-core/tests/acceptanc
 
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-BANK-04: the M1 item "refine the 64 into the 90" (the data-centre unit's wage bill), by the owner's decision of 2026-10-21; its test is written and ignored
 - AC-BANK-09: roadmap M9
 - AC-BANK-10: roadmap M9
 - AC-BANK-11: after v1

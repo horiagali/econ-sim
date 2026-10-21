@@ -72,11 +72,13 @@ IDs are draft IDs. If the text moves into households, they become AC-HH-11 to 14
 - [ ] **AC-IMP-03** `[sim]` The real-estate units' profit and taxable profit exclude the payback. Their first-year surplus is within 30% of 13.1 billion lei, and prices of `real_estate` are those of a world without the payback on day 1.
 - [ ] **AC-IMP-04** `[sim]` Compare two worlds on the Romania scenario with the 2021 law, with and without the payback (a start edit). Over the first twelve months, households' consumption over GDP is higher with the payback, and closer to the table's share.
 
+AC-IMP-01 to 04 were written on 2026-10-21, after the code (owner's decision of 2026-10-21), from this spec only:
+- **Where.** They are in `crates/econ-core/tests/acceptance/imputed_rent.rs`, behind the feature `revenue`; AC-IMP-03 also needs `investment`.
+- **Payment day.** The payback is on the 15th, so AC-IMP-01 checks every payment day.
+- **What they read:** a test writer's addition, which the implementation fills: the latest payment (`World::imputed_rent`: the month's real-estate spending, θ times it, the key and each household's receipt). They also use a world without the payback (`StartEdit::WithoutRevenue(RevenuePart::ImputedRent)`).
+
 ### Tests owed
-- AC-IMP-01: the test session of M3's revenue, once the owner places the text in households
-- AC-IMP-02: the test session of M3's revenue
-- AC-IMP-03: the test session of M3's revenue
-- AC-IMP-04: the test session of M3's revenue
+A line is removed when its test is written.
 
 ## API sketch
 In the `World` (`econ_core::world`), with the pay phase:

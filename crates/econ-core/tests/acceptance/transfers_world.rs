@@ -265,7 +265,11 @@ fn contribution_years(age_months: u16, edu: EduLevel) -> u8 {
 /// **AC-ST-08** `[sim]` Laying off 10% of one industry's staff raises the
 /// unemployment benefit bill in the following month by about the laid-off
 /// persons' benefit, and the bill falls as they are hired back.
+///
+/// Owed to the calibration under the 2021 law (roadmap M7), by the owner's
+/// decision of 2026-10-21.
 #[test]
+#[ignore = "owed to the calibration under the 2021 law (roadmap M7)"]
 #[allow(clippy::needless_range_loop)]
 fn ac_st_08() {
     let mut base = world_2021(1000);

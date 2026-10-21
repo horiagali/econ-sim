@@ -40,3 +40,19 @@ mod taxation_world;
 mod trade;
 #[cfg(feature = "pay_day")]
 mod transfers_world;
+
+// M3's investment and revenue (the code came before these tests, by the
+// owner's decision of 2026-10-21): each behind the feature its code is
+// behind, which the implementation adds to `default` once they pass.
+#[cfg(feature = "revenue")]
+mod eu_funds;
+#[cfg(feature = "revenue")]
+mod excise;
+#[cfg(feature = "revenue")]
+mod imputed_rent;
+#[cfg(feature = "investment")]
+mod investment;
+#[cfg(feature = "revenue")]
+mod revenue;
+#[cfg(any(feature = "investment", feature = "revenue"))]
+mod support_rev;
