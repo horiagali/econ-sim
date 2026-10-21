@@ -239,6 +239,20 @@ impl World {
     /// The units' shortfalls drawn on their credit lines, as far as each
     /// line is open (step 1); before M2's credit inside the firm sector takes
     /// the rest.
+    /// A unit's room on its credit line now; none when the banks do not act.
+    #[cfg_attr(not(feature = "investment"), allow(dead_code))]
+    pub(super) fn bank_credit_room(&self, u: usize) -> Bani {
+        if !self.bk.active {
+            return Bani::ZERO;
+        }
+        credit_room(
+            self.bk.view.unit_loans[u],
+            bani(self.bk.revenue_last[u]),
+            self.bk.view.car_ppm,
+            &self.params.banking,
+        )
+    }
+
     pub(super) fn bank_credit_lines(&mut self) {
         if !self.bk.active {
             return;

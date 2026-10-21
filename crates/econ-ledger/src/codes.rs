@@ -14,6 +14,8 @@ impl FlowCode {
     pub const CONSUMPTION: FlowCode = FlowCode(1001);
     /// Government purchases of goods and services.
     pub const GOV_PURCHASES: FlowCode = FlowCode(1002);
+    /// Government fixed investment and land (P5, NP).
+    pub const GOV_INVESTMENT: FlowCode = FlowCode(1003);
     /// Exports: the rest of the world pays for goods (M2: in deposits).
     pub const EXPORTS: FlowCode = FlowCode(1004);
     /// Imports: residents pay the rest of the world for goods, inputs
@@ -101,9 +103,10 @@ impl FlowCode {
 
     /// Every code the ledger knows, in ascending order. A new code is added here
     /// and in [`FlowCode::name`] in the same change.
-    pub const ALL: [FlowCode; 38] = [
+    pub const ALL: [FlowCode; 39] = [
         Self::CONSUMPTION,
         Self::GOV_PURCHASES,
+        Self::GOV_INVESTMENT,
         Self::EXPORTS,
         Self::IMPORTS,
         Self::WAGES,
@@ -154,6 +157,7 @@ impl FlowCode {
         match self.0 {
             1001 => "consumption",
             1002 => "gov.purchases",
+            1003 => "gov.investment",
             1004 => "exports",
             1005 => "imports",
             2001 => "wages",
