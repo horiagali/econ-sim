@@ -263,6 +263,10 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     // economy/government-revenue-2021, parts 1 and 2).
     let mut product_tax_ppm = vec![0u32; n_i];
     let mut production_tax_ppm = vec![0u32; n_i];
+    // Each industry's imported refined petroleum (C19) over its imported
+    // inputs (spec economy/excise, step 2).
+    let mut fuel_import_ppm = vec![0u32; n_i];
+    let c19 = codes.iter().position(|c| c == "C19");
     for c in 0..n_i {
         if out_c[c] <= 0 {
             continue;
@@ -270,6 +274,7 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
         let mut home = vec![0i128; n_i];
         let (mut imported, mut other) = (0i128, 0i128);
         let (mut bought, mut ptax, mut d29) = (0i128, 0i128, 0i128);
+        let mut fuel_imp = 0i128;
         for t in 0..n_t {
             let s = share[t][c];
             if s == 0 {
@@ -289,6 +294,9 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
             }
             other += s * (other_taxes[t] + product_taxes[t]);
             ptax += s * product_taxes[t];
+            if let Some(f) = c19 {
+                fuel_imp += s * (imports_eu[f][t] + imports_non_eu[f][t]);
+            }
             d29 += s * other_taxes[t].max(0);
             bought += s
                 * (0..n_t)
@@ -299,6 +307,9 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
             product_tax_ppm[c] = ppm(rdiv(ptax * ONE, bought));
         }
         production_tax_ppm[c] = ppm(rdiv(d29 * ONE, out_c[c]));
+        if imported > 0 {
+            fuel_import_ppm[c] = ppm(rdiv(fuel_imp * ONE, imported));
+        }
         for c2 in 0..n_i {
             home_coefficient_ppm[c][c2] = ppm(rdiv(home[c2], out_c[c]));
         }
@@ -418,6 +429,7 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     s.other_cost_ppm = other_cost_ppm;
     s.product_tax_ppm = product_tax_ppm;
     s.production_tax_ppm = production_tax_ppm;
+    s.fuel_import_ppm = fuel_import_ppm;
     // The product taxes on investment and inventories over their value.
     let pt_final = |use_: &str| -> Result<i128, SaveError> {
         io["product_taxes_final"][use_]

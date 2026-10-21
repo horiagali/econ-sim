@@ -55,6 +55,19 @@ impl World {
         }
     }
 
+    /// Good `j`'s excise duty per unit, millionths (0 without excise).
+    fn excise_of(&self, j: usize) -> i128 {
+        #[cfg(feature = "revenue")]
+        {
+            self.excise_duty_ppm(j)
+        }
+        #[cfg(not(feature = "revenue"))]
+        {
+            let _ = j;
+            0
+        }
+    }
+
     /// An amount at the starting import price, at the day's.
     pub(super) fn at_import_price(&self, v: i128) -> i128 {
         let mi = self.import_index();
@@ -261,7 +274,10 @@ impl World {
                 self.mac.month.inputs_imported += i128::from(imported.get());
                 self.fs.add_inputs(u, i128::from(imported.get()));
                 #[cfg(feature = "revenue")]
-                self.rev_input_purchase(u, i128::from(imported.get()));
+                {
+                    self.rev_input_purchase(u, i128::from(imported.get()));
+                    self.rev_imported_fuel(u, i128::from(imported.get()));
+                }
                 self.mac.month.imports += i128::from(imported.get());
             }
             self.uu.inputs_served_ppm[u] = 1_000_000;
@@ -562,7 +578,8 @@ impl World {
             dom_money[j] = money[j] - imp_money[j];
             let net = dom_money[j] * 10_000 / (10_000 + i128::from(rates[j]));
             let p = i128::from(self.industries.price_ppm[j].max(1));
-            hh_want_q[j] = i64::try_from(net * ONE / p).expect("a quantity");
+            // With excise the unit costs the price plus the duty.
+            hh_want_q[j] = i64::try_from(net * ONE / (p + self.excise_of(j))).expect("a quantity");
         }
         // What households got of each good, as a share of what they wanted.
         let mut hh_served_ppm = vec![1_000_000i128; n_i];
@@ -636,7 +653,10 @@ impl World {
                 self.mac.month.inputs_home += v;
                 self.fs.add_inputs(u, v);
                 #[cfg(feature = "revenue")]
-                self.rev_input_purchase(u, v);
+                {
+                    self.rev_input_purchase(u, v);
+                    self.rev_fuel_purchase(u, i, s);
+                }
                 let buyer = usize::from(self.units.industry[u]);
                 if let Ok(k) = self.ii.essential[buyer].binary_search(&i) {
                     let share = if q > 0 {
@@ -759,11 +779,20 @@ impl World {
         }
         // What they paid, over the goods' domestic sales, VAT and imports.
         let paid_parts = split(paid_total, &parts);
-        let (mut hh_vat, mut firms_imports) = (0i128, 0i128);
+        let (mut hh_vat, mut firms_imports, mut hh_excise) = (0i128, 0i128, 0i128);
         for j in 0..n_i {
-            let dom_net = paid_parts[4 * j];
+            let (mut dom_net, mut imp_net) = (paid_parts[4 * j], paid_parts[4 * j + 2]);
             hh_vat += paid_parts[4 * j + 1] + paid_parts[4 * j + 3];
-            firms_imports += paid_parts[4 * j + 2];
+            // Excise: of the amount before VAT, the duty's part is the
+            // government's, the price's the seller's.
+            let d = self.excise_of(j);
+            if d > 0 {
+                let p = i128::from(self.industries.price_ppm[j].max(1));
+                let (dom_firm, imp_firm) = (dom_net * p / (p + d), imp_net * p / (p + d));
+                hh_excise += (dom_net - dom_firm) + (imp_net - imp_firm);
+                (dom_net, imp_net) = (dom_firm, imp_firm);
+            }
+            firms_imports += imp_net;
             if dom_net > 0 {
                 let w: Vec<i128> = units_of[j]
                     .iter()
@@ -782,7 +811,10 @@ impl World {
             }
         }
         self.mac.month.consumption += paid_total;
-        self.mac.month.vat += hh_vat;
+        // Excise counts with VAT among the taxes on products.
+        self.mac.month.vat += hh_vat + hh_excise;
+        #[cfg(feature = "revenue")]
+        self.rev_household_excise(hh_excise);
         let firms_vat = hh_vat;
         self.mac.month.imports += firms_imports;
         post.cash(

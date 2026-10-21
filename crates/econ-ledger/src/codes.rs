@@ -66,6 +66,8 @@ impl FlowCode {
     pub const TAX_MICRO: FlowCode = FlowCode(3008);
     /// The tax on dividends, withheld by the paying unit.
     pub const TAX_DIVIDEND: FlowCode = FlowCode(3009);
+    /// Excise duties on fuel, tobacco and alcohol.
+    pub const TAX_EXCISE: FlowCode = FlowCode(3011);
     /// Taxes on products that firms pay on their inputs and investment.
     pub const TAX_PRODUCTS: FlowCode = FlowCode(3012);
     /// Other taxes on production (D29).
@@ -100,6 +102,10 @@ impl FlowCode {
     pub const TRANSFER_CAPITAL: FlowCode = FlowCode(4103);
     /// The central bank's profit remitted to the government.
     pub const TRANSFER_CB_PROFIT: FlowCode = FlowCode(4104);
+    /// The EU's current grants to the government.
+    pub const TRANSFER_EU_GRANTS_CURRENT: FlowCode = FlowCode(4105);
+    /// The EU's capital grants to the government (capital account).
+    pub const TRANSFER_EU_GRANTS_CAPITAL: FlowCode = FlowCode(4106);
     /// Fines, penalties and other current transfers to the government.
     pub const TRANSFER_OTHER_RECEIVED: FlowCode = FlowCode(4107);
     /// Capital transfers to the government, other than the EU's.
@@ -107,6 +113,8 @@ impl FlowCode {
     // 5xxx — subsidies
     /// Subsidies on production (D3).
     pub const SUBSIDY_PRODUCTION: FlowCode = FlowCode(5001);
+    /// The EU's direct payments to farms.
+    pub const SUBSIDY_EU_AGRI: FlowCode = FlowCode(5002);
     // 7xxx — financial transactions
     /// Cash paid into a bank account (cash for deposits).
     pub const CASH_DEPOSIT: FlowCode = FlowCode(7001);
@@ -127,7 +135,7 @@ impl FlowCode {
 
     /// Every code the ledger knows, in ascending order. A new code is added here
     /// and in [`FlowCode::name`] in the same change.
-    pub const ALL: [FlowCode; 51] = [
+    pub const ALL: [FlowCode; 55] = [
         Self::CONSUMPTION,
         Self::GOV_PURCHASES,
         Self::GOV_INVESTMENT,
@@ -153,6 +161,7 @@ impl FlowCode {
         Self::TAX_PROFIT,
         Self::TAX_MICRO,
         Self::TAX_DIVIDEND,
+        Self::TAX_EXCISE,
         Self::TAX_PRODUCTS,
         Self::TAX_PRODUCTION,
         Self::TAX_PROPERTY,
@@ -169,9 +178,12 @@ impl FlowCode {
         Self::TRANSFER_OTHER_CURRENT,
         Self::TRANSFER_CAPITAL,
         Self::TRANSFER_CB_PROFIT,
+        Self::TRANSFER_EU_GRANTS_CURRENT,
+        Self::TRANSFER_EU_GRANTS_CAPITAL,
         Self::TRANSFER_OTHER_RECEIVED,
         Self::TRANSFER_CAPITAL_RECEIVED,
         Self::SUBSIDY_PRODUCTION,
+        Self::SUBSIDY_EU_AGRI,
         Self::CASH_DEPOSIT,
         Self::BONDS,
         Self::LOAN,
@@ -216,6 +228,7 @@ impl FlowCode {
             3007 => "tax.profit",
             3008 => "tax.micro",
             3009 => "tax.dividend",
+            3011 => "tax.excise",
             3012 => "tax.products",
             3013 => "tax.production",
             3014 => "tax.property",
@@ -232,9 +245,12 @@ impl FlowCode {
             4102 => "transfer.other_current",
             4103 => "transfer.capital",
             4104 => "transfer.cb_profit",
+            4105 => "transfer.eu_grants_current",
+            4106 => "transfer.eu_grants_capital",
             4107 => "transfer.other_received",
             4108 => "transfer.capital_received",
             5001 => "subsidy.production",
+            5002 => "subsidy.eu_agri",
             7001 => "finance.cash_deposit",
             7002 => "finance.bonds",
             7003 => "finance.loan",

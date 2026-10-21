@@ -29,6 +29,23 @@
 //! owner's decision of 2026-10-21 applied here too) a twelfth of each
 //! programme to its key group.
 //!
+//! **EU funds** (spec `economy/eu-funds`, M3): at each month end the rest of
+//! the world pays a twelfth of 2021's grants, held in euro at the day's
+//! exchange rate: current and capital grants to the government, the farm
+//! direct payments straight to the crop and livestock units by their
+//! starting output.
+//!
+//! **Excise** (spec `economy/excise`): households pay each excised good's
+//! duty per unit on top of the price, with VAT on the duty; non-exempt firm
+//! units pay it on their fuel, home and imported; it is posted at the end of
+//! the goods market under `tax.excise`, and indexed each 1 January by the
+//! twelve-month inflation (never down).
+//!
+//! > **Simplification (M3):** the fuel duty stays inside firms' "other costs"
+//! > (where the input-output table put it), so starting prices do not move
+//! > and a change of the duty does not reach producer prices until the
+//! > levers (M4, AC-EXC-09); the part-1 product-tax rate is net of it.
+//!
 //! > **Simplification (M3, until the inactivity and enrolment stage is in
 //! > the scenario):** disability benefits go to persons whose activity is
 //! > other inactive, education grants to pupils and students.
@@ -88,6 +105,27 @@ enum Key {
 const PUPIL: u8 = 1;
 const STUDENT: u8 = 2;
 const INACTIVE_OTHER: u8 = 6;
+/// The starting excise duties, millionths of the starting price per unit
+/// (spec economy/excise, "Starting state").
+const DUTIES: [(&str, u32); 3] = [
+    ("refined_petroleum", 512_500),
+    ("tobacco", 2_030_400),
+    ("beverages", 71_200),
+];
+/// The industries whose fuel pays no duty (feedstock, jet fuel).
+const FUEL_EXEMPT: [&str; 4] = [
+    "refined_petroleum",
+    "chemicals",
+    "fertilisers",
+    "air_transport",
+];
+
+/// EU receipts a year, million lei of 2021 (spec economy/eu-funds): current
+/// grants, capital grants, the farm direct payments.
+const EU_CURRENT: i64 = 65_502 * M_LEI / 10;
+const EU_CAPITAL: i64 = 160_175 * M_LEI / 10;
+const EU_AGRI: i64 = 9_806 * M_LEI;
+
 /// The extraction industries that pay royalties.
 const EXTRACTION: [&str; 5] = [
     "crude_oil",
@@ -132,6 +170,17 @@ pub(super) struct Revenue {
     /// Firm units' keys: starting value added, extraction output.
     va_key: Vec<i128>,
     royalty_key: Vec<i128>,
+    /// Each industry's excise duty, millionths of the starting price per
+    /// unit; whether its fuel is exempt; the fuel industry; each industry's
+    /// imported fuel over its imported inputs.
+    duty_ppm: Vec<u32>,
+    fuel_exempt: Vec<bool>,
+    fuel: Option<usize>,
+    fuel_import_ppm: Vec<u32>,
+    /// Excise charged today, not yet posted.
+    excise_today: i128,
+    /// The farm units' key to the EU's direct payments (starting output).
+    farm_key: Vec<i128>,
 }
 
 impl World {
@@ -181,7 +230,31 @@ impl World {
             .iter()
             .map(|b| i128::from(b.get()).max(0))
             .collect();
+        r.fuel_import_ppm.clone_from(&s.fuel_import_ppm);
         let ids = &self.industries.id;
+        let n_i = ids.len();
+        r.duty_ppm = (0..n_i)
+            .map(|j| {
+                DUTIES
+                    .iter()
+                    .find(|(id, _)| *id == ids[j])
+                    .map_or(0, |&(_, d)| d)
+            })
+            .collect();
+        r.fuel_exempt = (0..n_i)
+            .map(|j| FUEL_EXEMPT.contains(&ids[j].as_str()))
+            .collect();
+        r.fuel = ids.iter().position(|id| id == "refined_petroleum");
+        r.farm_key = (0..n_u)
+            .map(|u| {
+                let id = &ids[usize::from(self.units.industry[u])];
+                if id.starts_with("agri_") || id.starts_with("livestock_") {
+                    i128::from(s.unit_output[u].get()).max(0)
+                } else {
+                    0
+                }
+            })
+            .collect();
         r.royalty_key = (0..n_u)
             .map(|u| {
                 let j = usize::from(self.units.industry[u]);
@@ -192,6 +265,129 @@ impl World {
                 }
             })
             .collect();
+        self.start_excise();
+    }
+
+    /// Excise at load: households' basket shares of the excised goods times
+    /// one plus the duty, renormalised (their real demand kept); each
+    /// industry's product-tax rate net of its fuel duty.
+    fn start_excise(&mut self) {
+        let n_i = self.industries.id.len();
+        let shares: Vec<i128> = (0..n_i)
+            .map(|j| {
+                i128::from(self.industries.basket_share_ppm[j])
+                    * (1_000_000 + i128::from(self.rev.duty_ppm[j]))
+            })
+            .collect();
+        let renorm = super::money::split(1_000_000, &shares);
+        for j in 0..n_i {
+            self.industries.basket_share_ppm[j] = u32::try_from(renorm[j]).expect("a share");
+        }
+        let Some(f) = self.rev.fuel else {
+            return;
+        };
+        let d = i128::from(self.rev.duty_ppm[f]);
+        for j in 0..n_i {
+            if self.rev.fuel_exempt[j] {
+                continue;
+            }
+            let a_home = self.ii.inputs[j]
+                .iter()
+                .find(|&&(i, _)| i == f)
+                .map_or(0, |&(_, a)| i128::from(a));
+            let a_imp = i128::from(self.ii.import_ppm[j])
+                * i128::from(self.rev.fuel_import_ppm.get(j).copied().unwrap_or(0))
+                / 1_000_000;
+            let inputs: i128 = self.ii.inputs[j]
+                .iter()
+                .map(|&(_, a)| i128::from(a))
+                .sum::<i128>()
+                + i128::from(self.ii.import_ppm[j]);
+            if inputs <= 0 {
+                continue;
+            }
+            // The duty per unit of inputs bought, millionths.
+            let duty_share = (a_home + a_imp) * d / inputs;
+            let t = i128::from(self.rev.product_tax_ppm[j]);
+            self.rev.product_tax_ppm[j] = u32::try_from((t - duty_share).max(0)).expect("a rate");
+        }
+    }
+
+    /// Good `j`'s excise duty per unit now, millionths of the starting price
+    /// (0 when the revenue does not act).
+    pub(super) fn excise_duty_ppm(&self, j: usize) -> i128 {
+        if !self.rev.active {
+            return 0;
+        }
+        i128::from(self.rev.duty_ppm.get(j).copied().unwrap_or(0))
+    }
+
+    /// Households paid `duty` of excise today (from the goods market).
+    pub(super) fn rev_household_excise(&mut self, duty: i128) {
+        if self.rev.active && duty > 0 {
+            self.rev.excise_today += duty;
+        }
+    }
+
+    /// A unit bought `quantity` real units of good `i` today: the fuel duty.
+    pub(super) fn rev_fuel_purchase(&mut self, u: usize, i: usize, quantity: i64) {
+        if !self.rev.active || self.rev.fuel != Some(i) || quantity <= 0 {
+            return;
+        }
+        let j = usize::from(self.units.industry[u]);
+        if self.rev.fuel_exempt[j] {
+            return;
+        }
+        let duty = ratio(i128::from(quantity), self.excise_duty_ppm(i), 1_000_000);
+        self.charge_excise(u, duty);
+    }
+
+    /// A unit's imported inputs worth `value` today (at the day's import
+    /// price): the duty on their fuel.
+    pub(super) fn rev_imported_fuel(&mut self, u: usize, value: i128) {
+        if !self.rev.active || value <= 0 {
+            return;
+        }
+        let Some(f) = self.rev.fuel else {
+            return;
+        };
+        let j = usize::from(self.units.industry[u]);
+        if self.rev.fuel_exempt[j] {
+            return;
+        }
+        let fuel_value = ratio(
+            value,
+            i128::from(self.rev.fuel_import_ppm.get(j).copied().unwrap_or(0)),
+            1_000_000,
+        );
+        let quantity = ratio(fuel_value, 1_000_000, self.import_index().max(1));
+        let duty = ratio(quantity, self.excise_duty_ppm(f), 1_000_000);
+        self.charge_excise(u, duty);
+    }
+
+    fn charge_excise(&mut self, u: usize, duty: i128) {
+        if duty <= 0 {
+            return;
+        }
+        self.units.deposits[u] -= bani(duty);
+        self.fs.add_inputs(u, duty);
+        self.rev.excise_today += duty;
+    }
+
+    /// Each 1 January (the December close after the first year): every duty
+    /// times one plus the twelve-month inflation, never down.
+    fn index_excise(&mut self) {
+        let Some(m) = self.months.last() else {
+            return;
+        };
+        if self.months.len() < 12 || self.calendar.date(self.today).month != 12 {
+            return;
+        }
+        let pi = i128::from(m.inflation_ppm.max(0));
+        for d in &mut self.rev.duty_ppm {
+            *d =
+                u32::try_from(ratio(i128::from(*d), 1_000_000 + pi, 1_000_000)).unwrap_or(u32::MAX);
+        }
     }
 
     /// A twelfth of a yearly amount for the month of the year `k` (0 to 11):
@@ -300,6 +496,46 @@ impl World {
         paid
     }
 
+    /// EU funds at the month end: a twelfth of each year's amount in euro, at
+    /// the day's exchange rate.
+    fn pay_eu_funds(&mut self) {
+        let k = u32::try_from(self.months.len().saturating_sub(1) % 12).expect("a month");
+        #[cfg(feature = "trade")]
+        let rate = i128::from(self.trade_rate_index_ppm());
+        #[cfg(not(feature = "trade"))]
+        let rate = 1_000_000i128;
+        let lei = |year: i64| ratio(Self::twelfth(year, k), rate, 1_000_000);
+        let mut post = Postings::default();
+        post.pay_gov_any(
+            Sector::RestOfWorld,
+            bani(lei(EU_CURRENT)),
+            FlowCode::TRANSFER_EU_GRANTS_CURRENT,
+        );
+        post.pay_gov_any(
+            Sector::RestOfWorld,
+            bani(lei(EU_CAPITAL)),
+            FlowCode::TRANSFER_EU_GRANTS_CAPITAL,
+        );
+        let agri = lei(EU_AGRI);
+        let parts = super::money::split(agri, &self.rev.farm_key);
+        let mut paid = 0i128;
+        for (u, &p) in parts.iter().enumerate() {
+            if p > 0 {
+                self.units.deposits[u] += bani(p);
+                // Income of the unit: in its profit and taxable profit.
+                self.fs.add_value(u, p);
+                paid += p;
+            }
+        }
+        post.deposits(
+            Sector::RestOfWorld,
+            Sector::Firms,
+            bani(paid),
+            FlowCode::SUBSIDY_EU_AGRI,
+        );
+        post.commit(&mut self.ledger);
+    }
+
     /// Part 3 at the month end: a twelfth of each small revenue line.
     fn pay_held_revenue(&mut self) {
         let k = u32::try_from(self.months.len().saturating_sub(1) % 12).expect("a month");
@@ -401,8 +637,10 @@ impl World {
             return;
         }
         let x = std::mem::take(&mut self.rev.products_today);
+        let e = std::mem::take(&mut self.rev.excise_today);
         let mut post = Postings::default();
         post.pays_gov(Sector::Firms, bani(x), FlowCode::TAX_PRODUCTS);
+        post.pays_gov(Sector::Firms, bani(e), FlowCode::TAX_EXCISE);
         post.commit(&mut self.ledger);
     }
 
@@ -456,6 +694,8 @@ impl World {
         post.pays_gov(Sector::Firms, bani(total), FlowCode::TAX_PRODUCTION);
         post.commit(&mut self.ledger);
         self.pay_held_revenue();
+        self.pay_eu_funds();
+        self.index_excise();
         let r = &mut self.rev;
         r.rent_last = std::mem::replace(&mut r.rent_month, vec![0; r.rent_last.len()]);
     }
@@ -513,6 +753,9 @@ impl World {
         #[allow(clippy::cast_sign_loss)]
         for v in &self.rev.output_month {
             write(*v as u64);
+        }
+        for &d in &self.rev.duty_ppm {
+            write(u64::from(d));
         }
         #[allow(clippy::cast_sign_loss)]
         for (m, l) in self.rev.rent_month.iter().zip(&self.rev.rent_last) {

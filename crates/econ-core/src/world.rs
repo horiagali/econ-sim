@@ -234,6 +234,9 @@ pub struct StartState {
     pub production_tax_ppm: Vec<u32>,
     /// The product taxes on investment over its value, millionths.
     pub investment_product_tax_ppm: u32,
+    /// Each industry's imported refined petroleum over its imported inputs,
+    /// millionths (spec economy/excise).
+    pub fuel_import_ppm: Vec<u32>,
     edits: Vec<StartEdit>,
 }
 
