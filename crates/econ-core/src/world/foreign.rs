@@ -88,6 +88,9 @@ pub struct TradeMonth {
     /// The central bank's intervention: foreign assets sold (> 0) or bought
     /// (< 0) against the rest of the world's lei deposits.
     pub intervention: Bani,
+    /// The capital account inside `current_account` (a memo): the EU's
+    /// capital grants (spec economy/eu-funds, AC-TFX-03 restated).
+    pub capital_account: Bani,
 }
 
 /// EUR/RON on 31 December 2021 (BNR), millionths.
@@ -156,6 +159,17 @@ impl World {
         self.trade_prices();
         self.ledger
             .allow_negative(Sector::RestOfWorld, Instrument::Deposits);
+    }
+
+    /// e / e0, millionths, for other modules (1,000,000 when trade does not
+    /// act).
+    #[cfg_attr(not(feature = "revenue"), allow(dead_code))]
+    pub(super) fn trade_rate_index_ppm(&self) -> u32 {
+        if self.fx.active {
+            self.rate_index_ppm()
+        } else {
+            1_000_000
+        }
     }
 
     /// e / e0, millionths.
@@ -361,12 +375,17 @@ impl World {
         };
         let flows = std::mem::take(&mut self.fx.month_flows);
         let ca: i128 = -flows.values().sum::<i128>();
+        let capital = -flows
+            .get(&FlowCode::TRANSFER_EU_GRANTS_CAPITAL)
+            .copied()
+            .unwrap_or(0);
         let volume = std::mem::take(&mut self.fx.exports_month);
         self.fx.months.push(TradeMonth {
             month,
             exports_volume: volume,
             current_account: bani(ca),
             intervention,
+            capital_account: bani(capital),
         });
     }
 

@@ -38,6 +38,12 @@ impl FlowCode {
     pub const INTEREST_CB_FOREIGN: FlowCode = FlowCode(2007);
     /// Dividends firm units pay their owners.
     pub const INCOME_DIVIDEND: FlowCode = FlowCode(2010);
+    /// Rent and royalties on natural resources paid to the government.
+    pub const RENT_NATURAL_RESOURCES: FlowCode = FlowCode(2011);
+    /// Interest the government receives (held at 2021 levels).
+    pub const INTEREST_GOV_RECEIVED: FlowCode = FlowCode(2012);
+    /// Owner-occupiers' imputed rent paid back by the real-estate units.
+    pub const INCOME_IMPUTED_RENT: FlowCode = FlowCode(2013);
     /// Self-employment and informal income paid out of firm units' surplus
     /// to households (M2 placeholder of spec `economy/households`).
     pub const MIXED_INCOME: FlowCode = FlowCode(2003);
@@ -60,15 +66,31 @@ impl FlowCode {
     pub const TAX_MICRO: FlowCode = FlowCode(3008);
     /// The tax on dividends, withheld by the paying unit.
     pub const TAX_DIVIDEND: FlowCode = FlowCode(3009);
+    /// Excise duties on fuel, tobacco and alcohol.
+    pub const TAX_EXCISE: FlowCode = FlowCode(3011);
+    /// Taxes on products that firms pay on their inputs and investment.
+    pub const TAX_PRODUCTS: FlowCode = FlowCode(3012);
+    /// Other taxes on production (D29).
+    pub const TAX_PRODUCTION: FlowCode = FlowCode(3013);
+    /// Households' taxes on property and vehicles.
+    pub const TAX_PROPERTY: FlowCode = FlowCode(3014);
+    /// The tax on gambling winnings.
+    pub const TAX_GAMBLING: FlowCode = FlowCode(3015);
     // 4xxx — social transfers (numbering of spec `economy/budget-2021`)
     /// Old-age and survivors' pensions.
     pub const BENEFIT_PENSION: FlowCode = FlowCode(4001);
+    /// Sickness and disability benefits.
+    pub const BENEFIT_DISABILITY: FlowCode = FlowCode(4002);
     /// Child allowance.
     pub const BENEFIT_FAMILY: FlowCode = FlowCode(4003);
     /// Unemployment benefit.
     pub const BENEFIT_UNEMPLOYMENT: FlowCode = FlowCode(4004);
+    /// Housing benefit.
+    pub const BENEFIT_HOUSING: FlowCode = FlowCode(4005);
     /// Guaranteed minimum income.
     pub const BENEFIT_SOCIAL_ASSISTANCE: FlowCode = FlowCode(4006);
+    /// Grants to pupils and students.
+    pub const BENEFIT_STUDENT: FlowCode = FlowCode(4007);
     /// Other social protection (and one-off transfers).
     pub const BENEFIT_OTHER: FlowCode = FlowCode(4008);
     // 41xx — other transfers (spec `economy/budget-2021`)
@@ -80,9 +102,19 @@ impl FlowCode {
     pub const TRANSFER_CAPITAL: FlowCode = FlowCode(4103);
     /// The central bank's profit remitted to the government.
     pub const TRANSFER_CB_PROFIT: FlowCode = FlowCode(4104);
+    /// The EU's current grants to the government.
+    pub const TRANSFER_EU_GRANTS_CURRENT: FlowCode = FlowCode(4105);
+    /// The EU's capital grants to the government (capital account).
+    pub const TRANSFER_EU_GRANTS_CAPITAL: FlowCode = FlowCode(4106);
+    /// Fines, penalties and other current transfers to the government.
+    pub const TRANSFER_OTHER_RECEIVED: FlowCode = FlowCode(4107);
+    /// Capital transfers to the government, other than the EU's.
+    pub const TRANSFER_CAPITAL_RECEIVED: FlowCode = FlowCode(4108);
     // 5xxx — subsidies
     /// Subsidies on production (D3).
     pub const SUBSIDY_PRODUCTION: FlowCode = FlowCode(5001);
+    /// The EU's direct payments to farms.
+    pub const SUBSIDY_EU_AGRI: FlowCode = FlowCode(5002);
     // 7xxx — financial transactions
     /// Cash paid into a bank account (cash for deposits).
     pub const CASH_DEPOSIT: FlowCode = FlowCode(7001);
@@ -103,7 +135,7 @@ impl FlowCode {
 
     /// Every code the ledger knows, in ascending order. A new code is added here
     /// and in [`FlowCode::name`] in the same change.
-    pub const ALL: [FlowCode; 39] = [
+    pub const ALL: [FlowCode; 55] = [
         Self::CONSUMPTION,
         Self::GOV_PURCHASES,
         Self::GOV_INVESTMENT,
@@ -117,6 +149,9 @@ impl FlowCode {
         Self::INTEREST_RESERVES,
         Self::INTEREST_CB_FOREIGN,
         Self::INCOME_DIVIDEND,
+        Self::RENT_NATURAL_RESOURCES,
+        Self::INTEREST_GOV_RECEIVED,
+        Self::INCOME_IMPUTED_RENT,
         Self::TAX_INCOME,
         Self::TAX_VAT,
         Self::TAX_EMPLOYER_CONTRIBUTION,
@@ -126,16 +161,29 @@ impl FlowCode {
         Self::TAX_PROFIT,
         Self::TAX_MICRO,
         Self::TAX_DIVIDEND,
+        Self::TAX_EXCISE,
+        Self::TAX_PRODUCTS,
+        Self::TAX_PRODUCTION,
+        Self::TAX_PROPERTY,
+        Self::TAX_GAMBLING,
         Self::BENEFIT_PENSION,
+        Self::BENEFIT_DISABILITY,
         Self::BENEFIT_FAMILY,
         Self::BENEFIT_UNEMPLOYMENT,
+        Self::BENEFIT_HOUSING,
         Self::BENEFIT_SOCIAL_ASSISTANCE,
+        Self::BENEFIT_STUDENT,
         Self::BENEFIT_OTHER,
         Self::TRANSFER_EU_BUDGET,
         Self::TRANSFER_OTHER_CURRENT,
         Self::TRANSFER_CAPITAL,
         Self::TRANSFER_CB_PROFIT,
+        Self::TRANSFER_EU_GRANTS_CURRENT,
+        Self::TRANSFER_EU_GRANTS_CAPITAL,
+        Self::TRANSFER_OTHER_RECEIVED,
+        Self::TRANSFER_CAPITAL_RECEIVED,
         Self::SUBSIDY_PRODUCTION,
+        Self::SUBSIDY_EU_AGRI,
         Self::CASH_DEPOSIT,
         Self::BONDS,
         Self::LOAN,
@@ -167,6 +215,9 @@ impl FlowCode {
             2006 => "interest.reserves",
             2007 => "interest.cb_foreign",
             2010 => "income.dividend",
+            2011 => "rent.natural_resources",
+            2012 => "interest.gov_received",
+            2013 => "income.imputed_rent",
             2003 => "income.mixed",
             3001 => "tax.income",
             3002 => "tax.vat",
@@ -177,16 +228,29 @@ impl FlowCode {
             3007 => "tax.profit",
             3008 => "tax.micro",
             3009 => "tax.dividend",
+            3011 => "tax.excise",
+            3012 => "tax.products",
+            3013 => "tax.production",
+            3014 => "tax.property",
+            3015 => "tax.gambling",
             4001 => "benefit.pension",
+            4002 => "benefit.disability",
             4003 => "benefit.family",
             4004 => "benefit.unemployment",
+            4005 => "benefit.housing",
             4006 => "benefit.social_assistance",
+            4007 => "benefit.student",
             4008 => "benefit.other",
             4101 => "transfer.eu_budget",
             4102 => "transfer.other_current",
             4103 => "transfer.capital",
             4104 => "transfer.cb_profit",
+            4105 => "transfer.eu_grants_current",
+            4106 => "transfer.eu_grants_capital",
+            4107 => "transfer.other_received",
+            4108 => "transfer.capital_received",
             5001 => "subsidy.production",
+            5002 => "subsidy.eu_agri",
             7001 => "finance.cash_deposit",
             7002 => "finance.bonds",
             7003 => "finance.loan",

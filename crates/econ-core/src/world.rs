@@ -83,6 +83,9 @@ mod labour;
 mod load;
 mod money;
 mod pay_day;
+#[cfg(feature = "revenue")]
+#[allow(clippy::needless_range_loop)]
+mod revenue;
 #[cfg(feature = "fiscal")]
 mod treasury;
 
@@ -219,6 +222,21 @@ pub struct StartState {
     /// The government's fixed investment and land a year (the budget's
     /// `investment` and `non_produced_assets` lines).
     pub gov_investment_year: Bani,
+    /// Each household's tenure: owner 0, tenant 1, other 2 (stage E).
+    pub hh_tenure: Vec<u8>,
+    /// Each household's dwelling value (stage H).
+    pub hh_dwelling_value: Vec<Bani>,
+    /// Each industry's product taxes on inputs over its input purchases,
+    /// millionths (spec economy/government-revenue-2021, part 1).
+    pub product_tax_ppm: Vec<u32>,
+    /// Each industry's other taxes on production over its output, millionths
+    /// (part 2; subsidies left out).
+    pub production_tax_ppm: Vec<u32>,
+    /// The product taxes on investment over its value, millionths.
+    pub investment_product_tax_ppm: u32,
+    /// Each industry's imported refined petroleum over its imported inputs,
+    /// millionths (spec economy/excise).
+    pub fuel_import_ppm: Vec<u32>,
     edits: Vec<StartEdit>,
 }
 
@@ -924,6 +942,8 @@ pub struct World {
     cb: central_bank::CentralBank,
     #[cfg(feature = "investment")]
     inv: investment::Investment,
+    #[cfg(feature = "revenue")]
+    rev: revenue::Revenue,
     slips: PaySlips,
     demand: DayDemand,
     months: Vec<MonthStats>,
@@ -958,6 +978,8 @@ impl World {
         self.cb_begin_day();
         #[cfg(feature = "investment")]
         self.invest_begin_day();
+        #[cfg(feature = "revenue")]
+        self.rev_begin_day();
         #[cfg(feature = "trade")]
         self.trade_begin_day();
         let mut phases = Vec::with_capacity(PHASES.len());

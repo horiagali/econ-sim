@@ -69,6 +69,10 @@ trade = ["world", "dep:econ-mech-trade"]
 # profit and dividends on the `World`. Written before its acceptance tests by
 # the owner's decision (2026-10-21); off by default until they exist.
 investment = ["fiscal", "dep:econ-mech-investment"]
+# The rest of 2021's revenue, benefits and imputed rent (specs economy/excise,
+# eu-funds, government-revenue-2021, imputed-rent). Built before its tests by
+# the owner's decision (2026-10-21); off by default until they exist.
+revenue = ["fiscal"]
 
 [[test]]
 name = "acceptance"

@@ -258,12 +258,23 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     let mut home_coefficient_ppm = vec![vec![0u32; n_i]; n_i];
     let mut import_coefficient_ppm = vec![0u32; n_i];
     let mut other_cost_ppm = vec![0u32; n_i];
+    // The product taxes on inputs over input purchases, and the positive
+    // other taxes on production over output (spec
+    // economy/government-revenue-2021, parts 1 and 2).
+    let mut product_tax_ppm = vec![0u32; n_i];
+    let mut production_tax_ppm = vec![0u32; n_i];
+    // Each industry's imported refined petroleum (C19) over its imported
+    // inputs (spec economy/excise, step 2).
+    let mut fuel_import_ppm = vec![0u32; n_i];
+    let c19 = codes.iter().position(|c| c == "C19");
     for c in 0..n_i {
         if out_c[c] <= 0 {
             continue;
         }
         let mut home = vec![0i128; n_i];
         let (mut imported, mut other) = (0i128, 0i128);
+        let (mut bought, mut ptax, mut d29) = (0i128, 0i128, 0i128);
+        let mut fuel_imp = 0i128;
         for t in 0..n_t {
             let s = share[t][c];
             if s == 0 {
@@ -282,6 +293,22 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
                 imported += s * (imports_eu[t2][t] + imports_non_eu[t2][t]);
             }
             other += s * (other_taxes[t] + product_taxes[t]);
+            ptax += s * product_taxes[t];
+            if let Some(f) = c19 {
+                fuel_imp += s * (imports_eu[f][t] + imports_non_eu[f][t]);
+            }
+            d29 += s * other_taxes[t].max(0);
+            bought += s
+                * (0..n_t)
+                    .map(|t2| domestic[t2][t] + imports_eu[t2][t] + imports_non_eu[t2][t])
+                    .sum::<i128>();
+        }
+        if bought > 0 {
+            product_tax_ppm[c] = ppm(rdiv(ptax * ONE, bought));
+        }
+        production_tax_ppm[c] = ppm(rdiv(d29 * ONE, out_c[c]));
+        if imported > 0 {
+            fuel_import_ppm[c] = ppm(rdiv(fuel_imp * ONE, imported));
         }
         for c2 in 0..n_i {
             home_coefficient_ppm[c][c2] = ppm(rdiv(home[c2], out_c[c]));
@@ -400,6 +427,31 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     s.home_coefficient_ppm = home_coefficient_ppm;
     s.import_coefficient_ppm = import_coefficient_ppm;
     s.other_cost_ppm = other_cost_ppm;
+    s.product_tax_ppm = product_tax_ppm;
+    s.production_tax_ppm = production_tax_ppm;
+    s.fuel_import_ppm = fuel_import_ppm;
+    // The product taxes on investment and inventories over their value.
+    let pt_final = |use_: &str| -> Result<i128, SaveError> {
+        io["product_taxes_final"][use_]
+            .as_i64()
+            .map(i128::from)
+            .ok_or_else(|| parse(format!("io table: product taxes on {use_}")))
+    };
+    let inv_value: i128 = ["investment", "inventories"]
+        .iter()
+        .map(|u| -> Result<i128, SaveError> {
+            let f = |part: &str| ints(&io["final"][*u][part], u);
+            Ok(f("domestic")?.iter().sum::<i128>()
+                + f("imports_eu")?.iter().sum::<i128>()
+                + f("imports_non_eu")?.iter().sum::<i128>())
+        })
+        .sum::<Result<i128, SaveError>>()?;
+    let inv_tax = pt_final("investment")? + pt_final("inventories")?;
+    s.investment_product_tax_ppm = if inv_value > 0 {
+        ppm(rdiv(inv_tax * ONE, inv_value))
+    } else {
+        0
+    };
     s.basket_ppm = basket_ppm;
     s.basket_import_ppm = basket_import_ppm;
     s.gov_domestic = money_of(&gov_dom);
@@ -415,6 +467,8 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     s.investment_imported = money_of(&inv_imp);
     s.exports = money_of(&exports);
     s.unit_loans = money(&fb, ff, "loans")?;
+    s.hh_tenure = u8s(&hb, hf, "hh_tenure")?;
+    s.hh_dwelling_value = money(&hb, hf, "hh_dwelling_value")?;
     s.unit_fixed_assets = money(&fb, ff, "fixed_assets")?;
     s.unit_controller = controller.clone();
     let (own_s, own_d, own_f) = (

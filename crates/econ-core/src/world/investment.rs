@@ -45,6 +45,16 @@ const DIVIDEND_DAY: u8 = 15;
 /// `tfp_base_growth`, a year (production's 1%; spec open question 7: run
 /// at 1% and at 0%, keep 1% if the quiet baseline holds).
 const TFP_GROWTH_PPM: i128 = 0;
+/// Whether the investment rule (steps 1 to 3, 6 to 8) acts. **Off until
+/// the calibration of M7** (owner, 2026-10-21): in the `World` under the 2021
+/// law it deepened the slump (unemployment 14-16% against 7-10% without it),
+/// because units run below the utilisation the rule takes as normal and cut
+/// investment, which cuts demand. While it is off the units buy M2's
+/// investment at fixed real levels (and pay the government's part), and
+/// capital, profit and dividends work as with it. Switch it on and tune it
+/// in M7 (roadmap).
+pub(super) const INVESTMENT_RULE: bool = false;
+
 /// The firms' loan rate when there are no banks: the starting policy rate
 /// plus money and banking's spread for firms.
 const LOAN_RATE_NO_BANKS_PPM: i32 = 47_500;
@@ -291,14 +301,14 @@ impl World {
         LOAN_RATE_NO_BANKS_PPM
     }
 
-    /// Whether the investment rule acts.
+    /// Whether the investment rule acts (see [`INVESTMENT_RULE`]).
     pub(super) fn invest_rule_active(&self) -> bool {
-        self.inv.active
+        self.inv.active && INVESTMENT_RULE
     }
 
     /// Step 1, on the unit's plan day: the month's budget.
     pub(super) fn invest_budget(&mut self, u: usize, days: u8) {
-        if !self.inv.active || self.uu.public[u] || self.inv.books[u].capital <= 0 {
+        if !self.invest_rule_active() || self.uu.public[u] || self.inv.books[u].capital <= 0 {
             return;
         }
         let p = self.invest_params();
@@ -330,7 +340,7 @@ impl World {
     /// Steps 2 and 3, before the day's goods market: the day's investment
     /// demand by good, the units' budgets and the government's part.
     pub(super) fn invest_demand_today(&mut self) {
-        if !self.inv.active {
+        if !self.invest_rule_active() {
             return;
         }
         let r = &mut self.inv.rule;
@@ -349,7 +359,7 @@ impl World {
     /// Who pays today's investment: the government's share, millionths, and
     /// the units' weights (their budgets); `None` when the rule does not act.
     pub(super) fn invest_payers(&self) -> Option<(i128, Vec<i128>)> {
-        if !self.inv.active {
+        if !self.invest_rule_active() {
             return None;
         }
         let r = &self.inv.rule;
@@ -493,7 +503,9 @@ impl World {
             };
             self.inv.view.profit_after_tax[u] = bani(pre - tax);
         }
-        self.rule_close();
+        if self.invest_rule_active() {
+            self.rule_close();
+        }
     }
 
     /// Step 5: every market unit's dividend, split by its owners.

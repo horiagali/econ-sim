@@ -37,7 +37,7 @@ From the [research note](../../01-research/notes/imputed-rent-romania-2021.md):
 
 **In:**
 1. **Spending, daily:** unchanged. Households buy `real_estate` by the basket; it is VAT-exempt.
-2. **The payback, month end, in the pay phase** (before the monthly close):
+2. **The payback, on the 15th, for the month before** (restated 2026-10-21 by the owner from pay day: paid on pay day it would change a pay day's income, which AC-ST-05 holds to the pay slips; it is still in the next decision's income):
    - **The amount.** $R = \theta \times$ households' spending on `real_estate` in the month (net, with weights).
    - **Who pays.** Each real-estate unit pays its share of $R$, in proportion to its sales in the month.
    - **How it reaches households.** Each owner household receives $R \times$ its key ÷ the weighted sum of keys, in whole bani per record, through a clearing account (as dividends, ADR-0016). The rounding remainder stays with the units.
