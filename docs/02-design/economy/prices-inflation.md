@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/production, economy/labor-market, economy/trade-fx, economy/monetary-policy, economy/vat, adr/0017-time-base]
 research: []
-updated: 2026-10-15
+updated: 2026-10-21
 ---
 
 # Prices & Inflation
@@ -45,7 +45,7 @@ Speeds and rates are stated per month or per year and converted once ([ADR-0017]
 ```math
 p^*_g = (1 + \mu_g) \cdot uc_g
 ```
-Taxes on the product (VAT, excise) are added on top when a household buys ([vat](vat.md)); the consumer price is $p_g (1 + \tau^{VAT}_g + \tau^{excise}_g)$.
+Taxes on the product (VAT, excise) are added on top when a household buys ([vat](vat.md)); the consumer price is $(p_g + d_g)(1 + \tau^{VAT}_g)$, with $d_g$ the excise duty per unit of [excise](excise.md): VAT is charged on the duty, as the law does. *(Restated 2026-10-21 by the owner, with excise; it read $p_g (1 + \tau^{VAT}_g + \tau^{excise}_g)$.)*
 
 **Markup** responds to demand pressure (inventory ratio and capacity utilisation):
 ```math
