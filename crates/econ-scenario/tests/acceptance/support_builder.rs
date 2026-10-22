@@ -46,13 +46,16 @@ pub const CHECKS_AFTER: [&str; 2] = ["firms_against_ledger", "left_out"];
 pub const KNOWN_GAP: &str = "income_distribution";
 
 /// Every file of the folder.
-pub const FILES: [&str; 6] = [
+pub const FILES: [&str; 8] = [
     "scenario.json",
     "tables/households.arrow",
     "tables/persons.arrow",
     "tables/firm_units.arrow",
     "balances.arrow",
     "report.json",
+    // The law in force at the start (amendment of 2026-10-22, M4).
+    "law.json",
+    "world.json",
 ];
 
 /// The input files of the spec's table.

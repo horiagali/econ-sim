@@ -123,7 +123,7 @@ Tolerances are those of the table above; changing one is an owner decision.
 ## Acceptance tests
 IDs are stable. Tests in `crates/econ-scenario/tests/acceptance/` (protected), written in a test-authoring session. `[cli]` runs the binary on the committed fixtures.
 
-- [ ] **AC-SCB-01** `[cli]` `econ-cli build-scenario --sample-scale 1000 --out DIR` exits 0 and writes `scenario.json`, `tables/households.arrow`, `tables/persons.arrow`, `tables/firm_units.arrow`, `balances.arrow` and `report.json`. `report.json` has every check of the table, and all pass except the known gap `income_distribution`.
+- [ ] **AC-SCB-01** `[cli]` `econ-cli build-scenario --sample-scale 1000 --out DIR` exits 0 and writes `scenario.json`, `tables/households.arrow`, `tables/persons.arrow`, `tables/firm_units.arrow`, `balances.arrow`, `report.json`, `law.json` and `world.json`. `report.json` has every check of the table, and all pass except the known gap `income_distribution`. *(Restated 2026-10-22: `law.json` and `world.json` added with the owner's M4 amendment; `scenario.json` names them under `law`.)*
 - [ ] **AC-SCB-02** `[cli]` The same at 1:100. At 1:10 likewise, marked `#[ignore]` for CI time and run by `just build-scenario 10`.
 - [ ] **AC-SCB-03** `[unit]` The stage hashes in `scenario.json` equal the golden files of the stages (`tests/golden/popgen_ro_census2021*.hashes`) at 1:1000 and 1:100, and the opening hash (after rule 8) equals the reference's at each scale.
 - [ ] **AC-SCB-04** `[unit]` `balances.arrow` read back gives a ledger whose every instrument row sums to zero and whose balances equal the opening balance sheet's. Every balance was posted with flow code `opening`.

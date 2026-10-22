@@ -134,11 +134,17 @@ fn assert_cli_scenario(scale: u32) {
     assert_eq!(sc["start_date"], Value::from("2021-12-01"));
     assert_eq!(sc["sample_scale"], Value::from(scale));
     assert_eq!(sc["rng_seed"], Value::from(SEED), "the default seed");
-    assert_eq!(sc["law"], Value::Null, "no law.json until M4");
+    // Restated 2026-10-22 (owner's amendment, M4): `law` names the law's
+    // two files, which the folder holds (FILES checks they exist).
+    assert_eq!(
+        sc["law"],
+        serde_json::json!({"law": "law.json", "world": "world.json"}),
+        "scenario.json names law.json and world.json"
+    );
     assert_eq!(sc["consistent"], Value::Bool(true));
 }
 
-/// AC-SCB-01 [cli] `econ-cli build-scenario --sample-scale 1000 --out DIR` exits 0 and writes `scenario.json`, `tables/households.arrow`, `tables/persons.arrow`, `tables/firm_units.arrow`, `balances.arrow` and `report.json`. `report.json` has every check of the table, and all pass except the known gap `income_distribution`.
+/// AC-SCB-01 [cli] `econ-cli build-scenario --sample-scale 1000 --out DIR` exits 0 and writes `scenario.json`, `tables/households.arrow`, `tables/persons.arrow`, `tables/firm_units.arrow`, `balances.arrow`, `report.json`, `law.json` and `world.json`. `report.json` has every check of the table, and all pass except the known gap `income_distribution`.
 #[test]
 fn ac_scb_01() {
     assert_cli_scenario(1000);
