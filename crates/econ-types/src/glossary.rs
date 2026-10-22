@@ -185,6 +185,9 @@ pub const VARIABLES: &[Variable] = &[
     Variable { code_name: "last_wage", meaning: "Gross wage of the person's last job, kept when it is lost; the base of the unemployment benefit", unit: "LCU / month", kind: "state", owner: "economy/social-transfers" },
     Variable { code_name: "benefit_months_left", meaning: "Months of unemployment benefit the person has left", unit: "months", kind: "state", owner: "economy/social-transfers" },
     Variable { code_name: "public_wage_bill", meaning: "Wages the government pays its employees (ESA D11): what the public units' employees earn", unit: "LCU / tick", kind: "flow", owner: "economy/budget-2021" },
+    Variable { code_name: "ministry_budget[l]", meaning: "Lever: the year's budget of budget line *l* (running and investment parts together); integer bani in code", unit: "LCU / year", kind: "lever", owner: "game/lever-system" },
+    Variable { code_name: "ministry_investment_share[l]", meaning: "Lever: the share of `ministry_budget[l]` that goes to investment (projects and maintenance); the rest is running (staff and inputs); basis points in code", unit: "ratio", kind: "lever", owner: "game/lever-system" },
+    Variable { code_name: "public_pay[f]", meaning: "Lever: pay of public firm unit *f*'s employees as a share of their pay on the start date (1 = unchanged); basis points in code", unit: "ratio", kind: "lever", owner: "game/lever-system" },
 ];
 
 /// Look up a variable by its canonical code name.

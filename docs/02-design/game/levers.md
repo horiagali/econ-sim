@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [game/overview]
 research: []
-updated: 2026-10-10
+updated: 2026-10-22
 ---
 
 # Player Levers — Catalogue
@@ -15,6 +15,8 @@ updated: 2026-10-10
 Lag = time from decision to first effect. A tick is one day ([ADR-0017](../../03-architecture/decisions/0017-time-base.md)). In the tables below, written before that decision, "next tick" means **the first day of the following month** for law (taxes, benefits, budgets, regulation) and **the next day** for market operations of the central bank (policy rate, QE, monetary financing, FX intervention); "N ticks" means N months.
 
 Changing a lever costs nothing in v1 (owner decision 2026-10-10); a cost for frequent reversals may come later.
+
+How a lever works as a command (registry, validation, effective dates, log and replay, headless play, the "why" of a change) and the alpha levers with the mechanic each drives: [lever system](lever-system.md).
 
 ## Taxation ([taxation](../economy/taxation.md))
 | Lever | Form | Range | Lag |
@@ -34,8 +36,8 @@ Changing a lever costs nothing in v1 (owner decision 2026-10-10); a cost for fre
 ## Spending and public services ([fiscal policy](../economy/fiscal-policy.md))
 | Lever | Form | Lag |
 |---|---|---|
-| Budget per ministry | education, health, police and justice, infrastructure maintenance, research, culture, environment, administration | next tick (effects build over months or years) |
-| Public sector wages | % vs private equivalent | next tick |
+| Budget per ministry | education, health, police and justice, infrastructure maintenance, research, culture, environment, administration. Education and health are each split into a running part (staff and inputs) and an investment part (projects and maintenance, [infrastructure](../economy/infrastructure.md)); the split is a lever; unspent running money returns to the treasury at year end (owner, 2026-10-22) | next tick (effects build over months or years) |
+| Public sector wages | per public unit (teachers, doctors, …); not raised by the budget (owner, 2026-10-22). Form: see [lever system](lever-system.md) | next tick |
 | Public sector headcount targets | per ministry | hiring over months |
 | Government borrowing | issue bonds or bills; maturity mix | next tick |
 
