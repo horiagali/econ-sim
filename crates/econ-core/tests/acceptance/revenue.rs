@@ -145,17 +145,20 @@ fn ac_grv_02() {
 
 /// **AC-GRV-03** `[sim]` With parts 1 and 2 on, every industry's starting
 /// unit cost and price are those of the `World` without them. After twelve
-/// months, the fall in firm units' deposits plus the change in the dividends
-/// they paid equals the taxes paid, within 5% (restated by the owner,
+/// months, the fall in firm units' deposits plus the fall in the dividends
+/// they paid plus the fall in the profit tax they paid (`tax.profit` and
+/// `tax.micro`) equals the taxes paid (`tax.products` and `tax.production`),
+/// all summed over each day's flows, within 10% (restated by the owner,
 /// 2026-10-22).
 ///
 /// "The taxes paid" are the government's receipts under `tax.products` and
-/// `tax.production` in the world with them, summed over each day's flows.
-/// "The fall in firm units' deposits" is their deposits in the world without
-/// them less those in the world with them. "The change in the dividends
-/// they paid" is the firms' net payments under `income.dividend` in the
-/// world without them less those in the world with them, summed over each
-/// day's flows (zero with no dividends).
+/// `tax.production` in the world with them. "The fall in firm units'
+/// deposits" is their deposits in the world without them less those in the
+/// world with them. "The fall in the dividends they paid" is the firms' net
+/// payments under `income.dividend` in the world without them less those in
+/// the world with them; "the fall in the profit tax they paid" is the same
+/// for the firms' net payments under `tax.profit` and `tax.micro`. Flows are
+/// summed over each day (zero when there are none).
 #[test]
 fn ac_grv_03() {
     let mut with = world_2021(1000);
@@ -176,9 +179,12 @@ fn ac_grv_03() {
     );
     let taxes = [code("tax.products"), code("tax.production")];
     let dividend = code("income.dividend");
-    // The taxes the first world paid and each world's dividends, day by day.
+    let profit_taxes = [code("tax.profit"), code("tax.micro")];
+    // The taxes the first world paid and each world's dividends and profit
+    // tax, day by day.
     let mut paid = Bani::ZERO;
     let mut dividends = [Bani::ZERO; 2];
+    let mut profit_tax = [Bani::ZERO; 2];
     for (k, w) in [&mut with, &mut without].into_iter().enumerate() {
         while w.months().len() < 12 {
             step(w);
@@ -188,20 +194,25 @@ fn ac_grv_03() {
                 }
             }
             dividends[k] += Bani::ZERO - w.ledger().flows().get(dividend, Sector::Firms);
+            for &c in &profit_taxes {
+                profit_tax[k] += Bani::ZERO - w.ledger().flows().get(c, Sector::Firms);
+            }
         }
     }
     let lower = total(&without.firm_units().deposits) - total(&with.firm_units().deposits);
     let fewer_dividends = dividends[1] - dividends[0];
+    let less_profit_tax = profit_tax[1] - profit_tax[0];
     eprintln!(
-        "AC-GRV-03: taxes paid {:.2} billion lei, firm deposits lower by {:.2}, dividends lower by {:.2}",
+        "AC-GRV-03: taxes paid {:.2} billion lei, firm deposits lower by {:.2}, dividends lower by {:.2}, profit tax lower by {:.2}",
         bn(paid),
         bn(lower),
-        bn(fewer_dividends)
+        bn(fewer_dividends),
+        bn(less_profit_tax)
     );
     assert!(paid > Bani::ZERO);
     assert!(
-        gap_ppm(lower + fewer_dividends, paid) <= 50_000,
-        "deposits lower by {lower:?} and dividends by {fewer_dividends:?}, taxes paid {paid:?}"
+        gap_ppm(lower + fewer_dividends + less_profit_tax, paid) <= 100_000,
+        "deposits lower by {lower:?}, dividends by {fewer_dividends:?} and profit tax by {less_profit_tax:?}, taxes paid {paid:?}"
     );
 }
 
@@ -488,7 +499,9 @@ fn held_benefits() -> Vec<(&'static str, FlowCode, f64, bool)> {
 /// restated by the owner from pay day, 2026-10-22) each held benefit pays
 /// exactly its monthly amount, less rounding under one ban per record, to
 /// its key group only. Recipients' `hh_income_received` grows by it. Twelve
-/// months add to the programme's held amount.
+/// months add to the programme's held amount. The keys are read on the day
+/// of payment: the sickness part's employees are those employed on the
+/// 15th, not those at load (restated by the owner, 2026-10-22).
 ///
 /// The codes that carry only held benefits (`benefit.disability`,
 /// `benefit.housing`, `benefit.student`) pay nothing on other days. Income
@@ -502,6 +515,16 @@ fn held_benefits() -> Vec<(&'static str, FlowCode, f64, bool)> {
 /// approximately, so they are checked within 5%. The keys the starting state
 /// shows are checked: persons aged 65 or over; households with a child under
 /// 2; households of the lowest fifth; employees.
+///
+/// "Employees on the 15th" means persons whose current declared wage
+/// (`World::persons().wage_declared`) is above zero. A household whose having
+/// an employee is the same before and after the 15th's step must be in the
+/// key exactly when it has one; a household whose employment changed during
+/// the 15th may be either (the spec does not order the payment against the
+/// day's hiring and separations). In the same way "the lowest income fifth"
+/// is read on the 15th: a household in the key is in the lowest
+/// `hh_fifth` before or after the 15th's step (households deciding that day
+/// move between fifths).
 #[cfg(feature = "pay_day")]
 #[test]
 fn ac_grv_06() {
@@ -513,14 +536,21 @@ fn ac_grv_06() {
     let mut members = vec![0i64; n];
     let mut aged = vec![false; n];
     let mut baby = vec![false; n];
-    let mut employee = vec![false; n];
     for (p, &h) in start.household_id.iter().enumerate() {
         let h = h as usize;
         members[h] += 1;
         aged[h] |= start.age[p] >= 65 * 12;
         baby[h] |= start.age[p] < 2 * 12;
-        employee[h] |= start.wage_declared[p] > Bani::ZERO;
     }
+    // Households with a person whose current declared wage is above zero.
+    let employed = |w: &econ_core::world::World| {
+        let mut e = vec![false; n];
+        let persons = w.persons();
+        for (p, &h) in persons.household_id.iter().enumerate() {
+            e[h as usize] |= persons.wage_declared[p] > Bani::ZERO;
+        }
+        e
+    };
     let mut due_year = vec![Bani::ZERO; programmes.len()];
     let held_only = [
         code("benefit.disability"),
@@ -530,6 +560,8 @@ fn ac_grv_06() {
     let mut pay_days = 0u8;
     while pay_days < 12 {
         let before = w.households().hh_income_received.clone();
+        let employee_before = employed(&w);
+        let fifth_before = w.households().hh_fifth.clone();
         let r = step(&mut w);
         assert_checks(&r);
         if r.date.day != 15 {
@@ -568,7 +600,7 @@ fn ac_grv_06() {
                 r.date,
                 b.due
             );
-            for h in 0..n {
+            for (h, held) in held_hh.iter_mut().enumerate() {
                 if b.received[h] != Bani::ZERO {
                     assert!(
                         b.in_key[h],
@@ -576,7 +608,7 @@ fn ac_grv_06() {
                         r.date
                     );
                 }
-                held_hh[h] += b.received[h];
+                *held += b.received[h];
             }
             match *name {
                 "social_protection_other" => {
@@ -586,16 +618,30 @@ fn ac_grv_06() {
                     assert_eq!(b.in_key, baby, "{name}: households with a child under 2")
                 }
                 "sickness_disability.sickness" => {
-                    assert_eq!(b.in_key, employee, "{name}: employees")
+                    let employee_after = employed(&w);
+                    for h in 0..n {
+                        if employee_before[h] == employee_after[h] {
+                            assert_eq!(
+                                b.in_key[h], employee_after[h],
+                                "{:?}: {name}: household {h}, employees on the 15th",
+                                r.date
+                            );
+                        }
+                    }
                 }
                 "housing" | "social_exclusion" => {
-                    let lowest = w.households().hh_fifth.iter().copied().min().unwrap_or(0);
+                    let fifth_after = &w.households().hh_fifth;
+                    let lowest_before = fifth_before.iter().copied().min().unwrap_or(0);
+                    let lowest_after = fifth_after.iter().copied().min().unwrap_or(0);
                     for h in 0..n {
                         if b.in_key[h] {
-                            assert_eq!(
-                                w.households().hh_fifth[h],
-                                lowest,
-                                "{name}: household {h} not in the lowest fifth"
+                            assert!(
+                                fifth_before[h] == lowest_before || fifth_after[h] == lowest_after,
+                                "{:?}: {name}: household {h} not in the lowest fifth on the 15th \
+                                 (fifth {} before the day, {} after)",
+                                r.date,
+                                fifth_before[h],
+                                fifth_after[h]
                             );
                         }
                     }

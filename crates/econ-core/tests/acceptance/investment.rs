@@ -316,9 +316,9 @@ fn ac_inv_06() {
     let mut w = world_2021(1000);
     let k0: Vec<i64> = w.investment().capital.clone();
     let n = k0.len();
-    for u in 0..n {
+    for (u, &k) in k0.iter().enumerate() {
         assert_eq!(
-            k0[u],
+            k,
             start.unit_fixed_assets[u].get(),
             "unit {u}: starting capital is its fixed assets"
         );
@@ -412,7 +412,8 @@ fn ac_inv_06() {
                 "month {m}: a unit's A {x} against {a}"
             );
         }
-        let expected_a = (1.0 + 0.01 / 12.0_f64).powi(i32::try_from(m + 1).expect("small"));
+        let expected_a =
+            econ_num::math::powi(1.0 + 0.01 / 12.0, i32::try_from(m + 1).expect("small"));
         assert!(
             (a - expected_a).abs() <= 1e-3,
             "month {m}: A {a}, 1% a year gives {expected_a}"
