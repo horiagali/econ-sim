@@ -336,6 +336,17 @@ pub enum StartEdit {
         /// Millionths.
         factor_ppm: u32,
     },
+    /// A permanent depreciation of the leu: on day 0, before the first
+    /// phase, the exchange rate `e` (lei per euro) becomes its starting value
+    /// times `factor_ppm` / 1,000,000, while `e0`, the base of the index
+    /// `e / e0`, keeps the scenario's starting rate; from then on `e` moves
+    /// by trade's monthly rule from the new level (AC-EUF-05). A test
+    /// writer's addition (ADR-0014).
+    #[cfg(feature = "trade")]
+    Depreciation {
+        /// Millionths.
+        factor_ppm: u32,
+    },
     /// The world runs without one part of the 2021 law's revenue, for the
     /// whole run, so that a test can compare it with the world that has it
     /// (AC-EXC-07, AC-GRV-03, AC-IMP-03 and 04). A test writer's addition

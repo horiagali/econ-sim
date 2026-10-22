@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/eu-membership, economy/infrastructure, economy/state-capacity, economy/fiscal-policy, economy/budget-2021, economy/trade-fx, economy/industries, game/world-loop, adr/0007-money-and-ledger, adr/0017-time-base]
 research: [research/government-revenue-romania-2021]
-updated: 2026-10-21
+updated: 2026-10-22
 ---
 
 # EU Funds & Absorption
@@ -77,7 +77,7 @@ A tick is one day ([ADR-0017](../../03-architecture/decisions/0017-time-base.md)
 | What | When |
 |---|---|
 | EU grants to the government; direct payments to farmers | month end, a twelfth of the year's amount, before the treasury's financing |
-| The lei value of the month's payments | at the month end's exchange rate |
+| The lei value of the month's payments | at the exchange rate in force before the month end's close |
 
 ## State variables
 | Symbol | code_name | Meaning | Unit |
@@ -112,7 +112,7 @@ What is built first, on the `World` of [game/world-loop](../game/world-loop.md),
 - **Payment key.** Each farm unit's share of the payments is its share of their starting output, fixed at load.
 
 **In:**
-1. **The month's amounts, month end.** Each line's yearly amount becomes twelve monthly amounts in bani by [budget-2021](budget-2021.md)'s rule (remainders on the first months). Each is then multiplied by the exchange-rate index $e/e_0$ of the day, rounded half away from zero. The EU pays in euro, so a depreciation raises the lei value.
+1. **The month's amounts, month end.** Each line's yearly amount becomes twelve monthly amounts in bani by [budget-2021](budget-2021.md)'s rule (remainders on the first months). Each is then multiplied by the exchange-rate index $e/e_0$ in force before the month end's close (trade's close may move the rate after the payments; restated by the owner, 2026-10-22), rounded half away from zero. The EU pays in euro, so a depreciation raises the lei value.
 2. **Grants to the government, month end** (before the treasury's financing, [fiscal policy](fiscal-policy.md) step 3). The rest of the world pays the month's current grants under `transfer.eu_grants_current` and capital grants under `transfer.eu_grants_capital`. The three legs of the `World` (`pay_gov_any` from the rest of the world):
    - rest of the world → banks, `deposits`;
    - banks → central bank, `reserves`;
@@ -188,13 +188,13 @@ IDs are stable (added 2026-10-21).
 
 - [ ] **AC-EUF-01** `[unit]` A year's amount becomes twelve monthly amounts that add up exactly to it at an exchange-rate index of 1. At an index $r$, each month's amount is the monthly amount times $r$, rounded half away from zero.
 - [ ] **AC-EUF-02** `[sim]` At every month end on the Romania scenario with the 2021 law:
-  - the government's receipts under `transfer.eu_grants_current` and `transfer.eu_grants_capital` each equal the month's amount, through the three legs;
+  - the government's receipts under `transfer.eu_grants_current` and `transfer.eu_grants_capital` each equal the month's amount (at the exchange rate in force before the month end's close; restated by the owner, 2026-10-22), through the three legs;
   - the rest of the world's deposits fall by the same;
   - the farm units receive exactly the month's direct payments under `subsidy.eu_agri`, and no other unit receives any;
   - every ledger check holds.
 - [ ] **AC-EUF-03** `[sim]` The trade month report's `capital_account` equals the month's `transfer.eu_grants_capital`. The identity of AC-TFX-03, with the current account read as current and capital account, closes every month end to the ban.
 - [ ] **AC-EUF-04** `[sim]` The first twelve months' EU receipts are each within 10% of 2021's (6.55, 16.02 and 9.81 billion lei); the difference is the exchange rate. The fiscal report shows the grants as revenue, and the net EU balance (receipts less `transfer.eu_budget`) is reported every month.
-- [ ] **AC-EUF-05** `[sim]` A permanent 10% depreciation (the world-constants edit of AC-TFX-04) raises the lei value of the next month's EU payments by 10%, within one ban per payment.
+- [ ] **AC-EUF-05** `[sim]` A permanent 10% depreciation of the leu (an exchange-rate edit: $e$ 10% higher from the start, $e_0$ unchanged) raises the lei value of the next month's EU payments by 10%, within one ban per payment. *(Restated by the owner, 2026-10-22: it named the world-constants edit of AC-TFX-04, a change in world euro prices, which does not move the exchange rate and so leaves EU funds in lei unchanged.)*
 - [ ] **AC-EUF-06** `[sim]` *(M18)* With low state capacity, absorption stays low and money is lost to decommitment.
 - [ ] **AC-EUF-07** `[sim]` *(M18)* Raising administrative capacity raises absorption over 1–3 years.
 - [ ] **AC-EUF-08** `[sim]` *(M18)* A suspended commitment (fiscal-rule breach) reduces new fund flows.
@@ -202,7 +202,7 @@ IDs are stable (added 2026-10-21).
 
 AC-EUF-01 to 05 were written on 2026-10-21, after the code (owner's decision of 2026-10-21), from this spec only:
 - **Where.** They are in `crates/econ-core/tests/acceptance/eu_funds.rs`, behind the feature `revenue`; AC-EUF-03 and 05 also need `trade`.
-- **What they read:** three test writer's additions, which the implementation fills: the month rule of the API sketch (`econ_core::world::eu_month`, months 0 to 11 as in `Budget::monthly`), each unit's receipts of the day (`World::revenue_today`) and the closed months of revenue (`World::revenue_months`, the net EU balance).
+- **What they read:** three test writer's additions, which the implementation fills: the month rule of the API sketch (`econ_core::world::eu_month`, months 0 to 11 as in `Budget::monthly`), each unit's receipts of the day (`World::revenue_today`) and the closed months of revenue (`World::revenue_months`, the net EU balance). AC-EUF-05 uses a fourth, added 2026-10-22: a permanent depreciation of the leu at load (`StartEdit::Depreciation`).
 - **Amounts.** The yearly amounts are this spec's table, because the budget fixture has no `eu_receipts` section yet.
 
 ### Tests owed

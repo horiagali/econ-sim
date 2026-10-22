@@ -562,6 +562,10 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             StartEdit::CentralBankFinancing { .. } => later.push(e.clone()),
             #[cfg(feature = "trade")]
             StartEdit::WorldPrices { factor_ppm } => world_factor = *factor_ppm,
+            #[cfg(feature = "trade")]
+            StartEdit::Depreciation { .. } => {
+                unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+            }
             #[cfg(feature = "revenue")]
             StartEdit::WithoutRevenue(part) => without_revenue.push(*part),
         }

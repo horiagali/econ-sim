@@ -212,9 +212,16 @@ fn ac_imp_02() {
 }
 
 /// **AC-IMP-03** `[sim]` The real-estate units' profit and taxable profit
-/// exclude the payback. Their first-year surplus is within 30% of 13.1
-/// billion lei, and prices of `real_estate` are those of a world without the
-/// payback on day 1.
+/// exclude the payback. Their first-year surplus net of depreciation is
+/// within 30% of −15.1 billion lei (13.1 billion before depreciation, less
+/// their depreciation of about 28.2 billion), and prices of `real_estate`
+/// are those of a world without the payback on day 1 (restated by the owner,
+/// 2026-10-22: 13.1 billion is gross of depreciation, and the units' profit
+/// is net of it).
+///
+/// The surplus is read as the units' profit before tax `Π^pre` summed over
+/// the first twelve closed months (the per-unit figure the `World` shows).
+/// "Within 30%" is of the target's size: within 4.53 billion lei of it.
 ///
 /// "Exclude the payback": over the first year, the real-estate units' profit
 /// before tax is lower than in the world without it by the payback they paid,
@@ -261,15 +268,15 @@ fn ac_imp_03() {
     };
     let (s_with, s_without) = (surplus(&with), surplus(&without));
     eprintln!(
-        "AC-IMP-03: real-estate surplus {:.2} billion lei (13.1), {:.2} without the payback; paid {:.2}",
+        "AC-IMP-03: real-estate surplus net of depreciation {:.2} billion lei (-15.1), {:.2} without the payback; paid {:.2}",
         bn(s_with),
         bn(s_without),
         bn(paid)
     );
-    let target = Bani::from_lei(13_100_000_000);
+    let target = Bani::from_lei(-15_100_000_000);
     assert!(
-        (s_with - target).abs().get() * 10 <= target.get() * 3,
-        "surplus {s_with:?}"
+        (s_with - target).abs().get() * 10 <= target.abs().get() * 3,
+        "surplus net of depreciation {s_with:?}, the spec's {target:?}"
     );
     let lower = s_without - s_with;
     assert!(

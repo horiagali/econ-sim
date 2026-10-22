@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/vat, economy/taxation, economy/excise, economy/eu-funds, economy/fiscal-policy, economy/budget-2021, economy/social-transfers, economy/prices-inflation, economy/investment-capital, game/world-loop, adr/0007-money-and-ledger, adr/0017-time-base]
 research: [research/government-revenue-romania-2021]
-updated: 2026-10-21
+updated: 2026-10-22
 ---
 
 # Government Revenue and Other Benefits at 2021 Levels
@@ -90,7 +90,7 @@ At month end, a twelfth of each line by [budget-2021](budget-2021.md)'s monthly 
   - the minimum income, 0.5.
 
   In all 129.3 billion of the budget's 148.2 billion of cash benefits (D62).
-- **The rest.** On each pay day, a twelfth of each programme below is paid from the government to households (three legs). It goes into `hh_income_received`, under the programme's code from [budget-2021](budget-2021.md), split equally over the key's persons or households (with weights, whole bani per record).
+- **The rest.** On each 15th (restated by the owner from pay day, 2026-10-22, as for AC-ST-05: paid on pay day it would change a pay day's income, which AC-ST-05 holds to the pay slips), a twelfth of each programme below is paid from the government to households (three legs). It goes into `hh_income_received`, under the programme's code from [budget-2021](budget-2021.md), split equally over the key's persons or households (with weights, whole bani per record).
 - **Residuals.** "Residual" lines are the programme's cash less 12 times the `World`'s own payment in the starting month, fixed at load.
 
 | Programme | Million lei a year | Key | Flow code | Confidence of the key |
@@ -118,15 +118,15 @@ Draft IDs (2026-10-21). Tests go in `crates/econ-core/tests/acceptance/revenue.r
   - the receipts under `tax.products` equal the sum of $t_j$ times each unit's day's input purchases plus $t_I$ times its investment purchases;
   - the government pays none on its own purchases or investment;
   - every ledger check holds.
-- [ ] **AC-GRV-03** `[sim]` With parts 1 and 2 on, every industry's starting unit cost and price are those of the `World` without them. Firm units' deposits after twelve months are lower by the taxes paid, within 5%.
+- [ ] **AC-GRV-03** `[sim]` With parts 1 and 2 on, every industry's starting unit cost and price are those of the `World` without them. After twelve months, the fall in firm units' deposits plus the change in the dividends they paid equals the taxes paid (`tax.products` and `tax.production`, summed over each day's flows), within 5%. *(Restated by the owner, 2026-10-22: the taxes lower profit, so firms also pay less in dividends; the deposits alone fall by the taxes less that change.)*
 - [ ] **AC-GRV-04** `[sim]` At every month end, `tax.production` equals the sum of $o_j$ times each unit's month's output value. The first year is within 20% of 8.10 billion lei.
 - [ ] **AC-GRV-05** `[sim]` Each held revenue line is paid every month end by its payers only, under its code. Twelve months add to its 2021 amount exactly, less any household shortfall, which is reported. Every owner household pays the same property tax and no tenant pays any.
-- [ ] **AC-GRV-06** `[sim]` On every pay day each held benefit pays exactly its monthly amount, less rounding under one ban per record, to its key group only. Recipients' `hh_income_received` grows by it. Twelve months add to the programme's held amount.
+- [ ] **AC-GRV-06** `[sim]` On every 15th (the held benefits' payment day) each held benefit pays exactly its monthly amount, less rounding under one ban per record, to its key group only. Recipients' `hh_income_received` grows by it. Twelve months add to the programme's held amount. *(Restated by the owner, 2026-10-22: the held benefits are paid on the 15th, not on pay day, see part 4.)*
 - [ ] **AC-GRV-07** `[sim]` The first year's fiscal report (AC-FIS-05) lists revenue by ESA line next to the research note's 2021 figures, and total revenue against TR less public units' sales and imputed contributions (352.8 billion lei). With excise and EU funds on, the total is within 15% (a check, not a target, as AC-TAX-09).
 
 AC-GRV-01 to 07 were written on 2026-10-21, after the code (owner's decision of 2026-10-21), from this spec only:
 - **Where.** They are in `crates/econ-core/tests/acceptance/revenue.rs`, behind the feature `revenue`; AC-GRV-06 also needs `pay_day`.
-- **What they read:** the starting state's rates, plus four test writer's additions, which the implementation fills: the day's purchases and taxes (`World::revenue_today`), the closed months of revenue (`World::revenue_months`, with the held lines and each household's property tax), the held benefits of the pay day (`World::held_benefits`) and each industry's unit cost (`World::unit_costs_ppm`). They also use a world without parts 1 and 2 (`StartEdit::WithoutRevenue(RevenuePart::ProductTaxes)`).
+- **What they read:** the starting state's rates, plus four test writer's additions, which the implementation fills: the day's purchases and taxes (`World::revenue_today`), the closed months of revenue (`World::revenue_months`, with the held lines and each household's property tax), the held benefits of the latest 15th (`World::held_benefits`) and each industry's unit cost (`World::unit_costs_ppm`). They also use a world without parts 1 and 2 (`StartEdit::WithoutRevenue(RevenuePart::ProductTaxes)`).
 - **Amounts.** The held amounts are this spec's tables, because the budget fixture has no `revenue_held` or `benefits_held` section yet.
 
 ### Tests owed
