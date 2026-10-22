@@ -434,7 +434,11 @@ fn ac_bank_07() {
 /// **AC-BANK-08** `[sim]` Quiet baseline: on the Romania scenario with the
 /// 2021 law, over 120 months total bank loans to firms stay within 30% of
 /// their start and capital adequacy above `car_min`.
+///
+/// Owed to roadmap M7 (owner, 2026-10-22): without M7's calibration firm
+/// loans grow about 31% by April 2023.
 #[test]
+#[ignore = "waits for M7's calibration (owner 2026-10-22)"]
 fn ac_bank_08() {
     let p = params();
     let mut w = world_2021(1000);

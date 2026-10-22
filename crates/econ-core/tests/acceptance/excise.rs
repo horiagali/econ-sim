@@ -90,9 +90,9 @@ fn ac_exc_06() {
                         r.date
                     );
                 }
-                for g in 0..n_goods {
+                for (g, &before) in prev.iter().enumerate().take(n_goods) {
                     assert!(
-                        rev.excise_duty_ppm[g] >= prev[g],
+                        rev.excise_duty_ppm[g] >= before,
                         "{:?}: a duty fell",
                         r.date
                     );
@@ -217,10 +217,11 @@ fn ac_exc_07() {
     let rev = w.revenue_today();
     let cp = &w.industries().consumer_price_ppm;
     let n = start.industry_id.len();
-    let mut table = vec![0.0; n];
-    for g in 0..n {
-        table[g] = by_parts(&start.industry_id[g], |i| final_demand("households", i));
-    }
+    let table: Vec<f64> = start
+        .industry_id
+        .iter()
+        .map(|id| by_parts(id, |i| final_demand("households", i)))
+        .collect();
     let x = |g: usize| {
         let d = f64::from(rev.excise_duty_ppm[g]) / 1e6;
         rev.hh_quantity[g] as f64 * f64::from(cp[g]) / 1e6 / (1.0 + d)
@@ -264,8 +265,8 @@ fn ac_exc_08() {
     let n = start.industry_id.len();
     let mut by_good = vec![Bani::ZERO; n];
     for m in months {
-        for g in 0..n {
-            by_good[g] += m.excise_by_good[g];
+        for (b, &e) in by_good.iter_mut().zip(&m.excise_by_good) {
+            *b += e;
         }
     }
     assert_eq!(

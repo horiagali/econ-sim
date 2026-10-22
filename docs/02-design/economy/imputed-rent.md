@@ -79,6 +79,7 @@ AC-IMP-01 to 04 were written on 2026-10-21, after the code (owner's decision of 
 
 ### Tests owed
 A line is removed when its test is written.
+- AC-IMP-03: waits for M7 (real estate's mixed income and surplus)
 
 ## API sketch
 In the `World` (`econ_core::world`), with the pay phase:
