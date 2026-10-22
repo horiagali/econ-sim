@@ -73,6 +73,11 @@ investment = ["fiscal", "dep:econ-mech-investment"]
 # eu-funds, government-revenue-2021, imputed-rent). Built before its tests by
 # the owner's decision (2026-10-21); off by default until they exist.
 revenue = ["fiscal"]
+# The lever system (spec game/lever-system, roadmap M4): the registry
+# (`levers.toml`), commands, validation, the law in force and the command log,
+# as an API skeleton written before its acceptance tests (ADR-0014); every body
+# is `unimplemented!` until they exist. Off by default.
+levers = ["world"]
 
 [[test]]
 name = "acceptance"

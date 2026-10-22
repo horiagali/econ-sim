@@ -165,6 +165,43 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | $A_l$ | `ministry_budget[l]` | Lever: the year's budget of budget line *l* (running and investment parts together); integer bani in code | LCU / year | lever | game/lever-system |
 | $s_l$ | `ministry_investment_share[l]` | Lever: the share of `ministry_budget[l]` that goes to investment (projects and maintenance); the rest is running (staff and inputs); basis points in code | ratio | lever | game/lever-system |
 | — | `public_pay[f]` | Lever: pay of public firm unit *f*'s employees as a share of their pay on the start date (1 = unchanged); basis points in code | ratio | lever | game/lever-system |
+| — | `income_tax_schedule` | Lever: the personal income tax brackets, (threshold, marginal rate) rows from 0; one row is a flat tax. Bani and basis points in code | LCU / month, ratio | lever | economy/taxation |
+| — | `deduction_base[d]` | Lever: personal deduction at a low gross wage, by dependants *d* (0 to 4 or more); integer bani in code | LCU / month | lever | economy/taxation |
+| — | `deduction_full_until`, `deduction_zero_at` | Lever: gross wage up to which the full personal deduction applies, and from which there is none | LCU / month | lever | economy/taxation |
+| — | `child_tax_credit` | Lever: income tax credit per child (none on the start date) | LCU / month | lever | economy/taxation |
+| — | `pension_tax_free` | Lever: part of a pension free of income tax | LCU / month | lever | economy/taxation |
+| — | `dividend_tax_rate`, `interest_tax_rate` | Lever: tax withheld on dividends and on interest; basis points in code | ratio | lever | economy/taxation |
+| — | `profit_tax_rate` | Lever: corporate profit tax rate; basis points in code | ratio | lever | economy/taxation |
+| — | `micro_rate_with_staff`, `micro_rate_no_staff` | Lever: micro-enterprise tax on turnover, with and without employees; basis points in code | ratio | lever | economy/taxation |
+| — | `micro_threshold` | Lever: turnover a year under which a micro unit pays the micro-enterprise tax | LCU / year | lever | economy/taxation |
+| — | `vat_category[g]` | Lever: VAT category of good *g*: standard, reduced, second reduced, zero, exempt | category | lever | economy/vat |
+| — | `cas_rate`, `cass_rate`, `cam_rate` | Lever: employee's pension (CAS) and health (CASS) contributions and the employer's labour insurance contribution (CAM), on the gross declared wage; basis points in code | ratio | lever | economy/taxation |
+| — | `pillar2_share` | Lever: points of `cas_rate` paid to the person's Pillar II pension fund; basis points in code | ratio | lever | economy/taxation |
+| — | `contribution_ceiling` | Lever: gross wage a month above which no contributions are due (0 = no ceiling) | LCU / month | lever | economy/taxation |
+| — | `property_tax_rate` | Lever: national tax rate on dwelling value; basis points a year in code | % / year | lever | economy/taxation |
+| — | `wealth_tax_threshold`, `wealth_tax_rate` | Lever: household net worth above which the wealth tax is due, and its rate (none on the start date) | LCU, % / year | lever | economy/taxation |
+| — | `excise_duty[g]` | Lever: excise duty per unit of good *g* (fuel, tobacco, alcohol); bani per 1,000 units in the lever registry | LCU / unit | lever | economy/excise |
+| — | `public_headcount[f]` | Lever: headcount target of public firm unit *f*; starts at `public_posts[f]` | posts | lever | economy/labor-market |
+| — | `new_issue_years` | Lever: maturity of new government bonds | years | lever | economy/fiscal-policy |
+| — | `minimum_pension` | Lever: the social indemnity for pensioners, the floor of every state pension | LCU / month | lever | economy/social-transfers |
+| — | `retirement_age[sex]` | Lever: standard retirement age by sex, in months of age; changes are phased in | months | lever | economy/demographics |
+| — | `pension_indexation` | Lever: how `pension_point_value` is indexed each January: none, prices, wages or a mix | category | lever | economy/social-transfers |
+| — | `reference_social_indicator` | Lever: the reference social indicator (ISR) that unemployment benefits are multiples of | LCU / month | lever | economy/social-transfers |
+| — | `ui_isr_share` | Lever: flat part of the unemployment benefit, as a share of the ISR; basis points in code | ratio | lever | economy/social-transfers |
+| — | `ui_wage_share[b]`, `ui_months[b]` | Lever: the unemployment benefit's share of `last_wage` and its months, by band *b* of contribution years | ratio, months | lever | economy/social-transfers |
+| — | `child_allowance_under2`, `child_allowance` | Lever: child allowance a month under 2, and from 2 to 18 | LCU / month | lever | economy/social-transfers |
+| — | `gmi_floor[n]`, `gmi_per_extra` | Lever: guaranteed minimum income floor for a household of *n* (1 to 5) members, and the amount added per further member | LCU / month | lever | economy/social-transfers |
+| — | `reserve_requirement` | Lever: reserves banks must hold, as a share of deposits; basis points in code | ratio | lever | economy/money-banking |
+| — | `qe_purchases` | Lever: government bonds the central bank buys (> 0) or sells (< 0) a month | LCU / month | lever | economy/monetary-policy |
+| — | `cb_deficit_funding` | Lever: the central bank's direct funding of the deficit a month; it adds to `monetary_financing` | LCU / month | lever | economy/monetary-policy |
+| — | `fx_regime` | Lever: exchange-rate regime: float, managed float, peg to the euro | category | lever | economy/trade-fx |
+| — | `fx_intervention` | Lever: foreign currency the central bank buys (> 0) or sells (< 0) a month beyond its rule | LCU / month | lever | economy/trade-fx |
+| — | `inspection_budget`, `audit_budget` | Lever: labour inspection and tax audit spending | LCU / year | lever | economy/informal-economy |
+| — | `penalty_multiple` | Lever: fine as a multiple of the evaded tax; tenths in code (10 = 1×) | ratio | lever | economy/informal-economy |
+| — | `foreign_price_growth[b]`, `foreign_demand_growth[b]` | World setting: growth a year of import prices and of demand for exports, by bloc *b* (EU, non-EU); basis points in code | % / year | lever | economy/trade-fx |
+| — | `fuel_price[fuel]` | World setting: world price of oil (a barrel), gas (a MWh) and coal (a tonne) | LCU / unit | lever | economy/energy |
+| — | `foreign_rate` | World setting: interest rate abroad (the ECB's); basis points in code | % / year | lever | economy/trade-fx |
+| — | `wages_abroad` | World setting: wages abroad relative to Romania's at the start; basis points in code | ratio | lever | economy/demographics |
 
 Indices: $g$ good, $j$ industry (same set as goods, except that the eight electricity generation industries share the good `wholesale_electricity` and `power_supply` sells `electricity`), $f$ firm unit (belongs to one industry; per-industry variables such as `output[j]` are also kept per unit as `output[f]`, and the industry value is the `firm_count`-weighted sum), $o$ occupation, $s$ skill tier, $r$ region, $c$ county, $h$ household, $i$ person, $p$ power plant, $\ell$ education level, $l$ budget line, $k$ economic type of spending. LCU = leu (RON).
 

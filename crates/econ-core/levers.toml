@@ -1,0 +1,845 @@
+# The lever registry (spec game/lever-system, ADR-0018): one [[lever]] table per lever.
+# Values are the shape's integers: rate = basis points, money = bani, number = a count.
+# A lever has no default here; its starting value is in python/pipeline/fixtures/law2021_ro.json.
+# `key` names a key table: a scenario table (industries, budget_lines, public_units) or one of
+# [key_tables] below; `keys` is the allowed subset. `range` of a schedule bounds each rate and
+# `rows` the number of rows. `# range: judgement` marks a range that is a judgement, not law.
+# Generated from this file by scripts/codegen_levers.py (not written yet): levers_gen.rs, the UI list, the test list.
+
+[key_tables]
+dependants = ["0", "1", "2", "3", "4_or_more"]
+sexes = ["F", "M"]
+household_sizes = ["1", "2", "3", "4", "5"]
+ui_share_bands = ["3y", "5y", "10y", "20y"]
+ui_duration_bands = ["1y", "5y", "10y"]
+blocs = ["eu", "non_eu"]
+fuels = ["oil", "gas", "coal"]
+
+[[lever]]
+id = "tax.income.schedule"
+kind = "law"
+shape = "schedule"
+unit = "% of taxable income a month, by threshold in lei"
+range = [0, 9000]
+rows = [1, 10]  # range: judgement
+spec = "economy/taxation"
+glossary = "income_tax_schedule"
+reader = "Pay"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.income.schedule"
+
+[[lever]]
+id = "tax.income.deduction_base"
+kind = "law"
+shape = "money"
+unit = "lei a month"
+range = [0, 1000000]  # range: judgement
+key = "dependants"
+spec = "economy/taxation"
+glossary = "deduction_base[d]"
+reader = "Pay"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.income.deduction_base"
+
+[[lever]]
+id = "tax.income.deduction_full_until"
+kind = "law"
+shape = "money"
+unit = "lei a month"
+range = [0, 10000000]  # range: judgement
+spec = "economy/taxation"
+glossary = "deduction_full_until"
+reader = "Pay"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.income.deduction_full_until"
+
+[[lever]]
+id = "tax.income.deduction_zero_at"
+kind = "law"
+shape = "money"
+unit = "lei a month"
+range = [0, 10000000]  # range: judgement
+spec = "economy/taxation"
+glossary = "deduction_zero_at"
+reader = "Pay"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.income.deduction_zero_at"
+
+[[lever]]
+id = "tax.income.credit_per_child"
+kind = "law"
+shape = "money"
+unit = "lei a month"
+range = [0, 500000]  # range: judgement
+spec = "economy/taxation"
+glossary = "child_tax_credit"
+reader = "Pay"
+group = "taxes"
+milestone = "alpha"
+status = "planned"
+label = "lever.tax.income.credit_per_child"
+
+[[lever]]
+id = "tax.income.pension_tax_free"
+kind = "law"
+shape = "money"
+unit = "lei a month"
+range = [0, 10000000]  # range: judgement
+spec = "economy/taxation"
+glossary = "pension_tax_free"
+reader = "Pay"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.income.pension_tax_free"
+
+[[lever]]
+id = "tax.capital.dividend_rate"
+kind = "law"
+shape = "rate"
+unit = "%"
+range = [0, 6000]
+spec = "economy/taxation"
+glossary = "dividend_tax_rate"
+reader = "MonthlyClose"
+group = "taxes"
+milestone = "alpha"
+status = "planned"
+label = "lever.tax.capital.dividend_rate"
+
+[[lever]]
+id = "tax.capital.interest_rate"
+kind = "law"
+shape = "rate"
+unit = "%"
+range = [0, 6000]
+spec = "economy/taxation"
+glossary = "interest_tax_rate"
+reader = "MonthlyClose"
+group = "taxes"
+milestone = "alpha"
+status = "planned"
+label = "lever.tax.capital.interest_rate"
+
+[[lever]]
+id = "tax.profit.rate"
+kind = "law"
+shape = "rate"
+unit = "%"
+range = [0, 6000]
+spec = "economy/taxation"
+glossary = "profit_tax_rate"
+reader = "MonthlyClose"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.profit.rate"
+
+[[lever]]
+id = "tax.profit.micro_rate_staff"
+kind = "law"
+shape = "rate"
+unit = "% of turnover"
+range = [0, 2000]  # range: judgement
+spec = "economy/taxation"
+glossary = "micro_rate_with_staff"
+reader = "MonthlyClose"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.profit.micro_rate_staff"
+
+[[lever]]
+id = "tax.profit.micro_rate_no_staff"
+kind = "law"
+shape = "rate"
+unit = "% of turnover"
+range = [0, 2000]  # range: judgement
+spec = "economy/taxation"
+glossary = "micro_rate_no_staff"
+reader = "MonthlyClose"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.profit.micro_rate_no_staff"
+
+[[lever]]
+id = "tax.profit.micro_threshold"
+kind = "law"
+shape = "money"
+unit = "lei of turnover a year"
+range = [0, 10000000000]  # range: judgement
+spec = "economy/taxation"
+glossary = "micro_threshold"
+reader = "MonthlyClose"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.profit.micro_threshold"
+
+[[lever]]
+id = "tax.vat.rate_standard"
+kind = "law"
+shape = "rate"
+unit = "%"
+range = [0, 4000]
+spec = "economy/vat"
+glossary = "vat_rate_standard"
+reader = "Prices"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.vat.rate_standard"
+
+[[lever]]
+id = "tax.vat.rate_reduced"
+kind = "law"
+shape = "rate"
+unit = "%"
+range = [0, 4000]
+spec = "economy/vat"
+glossary = "vat_rate_reduced"
+reader = "Prices"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.vat.rate_reduced"
+
+[[lever]]
+id = "tax.vat.rate_reduced_2"
+kind = "law"
+shape = "rate"
+unit = "%"
+range = [0, 4000]
+spec = "economy/vat"
+glossary = "vat_rate_reduced_2"
+reader = "Prices"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.vat.rate_reduced_2"
+
+[[lever]]
+id = "tax.vat.category"
+kind = "law"
+shape = "choice"
+unit = "category"
+key = "industries"
+options = ["standard", "reduced", "reduced_2", "zero", "exempt"]
+spec = "economy/vat"
+glossary = "vat_category[g]"
+reader = "Prices"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.vat.category"
+
+[[lever]]
+id = "tax.contrib.cas"
+kind = "law"
+shape = "rate"
+unit = "% of gross wage"
+range = [0, 4000]
+spec = "economy/taxation"
+glossary = "cas_rate"
+reader = "Pay"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.contrib.cas"
+
+[[lever]]
+id = "tax.contrib.pillar2_share"
+kind = "law"
+shape = "rate"
+unit = "points of CAS"
+range = [0, 4000]  # range: judgement
+spec = "economy/taxation"
+glossary = "pillar2_share"
+reader = "Pay"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.contrib.pillar2_share"
+
+[[lever]]
+id = "tax.contrib.cass"
+kind = "law"
+shape = "rate"
+unit = "% of gross wage"
+range = [0, 4000]
+spec = "economy/taxation"
+glossary = "cass_rate"
+reader = "Pay"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.contrib.cass"
+
+[[lever]]
+id = "tax.contrib.cam"
+kind = "law"
+shape = "rate"
+unit = "% of gross wage"
+range = [0, 4000]
+spec = "economy/taxation"
+glossary = "cam_rate"
+reader = "Pay"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.contrib.cam"
+
+[[lever]]
+id = "tax.contrib.ceiling"
+kind = "law"
+shape = "money"
+unit = "lei a month (0 = none)"
+range = [0, 10000000]  # range: judgement
+spec = "economy/taxation"
+glossary = "contribution_ceiling"
+reader = "Pay"
+group = "taxes"
+milestone = "alpha"
+status = "planned"
+label = "lever.tax.contrib.ceiling"
+
+[[lever]]
+id = "tax.property.rate"
+kind = "law"
+shape = "rate"
+unit = "% of dwelling value a year"
+range = [0, 300]
+spec = "economy/taxation"
+glossary = "property_tax_rate"
+reader = "MonthlyClose"
+group = "taxes"
+milestone = "alpha"
+status = "planned"
+label = "lever.tax.property.rate"
+
+[[lever]]
+id = "tax.wealth.threshold"
+kind = "law"
+shape = "money"
+unit = "lei of net worth"
+range = [0, 1000000000000]  # range: judgement
+spec = "economy/taxation"
+glossary = "wealth_tax_threshold"
+reader = "MonthlyClose"
+group = "taxes"
+milestone = "alpha"
+status = "planned"
+label = "lever.tax.wealth.threshold"
+
+[[lever]]
+id = "tax.wealth.rate"
+kind = "law"
+shape = "rate"
+unit = "% a year"
+range = [0, 500]
+spec = "economy/taxation"
+glossary = "wealth_tax_rate"
+reader = "MonthlyClose"
+group = "taxes"
+milestone = "alpha"
+status = "planned"
+label = "lever.tax.wealth.rate"
+
+[[lever]]
+id = "tax.excise.duty"
+kind = "law"
+shape = "money"
+unit = "lei per 1,000 units (1,000 lei of the good at starting prices)"
+range = [0, 1015200]  # range: judgement
+key = "industries"
+keys = ["refined_petroleum", "tobacco", "beverages"]
+spec = "economy/excise"
+glossary = "excise_duty[g]"
+reader = "GoodsMarket"
+group = "taxes"
+milestone = "alpha"
+status = "planned"
+label = "lever.tax.excise.duty"
+
+[[lever]]
+id = "spend.ministry_budget"
+kind = "law"
+shape = "money"
+unit = "lei a year"
+range = [0, 50000000000000]  # range: judgement
+key = "budget_lines"
+spec = "game/lever-system"
+glossary = "ministry_budget[l]"
+reader = "Pay"
+group = "spending"
+milestone = "alpha"
+status = "planned"
+label = "lever.spend.ministry_budget"
+
+[[lever]]
+id = "spend.investment_share"
+kind = "law"
+shape = "rate"
+unit = "% of the ministry budget"
+range = [0, 10000]
+key = "budget_lines"
+spec = "game/lever-system"
+glossary = "ministry_investment_share[l]"
+reader = "FixedDemand"
+group = "spending"
+milestone = "alpha"
+status = "planned"
+label = "lever.spend.investment_share"
+
+[[lever]]
+id = "spend.public_pay"
+kind = "law"
+shape = "rate"
+unit = "% of pay on the start date"
+range = [5000, 30000]  # range: judgement
+key = "public_units"
+spec = "game/lever-system"
+glossary = "public_pay[f]"
+reader = "Pay"
+group = "spending"
+milestone = "alpha"
+status = "planned"
+label = "lever.spend.public_pay"
+
+[[lever]]
+id = "spend.public_headcount"
+kind = "law"
+shape = "number"
+unit = "posts"
+range = [0, 2000000]  # range: judgement
+key = "public_units"
+spec = "economy/labor-market"
+glossary = "public_headcount[f]"
+reader = "Staffing"
+group = "spending"
+milestone = "alpha"
+status = "planned"
+label = "lever.spend.public_headcount"
+
+[[lever]]
+id = "spend.new_issue_years"
+kind = "law"
+shape = "number"
+unit = "years"
+range = [1, 30]  # range: judgement
+spec = "economy/fiscal-policy"
+glossary = "new_issue_years"
+reader = "MonthlyClose"
+group = "spending"
+milestone = "alpha"
+status = "planned"
+label = "lever.spend.new_issue_years"
+
+[[lever]]
+id = "transfer.pension.point_value"
+kind = "law"
+shape = "money"
+unit = "lei a month"
+range = [0, 1000000]  # range: judgement
+spec = "economy/social-transfers"
+glossary = "pension_point_value"
+reader = "Pay"
+group = "transfers"
+milestone = "alpha"
+status = "active"
+label = "lever.transfer.pension.point_value"
+
+[[lever]]
+id = "transfer.pension.minimum"
+kind = "law"
+shape = "money"
+unit = "lei a month"
+range = [0, 1000000]  # range: judgement
+spec = "economy/social-transfers"
+glossary = "minimum_pension"
+reader = "Pay"
+group = "transfers"
+milestone = "alpha"
+status = "active"
+label = "lever.transfer.pension.minimum"
+
+[[lever]]
+id = "transfer.pension.retirement_age"
+kind = "law"
+shape = "number"
+unit = "months of age"
+range = [600, 840]  # range: judgement
+key = "sexes"
+phase_in = { per_month = 1 }
+spec = "economy/demographics"
+glossary = "retirement_age[sex]"
+reader = "MonthlyClose"
+group = "transfers"
+milestone = "alpha"
+status = "planned"
+label = "lever.transfer.pension.retirement_age"
+
+[[lever]]
+id = "transfer.pension.indexation"
+kind = "law"
+shape = "choice"
+unit = "rule"
+options = ["none", "prices", "wages", "mix"]
+spec = "economy/social-transfers"
+glossary = "pension_indexation"
+reader = "WageRound"
+group = "transfers"
+milestone = "alpha"
+status = "planned"
+label = "lever.transfer.pension.indexation"
+
+[[lever]]
+id = "transfer.unemployment.isr"
+kind = "law"
+shape = "money"
+unit = "lei a month"
+range = [0, 1000000]  # range: judgement
+spec = "economy/social-transfers"
+glossary = "reference_social_indicator"
+reader = "Pay"
+group = "transfers"
+milestone = "alpha"
+status = "active"
+label = "lever.transfer.unemployment.isr"
+
+[[lever]]
+id = "transfer.unemployment.isr_share"
+kind = "law"
+shape = "rate"
+unit = "% of the ISR"
+range = [0, 30000]  # range: judgement
+spec = "economy/social-transfers"
+glossary = "ui_isr_share"
+reader = "Pay"
+group = "transfers"
+milestone = "alpha"
+status = "active"
+label = "lever.transfer.unemployment.isr_share"
+
+[[lever]]
+id = "transfer.unemployment.wage_share_by_years"
+kind = "law"
+shape = "rate"
+unit = "% of the last wage"
+range = [0, 10000]  # range: judgement
+key = "ui_share_bands"
+spec = "economy/social-transfers"
+glossary = "ui_wage_share[b]"
+reader = "Pay"
+group = "transfers"
+milestone = "alpha"
+status = "active"
+label = "lever.transfer.unemployment.wage_share_by_years"
+
+[[lever]]
+id = "transfer.unemployment.months_by_years"
+kind = "law"
+shape = "number"
+unit = "months"
+range = [0, 36]  # range: judgement
+key = "ui_duration_bands"
+spec = "economy/social-transfers"
+glossary = "ui_months[b]"
+reader = "Pay"
+group = "transfers"
+milestone = "alpha"
+status = "active"
+label = "lever.transfer.unemployment.months_by_years"
+
+[[lever]]
+id = "transfer.child.under2"
+kind = "law"
+shape = "money"
+unit = "lei a month"
+range = [0, 1000000]  # range: judgement
+spec = "economy/social-transfers"
+glossary = "child_allowance_under2"
+reader = "Pay"
+group = "transfers"
+milestone = "alpha"
+status = "active"
+label = "lever.transfer.child.under2"
+
+[[lever]]
+id = "transfer.child.to18"
+kind = "law"
+shape = "money"
+unit = "lei a month"
+range = [0, 1000000]  # range: judgement
+spec = "economy/social-transfers"
+glossary = "child_allowance"
+reader = "Pay"
+group = "transfers"
+milestone = "alpha"
+status = "active"
+label = "lever.transfer.child.to18"
+
+[[lever]]
+id = "transfer.min_income.floor"
+kind = "law"
+shape = "money"
+unit = "lei a month"
+range = [0, 1000000]  # range: judgement
+key = "household_sizes"
+spec = "economy/social-transfers"
+glossary = "gmi_floor[n]"
+reader = "Pay"
+group = "transfers"
+milestone = "alpha"
+status = "active"
+label = "lever.transfer.min_income.floor"
+
+[[lever]]
+id = "transfer.min_income.per_extra"
+kind = "law"
+shape = "money"
+unit = "lei a month"
+range = [0, 1000000]  # range: judgement
+spec = "economy/social-transfers"
+glossary = "gmi_per_extra"
+reader = "Pay"
+group = "transfers"
+milestone = "alpha"
+status = "active"
+label = "lever.transfer.min_income.per_extra"
+
+[[lever]]
+id = "labour.minimum_wage"
+kind = "law"
+shape = "money"
+unit = "lei a month"
+range = [0, 2000000]  # range: judgement
+spec = "economy/labor-market"
+glossary = "minimum_wage"
+reader = "WageRound"
+group = "transfers"
+milestone = "alpha"
+status = "active"
+label = "lever.labour.minimum_wage"
+
+[[lever]]
+id = "money.inflation_target"
+kind = "law"
+shape = "rate"
+unit = "% a year"
+range = [0, 1000]  # range: judgement
+spec = "economy/monetary-policy"
+glossary = "inflation_target"
+reader = "MonthlyClose"
+group = "money"
+milestone = "alpha"
+status = "planned"
+label = "lever.money.inflation_target"
+
+[[lever]]
+id = "money.policy_rate"
+kind = "market"
+shape = "rate"
+unit = "% a year"
+range = [0, 5000]  # range: judgement
+spec = "economy/monetary-policy"
+glossary = "policy_rate"
+reader = "MonthlyClose"
+group = "money"
+milestone = "alpha"
+status = "planned"
+label = "lever.money.policy_rate"
+
+[[lever]]
+id = "money.reserve_requirement"
+kind = "law"
+shape = "rate"
+unit = "% of deposits"
+range = [0, 5000]  # range: judgement
+spec = "economy/money-banking"
+glossary = "reserve_requirement"
+reader = "MonthlyClose"
+group = "money"
+milestone = "alpha"
+status = "planned"
+label = "lever.money.reserve_requirement"
+
+[[lever]]
+id = "money.qe"
+kind = "market"
+shape = "money"
+unit = "lei a month (buy > 0)"
+range = [-1000000000000, 1000000000000]  # range: judgement
+spec = "economy/monetary-policy"
+glossary = "qe_purchases"
+reader = "MonthlyClose"
+group = "money"
+milestone = "alpha"
+status = "planned"
+label = "lever.money.qe"
+
+[[lever]]
+id = "money.monetary_financing"
+kind = "market"
+shape = "money"
+unit = "lei a month"
+range = [0, 1000000000000]  # range: judgement
+spec = "economy/monetary-policy"
+glossary = "cb_deficit_funding"
+reader = "MonthlyClose"
+group = "money"
+milestone = "alpha"
+status = "planned"
+label = "lever.money.monetary_financing"
+
+[[lever]]
+id = "fx.regime"
+kind = "law"
+shape = "choice"
+unit = "regime"
+options = ["float", "managed_float", "peg"]
+spec = "economy/trade-fx"
+glossary = "fx_regime"
+reader = "MonthlyClose"
+group = "trade"
+milestone = "alpha"
+status = "planned"
+label = "lever.fx.regime"
+
+[[lever]]
+id = "fx.intervention"
+kind = "market"
+shape = "money"
+unit = "lei a month (buy foreign currency > 0)"
+range = [-1000000000000, 1000000000000]  # range: judgement
+spec = "economy/trade-fx"
+glossary = "fx_intervention"
+reader = "MonthlyClose"
+group = "trade"
+milestone = "alpha"
+status = "planned"
+label = "lever.fx.intervention"
+
+[[lever]]
+id = "informal.inspection_budget"
+kind = "law"
+shape = "money"
+unit = "lei a year"
+range = [0, 1000000000000]  # range: judgement
+spec = "economy/informal-economy"
+glossary = "inspection_budget"
+reader = "MonthlyClose"
+group = "taxes"
+milestone = "alpha"
+status = "planned"
+label = "lever.informal.inspection_budget"
+
+[[lever]]
+id = "informal.audit_budget"
+kind = "law"
+shape = "money"
+unit = "lei a year"
+range = [0, 1000000000000]  # range: judgement
+spec = "economy/informal-economy"
+glossary = "audit_budget"
+reader = "MonthlyClose"
+group = "taxes"
+milestone = "alpha"
+status = "planned"
+label = "lever.informal.audit_budget"
+
+[[lever]]
+id = "informal.penalty_multiple"
+kind = "law"
+shape = "number"
+unit = "tenths of the evaded tax"
+range = [0, 100]  # range: judgement
+spec = "economy/informal-economy"
+glossary = "penalty_multiple"
+reader = "MonthlyClose"
+group = "taxes"
+milestone = "alpha"
+status = "planned"
+label = "lever.informal.penalty_multiple"
+
+[[lever]]
+id = "world.foreign_price_growth"
+kind = "world"
+shape = "rate"
+unit = "% a year"
+range = [-2000, 5000]  # range: judgement
+key = "blocs"
+spec = "economy/trade-fx"
+glossary = "foreign_price_growth[b]"
+reader = "Prices"
+group = "world"
+milestone = "alpha"
+status = "planned"
+label = "lever.world.foreign_price_growth"
+
+[[lever]]
+id = "world.fuel_price"
+kind = "world"
+shape = "money"
+unit = "lei per barrel (oil), per MWh (gas), per tonne (coal)"
+range = [0, 1000000]  # range: judgement
+key = "fuels"
+spec = "economy/energy"
+glossary = "fuel_price[fuel]"
+reader = "Prices"
+group = "world"
+milestone = "alpha"
+status = "planned"
+label = "lever.world.fuel_price"
+
+[[lever]]
+id = "world.foreign_demand_growth"
+kind = "world"
+shape = "rate"
+unit = "% a year"
+range = [-2000, 2000]  # range: judgement
+key = "blocs"
+spec = "economy/trade-fx"
+glossary = "foreign_demand_growth[b]"
+reader = "FixedDemand"
+group = "world"
+milestone = "alpha"
+status = "planned"
+label = "lever.world.foreign_demand_growth"
+
+[[lever]]
+id = "world.foreign_rate"
+kind = "world"
+shape = "rate"
+unit = "% a year"
+range = [-200, 2000]  # range: judgement
+spec = "economy/trade-fx"
+glossary = "foreign_rate"
+reader = "MonthlyClose"
+group = "world"
+milestone = "alpha"
+status = "planned"
+label = "lever.world.foreign_rate"
+
+[[lever]]
+id = "world.wages_abroad"
+kind = "world"
+shape = "rate"
+unit = "% of Romania's at the start"
+range = [2500, 40000]  # range: judgement
+spec = "economy/demographics"
+glossary = "wages_abroad"
+reader = "MonthlyClose"
+group = "world"
+milestone = "alpha"
+status = "planned"
+label = "lever.world.wages_abroad"
