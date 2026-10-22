@@ -109,18 +109,18 @@ g_j = \pi^e + \beta_1 \cdot (\theta_j - \theta^*)
 ## Pay and job choice (roadmap M4)
 *Added at the owner's request, 2026-10-22, with the public pay lever of the [lever system](../game/lever-system.md): without it a unit paying far below the market would hire as fast as any other, and the pay lever would do nothing.*
 
-1. **The market wage** $ar w_{t,r}$ of a tier in a region is the weighted mean wage of the tier's employees there, at the last monthly close.
-2. **Hiring responds to pay.** A unit's relative pay in a tier is $ho = w / ar w_{t,r}$, with $w$ its wage for the tier. Its fill rate becomes
+1. **The market wage** $\bar w_{t,r}$ of a tier in a region is the weighted mean wage of the tier's employees there, at the last monthly close.
+2. **Hiring responds to pay.** A unit's relative pay in a tier is $\rho = w / \bar w_{t,r}$, with $w$ its wage for the tier. Its fill rate becomes
 ```math
-q' = \minig(1,\ q \cdot ho^{\eta_f}ig)
+q' = \min\big(1,\ q \cdot \rho^{\eta_f}\big)
 ```
    so a unit paying above the market fills its vacancies faster, and one paying below fills them slower.
 3. **Quits respond to pay.** An employee quits with probability
 ```math
-	ext{quit} = 	ext{clamp}ig(	ext{quit\_rate} \cdot ho^{-\eta_q},\ 	ext{quit\_min},\ 	ext{quit\_max}ig)
+\text{quit} = \text{clamp}\big(\text{quit\_rate} \cdot \rho^{-\eta_q},\ \text{quit\_min},\ \text{quit\_max}\big)
 ```
-4. **Job-to-job moves.** Of the quitters paid below the market ($ho < 1$), a share `job_to_job_share` look for work while employed. They go first in the next day's matching, but only for vacancies paying more than their current wage, and they are hired without a spell of unemployment. The rest become unemployed as before.
-5. **Applies to every unit,** public and private. Public pay moves only by its lever, so frozen public pay against rising private wages lowers $ho$ for public units: posts fill slowly and staff leave, first where private pay is highest.
+4. **Job-to-job moves.** Of the quitters paid below the market ($\rho < 1$), a share `job_to_job_share` look for work while employed. They go first in the next day's matching, but only for vacancies paying more than their current wage, and they are hired without a spell of unemployment. The rest become unemployed as before.
+5. **Applies to every unit,** public and private. Public pay moves only by its lever, so frozen public pay against rising private wages lowers $\rho$ for public units: posts fill slowly and staff leave, first where private pay is highest.
 
 | Parameter | Default | Meaning |
 |---|---|---|
