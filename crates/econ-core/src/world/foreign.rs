@@ -139,8 +139,9 @@ impl World {
     }
 
     /// Trade at load: the outside world's prices (times a world-constants
-    /// edit's factor), the starting rate, exports and import shares.
-    pub(super) fn start_trade(&mut self, world_factor_ppm: u32) {
+    /// edit's factor), the starting rate (times a depreciation edit's factor,
+    /// with e0 unchanged), exports and import shares.
+    pub(super) fn start_trade(&mut self, world_factor_ppm: u32, depreciation_ppm: u32) {
         let active = self.law.income.is_some();
         let n_i = self.industries.id.len();
         self.fx = ForeignState {
@@ -154,19 +155,24 @@ impl World {
         f.world_price_ppm = vec![world_factor_ppm; n_i];
         f.exports0 = self.ii.exp_q.clone();
         f.basket_import0 = self.ii.basket_import_ppm.clone();
-        f.view.exchange_rate_ppm = START_RATE_PPM;
+        f.view.exchange_rate_ppm =
+            u32::try_from(u64::from(START_RATE_PPM) * u64::from(depreciation_ppm) / 1_000_000)
+                .unwrap_or(u32::MAX);
         f.view.start_rate_ppm = START_RATE_PPM;
         self.trade_prices();
         self.ledger
             .allow_negative(Sector::RestOfWorld, Instrument::Deposits);
     }
 
-    /// e / e0, millionths, for other modules (1,000,000 when trade does not
-    /// act).
+    /// e / e0, millionths rounded to the nearest, for other modules
+    /// (1,000,000 when trade does not act).
     #[cfg_attr(not(feature = "revenue"), allow(dead_code))]
     pub(super) fn trade_rate_index_ppm(&self) -> u32 {
         if self.fx.active {
-            self.rate_index_ppm()
+            let v = &self.fx.view;
+            let e0 = u64::from(v.start_rate_ppm.max(1));
+            u32::try_from((u64::from(v.exchange_rate_ppm) * 1_000_000 + e0 / 2) / e0)
+                .unwrap_or(u32::MAX)
         } else {
             1_000_000
         }

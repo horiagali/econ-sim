@@ -168,6 +168,16 @@ const EXTRACTION: [&str; 5] = [
 /// θ: the share of households' real-estate spending that is owner-occupiers'
 /// imputed rent less the industry's costs on it (spec, "Starting state").
 const IMPUTED_SHARE_PPM: i128 = 836_500;
+/// The farm units' industries: those of A01 (spec economy/eu-funds).
+const FARM: [&str; 6] = [
+    "agri_cereals",
+    "agri_oilseeds",
+    "agri_fruit_veg",
+    "agri_vineyards",
+    "livestock_meat",
+    "livestock_dairy",
+];
+
 /// The day of the month imputed rent and the held benefits are paid.
 const PAYBACK_DAY: u8 = 15;
 /// `hh_tenure` of an owner household (stage E).
@@ -337,7 +347,7 @@ impl World {
         r.farm_key = (0..n_u)
             .map(|u| {
                 let id = &ids[usize::from(self.units.industry[u])];
-                if id.starts_with("agri_") || id.starts_with("livestock_") {
+                if FARM.contains(&id.as_str()) {
                     i128::from(s.unit_output[u].get()).max(0)
                 } else {
                     0
@@ -825,7 +835,8 @@ impl World {
 
     /// The start of a day: the day's views emptied; 1 January indexes the
     /// duties; the 15th pays last month's imputed rent and the held
-    /// benefits.
+    /// benefits (from the first 15th: they are twelfths of a year, not last
+    /// month's).
     pub(super) fn rev_begin_day(&mut self) {
         if !self.rev.active {
             return;
@@ -835,8 +846,8 @@ impl World {
             self.index_excise();
         }
         self.reset_day();
-        if date.day == PAYBACK_DAY && !self.months.is_empty() {
-            if !self.rev.no_imputed_rent {
+        if date.day == PAYBACK_DAY {
+            if !self.rev.no_imputed_rent && !self.months.is_empty() {
                 self.pay_imputed_rent();
             }
             self.pay_held_benefits();
