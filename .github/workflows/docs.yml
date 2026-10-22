@@ -9,3 +9,5 @@ jobs:
         with:
           python-version: "3.12"
       - run: python scripts/docs_index.py --check
+      - name: acceptance-criteria traceability
+        run: python scripts/traceability.py
