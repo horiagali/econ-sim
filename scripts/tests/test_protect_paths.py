@@ -208,12 +208,16 @@ class ShellCommands(unittest.TestCase):
 class HookProcess(unittest.TestCase):
     """Run the hook the way Claude Code does: JSON payload on stdin, exit code 2 blocks."""
 
-    def run_hook(self, tool_input, authoring=False):
+    def run_hook(self, tool_input, authoring=False, agent_type=None):
         env = dict(os.environ, CLAUDE_PROJECT_DIR=ROOT)
         env.pop("ECON_TEST_AUTHORING", None)
         if authoring:
             env["ECON_TEST_AUTHORING"] = "1"
-        payload = json.dumps({"cwd": ROOT, "tool_input": tool_input})
+        payload = {"cwd": ROOT, "tool_input": tool_input}
+        if agent_type is not None:
+            payload["agent_id"] = "a0123456789abcdef"
+            payload["agent_type"] = agent_type
+        payload = json.dumps(payload)
         return subprocess.run([sys.executable, HOOK], input=payload, capture_output=True, text=True, env=env)
 
     def test_edit_of_a_protected_file_is_blocked(self):
@@ -236,6 +240,19 @@ class HookProcess(unittest.TestCase):
 
     def test_test_authoring_session_is_allowed(self):
         self.assertEqual(self.run_hook({"command": "rm tests/golden/sim_200.hashes"}, authoring=True).returncode, 0)
+
+    def test_test_writer_subagent_is_allowed(self):
+        path = os.path.join(ROOT, *f"{ACC}/vat.rs".split("/"))
+        self.assertEqual(self.run_hook({"file_path": path}, agent_type="test-writer").returncode, 0)
+        self.assertEqual(
+            self.run_hook({"command": "rm tests/golden/sim_200.hashes"}, agent_type="test-writer").returncode, 0
+        )
+
+    def test_other_subagents_are_blocked(self):
+        path = os.path.join(ROOT, *f"{ACC}/vat.rs".split("/"))
+        for agent in ("general-purpose", "Explore", "fork", "Test-Writer", "test-writer-2", ""):
+            with self.subTest(agent=agent):
+                self.assertEqual(self.run_hook({"file_path": path}, agent_type=agent).returncode, 2)
 
     def test_empty_or_invalid_payload_passes(self):
         result = subprocess.run([sys.executable, HOOK], input="", capture_output=True, text=True)
