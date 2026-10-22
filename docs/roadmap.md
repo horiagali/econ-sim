@@ -4,7 +4,7 @@ title: Roadmap
 status: draft
 owner: horia
 depends_on: [vision/scope]
-updated: 2026-10-21
+updated: 2026-10-22
 ---
 
 # Roadmap
@@ -289,7 +289,8 @@ Specs: [production](02-design/economy/production.md), [state-enterprises](02-des
 - [ ] Equity, dividends and a simple stock exchange, enough for share sales.
 - [ ] **What firms do with a surplus** (owner, 2026-10-21): a choice by expected return between investing in their own activity, buying government bonds, buying shares of other firms, lending, holding assets abroad and paying their owners more. M3 has the first and the last (the investment rule and dividends with a cash sweep) and a fixed share of each bond issue.
 - [ ] State-owned enterprises: objectives (profit, employment, price), directives.
-- [ ] Levers: nationalise, privatise, bail out a named firm, directives; all subsidy kinds (production, investment, wage, consumer); price caps with shortages; research grants.
+- [ ] **Innovation** (owner, 2026-10-22): a firm can spend on research and its own efficiency, among its surplus choices; productivity rises with a lag and uncertainty. Replaces the calibrated productivity growth for firms that do it.
+- [ ] Levers: nationalise, privatise, bail out a named firm, directives; all subsidy kinds (production, investment, wage, consumer); price caps with shortages; research grants and an R&D tax credit.
 - [ ] Industry and supply-chain views; company pages.
 
 **Exit:** nationalising a firm moves equity through the ledger at the right value; a price cap below cost produces a shortage that the "why" panel names.
@@ -304,14 +305,16 @@ Specs: [money-banking](02-design/economy/money-banking.md), [fiscal-policy](02-d
 **Exit:** every extreme-lever run of M7 ends with invariants intact and with the backstops that fired listed in the event log.
 
 ### M11 — Infrastructure and the project system
-Spec: [infrastructure](02-design/economy/infrastructure.md).
-- [ ] Projects: cost, build time, county, progress, delays, completion; a queue the player manages.
-- [ ] Public capital stocks by type and county (roads, rail, ports, airports, broadband, water, schools, universities, hospitals, police stations, public housing); maintenance and decay.
-- [ ] Effects: productivity of firms by county, service capacity for M14.
-- [ ] Data: existing stocks by county.
-- [ ] Levers: build, maintenance budget. Map layers for stocks and projects.
+Specs: [infrastructure](02-design/economy/infrastructure.md), [transport network](02-design/economy/transport-network.md). **Owner decisions 2026-10-22:** position matters through a county graph; the player picks the contractor from bids; a finished hospital or school adds capacity and has running costs (staff, inputs).
+- [ ] Projects: type, place (county, or a route of graph links), size, funding from the budget or EU funds; cost, build time, progress, delays, overruns, completion; a queue the player manages; pause and cancel.
+- [ ] Tenders: construction units with spare capacity bid a price and a delivery time; the state-owned company can be dearer or full; a foreign contractor's margin is imports; the cheapest wins by default and the player may pick another. Contractors hire in the project's county and buy materials by their input column; many projects at once raise bids and delays.
+- [ ] Assets by type and place (motorways, roads, rail, high-speed rail, airports, ports, broadband, water, schools, universities, hospitals); operators and running costs (hospital and school staff hired from the county's labour market, inputs such as medicines); unfunded or unstaffed capacity counts for less; maintenance and decay.
+- [ ] Transport network: a graph of the 41 counties, Bucharest and gateway nodes, links by mode; shortest paths on each change; each county's market access sets its firms' productivity, its access to ports and borders its trade costs; travel times set commuting, migration and hospital catchments.
+- [ ] Effects for M14: school places enrol pupils who had none (about 380,000 above the places at the start) and raise quality where there was a shortage; staffed beds per head set access to care.
+- [ ] Data: existing stocks by county, travel times between county seats, unit costs and build times, construction companies (research note).
+- [ ] Levers: commission, pick the contractor, pause, cancel, overruns, running budgets, maintenance budget, tolls. Map: draw a route between county seats and see each county's market access change before building; layers for assets and projects.
 
-**Exit:** a motorway raises output in its counties years later, and the path from spending to output is visible in the "why" panel; unfunded maintenance lowers it.
+**Exit:** a Bucharest–Constanța line raises market access and, years later, output more than a line of the same length between two small counties, and the path from spending to output is visible in the "why" panel; a hospital without its running budget shows unstaffed beds; unfunded maintenance lowers speeds and output.
 
 ### M12 — Energy
 Spec: [energy](02-design/economy/energy.md).
@@ -435,6 +438,9 @@ Spec: [euro](02-design/economy/euro.md). Last, because it touches money, trade, 
 - [ ] Politics layer: approval with behavioural effects, parties, elections. Central bank independence.
 - [ ] More industries, multiple countries.
 - [ ] Military layer.
+- [ ] Full trade between counties: goods moving along the transport network with transport costs, rather than one national market per good (owner, 2026-10-22).
+- [ ] **Automation of parts of the game** (owner, 2026-10-22): let the player hand areas (for example the budget's details, infrastructure, energy) to an automatic minister and play only the parts they choose, as in Europa Universalis. To research: how other games do it, and what an automatic policy for each area should aim at.
+- [ ] **Events** (owner, 2026-10-22): to think about and research. Events such as a bank run, either scripted or generated by an LLM, and whether they fit the "systems over scripts" pillar.
 
 ### Risks to watch
 - **Stability of the closed loop (M3)** is the hardest technical step: agent-based stock-flow models tend to oscillate or drift. Keep first rules simple, add one sector at a time, and keep the quiet-baseline test from the first day of M2.
