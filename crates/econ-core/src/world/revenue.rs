@@ -168,6 +168,10 @@ const EXTRACTION: [&str; 5] = [
 /// θ: the share of households' real-estate spending that is owner-occupiers'
 /// imputed rent less the industry's costs on it (spec, "Starting state").
 const IMPUTED_SHARE_PPM: i128 = 836_500;
+/// Households' purchases of `real_estate` over its output in the
+/// input-output table (92.1 of 117.8 billion lei; research note
+/// imputed-rent-romania-2021).
+const HH_REAL_ESTATE_PPM: i128 = 781_834;
 /// The farm units' industries: those of A01 (spec economy/eu-funds).
 const FARM: [&str; 6] = [
     "agri_cereals",
@@ -367,8 +371,34 @@ impl World {
         r.excise_month = vec![0; n_i];
         r.rent.key = r.rent_key.iter().map(|&k| bani(k)).collect();
         r.rent.received = vec![Bani::ZERO; n_h];
+        if !r.no_imputed_rent {
+            self.drop_imputed_from_mixed(s);
+        }
         self.reset_day();
         self.start_excise();
+    }
+
+    /// The payback gives owner-occupiers' imputed rent to owner households,
+    /// so the real-estate units' weight for paying mixed income leaves out
+    /// that part of their value added: θ times households' share of their
+    /// output (roadmap M7, "Real estate's mixed income and surplus").
+    fn drop_imputed_from_mixed(&mut self, s: &StartState) {
+        let Some(j) = self.rev.real_estate else {
+            return;
+        };
+        for u in 0..self.units.industry.len() {
+            if usize::from(self.units.industry[u]) != j {
+                continue;
+            }
+            let output = i128::from(s.unit_output[u].get()).max(0);
+            let imputed = ratio(
+                ratio(output, HH_REAL_ESTATE_PPM, 1_000_000),
+                IMPUTED_SHARE_PPM,
+                1_000_000,
+            );
+            let w = &mut self.uu.mixed_weight[u];
+            *w = u64::try_from((i128::from(*w) - imputed).max(0)).expect("non-negative");
+        }
     }
 
     /// Excise at load: households' basket shares of the excised goods times
@@ -573,7 +603,8 @@ impl World {
 
     /// Part 4 on the 15th: a twelfth of each held programme to its group.
     fn pay_held_benefits(&mut self) {
-        let k = u32::try_from(self.months.len().saturating_sub(1) % 12).expect("a month");
+        // The payment's index: the first 15th, before any month closes, is 0.
+        let k = u32::try_from(self.months.len() % 12).expect("a month");
         let mut held = Vec::with_capacity(BENEFITS.len());
         for (name, code, year, key) in BENEFITS {
             let due = Self::twelfth(year, k);

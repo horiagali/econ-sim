@@ -37,7 +37,16 @@ econ-io.workspace = true
 serde_json.workspace = true
 
 [features]
-default = ["world", "fiscal"]
+default = [
+    "world",
+    "fiscal",
+    "pay_day",
+    "banking",
+    "monetary",
+    "trade",
+    "investment",
+    "revenue",
+]
 # Gates the `World` of spec game/world-loop and its acceptance tests (AC-WLD-*
 # and the owed `[sim]` criteria of the four M2 mechanics), written before the
 # code (ADR-0014); the implementation adds it to `default`.
@@ -67,11 +76,13 @@ monetary = ["banking", "fiscal", "dep:econ-mech-monetary"]
 trade = ["world", "dep:econ-mech-trade"]
 # Investment and capital (spec economy/investment-capital): the capital book,
 # profit and dividends on the `World`. Written before its acceptance tests by
-# the owner's decision (2026-10-21); off by default until they exist.
+# the owner's decision (2026-10-21); on by default since M3 closed
+# (2026-10-22).
 investment = ["fiscal", "dep:econ-mech-investment"]
 # The rest of 2021's revenue, benefits and imputed rent (specs economy/excise,
 # eu-funds, government-revenue-2021, imputed-rent). Built before its tests by
-# the owner's decision (2026-10-21); off by default until they exist.
+# the owner's decision (2026-10-21); on by default since M3 closed
+# (2026-10-22).
 revenue = ["fiscal"]
 # The lever system (spec game/lever-system, roadmap M4): the registry
 # (`levers.toml`), commands, validation, the law in force and the command log,
