@@ -4,7 +4,7 @@ title: "ADR-0014: AI-agent workflow and repo guardrails"
 status: accepted
 owner: horia
 depends_on: [adr/0001-docs-first-ai-driven, research/tech-stack-deep-research]
-updated: 2026-10-10
+updated: 2026-10-22
 ---
 
 # ADR-0014: AI-agent workflow and repo guardrails
@@ -68,7 +68,7 @@ On Free a red check is only a signal: the owner refuses to merge it.
 
 ## Open questions / to verify
 - [x] Owner decision: GitHub Free with hooks + CI checks (2026-10-09).
-- [ ] How "test-authoring mode" is signalled to the hook (environment variable, session flag or branch name).
+- [x] How "test-authoring mode" is signalled to the hook: by the `test-writer` subagent's `agent_type`, or the environment variable for a whole session (amendment 2).
 - [ ] Spike 0 exit criterion: an agent session on Windows runs `just check` green and is blocked from editing `tests/golden/`.
 - [ ] Spike 9 exit criterion: one real mechanic (e.g. VAT) goes spec → tests → implementation with no hand edits to protected paths.
 
@@ -76,3 +76,14 @@ On Free a red check is only a signal: the owner refuses to merge it.
 Step 5 failed CI for any criterion of a `locked` spec without a live test. The first specs the owner wanted to lock (population-groups, accounting) have criteria that need a running simulation, so they could not be locked at the point where locking is useful: before tests and code are written against them.
 
 Owner decision: a spec may be locked first. Each criterion without a live test must then be listed in the spec under a "Tests owed" heading, one line per criterion with what it waits for (`- AC-XXX-NN: reason`). `scripts/traceability.py` fails when a criterion of a locked spec has neither a live test nor such a line, when a listed criterion has a live test (the line must be removed), or when a line names a criterion the spec does not define. The debt is therefore visible in the spec and in the output of `just trace`, and cannot grow silently. Everything else in this ADR is unchanged: tests are still written in a test-authoring session, before the code.
+
+## Amendment 2 (2026-10-22): a test-writer subagent
+Switching a whole session into test-authoring mode (setting `ECON_TEST_AUTHORING=1`, restarting, resetting it after) cost the owner a manual step at every round of tests, and stalled the tests-first flow between rounds.
+
+Owner decision:
+- **The test writer is a subagent.** `.claude/agents/test-writer.md` defines it. The working session spawns it with a fresh context and a brief that names the spec(s) and criterion IDs (or restatements) to write. The brief carries no implementation notes; the agent's instructions tell it to test the spec's behaviour and read code only for its public API.
+- **The hook knows it.** When a subagent calls a tool, Claude Code passes `agent_type` in the hook's payload. `scripts/hooks/protect_paths.py` lets the protected paths be edited when `agent_type` is `test-writer`, and blocks every other agent and the working session as before. `ECON_TEST_AUTHORING=1` still opens a whole session, for the owner's own test sessions.
+- **It reports back; the working session merges.** The test writer opens its own PR and reports the tests, any stubs, `just check` and each new test's result. The working session reads the report, and merges the test PR on green CI when the tests state the spec faithfully. A failing new test is expected when its code is not written yet. A failure that points to a spec problem goes to the owner before the merge. This replaces step 3's "the owner merges that PR".
+- **Two PRs stay two.** The implementation PR still may not touch the tests, and the hook still blocks the working session from changing them.
+
+Trade-off: the session that will implement the code writes the test writer's brief, so the separation is weaker than a session the owner starts. The brief names criteria, not answers; the tests are reviewed against the spec before the merge; the owner may still run a test session of their own at any time.

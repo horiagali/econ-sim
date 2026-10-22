@@ -53,6 +53,6 @@ See `docs/00-vision/pillars.md`. The short version:
 ## Don't
 
 - Don't write mechanic code before its spec is at least `draft` and has acceptance tests.
-- Don't edit protected test paths (`tests/golden/**`, `crates/*/tests/acceptance/**`, `schema/**`); a hook blocks it (ADR-0014).
+- Don't edit protected test paths (`tests/golden/**`, `crates/*/tests/acceptance/**`, `schema/**`); a hook blocks it (ADR-0014). Tests are written by the `test-writer` subagent (`.claude/agents/test-writer.md`, ADR-0014 amendment 2): spawn it with the spec and criterion IDs, read its report, merge its PR on green CI.
 - Don't edit `locked` specs without being asked.
 - Don't create new top-level folders without an ADR (`crates/`, `python/`, `tests/`, `scripts/`, `ui/` are sanctioned by ADR-0005/0010/0013/0014).

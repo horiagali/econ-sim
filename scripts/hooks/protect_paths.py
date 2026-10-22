@@ -2,8 +2,11 @@
 """Claude Code PreToolUse hook: block agent edits to protected test paths.
 
 ADR-0014 layer 1. Golden runs, acceptance tests and schemas may only be
-changed in a deliberate test-authoring session. To allow it for one session,
-start Claude Code with the environment variable ECON_TEST_AUTHORING=1.
+changed in a deliberate test-authoring session. Two ways to be in one:
+the `test-writer` subagent (`.claude/agents/test-writer.md`), whose tool
+calls Claude Code marks with `agent_type` in the payload (ADR-0014,
+amendment 2); or a whole session started with the environment variable
+ECON_TEST_AUTHORING=1.
 
 Edit/Write tools are checked by file path. Shell commands (Bash, PowerShell)
 are blocked only when a *write* targets a protected path: a redirect into it,
@@ -69,6 +72,9 @@ DOTNET_WRITE_RE = re.compile(r"WriteAll(Text|Lines|Bytes)|AppendAll(Text|Lines)|
 ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 HEREDOC_RE = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 
+# The subagent that may write tests (ADR-0014, amendment 2).
+TEST_WRITER = "test-writer"
+
 SEPARATORS = {";", "&&", "||", "|", "&", "\n", "(", ")", "{", "}"}
 
 
@@ -76,8 +82,9 @@ def blocked(what: str) -> int:
     print(
         f"BLOCKED: {what} touches a protected test/golden/schema path (ADR-0014). "
         "Implementation sessions may not change tests. If this change is "
-        "intended, stop and ask the owner to run a test-authoring session "
-        "(ECON_TEST_AUTHORING=1).",
+        "intended, stop and hand it to the test-writer subagent "
+        "(.claude/agents/test-writer.md), or ask the owner for a "
+        "test-authoring session (ECON_TEST_AUTHORING=1).",
         file=sys.stderr,
     )
     return 2
@@ -391,6 +398,8 @@ def main() -> int:
     except json.JSONDecodeError:
         return 0
     if os.environ.get("ECON_TEST_AUTHORING") == "1":
+        return 0
+    if payload.get("agent_type") == TEST_WRITER:
         return 0
     tool_input = payload.get("tool_input") or {}
     root = os.environ.get("CLAUDE_PROJECT_DIR") or payload.get("cwd") or os.getcwd()
