@@ -177,6 +177,8 @@ macro_rules! col {
 
 #[cfg(feature = "budget")]
 pub mod budget;
+#[cfg(feature = "levers")]
+pub mod commands;
 pub mod popgen;
 pub mod table;
 

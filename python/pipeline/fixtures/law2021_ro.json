@@ -1,0 +1,889 @@
+{
+ "start_date": "2021-12-01",
+ "units": {
+  "rate": "basis points",
+  "money": "bani",
+  "number": "count",
+  "choice": "option text",
+  "flag": "true or false",
+  "schedule": "[[threshold_bani, rate_bp], ...]"
+ },
+ "levers": {
+  "tax.income.schedule": [
+   [
+    0,
+    1000
+   ]
+  ],
+  "tax.income.deduction_base": {
+   "0": 51000,
+   "1": 67000,
+   "2": 83000,
+   "3": 99000,
+   "4_or_more": 131000
+  },
+  "tax.income.deduction_full_until": 195000,
+  "tax.income.deduction_zero_at": 360000,
+  "tax.income.credit_per_child": 0,
+  "tax.income.pension_tax_free": 200000,
+  "tax.capital.dividend_rate": 500,
+  "tax.capital.interest_rate": 1000,
+  "tax.profit.rate": 1600,
+  "tax.profit.micro_rate_staff": 100,
+  "tax.profit.micro_rate_no_staff": 300,
+  "tax.profit.micro_threshold": 492150000,
+  "tax.vat.rate_standard": 1900,
+  "tax.vat.rate_reduced": 900,
+  "tax.vat.rate_reduced_2": 500,
+  "tax.vat.category": {
+   "admin_support": "standard",
+   "agri_cereals": "reduced",
+   "agri_construction_machinery": "standard",
+   "agri_fruit_veg": "reduced",
+   "agri_oilseeds": "reduced",
+   "agri_vineyards": "reduced",
+   "air_transport": "standard",
+   "aircraft": "standard",
+   "banking_services": "exempt",
+   "beverages": "standard",
+   "building_materials": "standard",
+   "car_parts": "standard",
+   "cars": "standard",
+   "chemicals": "standard",
+   "coal_mining": "standard",
+   "computers_comms": "standard",
+   "construction_buildings": "standard",
+   "construction_civil": "standard",
+   "consumer_electronics": "standard",
+   "crude_oil": "standard",
+   "data_centres": "standard",
+   "defence_equipment": "standard",
+   "defence_services": "exempt",
+   "education_services": "exempt",
+   "electrical_equipment": "standard",
+   "electronic_components": "standard",
+   "engineering_rnd": "standard",
+   "fertilisers": "standard",
+   "fishing": "reduced",
+   "food_bakery_milling": "reduced",
+   "food_meat_dairy": "reduced",
+   "food_other": "reduced",
+   "forestry": "standard",
+   "furniture": "standard",
+   "gas_heat_supply": "standard",
+   "health_services": "exempt",
+   "hotels_tourism": "reduced_2",
+   "industrial_machinery": "standard",
+   "insurance_pensions": "exempt",
+   "it_software": "standard",
+   "leather_footwear": "standard",
+   "livestock_dairy": "reduced",
+   "livestock_meat": "reduced",
+   "media_publishing": "reduced_2",
+   "medical_devices": "standard",
+   "metal_ores": "standard",
+   "metal_products": "standard",
+   "natural_gas": "standard",
+   "nonferrous_metals": "standard",
+   "other_manufacturing": "standard",
+   "paper_printing": "standard",
+   "passenger_transport": "standard",
+   "personal_services": "standard",
+   "pharmaceuticals": "reduced",
+   "plastics_rubber": "standard",
+   "post_logistics": "standard",
+   "power_biomass": "standard",
+   "power_coal": "standard",
+   "power_gas": "standard",
+   "power_grid": "standard",
+   "power_hydro": "standard",
+   "power_nuclear": "standard",
+   "power_solar": "standard",
+   "power_storage": "standard",
+   "power_supply": "standard",
+   "power_wind": "standard",
+   "professional_services": "standard",
+   "public_administration": "exempt",
+   "quarrying": "standard",
+   "rail_equipment": "standard",
+   "rail_transport": "standard",
+   "real_estate": "exempt",
+   "recreation_culture": "reduced_2",
+   "refined_petroleum": "standard",
+   "restaurants": "reduced_2",
+   "retail_trade": "standard",
+   "road_freight": "standard",
+   "shipbuilding": "standard",
+   "social_care": "exempt",
+   "steel": "standard",
+   "telecom_services": "standard",
+   "textiles_apparel": "standard",
+   "tobacco": "standard",
+   "trucks_buses": "standard",
+   "uranium_fuel": "standard",
+   "vehicle_trade_repair": "standard",
+   "water_transport": "standard",
+   "water_waste": "reduced",
+   "wholesale_trade": "standard",
+   "wood_products": "standard"
+  },
+  "tax.contrib.cas": 2500,
+  "tax.contrib.pillar2_share": 375,
+  "tax.contrib.cass": 1000,
+  "tax.contrib.cam": 225,
+  "tax.contrib.ceiling": 0,
+  "tax.property.rate": 10,
+  "tax.wealth.threshold": 0,
+  "tax.wealth.rate": 0,
+  "tax.excise.duty": {
+   "refined_petroleum": 51250,
+   "tobacco": 203040,
+   "beverages": 7120
+  },
+  "spend.ministry_budget": {
+   "administration": 1941120000000,
+   "public_debt": 31350000000,
+   "defence": 1679190000000,
+   "police_justice": 3107440000000,
+   "economic_affairs": 2037410000000,
+   "transport": 3027760000000,
+   "environment": 654070000000,
+   "housing_community": 1304290000000,
+   "health": 5768260000000,
+   "culture": 885700000000,
+   "education": 3242470000000,
+   "social_protection": 1091370000000,
+   "research": 347440000000
+  },
+  "spend.investment_share": {
+   "administration": 485,
+   "public_debt": 0,
+   "defence": 2972,
+   "police_justice": 47,
+   "economic_affairs": 3425,
+   "transport": 5371,
+   "environment": 3261,
+   "housing_community": 5535,
+   "health": 406,
+   "culture": 1974,
+   "education": 1077,
+   "social_protection": 548,
+   "research": 3421
+  },
+  "spend.public_pay": {
+   "defence_services.public": 10000,
+   "education_services.public": 10000,
+   "health_services.public": 10000,
+   "public_administration.public": 10000,
+   "social_care.public": 10000
+  },
+  "spend.public_headcount": {
+   "defence_services.public": 75855,
+   "education_services.public": 290417,
+   "health_services.public": 243421,
+   "public_administration.public": 522625,
+   "social_care.public": 130000
+  },
+  "spend.new_issue_years": 7,
+  "transfer.pension.point_value": 144200,
+  "transfer.pension.minimum": 80000,
+  "transfer.pension.retirement_age": {
+   "F": 741,
+   "M": 780
+  },
+  "transfer.pension.indexation": "none",
+  "transfer.unemployment.isr": 50000,
+  "transfer.unemployment.isr_share": 7500,
+  "transfer.unemployment.wage_share_by_years": {
+   "3y": 300,
+   "5y": 500,
+   "10y": 700,
+   "20y": 1000
+  },
+  "transfer.unemployment.months_by_years": {
+   "1y": 6,
+   "5y": 9,
+   "10y": 12
+  },
+  "transfer.child.under2": 42700,
+  "transfer.child.to18": 21400,
+  "transfer.min_income.floor": {
+   "1": 14200,
+   "2": 25500,
+   "3": 35700,
+   "4": 44200,
+   "5": 52700
+  },
+  "transfer.min_income.per_extra": 3600,
+  "labour.minimum_wage": 230000,
+  "money.inflation_target": 250,
+  "money.policy_rate": 175,
+  "money.reserve_requirement": 800,
+  "money.qe": 0,
+  "money.monetary_financing": 0,
+  "fx.regime": "managed_float",
+  "fx.intervention": 0,
+  "informal.inspection_budget": 35000000000,
+  "informal.audit_budget": 80000000000,
+  "informal.penalty_multiple": 10,
+  "world.foreign_price_growth": {
+   "eu": 200,
+   "non_eu": 200
+  },
+  "world.fuel_price": {
+   "oil": 32400,
+   "gas": 56400,
+   "coal": 56800
+  },
+  "world.foreign_demand_growth": {
+   "eu": 0,
+   "non_eu": 0
+  },
+  "world.foreign_rate": -50,
+  "world.wages_abroad": 10000
+ },
+ "provenance": {
+  "sources": [],
+  "manual": [
+   {
+    "id": "tax.income.schedule",
+    "value": [
+     [
+      0,
+      1000
+     ]
+    ],
+    "unit": "[[threshold_bani, rate_bp], ...] (% of taxable income a month, by threshold in lei)",
+    "what": "personal income tax: one bracket, flat 10% from 0",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.income.deduction_base",
+    "values": {
+     "0": 51000,
+     "1": 67000,
+     "2": 83000,
+     "3": 99000,
+     "4_or_more": 131000
+    },
+    "unit": "bani (lei a month)",
+    "what": "personal deduction at a low gross wage, by number of dependants",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "medium"
+   },
+   {
+    "id": "tax.income.deduction_full_until",
+    "value": 195000,
+    "unit": "bani (lei a month)",
+    "what": "gross wage up to which the full personal deduction applies",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "medium"
+   },
+   {
+    "id": "tax.income.deduction_zero_at",
+    "value": 360000,
+    "unit": "bani (lei a month)",
+    "what": "gross wage from which there is no personal deduction",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "medium"
+   },
+   {
+    "id": "tax.income.credit_per_child",
+    "value": 0,
+    "unit": "bani (lei a month)",
+    "what": "no tax credit per child in 2021",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.income.pension_tax_free",
+    "value": 200000,
+    "unit": "bani (lei a month)",
+    "what": "pension tax-free threshold; from memory, to check against the Fiscal Code (lever-system open question)",
+    "source": "docs/02-design/economy/taxation.md",
+    "confidence": "low"
+   },
+   {
+    "id": "tax.capital.dividend_rate",
+    "value": 500,
+    "unit": "basis points (%)",
+    "what": "tax on dividends",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.capital.interest_rate",
+    "value": 1000,
+    "unit": "basis points (%)",
+    "what": "tax on interest",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.profit.rate",
+    "value": 1600,
+    "unit": "basis points (%)",
+    "what": "corporate profit tax",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.profit.micro_rate_staff",
+    "value": 100,
+    "unit": "basis points (% of turnover)",
+    "what": "micro-enterprise tax with at least one employee",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.profit.micro_rate_no_staff",
+    "value": 300,
+    "unit": "basis points (% of turnover)",
+    "what": "micro-enterprise tax without employees",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.profit.micro_threshold",
+    "value": 492150000,
+    "unit": "bani (lei of turnover a year)",
+    "what": "1 million euro of turnover, at the input-output table's 4.9215 lei per euro (as Law::law_2021)",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.vat.rate_standard",
+    "value": 1900,
+    "unit": "basis points (%)",
+    "what": "VAT standard rate",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.vat.rate_reduced",
+    "value": 900,
+    "unit": "basis points (%)",
+    "what": "VAT reduced rate",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.vat.rate_reduced_2",
+    "value": 500,
+    "unit": "basis points (%)",
+    "what": "VAT second reduced rate",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.vat.category",
+    "values": {
+     "admin_support": "standard",
+     "agri_cereals": "reduced",
+     "agri_construction_machinery": "standard",
+     "agri_fruit_veg": "reduced",
+     "agri_oilseeds": "reduced",
+     "agri_vineyards": "reduced",
+     "air_transport": "standard",
+     "aircraft": "standard",
+     "banking_services": "exempt",
+     "beverages": "standard",
+     "building_materials": "standard",
+     "car_parts": "standard",
+     "cars": "standard",
+     "chemicals": "standard",
+     "coal_mining": "standard",
+     "computers_comms": "standard",
+     "construction_buildings": "standard",
+     "construction_civil": "standard",
+     "consumer_electronics": "standard",
+     "crude_oil": "standard",
+     "data_centres": "standard",
+     "defence_equipment": "standard",
+     "defence_services": "exempt",
+     "education_services": "exempt",
+     "electrical_equipment": "standard",
+     "electronic_components": "standard",
+     "engineering_rnd": "standard",
+     "fertilisers": "standard",
+     "fishing": "reduced",
+     "food_bakery_milling": "reduced",
+     "food_meat_dairy": "reduced",
+     "food_other": "reduced",
+     "forestry": "standard",
+     "furniture": "standard",
+     "gas_heat_supply": "standard",
+     "health_services": "exempt",
+     "hotels_tourism": "reduced_2",
+     "industrial_machinery": "standard",
+     "insurance_pensions": "exempt",
+     "it_software": "standard",
+     "leather_footwear": "standard",
+     "livestock_dairy": "reduced",
+     "livestock_meat": "reduced",
+     "media_publishing": "reduced_2",
+     "medical_devices": "standard",
+     "metal_ores": "standard",
+     "metal_products": "standard",
+     "natural_gas": "standard",
+     "nonferrous_metals": "standard",
+     "other_manufacturing": "standard",
+     "paper_printing": "standard",
+     "passenger_transport": "standard",
+     "personal_services": "standard",
+     "pharmaceuticals": "reduced",
+     "plastics_rubber": "standard",
+     "post_logistics": "standard",
+     "power_biomass": "standard",
+     "power_coal": "standard",
+     "power_gas": "standard",
+     "power_grid": "standard",
+     "power_hydro": "standard",
+     "power_nuclear": "standard",
+     "power_solar": "standard",
+     "power_storage": "standard",
+     "power_supply": "standard",
+     "power_wind": "standard",
+     "professional_services": "standard",
+     "public_administration": "exempt",
+     "quarrying": "standard",
+     "rail_equipment": "standard",
+     "rail_transport": "standard",
+     "real_estate": "exempt",
+     "recreation_culture": "reduced_2",
+     "refined_petroleum": "standard",
+     "restaurants": "reduced_2",
+     "retail_trade": "standard",
+     "road_freight": "standard",
+     "shipbuilding": "standard",
+     "social_care": "exempt",
+     "steel": "standard",
+     "telecom_services": "standard",
+     "textiles_apparel": "standard",
+     "tobacco": "standard",
+     "trucks_buses": "standard",
+     "uranium_fuel": "standard",
+     "vehicle_trade_repair": "standard",
+     "water_transport": "standard",
+     "water_waste": "reduced",
+     "wholesale_trade": "standard",
+     "wood_products": "standard"
+    },
+    "unit": "option text (category)",
+    "what": "VAT category of each catalogue good; one category per catalogue industry is a simplification",
+    "source": "crates/econ-core/src/world.rs (CATALOGUE_VAT)",
+    "confidence": "medium"
+   },
+   {
+    "id": "tax.contrib.cas",
+    "value": 2500,
+    "unit": "basis points (% of gross wage)",
+    "what": "employee's pension contribution (CAS), Pillar II share included",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.contrib.pillar2_share",
+    "value": 375,
+    "unit": "basis points (points of CAS)",
+    "what": "part of CAS paid to the Pillar II funds",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.contrib.cass",
+    "value": 1000,
+    "unit": "basis points (% of gross wage)",
+    "what": "employee's health contribution (CASS)",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.contrib.cam",
+    "value": 225,
+    "unit": "basis points (% of gross wage)",
+    "what": "employer's labour insurance contribution (CAM)",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.contrib.ceiling",
+    "value": 0,
+    "unit": "bani (lei a month (0 = none))",
+    "what": "no ceiling on contributions in 2021",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.property.rate",
+    "value": 10,
+    "unit": "basis points (% of dwelling value a year)",
+    "what": "national stand-in for the municipal rates on homes (0.08% to 0.2%); to be calibrated to 2021's revenue",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "low"
+   },
+   {
+    "id": "tax.wealth.threshold",
+    "value": 0,
+    "unit": "bani (lei of net worth)",
+    "what": "no wealth tax in 2021",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.wealth.rate",
+    "value": 0,
+    "unit": "basis points (% a year)",
+    "what": "no wealth tax in 2021",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "tax.excise.duty",
+    "values": {
+     "refined_petroleum": 51250,
+     "tobacco": 203040,
+     "beverages": 7120
+    },
+    "unit": "bani (lei per 1,000 units (1,000 lei of the good at starting prices))",
+    "what": "starting duties d_g of the excise spec (512,500, 2,030,400 and 71,200 ppm of the starting price) per 1,000 units",
+    "source": "docs/02-design/economy/excise.md (Starting state)",
+    "confidence": "medium"
+   },
+   {
+    "id": "spend.ministry_budget",
+    "values": {
+     "administration": 1941120000000,
+     "public_debt": 31350000000,
+     "defence": 1679190000000,
+     "police_justice": 3107440000000,
+     "economic_affairs": 2037410000000,
+     "transport": 3027760000000,
+     "environment": 654070000000,
+     "housing_community": 1304290000000,
+     "health": 5768260000000,
+     "culture": 885700000000,
+     "education": 3242470000000,
+     "social_protection": 1091370000000,
+     "research": 347440000000
+    },
+    "unit": "bani (lei a year)",
+    "what": "sum of the line's wages, employer contributions, goods and services, investment and non-produced assets",
+    "source": "python/pipeline/fixtures/budget2021_ro.json",
+    "confidence": "high"
+   },
+   {
+    "id": "spend.investment_share",
+    "values": {
+     "administration": 485,
+     "public_debt": 0,
+     "defence": 2972,
+     "police_justice": 47,
+     "economic_affairs": 3425,
+     "transport": 5371,
+     "environment": 3261,
+     "housing_community": 5535,
+     "health": 406,
+     "culture": 1974,
+     "education": 1077,
+     "social_protection": 548,
+     "research": 3421
+    },
+    "unit": "basis points (% of the ministry budget)",
+    "what": "investment plus non-produced assets over the five cells of ministry_budget",
+    "source": "python/pipeline/fixtures/budget2021_ro.json",
+    "confidence": "high"
+   },
+   {
+    "id": "spend.public_pay",
+    "values": {
+     "defence_services.public": 10000,
+     "education_services.public": 10000,
+     "health_services.public": 10000,
+     "public_administration.public": 10000,
+     "social_care.public": 10000
+    },
+    "unit": "basis points (% of pay on the start date)",
+    "what": "100% on the start date by definition",
+    "source": "docs/02-design/game/lever-system.md",
+    "confidence": "high"
+   },
+   {
+    "id": "spend.public_headcount",
+    "values": {
+     "defence_services.public": 75855,
+     "education_services.public": 290417,
+     "health_services.public": 243421,
+     "public_administration.public": 522625,
+     "social_care.public": 130000
+    },
+    "unit": "count (posts)",
+    "what": "occupied public posts of December 2021 (public_units[].posts); health and social care are guesses",
+    "source": "python/pipeline/fixtures/budget2021_ro.json",
+    "confidence": "medium"
+   },
+   {
+    "id": "spend.new_issue_years",
+    "value": 7,
+    "unit": "count (years)",
+    "what": "maturity of new government bonds; a modelling default",
+    "source": "crates/econ-mech-fiscal/src/lib.rs (DebtParams)",
+    "confidence": "low"
+   },
+   {
+    "id": "transfer.pension.point_value",
+    "value": 144200,
+    "unit": "bani (lei a month)",
+    "what": "value of a pension point",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "transfer.pension.minimum",
+    "value": 80000,
+    "unit": "bani (lei a month)",
+    "what": "social indemnity for pensioners",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "transfer.pension.retirement_age",
+    "values": {
+     "F": 741,
+     "M": 780
+    },
+    "unit": "count (months of age)",
+    "what": "standard retirement age: men 65; women about 61 years and 9 months",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "medium"
+   },
+   {
+    "id": "transfer.pension.indexation",
+    "value": "none",
+    "unit": "option text (rule)",
+    "what": "pension point frozen through 2021",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "transfer.unemployment.isr",
+    "value": 50000,
+    "unit": "bani (lei a month)",
+    "what": "reference social indicator (ISR)",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "transfer.unemployment.isr_share",
+    "value": 7500,
+    "unit": "basis points (% of the ISR)",
+    "what": "flat part of the unemployment benefit",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "medium"
+   },
+   {
+    "id": "transfer.unemployment.wage_share_by_years",
+    "values": {
+     "3y": 300,
+     "5y": 500,
+     "10y": 700,
+     "20y": 1000
+    },
+    "unit": "basis points (% of the last wage)",
+    "what": "wage-related part by contribution years; from memory, to check against the law",
+    "source": "docs/02-design/economy/social-transfers.md",
+    "confidence": "low"
+   },
+   {
+    "id": "transfer.unemployment.months_by_years",
+    "values": {
+     "1y": 6,
+     "5y": 9,
+     "10y": 12
+    },
+    "unit": "count (months)",
+    "what": "benefit duration by contribution years; from memory, to check against the law",
+    "source": "docs/02-design/economy/social-transfers.md",
+    "confidence": "low"
+   },
+   {
+    "id": "transfer.child.under2",
+    "value": 42700,
+    "unit": "bani (lei a month)",
+    "what": "child allowance under 2",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "transfer.child.to18",
+    "value": 21400,
+    "unit": "bani (lei a month)",
+    "what": "child allowance from 2 to 18",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "transfer.min_income.floor",
+    "values": {
+     "1": 14200,
+     "2": 25500,
+     "3": 35700,
+     "4": 44200,
+     "5": 52700
+    },
+    "unit": "bani (lei a month)",
+    "what": "guaranteed minimum income floor by household size; benefit floors from memory, to check against the law",
+    "source": "docs/02-design/economy/social-transfers.md",
+    "confidence": "low"
+   },
+   {
+    "id": "transfer.min_income.per_extra",
+    "value": 3600,
+    "unit": "bani (lei a month)",
+    "what": "added to the floor per member beyond five; from memory",
+    "source": "docs/02-design/economy/social-transfers.md",
+    "confidence": "low"
+   },
+   {
+    "id": "labour.minimum_wage",
+    "value": 230000,
+    "unit": "bani (lei a month)",
+    "what": "minimum gross wage",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md (Eurostat earn_mw_cur)",
+    "confidence": "high"
+   },
+   {
+    "id": "money.inflation_target",
+    "value": 250,
+    "unit": "basis points (% a year)",
+    "what": "inflation target, 2.5% plus or minus one point",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "money.policy_rate",
+    "value": 175,
+    "unit": "basis points (% a year)",
+    "what": "policy rate of the National Bank (from memory)",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "medium"
+   },
+   {
+    "id": "money.reserve_requirement",
+    "value": 800,
+    "unit": "basis points (% of deposits)",
+    "what": "minimum reserve requirement on lei liabilities",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "medium"
+   },
+   {
+    "id": "money.qe",
+    "value": 0,
+    "unit": "bani (lei a month (buy > 0))",
+    "what": "no quantitative easing in December 2021",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "money.monetary_financing",
+    "value": 0,
+    "unit": "bani (lei a month)",
+    "what": "no direct funding of the deficit",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "fx.regime",
+    "value": "managed_float",
+    "unit": "option text (regime)",
+    "what": "managed float",
+    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
+    "confidence": "high"
+   },
+   {
+    "id": "fx.intervention",
+    "value": 0,
+    "unit": "bani (lei a month (buy foreign currency > 0))",
+    "what": "no player amount beyond the managed-float rule",
+    "source": "docs/02-design/game/lever-system.md",
+    "confidence": "high"
+   },
+   {
+    "id": "informal.inspection_budget",
+    "value": 35000000000,
+    "unit": "bani (lei a year)",
+    "what": "labour inspection spending in 2021 (Inspectia Muncii and its county inspectorates), about 350 million lei; an educated guess",
+    "source": "guess",
+    "confidence": "low"
+   },
+   {
+    "id": "informal.audit_budget",
+    "value": 80000000000,
+    "unit": "bani (lei a year)",
+    "what": "tax audit spending in 2021 (ANAF's inspection share of its budget), about 800 million lei; an educated guess",
+    "source": "guess",
+    "confidence": "low"
+   },
+   {
+    "id": "informal.penalty_multiple",
+    "value": 10,
+    "unit": "count (tenths of the evaded tax)",
+    "what": "about one times the evaded tax",
+    "source": "docs/02-design/game/lever-system.md",
+    "confidence": "low"
+   },
+   {
+    "id": "world.foreign_price_growth",
+    "values": {
+     "eu": 200,
+     "non_eu": 200
+    },
+    "unit": "basis points (% a year)",
+    "what": "a setting, not a measurement",
+    "source": "docs/02-design/game/lever-system.md",
+    "confidence": "low"
+   },
+   {
+    "id": "world.fuel_price",
+    "values": {
+     "oil": 32400,
+     "gas": 56400,
+     "coal": 56800
+    },
+    "unit": "bani (lei per barrel (oil), per MWh (gas), per tonne (coal))",
+    "what": "December 2021 averages from memory: Brent about 74 dollars a barrel, TTF gas about 114 euro a MWh, API2 coal about 130 dollars a tonne, at 4.37 lei a dollar and 4.95 lei a euro",
+    "source": "guess",
+    "confidence": "low"
+   },
+   {
+    "id": "world.foreign_demand_growth",
+    "values": {
+     "eu": 0,
+     "non_eu": 0
+    },
+    "unit": "basis points (% a year)",
+    "what": "a setting, not a measurement",
+    "source": "docs/02-design/game/lever-system.md",
+    "confidence": "low"
+   },
+   {
+    "id": "world.foreign_rate",
+    "value": -50,
+    "unit": "basis points (% a year)",
+    "what": "ECB deposit facility rate, -0.5%",
+    "source": "crates/econ-core/src/world/foreign.rs (FOREIGN_RATE_PPM)",
+    "confidence": "high"
+   },
+   {
+    "id": "world.wages_abroad",
+    "value": 10000,
+    "unit": "basis points (% of Romania's at the start)",
+    "what": "100% of the start by definition",
+    "source": "docs/02-design/game/lever-system.md",
+    "confidence": "high"
+   }
+  ],
+  "note": "The law in force on 1 December 2021, one entry per lever of crates/econ-core/levers.toml, keyed by lever id; keyed levers map each key to its value. Entered by hand from the research note law-in-force-romania-2021, the taxation, social-transfers and excise specs, and the budget fixture (ministry budgets and posts). Values marked low are from memory or educated guesses and are to be checked against the legal text (lever-system, open question on legal amounts)."
+ }
+}

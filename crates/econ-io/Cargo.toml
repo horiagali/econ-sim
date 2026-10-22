@@ -28,6 +28,9 @@ world = ["econ-core/world", "budget"]
 # implementation.
 budget = []
 default = ["budget"]
+# `read_commands`: a commands file of headless play (spec game/lever-system),
+# as an API skeleton before its acceptance tests (ADR-0014). Off by default.
+levers = ["econ-core/levers"]
 
 [dev-dependencies]
 # The reconciliation with the starting population (AC-BUD-09) builds the
