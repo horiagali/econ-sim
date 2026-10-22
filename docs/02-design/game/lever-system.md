@@ -138,9 +138,11 @@ World settings (D8) are levers with `kind = world`, ids under `world.`, `group =
 
 > **Simplification (M4):** until the project system exists (M11), the investment part is spent each month as `gov.investment` purchases from the construction and equipment industries in the line's starting mix, and any of it unspent also lapses at year end. Quality effects of either part (education quality, health capacity) come with M14.
 
-> **Simplification (M4):** the other budget lines keep one lever, `spend.ministry_budget[line]`, with their running and investment shares fixed at the start (open question).
+- **Every budget line has the split** (owner, 2026-10-22): administration, police and justice, culture and the rest have the same two levers as education and health, so police stations and courts are built from their line's investment part.
 
-If the wage bill exceeds the running allowance (pay raised, budget not), wages are paid in full, inputs fall to zero and the overrun is paid by the treasury with a warning event (open question).
+**Wage bill above the running allowance** (pay raised, budget not; owner, 2026-10-22): **a hiring freeze.** Wages already owed are always paid in full. Inputs are cut first, down to zero. While the wage bill still exceeds the allowance, the unit posts no vacancies, so staff who quit or retire are not replaced, and headcount falls until the bill fits. A warning event names the line. Any overrun left in the month (the bill above the allowance even with inputs at zero) is paid by the treasury and reported. Classes grow and wards thin as staff leave, through the [labour market](../economy/labor-market.md)'s quits.
+
+**Public pay and the labour market** (owner, 2026-10-22): pay is % of the start, and it bites because hiring and quits respond to pay. A public unit paying less than similar jobs in its region fills vacancies more slowly and loses staff to better-paid jobs ([labour market](../economy/labor-market.md), "Pay and job choice"). Frozen pay while private wages rise therefore shows up as unfilled posts, rural ones first. The ratio of public to private pay by sector is an indicator.
 
 ## How a lever change is explained
 Built on the five layers of [ADR-0008](../../03-architecture/decisions/0008-explainability-architecture.md):
@@ -239,15 +241,15 @@ pub fn read_commands(path: &Path, registry: &Registry) -> Result<Vec<LogLine>, (
 The hand-written rule structs (`LabourTaxes`, `PensionRule`, `VatSchedule`, …) are filled from `LawInForce` by small adapters; `Law::law_2021()` is replaced by loading `law.json`.
 
 ## Open questions
-- [ ] **Registry source:** one `levers.toml` (ADR-0018) checked against the specs, or a block in each spec gathered by the generator? Proposed: the TOML, as ADR-0018 decided; a spec lists its lever ids, and the check of the registry verifies them. Locked specs are not edited to add blocks.
-- [ ] **Values in files a person writes:** integers only, or also `"21%"` and `"2,550 lei"`? Proposed: the commands file accepts both, parsed exactly; the applied log always writes integers.
-- [ ] **Form of public pay:** % of the start (proposed), or the catalogue's "% vs private equivalent"? Proposed: % of the start, so pay does not drift with private wages; the ratio to private pay is shown as an indicator.
-- [ ] **Wage bill above the running allowance:** proposed: pay in full, inputs to zero, the treasury covers the overrun with a warning. Alternatives: a hiring freeze until it fits, or arrears.
-- [ ] **The running/investment split for the other lines** (administration, police and justice, …): proposed yes, the same two levers for every line from M4, since the rule is the same.
-- [ ] **Unspent investment money:** proposed: lapses at year end in M4 like running money; the infrastructure spec decides whether multi-year projects carry their money over (M11).
-- [ ] **Budget year:** proposed: the calendar year; the first year is December 2021 alone, with a twelfth of 2021's amounts.
-- [ ] **Property tax:** proposed: a national rate on dwelling value replacing the fixed total, calibrated so 2021's revenue is reproduced.
-- [ ] **QE and FX intervention:** proposed: signed amounts a month (buy > 0); the peg of `fx.regime` = intervention share 100% while reserves stay above the floor.
-- [ ] **Penalty multiple:** proposed: shape `number` in tenths (10 = 1×) rather than a new shape.
+- [x] **Registry source:** one `levers.toml` (ADR-0018) checked against the specs, or a block in each spec gathered by the generator? Proposed: the TOML, as ADR-0018 decided; a spec lists its lever ids, and the check of the registry verifies them. Locked specs are not edited to add blocks. Decided as proposed (owner's delegation, 2026-10-22).
+- [x] **Values in files a person writes:** integers only, or also `"21%"` and `"2,550 lei"`? Proposed: the commands file accepts both, parsed exactly; the applied log always writes integers. Decided as proposed (owner's delegation, 2026-10-22).
+- [x] **Form of public pay:** % of the start (proposed), or the catalogue's "% vs private equivalent"? Proposed: % of the start, so pay does not drift with private wages; the ratio to private pay is shown as an indicator. **Decided (owner, 2026-10-22):** % of the start, on condition that hiring and quits respond to relative pay, added to the labour market for M4, so underpaid public jobs go unfilled.
+- [x] **Wage bill above the running allowance:** proposed: pay in full, inputs to zero, the treasury covers the overrun with a warning. Alternatives: a hiring freeze until it fits, or arrears. **Decided (owner, 2026-10-22):** a hiring freeze (see "Ministry budgets").
+- [x] **The running/investment split for the other lines** (administration, police and justice, …): proposed yes, the same two levers for every line from M4, since the rule is the same. **Decided (owner, 2026-10-22):** yes, every line.
+- [x] **Unspent investment money:** proposed: lapses at year end in M4 like running money; the infrastructure spec decides whether multi-year projects carry their money over (M11). Decided as proposed (owner's delegation, 2026-10-22).
+- [x] **Budget year:** proposed: the calendar year; the first year is December 2021 alone, with a twelfth of 2021's amounts. Decided as proposed (owner's delegation, 2026-10-22).
+- [x] **Property tax:** proposed: a national rate on dwelling value replacing the fixed total, calibrated so 2021's revenue is reproduced. **Decided (owner, 2026-10-22):** as proposed.
+- [x] **QE and FX intervention:** proposed: signed amounts a month (buy > 0); the peg of `fx.regime` = intervention share 100% while reserves stay above the floor. Decided as proposed (owner's delegation, 2026-10-22).
+- [x] **Penalty multiple:** proposed: shape `number` in tenths (10 = 1×) rather than a new shape. Decided as proposed (owner's delegation, 2026-10-22).
 - [ ] **Legal amounts in `law2021_ro.json`** (pension tax threshold, health contribution on other income, benefit floors): to be checked against the legal text by the owner or a research pass when the fixture is filled (carried from M0).
-- [ ] **Errors in a commands file:** proposed: the whole file is validated first and the first error stops the run, with its line number.
+- [x] **Errors in a commands file:** proposed: the whole file is validated first and the first error stops the run, with its line number. Decided as proposed (owner's delegation, 2026-10-22).

@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/production, society/population-groups, society/education, economy/demographics, society/population-employers, society/population-wages, adr/0016-firm-representation, adr/0017-time-base]
 research: []
-updated: 2026-10-15
+updated: 2026-10-22
 ---
 
 # Labour Market
@@ -106,6 +106,31 @@ g_j = \pi^e + \beta_1 \cdot (\theta_j - \theta^*)
 
 **Not in M2:** individual wage factors (tenure, experience); underemployment and taking lower-tier jobs; entry of school leavers, retirement, migration (M5); unemployment benefit and its effect on search (M3); informal jobs changing status (M15); public headcount targets and public pay policy (M4); hours.
 
+## Pay and job choice (roadmap M4)
+*Added at the owner's request, 2026-10-22, with the public pay lever of the [lever system](../game/lever-system.md): without it a unit paying far below the market would hire as fast as any other, and the pay lever would do nothing.*
+
+1. **The market wage** $ar w_{t,r}$ of a tier in a region is the weighted mean wage of the tier's employees there, at the last monthly close.
+2. **Hiring responds to pay.** A unit's relative pay in a tier is $ho = w / ar w_{t,r}$, with $w$ its wage for the tier. Its fill rate becomes
+```math
+q' = \minig(1,\ q \cdot ho^{\eta_f}ig)
+```
+   so a unit paying above the market fills its vacancies faster, and one paying below fills them slower.
+3. **Quits respond to pay.** An employee quits with probability
+```math
+	ext{quit} = 	ext{clamp}ig(	ext{quit\_rate} \cdot ho^{-\eta_q},\ 	ext{quit\_min},\ 	ext{quit\_max}ig)
+```
+4. **Job-to-job moves.** Of the quitters paid below the market ($ho < 1$), a share `job_to_job_share` look for work while employed. They go first in the next day's matching, but only for vacancies paying more than their current wage, and they are hired without a spell of unemployment. The rest become unemployed as before.
+5. **Applies to every unit,** public and private. Public pay moves only by its lever, so frozen public pay against rising private wages lowers $ho$ for public units: posts fill slowly and staff leave, first where private pay is highest.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `fill_wage_elasticity` $\eta_f$ | 2 (low confidence) | how much relative pay speeds or slows hiring |
+| `quit_wage_elasticity` $\eta_q$ | 2 (low confidence) | how much relative pay raises or lowers quits |
+| `quit_min`, `quit_max` | 0.3%, 4% a month | bounds of the monthly quit probability |
+| `job_to_job_share` | 50% (low confidence) | share of underpaid quitters who move straight to another job |
+
+> **Simplification:** relative pay is against the tier's regional mean, not against each person's own outside offers. Pay is the only job attribute; working conditions and job security come later.
+
 ## Player levers
 Minimum wage; unemployment benefit (via reservation wage and search intensity); public wages and headcount; education (skill supply); immigration quotas by skill; wage subsidies; social contributions; labour inspection funding (informality).
 
@@ -147,12 +172,16 @@ IDs are stable (added 2026-10-11). Tests go in the mechanic's crate, `crates/eco
 - [ ] **AC-LM-08** `[sim]` *(M3)* Higher unemployment benefits raise average unemployment duration.
 - [ ] **AC-LM-09** `[sim]` *(M4)* Raising the minimum wage from 45% to 55% of the median raises low-skill wages with a small employment effect; to 80% with a large one and more informality.
 - [ ] **AC-LM-10** `[sim]` *(M5)* More tertiary graduates raise high-skill employment if demand exists, otherwise underemployment rises.
+- [ ] **AC-LM-11** `[sim]` *(M4)* Two worlds differing only in one public unit's pay (80% against 100% of the start): over a year the lower-paid unit fills fewer of its vacancies and loses more staff; with every relative pay at 1 the rates are those of M2.
+- [ ] **AC-LM-12** `[sim]` *(M4)* Job-to-job moves: underpaid quitters hired by better-paying units count as hires with no unemployment spell, and employment counted from persons still equals units' staff every day.
 
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
 - AC-LM-08: unemployment benefit (roadmap M3)
 - AC-LM-09: the minimum-wage lever with firms' responses (roadmap M4)
 - AC-LM-10: education flows (roadmap M5)
+- AC-LM-11: pay and job choice (roadmap M4)
+- AC-LM-12: pay and job choice (roadmap M4)
 
 ## API sketch
 For the test writer and the implementer; names may change, shapes should not.
