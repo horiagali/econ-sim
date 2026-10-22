@@ -603,7 +603,8 @@ impl World {
 
     /// Part 4 on the 15th: a twelfth of each held programme to its group.
     fn pay_held_benefits(&mut self) {
-        let k = u32::try_from(self.months.len().saturating_sub(1) % 12).expect("a month");
+        // The payment's index: the first 15th, before any month closes, is 0.
+        let k = u32::try_from(self.months.len() % 12).expect("a month");
         let mut held = Vec::with_capacity(BENEFITS.len());
         for (name, code, year, key) in BENEFITS {
             let due = Self::twelfth(year, k);
