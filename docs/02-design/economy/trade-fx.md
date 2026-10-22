@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/production, economy/prices-inflation, economy/money-banking, economy/monetary-policy, economy/opening-balance-sheet, game/world-loop, adr/0017-time-base]
 research: []
-updated: 2026-10-21
+updated: 2026-10-22
 ---
 
 # Trade & Exchange Rate
@@ -124,6 +124,7 @@ AC-TFX-01 and 02 (`[unit]`) were written on 2026-10-20 in the mechanic's crate, 
 
 ### Tests owed
 The spec was locked before these tests could exist (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-TFX-05: waits for M7's calibration (the leu drifts about 10.3% over ten years against the 10% limit)
 - AC-TFX-06: roadmap M4
 - AC-TFX-07: roadmap M20
 - AC-TFX-08: roadmap M18

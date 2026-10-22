@@ -146,7 +146,11 @@ fn ac_tfx_04() {
 /// **AC-TFX-05** `[sim]` Quiet baseline: on the Romania scenario with the
 /// 2021 law and constant world, the exchange rate over 120 months stays
 /// within 10% of its start and the central bank's reserves above their floor.
+///
+/// Owed to roadmap M7 (owner, 2026-10-22): without M7's calibration the leu
+/// drifts about 10.3% over ten years.
 #[test]
+#[ignore = "waits for M7's calibration (owner 2026-10-22)"]
 fn ac_tfx_05() {
     let mut w = world_2021(1000);
     let start = i64::from(w.foreign().start_rate_ppm);

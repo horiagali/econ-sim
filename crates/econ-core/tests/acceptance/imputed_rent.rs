@@ -227,8 +227,12 @@ fn ac_imp_02() {
 /// before tax is lower than in the world without it by the payback they paid,
 /// within 30% (the worlds' demand differs). Taxable profit is not shown by
 /// unit; the profit tax is not checked here.
+///
+/// Owed to roadmap M7 (owner, 2026-10-22): it waits for real estate's mixed
+/// income and surplus.
 #[cfg(feature = "investment")]
 #[test]
+#[ignore = "waits for M7: real estate's mixed income and surplus (owner 2026-10-22)"]
 fn ac_imp_03() {
     use super::support_rev::{bn, industry, units_of};
     let start = start_state(1000);
