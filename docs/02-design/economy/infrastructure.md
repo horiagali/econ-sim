@@ -83,7 +83,12 @@ Each asset has an operator, and the operator pays its running costs:
 | Schools, universities | the county's public education producer (`education_services`, public part) | teachers by a pupils-per-class norm; inputs by the education column |
 | Water networks | county water companies | staff, energy, chemicals; tariffs |
 
-At commissioning, the game shows the running cost, and the player either raises the ministry's budget line or does not. If not, the producer's budget is spread over more capacity: the new beds or classrooms exist, but **effective capacity** = physical capacity × the staffed share. The "why" panel shows "unstaffed beds" or "classrooms without teachers". Hiring comes from the county's labour market, and doctors and teachers are scarce skills, so a hospital in a county short of doctors fills slowly, or draws doctors from neighbouring counties.
+**Schools and hospitals are run from their ministry's budget** (owner, 2026-10-22). The education and health budgets are levers ([fiscal policy](fiscal-policy.md), M4). Each has a **running part**, which pays staff and inputs for all the ministry's schools or hospitals, and an **investment part**, which pays for new projects and maintenance. The split between them is a lever.
+- **Running part below the cost of the capacity:** the money is spread over all of it. Staff are thinner, classes larger and medicines shorter, so **effective capacity** = physical capacity × the staffed share, and quality falls. The "why" panel shows "unstaffed beds" or "classrooms without teachers", by county.
+- **Running part above the cost:** the extra raises quality: more spent per pupil or patient, better teacher and doctor pay (easier hiring), smaller classes ([education](../society/education.md), [social outcomes](../society/social-outcomes.md)). Returns diminish, and the game shows the quality each extra leu buys, so the player can see when moving money to the investment part, to build where places are short, does more.
+- **Unspent money** of the running part at year end returns to the treasury and lowers the deficit; nothing disappears.
+
+At commissioning, the game shows the new asset's running cost and the ministry's running part after it, so the player can raise the budget or accept thinner staffing. Hiring comes from the county's labour market, and doctors and teachers are scarce skills, so a hospital in a county short of doctors fills slowly, or draws doctors from neighbouring counties.
 
 ### 6. Maintenance and decay
 Condition falls at $\delta_{type}$ a year and is restored by maintenance spending (a budget line by type, lever). Below a threshold, an asset's effect falls: a road's speed on its graph link drops, a hospital loses beds. Repairing it later costs more than maintaining it would have.
@@ -106,7 +111,7 @@ A school or hospital matters most where there was a shortage. Effects use places
 - Commission a project: type, place (a county, or a route drawn on the map between county seats), size, funding.
 - Pick the contractor from the bids.
 - Pause, cancel, accept or refuse an overrun.
-- Running budget for new capacity: fund it, or not.
+- Education and health budgets, and each one's split between running and investment (M4 levers; new capacity is funded from them).
 - Maintenance budget by type.
 - Tolls or a vignette on motorways; track access fees.
 - From M9: directives to the state-owned construction company (take contracts at cost, hire locally).
