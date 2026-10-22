@@ -12,7 +12,30 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  changes:
+    # A pull request that touches only docs and Markdown skips the Rust and
+    # UI jobs; docs.yml still checks the index and traceability. The glossary
+    # generates code, so it counts as code. Pushes to main run everything.
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ github.event_name == 'push' || steps.filter.outputs.code == 'true' || steps.filter.outputs.glossary == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          predicate-quantifier: every
+          filters: |
+            code:
+              - '**'
+              - '!docs/**'
+              - '!**/*.md'
+            glossary:
+              - 'docs/glossary.md'
+
   linux:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,8 +59,6 @@ jobs:
         run: python scripts/lint_canary.py
       - name: glossary codegen is up to date
         run: python scripts/codegen_glossary.py --check
-      - name: acceptance-criteria traceability
-        run: python scripts/traceability.py
       - name: data pipeline tests
         run: python -m unittest discover -s python/pipeline/tests
       - name: protect-paths hook tests
@@ -57,6 +78,8 @@ jobs:
 
   windows:
     # Only when core code changes (ADR-0010 CI budget).
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -103,6 +126,8 @@ jobs:
     # The World at three population scales in a release build (roadmap M2):
     # its acceptance tests at 1:1000 and 1:100, the ignored 1:10 run and the
     # time budget of AC-WLD-10, one at a time so the timing is not shared.
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -119,6 +144,8 @@ jobs:
   ui:
     # The thin UI's frontend type-checks and builds (the Tauri host is
     # checked by the windows job).
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -148,6 +175,8 @@ jobs:
           diff hashes/hashes-linux/hashes-linux.txt w.txt && echo "identical"
 
   licences:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
