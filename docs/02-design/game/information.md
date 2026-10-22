@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [game/overview, vision/pillars]
 research: []
-updated: 2026-10-10
+updated: 2026-10-22
 ---
 
 # Information, Graphs & Causal Explanations
@@ -76,5 +76,5 @@ A daily tick ([ADR-0017](../../03-architecture/decisions/0017-time-base.md)) cha
 ## Open questions
 Proposed answers (2026-10-10), for the owner to change.
 - [x] Counterfactual "what if I hadn't done X" runs and policy attribution: after v1. The core can already fork a world in memory ([ADR-0011](../../03-architecture/decisions/0011-storage-saves-history.md)), so nothing blocks it later.
-- [x] Forecasts or advisor projections: after v1.
+- [x] Forecasts or advisor projections: after v1. The design question (a perfect crystal ball while the outside world is constant; options) is in the roadmap's "After v1", 2026-10-22.
 - [x] How much history to keep: as in [ADR-0011](../../03-architecture/decisions/0011-storage-saves-history.md) and [ADR-0017](../../03-architecture/decisions/0017-time-base.md): aggregates and the group cube, monthly, plus daily points for fast series; no per-person history (rebuilt by replay).
