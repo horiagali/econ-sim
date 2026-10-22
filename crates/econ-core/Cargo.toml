@@ -87,8 +87,11 @@ revenue = ["fiscal"]
 # The lever system (spec game/lever-system, roadmap M4): the registry
 # (`levers.toml`), commands, validation, the law in force and the command log,
 # as an API skeleton written before its acceptance tests (ADR-0014); every body
-# is `unimplemented!` until they exist. Off by default.
-levers = ["world"]
+# is `unimplemented!` until they exist. Off by default. With it, the test
+# writer's additions for its acceptance tests (ADR-0014): econ-io's scenario
+# law, saves and commands files, and the labour market's pay and job choice
+# (AC-LM-11, AC-LM-12).
+levers = ["world", "econ-io/levers", "econ-mech-labour/pay_choice"]
 
 [[test]]
 name = "acceptance"

@@ -180,8 +180,6 @@ The spec was locked before these tests could exist (ADR-0014, Amendment 1). A li
 - AC-LM-08: unemployment benefit (roadmap M3)
 - AC-LM-09: the minimum-wage lever with firms' responses (roadmap M4)
 - AC-LM-10: education flows (roadmap M5)
-- AC-LM-11: pay and job choice (roadmap M4)
-- AC-LM-12: pay and job choice (roadmap M4)
 
 ## API sketch
 For the test writer and the implementer; names may change, shapes should not.

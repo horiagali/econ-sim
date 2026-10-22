@@ -205,6 +205,8 @@ Levers tagged `alpha` in the [catalogue](levers.md) (D2). Ids are proposals for 
 - Moving any lever to either end of its range must not crash or break an invariant (D10); backstops are M10's.
 
 ## Acceptance tests
+Written on 2026-10-22 by the test writer (ADR-0014) in `crates/econ-core/tests/acceptance/` (`levers.rs` for the `[unit]` criteria, `levers_sim.rs` for the `[sim]` ones), behind the feature `levers`, against the API skeleton and the test writer's additions (`World::with_law`, `registry`, `events`, `budget_months`, `price_why`, `attribute_groups`; `econ_io::commands::read_scenario_law`, `save_world`, `load_world`; `econ-cli play`). Until the generator writes `generated_lever_list.rs`, the coverage tests iterate the committed registry.
+
 - [ ] **AC-LEV-01** `[unit]` The registry checks pass on the committed `levers.toml`, and each kind of fault (duplicate id, unknown shape, `spec` not in the index, `glossary` not in the glossary, unknown `reader`, missing key table) fails with the entry named; `just codegen-check` fails when the generated files are stale.
 - [ ] **AC-LEV-02** `[unit]` Every `active` lever is set exactly once in the Romania scenario's `law.json` or `world.json`; a scenario missing one fails to load, naming it.
 - [ ] **AC-LEV-03** `[unit]` Each rejection code of the table is returned for a command built to trigger it, with an English message that names the lever's label and, for `out_of_range`, the bounds and the value in display units; state and log are unchanged.

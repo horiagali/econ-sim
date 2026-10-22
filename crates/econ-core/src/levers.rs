@@ -653,3 +653,158 @@ impl World {
         unimplemented!("{LATER}")
     }
 }
+
+// --- Test writer's additions (ADR-0014) ----------------------------------------
+// What the acceptance tests of game/lever-system and of the labour market's
+// "Pay and job choice" read that the skeleton above did not have: a world
+// built under the law of `law.json` and `world.json`, the registry with the
+// scenario's key tables, the L5 events, the ministry budgets of a month, the
+// price "why" terms and the L4 counterfactual of the lever groups.
+
+/// The message of every body the test writer added.
+const TEST_WRITER: &str = "test writer's addition (ADR-0014): the implementation fills it";
+
+/// An L5 event of the lever system (spec, "How a lever change is explained",
+/// and "Ministry budgets").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PolicyEvent {
+    /// `PolicyGiven`: a command accepted and pending.
+    Given {
+        /// Its sequence number.
+        seq: u64,
+        /// The lever.
+        lever: LeverId,
+        /// The key, for a keyed lever.
+        key: Option<u32>,
+        /// The day it was given.
+        given: Date,
+        /// The day it takes effect.
+        effective: Date,
+    },
+    /// `PolicyChanged`: a command took effect.
+    Changed(PolicyChanged),
+    /// `PolicyWarning`: an accepted command breaks an EU rule or a
+    /// consistency the law usually keeps.
+    Warning {
+        /// The sequence number of the command.
+        seq: u64,
+        /// The day it was given.
+        given: Date,
+        /// The warning.
+        warning: Warning,
+    },
+    /// A budget line's wage bill above its running allowance (spec, "Wage
+    /// bill above the running allowance"): the hiring freeze's warning,
+    /// naming the line, with what the treasury paid beyond the allowance in
+    /// the month.
+    BudgetOverrun {
+        /// The day of the payment.
+        date: Date,
+        /// The budget line's id (`education`, `health`, …).
+        line: String,
+        /// Paid by the treasury beyond the allowance.
+        overrun: Bani,
+    },
+}
+
+/// One budget line in one closed month (spec, "Ministry budgets"), national
+/// bani.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BudgetLineMonth {
+    /// The month.
+    pub month: econ_types::Month,
+    /// The budget line's id.
+    pub line: String,
+    /// $R_l$: the running allowance of the budget year to the end of this
+    /// month (the sum of its monthly twelfths).
+    pub running_allowance_to_date: Bani,
+    /// What the line's running part has paid in the budget year to the end
+    /// of this month (wages and inputs).
+    pub running_paid_to_date: Bani,
+    /// The wage bill paid in the month (employees × pay), overrun included.
+    pub wages: Bani,
+    /// Inputs bought in the month.
+    pub inputs: Bani,
+    /// The investment part paid in the month (`gov.investment` purchases).
+    pub investment: Bani,
+    /// The wage bill above the allowance paid by the treasury in the month.
+    pub overrun: Bani,
+}
+
+/// One term of a "why" tree (ADR-0008 L2), flattened.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WhyTerm {
+    /// The term's label.
+    pub label: String,
+    /// The lever the term's input is a field of, if any.
+    pub lever: Option<LeverId>,
+    /// Its contribution to the change of the explained value.
+    pub contribution: f64,
+}
+
+impl World {
+    /// A world on a starting state under the law in force of `law.json` and
+    /// `world.json`, with the registry whose keyed levers carry the
+    /// scenario's key tables.
+    ///
+    /// # Errors
+    /// As [`World::new`].
+    pub fn with_law(
+        start: crate::world::StartState,
+        registry: Registry,
+        law: LawInForce,
+        params: crate::world::WorldParams,
+    ) -> Result<World, crate::world::WorldError> {
+        let _ = (start, registry, law, params);
+        unimplemented!("{TEST_WRITER}")
+    }
+
+    /// The registry the world validates against, its keyed levers' `keys`
+    /// filled from the scenario's tables.
+    #[must_use]
+    pub fn registry(&self) -> &Registry {
+        let _ = self;
+        unimplemented!("{TEST_WRITER}")
+    }
+
+    /// The L5 events of the lever system so far, in the order emitted.
+    #[must_use]
+    pub fn events(&self) -> &[PolicyEvent] {
+        let _ = self;
+        unimplemented!("{TEST_WRITER}")
+    }
+
+    /// Every budget line in every closed month, by month then line.
+    #[must_use]
+    pub fn budget_months(&self) -> &[BudgetLineMonth] {
+        let _ = self;
+        unimplemented!("{TEST_WRITER}")
+    }
+
+    /// The terms of the "why" tree of a catalogue industry's consumer price
+    /// over a closed month.
+    #[must_use]
+    pub fn price_why(&self, industry: usize, month: econ_types::Month) -> Vec<WhyTerm> {
+        let _ = (self, industry, month);
+        unimplemented!("{TEST_WRITER}")
+    }
+}
+
+/// The L4 counterfactual of the lever groups (spec, "How a lever change is
+/// explained"; ADR-0008): from `fork`, run to the end of `until` once with
+/// every order of `log` given on its day and once without the orders of
+/// each group in `groups`; a group's effect on `indicator` is the value of
+/// the full run less that of the run without its orders.
+///
+/// # Errors
+/// An order of the log rejected.
+pub fn attribute_groups(
+    fork: &World,
+    log: &[LogLine],
+    groups: &[Group],
+    until: Date,
+    indicator: fn(&World) -> i64,
+) -> Result<Vec<(Group, i64)>, Rejection> {
+    let _ = (fork, log, groups, until, indicator);
+    unimplemented!("{TEST_WRITER}")
+}

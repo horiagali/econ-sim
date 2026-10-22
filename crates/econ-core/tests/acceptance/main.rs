@@ -56,3 +56,16 @@ mod investment;
 mod revenue;
 #[cfg(any(feature = "investment", feature = "revenue"))]
 mod support_rev;
+
+// M4: the lever system (spec game/lever-system) and the labour market's pay
+// and job choice (AC-LM-11, AC-LM-12), written before the code against the
+// API skeleton `econ_core::levers` and the test writer's additions, behind
+// the feature `levers`, which the implementation adds to `default`.
+#[cfg(feature = "levers")]
+mod labour_pay;
+#[cfg(feature = "levers")]
+mod levers;
+#[cfg(feature = "levers")]
+mod levers_sim;
+#[cfg(feature = "levers")]
+mod support_lev;

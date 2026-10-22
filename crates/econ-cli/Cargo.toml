@@ -19,5 +19,10 @@ econ-popgen.workspace = true
 econ-scenario.workspace = true
 econ-rng.workspace = true
 
+[features]
+# `play` (spec game/lever-system, headless play): the test writer's addition
+# (ADR-0014) for AC-LEV-08; off until the lever system is implemented.
+levers = ["econ-core/levers", "econ-io/levers"]
+
 [lints]
 workspace = true
