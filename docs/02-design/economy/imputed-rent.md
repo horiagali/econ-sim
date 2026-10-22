@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/households, economy/production, economy/investment-capital, economy/taxation, game/world-loop, society/population-housing, society/population-wealth, adr/0007-money-and-ledger, adr/0016-firm-representation, adr/0017-time-base]
 research: [research/imputed-rent-romania-2021]
-updated: 2026-10-21
+updated: 2026-10-22
 ---
 
 # Imputed Rent of Owner-Occupiers (M3 addition to households)
@@ -48,7 +48,7 @@ From the [research note](../../01-research/notes/imputed-rent-romania-2021.md):
 
 **Expected amounts (a year, at the table's levels).**
 - **Payback.** About 77.0 billion lei (6.4 billion a month), about 11,000 lei a year per owner household on average (7.0% of dwelling value).
-- **The real-estate units' margins** (output 117.8 billion): surplus before the payback 89.0 billion (76% of output), after it about 13.1 billion (11%). That is close to L less L68A in Eurostat: 96.5 − 84.7 = 11.8 billion of value added.
+- **The real-estate units' margins** (output 117.8 billion): surplus before the payback 89.0 billion (76% of output), after it about 13.1 billion (11%). That is close to L less L68A in Eurostat: 96.5 − 84.7 = 11.8 billion of value added. Both are gross of depreciation. Net of it, as the units' profit is ([investment and capital](investment-capital.md), step 4), the surplus is about **−15.1 billion** (a loss): their fixed assets are 433.4 billion lei (`firm_balance_sheets2021_ro.json`, the four `real_estate` units), and depreciation at $\delta$ = 6.5% a year takes 28.2 billion (added 2026-10-22).
 - **Dividends abroad** of foreign-controlled real-estate units fall by about 29 billion a year.
 - **Households' disposable income** rises by about 77 billion. This moves consumption toward the table's (households spend about 20% less than in 2021, roadmap 2026-10-21).
 
@@ -69,7 +69,7 @@ IDs are draft IDs. If the text moves into households, they become AC-HH-11 to 14
   - every leu reaches an owner household and none reaches a tenant;
   - the clearing account nets to zero and every ledger check holds.
 - [ ] **AC-IMP-02** `[sim]` Each owner household's receipt is within one ban per record of its key's share. Each household's `hh_income_received` grows by it.
-- [ ] **AC-IMP-03** `[sim]` The real-estate units' profit and taxable profit exclude the payback. Their first-year surplus is within 30% of 13.1 billion lei, and prices of `real_estate` are those of a world without the payback on day 1.
+- [ ] **AC-IMP-03** `[sim]` The real-estate units' profit and taxable profit exclude the payback. Their first-year surplus net of depreciation is within 30% of −15.1 billion lei (13.1 billion less their depreciation, 28.2 billion), and prices of `real_estate` are those of a world without the payback on day 1. *(Restated by the owner, 2026-10-22: it read 13.1 billion, which is gross of depreciation, while the units' profit is net of it.)*
 - [ ] **AC-IMP-04** `[sim]` Compare two worlds on the Romania scenario with the 2021 law, with and without the payback (a start edit). Over the first twelve months, households' consumption over GDP is higher with the payback, and closer to the table's share.
 
 AC-IMP-01 to 04 were written on 2026-10-21, after the code (owner's decision of 2026-10-21), from this spec only:
@@ -93,6 +93,7 @@ pub fn imputed_rent_key(tenure: &[u8], dwelling_value: &[Bani], owner: u8) -> Ve
 - `hh_imputed_rent_key[h]`
 
 ## Open questions
+- [ ] **The real-estate units' surplus net of depreciation is a loss** (−15.1 billion lei, AC-IMP-03, 2026-10-22). Their 433.4 billion lei of fixed assets come from spreading the firms' capital by surplus (`firm_balance_sheets2021_ro.json`, `guesses`), and their surplus is mostly imputed rent, which the payback now takes away. Owner-occupied dwellings are households' assets in ESA and are not in that stock. Should the spread key use the surplus after the payback, so that the real-estate units hold less capital?
 - [x] **Key by dwelling value or equal per owner household?** Proposed: by dwelling value; imputed rent is proportional to the dwelling's rent. **Decided (owner, 2026-10-21):** as proposed.
 - [x] **Households under "other" tenure** (5.8%, rent-free): include them in the key? Proposed: no in M3. ESA imputes their rent only for some countries. **Decided (owner, 2026-10-21):** as proposed.
 - [x] **Paid on pay day** (month end, before households decide on the month's income), or on the 15th with dividends? Proposed: pay day, so it is in the same month's income as wages. **Decided (owner, 2026-10-21):** as proposed.

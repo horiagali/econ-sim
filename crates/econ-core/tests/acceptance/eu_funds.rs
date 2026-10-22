@@ -8,7 +8,9 @@
 //! `econ_core::world`:
 //! - the month rule of the API sketch (`eu_month`);
 //! - each unit's receipts of the day (`World::revenue_today`);
-//! - the closed months of revenue (`World::revenue_months`).
+//! - the closed months of revenue (`World::revenue_months`);
+//! - a permanent depreciation of the leu (`StartEdit::Depreciation`, added
+//!   2026-10-22 for AC-EUF-05).
 //!
 //! The yearly amounts are the spec's table. The spec places them in the
 //! budget fixture's `eu_receipts`, which the fixture does not have yet.
@@ -30,8 +32,8 @@ const GRANTS_CURRENT: f64 = 6_550.2;
 const GRANTS_CAPITAL: f64 = 16_017.5;
 const AGRI_PAYMENTS: f64 = 9_806.0;
 
-/// The exchange-rate index `e / e0` of the latest day, millionths; 1 with no
-/// exchange rate on the `World`.
+/// The exchange-rate index `e / e0` in force on the `World` now, millionths;
+/// 1 with no exchange rate on the `World`.
 fn rate_index_ppm(w: &World) -> u32 {
     #[cfg(feature = "trade")]
     {
@@ -129,8 +131,11 @@ fn ac_euf_01() {
 ///   `subsidy.eu_agri`, and no other unit receives any;
 /// - every ledger check holds.
 ///
-/// The farm units' parts follow their key (their share of the farm units'
-/// starting output), within one ban each.
+/// "The month's amount" is converted at the exchange rate in force before
+/// the month end's close (restated by the owner, 2026-10-22: the close may
+/// move the rate after the payments), read on the `World` before the month
+/// end's step. The farm units' parts follow their key (their share of the
+/// farm units' starting output), within one ban each.
 #[test]
 fn ac_euf_02() {
     let start = start_state(1000);
@@ -148,6 +153,8 @@ fn ac_euf_02() {
     let [current, capital, agri] = lines();
     let mut month = 0u8;
     while month < 12 {
+        // The rate in force before the day's close.
+        let idx = rate_index_ppm(&w);
         let r = step(&mut w);
         assert_checks(&r);
         let rev = w.revenue_today();
@@ -170,7 +177,6 @@ fn ac_euf_02() {
             );
             continue;
         }
-        let idx = rate_index_ppm(&w);
         let legs = legs_of_day(&w, &r);
         for (c, per_year) in [current, capital] {
             let amount = eu_month(per_year, month, idx);
@@ -399,11 +405,14 @@ fn ac_euf_04() {
     }
 }
 
-/// **AC-EUF-05** `[sim]` A permanent 10% depreciation (the world-constants
-/// edit of trade-fx's depreciation test) raises the lei value of the next
-/// month's EU payments by 10%, within one ban per payment.
+/// **AC-EUF-05** `[sim]` A permanent 10% depreciation of the leu (the
+/// exchange rate `e` 10% higher from the start, an exchange-rate edit)
+/// raises the lei value of the next month's EU payments by 10%, within one
+/// ban per payment (restated by the owner, 2026-10-22: a change in world
+/// euro prices, AC-TFX-04's edit, does not move the rate, so it leaves EU
+/// funds in lei unchanged).
 ///
-/// The edit is `StartEdit::WorldPrices` at 1.1; each payment is compared
+/// The edit is `StartEdit::Depreciation` at 1.1; each payment is compared
 /// with 1.1 times the same payment in the base world at the first month end.
 #[cfg(feature = "trade")]
 #[test]
@@ -414,7 +423,7 @@ fn ac_euf_05() {
     let mut base = world_2021(1000);
     let mut dear = world_2021_with(
         1000,
-        vec![StartEdit::WorldPrices {
+        vec![StartEdit::Depreciation {
             factor_ppm: 1_100_000,
         }],
         params(),

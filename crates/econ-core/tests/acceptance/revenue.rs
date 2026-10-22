@@ -8,7 +8,7 @@
 //! from the spec in `econ_core::world`:
 //! - the day's purchases and taxes (`World::revenue_today`);
 //! - the closed months of revenue (`World::revenue_months`);
-//! - the held benefits of the pay day (`World::held_benefits`);
+//! - the held benefits of the latest 15th (`World::held_benefits`);
 //! - each industry's unit cost (`World::unit_costs_ppm`);
 //! - a world without parts 1 and 2 (`StartEdit::WithoutRevenue`).
 //!
@@ -144,8 +144,18 @@ fn ac_grv_02() {
 }
 
 /// **AC-GRV-03** `[sim]` With parts 1 and 2 on, every industry's starting
-/// unit cost and price are those of the `World` without them. Firm units'
-/// deposits after twelve months are lower by the taxes paid, within 5%.
+/// unit cost and price are those of the `World` without them. After twelve
+/// months, the fall in firm units' deposits plus the change in the dividends
+/// they paid equals the taxes paid, within 5% (restated by the owner,
+/// 2026-10-22).
+///
+/// "The taxes paid" are the government's receipts under `tax.products` and
+/// `tax.production` in the world with them, summed over each day's flows.
+/// "The fall in firm units' deposits" is their deposits in the world without
+/// them less those in the world with them. "The change in the dividends
+/// they paid" is the firms' net payments under `income.dividend` in the
+/// world without them less those in the world with them, summed over each
+/// day's flows (zero with no dividends).
 #[test]
 fn ac_grv_03() {
     let mut with = world_2021(1000);
@@ -164,33 +174,34 @@ fn ac_grv_03() {
         without.industries().price_ppm,
         "starting prices"
     );
-    for w in [&mut with, &mut without] {
+    let taxes = [code("tax.products"), code("tax.production")];
+    let dividend = code("income.dividend");
+    // The taxes the first world paid and each world's dividends, day by day.
+    let mut paid = Bani::ZERO;
+    let mut dividends = [Bani::ZERO; 2];
+    for (k, w) in [&mut with, &mut without].into_iter().enumerate() {
         while w.months().len() < 12 {
             step(w);
+            if k == 0 {
+                for &c in &taxes {
+                    paid += received(w, c, Sector::Government);
+                }
+            }
+            dividends[k] += Bani::ZERO - w.ledger().flows().get(dividend, Sector::Firms);
         }
     }
-    // The taxes the first world paid, read again on its ledger.
-    let paid: Bani = [code("tax.products"), code("tax.production")]
-        .iter()
-        .map(|&c| {
-            with.ledger()
-                .debug_postings()
-                .iter()
-                .filter(|p| p.leg.code == c && p.leg.payee == Sector::Government)
-                .map(|p| p.leg.amount)
-                .fold(Bani::ZERO, |a, b| a + b)
-        })
-        .fold(Bani::ZERO, |a, b| a + b);
     let lower = total(&without.firm_units().deposits) - total(&with.firm_units().deposits);
+    let fewer_dividends = dividends[1] - dividends[0];
     eprintln!(
-        "AC-GRV-03: taxes paid {:.2} billion lei, firm deposits lower by {:.2}",
+        "AC-GRV-03: taxes paid {:.2} billion lei, firm deposits lower by {:.2}, dividends lower by {:.2}",
         bn(paid),
-        bn(lower)
+        bn(lower),
+        bn(fewer_dividends)
     );
     assert!(paid > Bani::ZERO);
     assert!(
-        gap_ppm(lower, paid) <= 50_000,
-        "deposits lower by {lower:?}, taxes paid {paid:?}"
+        gap_ppm(lower + fewer_dividends, paid) <= 50_000,
+        "deposits lower by {lower:?} and dividends by {fewer_dividends:?}, taxes paid {paid:?}"
     );
 }
 
@@ -473,10 +484,18 @@ fn held_benefits() -> Vec<(&'static str, FlowCode, f64, bool)> {
     ]
 }
 
-/// **AC-GRV-06** `[sim]` On every pay day each held benefit pays exactly its
-/// monthly amount, less rounding under one ban per record, to its key group
-/// only. Recipients' `hh_income_received` grows by it. Twelve months add to
-/// the programme's held amount.
+/// **AC-GRV-06** `[sim]` On every 15th (the held benefits' payment day,
+/// restated by the owner from pay day, 2026-10-22) each held benefit pays
+/// exactly its monthly amount, less rounding under one ban per record, to
+/// its key group only. Recipients' `hh_income_received` grows by it. Twelve
+/// months add to the programme's held amount.
+///
+/// The codes that carry only held benefits (`benefit.disability`,
+/// `benefit.housing`, `benefit.student`) pay nothing on other days. Income
+/// is checked for households that did not decide on the 15th: it grows by at
+/// least their held benefits; without `investment` (no dividends that day)
+/// it grows by exactly their held benefits and imputed rent, which is paid
+/// the same day.
 ///
 /// "One ban per record" is per member of the key group with its weight. The
 /// residual programmes' yearly amounts are fixed at load; the spec gives them
@@ -503,12 +522,26 @@ fn ac_grv_06() {
         employee[h] |= start.wage_declared[p] > Bani::ZERO;
     }
     let mut due_year = vec![Bani::ZERO; programmes.len()];
+    let held_only = [
+        code("benefit.disability"),
+        code("benefit.housing"),
+        code("benefit.student"),
+    ];
     let mut pay_days = 0u8;
     while pay_days < 12 {
         let before = w.households().hh_income_received.clone();
         let r = step(&mut w);
         assert_checks(&r);
-        if !r.date.is_month_end() {
+        if r.date.day != 15 {
+            for c in held_only {
+                assert_eq!(
+                    received(&w, c, Sector::Households),
+                    Bani::ZERO,
+                    "{:?}: {} off the 15th",
+                    r.date,
+                    c.name()
+                );
+            }
             continue;
         }
         let held = w.held_benefits();
@@ -573,11 +606,7 @@ fn ac_grv_06() {
             due_year[k] += b.due;
         }
         // The new codes carry the held benefits only.
-        for c in [
-            code("benefit.disability"),
-            code("benefit.housing"),
-            code("benefit.student"),
-        ] {
+        for c in held_only {
             assert_eq!(
                 received(&w, c, Sector::Households),
                 by_code[&c],
@@ -594,25 +623,35 @@ fn ac_grv_06() {
                 c.name()
             );
         }
-        // Income: what households received on the pay day, the held benefits
-        // in it.
-        let slips = w.pay_slips();
+        // Income: what households received on the 15th, the held benefits in
+        // it.
+        let rent_today = w.imputed_rent().day == Some(r.day);
         let after = &w.households().hh_income_received;
         for h in 0..n {
             if w.households().last_decision[h] == Some(r.day) {
                 continue;
             }
+            let grew = after[h] - before[h];
             assert!(
-                slips.received[h] >= held_hh[h],
-                "{:?}: household {h}'s pay day without its held benefits",
-                r.date
+                grew >= held_hh[h],
+                "{:?}: household {h}'s income grew by {grew:?}, its held benefits {:?}",
+                r.date,
+                held_hh[h]
             );
-            assert_eq!(
-                after[h] - before[h],
-                slips.received[h],
-                "{:?}: household {h}'s income received",
-                r.date
-            );
+            if cfg!(not(feature = "investment")) {
+                let rent = if rent_today {
+                    w.imputed_rent().received[h]
+                } else {
+                    Bani::ZERO
+                };
+                assert_eq!(
+                    grew,
+                    held_hh[h] + rent,
+                    "{:?}: household {h}'s income received: held benefits {:?}, imputed rent {rent:?}",
+                    r.date,
+                    held_hh[h]
+                );
+            }
         }
         pay_days += 1;
     }

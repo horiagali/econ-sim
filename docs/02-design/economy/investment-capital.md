@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/production, economy/money-banking, economy/taxation, economy/trade-fx, economy/fiscal-policy, economy/budget-2021, economy/households, economy/opening-balance-sheet, economy/industries, game/world-loop, adr/0016-firm-representation, adr/0017-time-base]
 research: [research/investment-dividends-romania-2021]
-updated: 2026-10-21
+updated: 2026-10-22
 ---
 
 # Investment & Capital
@@ -268,8 +268,10 @@ AC-INV-01 to 10 were written on 2026-10-21, after the code (owner's decision of 
 
 ### Tests owed
 Locked 2026-10-20 under the owner's delegation, before its tests (ADR-0014, Amendment 1). A line is removed when its test is written.
+- AC-INV-06: waits for the investment rule (M7)
 - AC-INV-08: roadmap M7 (the investment rule is off until then, `INVESTMENT_RULE`; the test is written and ignored)
 - AC-INV-09: roadmap M7 (the investment rule is off until then, `INVESTMENT_RULE`; the test is written and ignored)
+- AC-INV-10: waits for the investment rule (M7)
 - AC-INV-11: roadmap M9
 - AC-INV-12: roadmap M9
 - AC-INV-13: roadmap M17

@@ -304,7 +304,11 @@ fn ac_inv_05() {
 /// `A` is read as one value across units: `capacity · κ / K`, with
 /// `κ = K0 / capacity0`; it grows by `tfp_base_growth / 12` (1% a year) a
 /// month (step 8). A unit with no capital keeps its capacity.
+///
+/// Owed to roadmap M7 (owner, 2026-10-22): it needs the investment rule,
+/// which is off until M7's calibration.
 #[test]
+#[ignore = "waits for the investment rule (M7, owner 2026-10-22)"]
 fn ac_inv_06() {
     let start = start_state(1000);
     let p = InvestParams::spec_defaults();
@@ -650,7 +654,11 @@ fn ac_inv_09() {
 /// Consumption of fixed capital is each close's depreciation at that
 /// close's `p^I`. Profit tax is `tax.profit` and `tax.micro`, as in
 /// taxation's revenue check.
+///
+/// Owed to roadmap M7 (owner, 2026-10-22): it needs the investment rule,
+/// which is off until M7's calibration.
 #[test]
+#[ignore = "waits for the investment rule (M7, owner 2026-10-22)"]
 fn ac_inv_10() {
     let mut w = world_2021(1000);
     let mut sum = FlowSum::default();
