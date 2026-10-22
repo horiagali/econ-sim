@@ -489,6 +489,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     let mut layoffs: Vec<(usize, u32)> = Vec::new();
     #[cfg_attr(not(feature = "trade"), allow(unused_mut, unused_variables))]
     let mut world_factor: u32 = 1_000_000;
+    #[cfg_attr(not(feature = "trade"), allow(unused_mut, unused_variables))]
+    let mut depreciation: u32 = 1_000_000;
     #[cfg(feature = "revenue")]
     let mut without_revenue: Vec<super::RevenuePart> = Vec::new();
     // Edits applied once the world exists, in order.
@@ -563,9 +565,7 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             #[cfg(feature = "trade")]
             StartEdit::WorldPrices { factor_ppm } => world_factor = *factor_ppm,
             #[cfg(feature = "trade")]
-            StartEdit::Depreciation { .. } => {
-                unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
-            }
+            StartEdit::Depreciation { factor_ppm } => depreciation = *factor_ppm,
             #[cfg(feature = "revenue")]
             StartEdit::WithoutRevenue(part) => without_revenue.push(*part),
         }
@@ -796,7 +796,7 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         &s.unit_output,
     );
     #[cfg(feature = "trade")]
-    world.start_trade(world_factor);
+    world.start_trade(world_factor, depreciation);
     #[cfg(feature = "revenue")]
     world.start_revenue(&s, &without_revenue);
     #[cfg(feature = "monetary")]

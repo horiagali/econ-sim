@@ -222,7 +222,13 @@ Closes the loop: after this, every sector of the [economy overview](02-design/ec
 - [ ] **The outside world** as decided in D8: a table of constants read by the mechanics, each changeable by a world-settings command.
 - [ ] PC model added to the differential test (open follow-up of Spike 2).
 
-**Owner:** lock the specs above, one or two at a time. **2026-10-20:** money and banking, monetary policy, fiscal policy and trade reworked for M3 and locked by the owner's delegation (the open questions decided as proposed), with the budget of 2021; every criterion listed as owed until the test session.
+**Owner:** lock the specs above, one or two at a time. **2026-10-20:** money and banking, monetary policy, fiscal policy and trade reworked for M3 and locked by the owner's delegation (the open questions decided as proposed), with the budget of 2021; every criterion listed as owed until the test session. **2026-10-22, closing attempt:** the test writer restated AC-GRV-03, AC-GRV-06, AC-EUF-02, AC-EUF-05 and AC-IMP-03 and owed AC-INV-06 and 10 to the investment rule (M7) (PR #82). The implementation then fixed the EU farm key (it included `agri_construction_machinery`), paid the held benefits from the first 15th, rounded the exchange-rate index of EU funds to the nearest ppm and filled `StartEdit::Depreciation`. With every M3 feature on (`revenue investment banking trade monetary pay_day`), 68 acceptance tests pass, 8 are ignored and 5 fail. **M3 stays open and its features stay off by default (owner)** until these are decided:
+  - AC-GRV-03: the fall in firm deposits plus the fall in dividends (47.2 billion lei) is 17% short of the taxes paid (57.1). Counting the lower profit tax brings it to about 8%, still outside 5%.
+  - AC-GRV-06: the spec's key "employees" is read by the test as the employees at load, while the `World` pays the employees of the day.
+  - AC-IMP-03: real estate makes −30.4 billion lei net of depreciation against the restated −15.1. The net target is a loss because the fixture gives real estate 433 billion of capital (open question in [imputed rent](02-design/economy/imputed-rent.md)).
+  - AC-BANK-08: firm loans reach 16.9 trillion bani by April 2023, against 12.9 at the start.
+  - AC-WLD-10: passes alone (a year at 1:100 in about 2.3 s), but not alongside the other tests.
+
 **Exit:** the full transaction matrix balances every tick; a 50-year quiet baseline is stable; government debt, the current account and bank balance sheets move for reasons that can be read off the ledger.
 
 ### M4 — Lever system and alpha levers
