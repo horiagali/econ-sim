@@ -1,0 +1,253 @@
+---
+id: game/lever-system
+title: Lever System — Commands, Registry, Replay and the Alpha Levers
+status: draft
+owner: horia
+depends_on: [game/levers, adr/0018-scenario-and-commands, adr/0011-storage-saves-history, adr/0017-time-base, adr/0008-explainability-architecture, adr/0006-determinism-contract, economy/budget-2021, economy/fiscal-policy, economy/infrastructure, game/world-loop, game/scenario-builder]
+research: [research/law-in-force-romania-2021]
+updated: 2026-10-22
+---
+
+# Lever System — Commands, Registry, Replay and the Alpha Levers
+
+## Purpose
+How a decision of the player (or a line of a test file) becomes a change of the law in force on a date, how it is checked, logged, replayed and explained. It is the machinery of roadmap M4; [ADR-0018](../../03-architecture/decisions/0018-scenario-and-commands.md) fixed its shape (a registry, six value shapes, the `Command` struct, a JSON-lines log) and this spec fills in the rules. It adds no economic behaviour: each lever's effect is owned by the mechanic that reads it. The [catalogue](levers.md) stays the menu.
+
+## Scope
+**In M4:** the registry and its generator, validation and rejection messages, effective dates and phase-in, the command log and replay, headless play, world settings, the "why" of a lever change, the ministry budgets (the owner's decisions of 2026-10-22), and wiring every lever tagged `alpha` ([alpha levers](#the-alpha-levers)).
+**Not in M4:** the app's lever panels (M8, built from the generated list); levers of later milestones (registered as `planned`, rejected until wired); a cost for changing a lever (D9); laws that need parliament.
+
+## What a lever is
+A lever is a named, typed setting of the law in force (or of the outside world, D8) that a mechanic reads. One registry entry describes it:
+
+| Field | Meaning | Example |
+|---|---|---|
+| `id` | stable dotted name, never reused or renamed (ADR-0018) | `tax.vat.rate_standard` |
+| `kind` | `law`, `market`, `project` or `world`: sets the earliest effective date (below) | `law` |
+| `shape` | `rate`, `money`, `number`, `choice`, `flag` or `schedule` (ADR-0018) | `rate` |
+| `unit` | display unit; the stored value is the shape's integer (basis points, bani, count) | `%` |
+| `range` | inclusive bounds in the shape's integer; for `schedule` the bounds of each rate and the number of rows | `[0, 4000]` |
+| `key` | for a lever set once per good, industry, budget line, public unit, county or bloc: the table of keys, and optionally the subset allowed | `budget_line: [education, health]` |
+| `options` | for `choice`: the allowed values, in order | `[float, managed_float, peg]` |
+| `min_lag` | an extra calendar delay beyond the kind's, if the law has one | `1 month` |
+| `phase_in` | optional: the in-force value moves toward the commanded one by at most this step per month | `{ per_month = 1 }` (months of retirement age) |
+| `spec`, `glossary` | the spec that owns the effect, the glossary name it sets | `economy/vat`, `vat_rate_standard` |
+| `reader` | the `World` phase that reads it (one of `PhaseId`, [world-loop](world-loop.md)) | `Prices` |
+| `group` | one of six groups for counterfactual attribution (ADR-0008 L4): `taxes`, `spending`, `transfers`, `money`, `trade`, `world` | `taxes` |
+| `milestone` | the catalogue tag: `alpha`, `M9`, … | `alpha` |
+| `status` | `active`, `planned` (registered, not wired: commands rejected) or `retired` | `active` |
+| `label` | string-table key of its name and help text (D11) | `lever.tax.vat.rate_standard` |
+
+**Default.** A lever has no default in the registry. Its starting value is the law in force on 1 December 2021 (D4), written by the scenario builder into `law.json` (or `world.json` for `kind = world`) as commands dated the start date; a lever missing there is a load error (ADR-0018). The builder reads the values from a pipeline fixture `python/pipeline/fixtures/law2021_ro.json`, keyed by lever id, filled from the [research note](../../01-research/notes/law-in-force-romania-2021.md) with its confidence marks; each value is checked against the legal text when it is entered (the M0 carry-over: pension tax, health contribution on other income, benefit floors).
+
+**Effective date.** The day a command is given is $d$. The earliest day it can take effect:
+
+| `kind` | Earliest effective day | Why |
+|---|---|---|
+| `law` | the first day of the month after $d$, then `min_lag` | law and budgets change on the 1st (ADR-0017 §3) |
+| `market` | $d + 1$ | central-bank operations: policy rate, QE, FX intervention |
+| `project` | $d + 1$: the project starts; its duration belongs to its mechanic | build, close (M11, M12) |
+| `world` | $d + 1$ | a sandbox slider, not a law |
+
+A command may name a later `effective` date; an earlier one is rejected. The **effective date** is when the law in force changes; the **response lag** (prices take weeks, investment years) is the reading mechanic's behaviour and is not a registry field. The catalogue's "Lag" column mixes the two; the registry keeps only the first.
+
+**Phase-in.** A lever with `phase_in` does not jump: from its effective date, on the first of each month, the value in force moves one step toward the commanded value until it reaches it. The steps are computed when the command is applied, so they are deterministic and visible as pending changes. Alpha use: retirement age (if wired, see the table).
+
+## The registry
+**Source.** One file, `crates/econ-core/levers.toml` (ADR-0018), one `[[lever]]` table per lever with the fields above. It is the single list: the specs own each lever's effect and link to its id in their "Player levers" section, and a check verifies the two agree (below). Keyed levers name a key table that exists in the scenario (`industries`, `budget_lines`, `public_units`, `counties`, `blocs`, `fuels`), so keys are text ids, never indices.
+
+```toml
+[[lever]]
+id = "tax.vat.rate_standard"
+kind = "law"
+shape = "rate"
+unit = "%"
+range = [0, 4000]
+spec = "economy/vat"
+glossary = "vat_rate_standard"
+reader = "Prices"
+group = "taxes"
+milestone = "alpha"
+status = "active"
+label = "lever.tax.vat.rate_standard"
+```
+
+**Generator.** `scripts/codegen_levers.py`, run by `just codegen` beside the glossary's generator and checked by `just codegen-check`, writes:
+1. `crates/econ-core/src/levers_gen.rs`: `enum LeverId`, each lever's metadata as a `const` table, and `struct LawInForce` with one typed field per lever (a `Vec` indexed by key for keyed levers) and `fn set(&mut self, cmd: &Command)`;
+2. `ui/src/generated/levers.json`: the list the app builds its panels from (id, label, group, shape, unit, range, keys, milestone, status);
+3. `crates/econ-core/tests/generated_lever_list.rs`: the list the coverage tests iterate (AC-LEV-02, AC-LEV-14);
+4. the catalogue's "When each lever arrives" table, between marker comments in [levers](levers.md), once the registry holds every lever.
+
+**Checks** (in `just check`): every entry parses and has the fields of its shape; ids are unique and dotted; `spec` is an id in [INDEX](../../INDEX.md); `glossary` is a glossary `code_name`; `reader` is a `PhaseId`; every `active` lever is set in the scenario's `law.json` or `world.json`; a `retired` lever is never deleted.
+
+## Commands and validation
+A command is ADR-0018's `Command { lever, key, value, effective }`, given on a day. The core validates it at once, against the registry, today's date and the pending list only (never against the economy's state), so validation is the same in the app, in headless play and in replay.
+
+| Code | Rejected when | Message (string table, English, D11) |
+|---|---|---|
+| `unknown_lever` | the id is not in the registry | "There is no lever `{id}`." |
+| `retired` | the lever is retired | "`{label}` was removed in version {v}." |
+| `not_yet` | `status = planned` | "`{label}` arrives with {milestone}." |
+| `wrong_shape` | the value is not of the lever's shape | "`{label}` takes {shape}, not {given}." |
+| `out_of_range` | a value, a schedule rate or the row count is outside `range` | "`{label}` must be between {min} and {max}; you asked {value}." |
+| `bad_key` | key missing on a keyed lever, given on an unkeyed one, unknown, or not in the allowed subset | "`{label}` has no `{key}`; choose one of {keys}." |
+| `bad_option` | a `choice` not in `options` | "`{label}` can be {options}." |
+| `bad_schedule` | thresholds not strictly ascending, or the first not 0 | "Brackets of `{label}` must start at 0 and rise." |
+| `too_early` | `effective` before the earliest day of the kind and `min_lag` | "`{label}` can change from {earliest} at the soonest." |
+| `nothing_to_cancel` | a cancel names a command that is not pending | "That change has already taken effect or does not exist." |
+
+Values appear in display units in messages (`21%`, `2,550 lei`), converted from the integers by one formatter. A rejected command changes nothing and is not logged; the caller gets the code and the message.
+
+**Warnings, not rejections.** A valid command that breaks an EU rule (VAT standard rate below 15%, a reduced rate below 5%) or an internal consistency the law usually keeps (a reduced VAT rate above the standard one) is accepted and logged with a warning event (L5), as ADR-0018 says.
+
+**Order.** Pending commands are part of the state (saved, shown to the player). In the `Commands` phase at the start of each day, the commands due that day are applied in the order they were given (a sequence number); for one lever and key, the last given wins. A cancel is a command `{ cancel: seq }` and both stay in the log (ADR-0018). Applying changes `LawInForce` and nothing else; mechanics read typed fields of `LawInForce`, never strings.
+
+## Logging and deterministic replay
+**The command log** is JSON lines (ADR-0018 supersedes ADR-0011's postcard for the log): one line per accepted command or cancel.
+
+```json
+{"seq":17,"given":"2022-02-14","lever":"tax.vat.rate_standard","value":2100,"effective":"2022-03-01"}
+{"seq":18,"given":"2022-02-14","lever":"spend.ministry_budget","key":"education","value":4200000000000,"effective":"2022-03-01"}
+{"seq":19,"given":"2022-02-20","cancel":17}
+```
+
+- Values are the shape's integers (basis points, bani, counts; a `choice` as its option text; a `schedule` as `[[threshold_bani, rate_bp], …]`). The largest money values (a ministry's year, ~10¹³ bani) fit exactly in a JSON number below 2⁵³.
+- `law.json` and `world.json` are the same lines with `given` and `effective` equal to the start date and no `seq`.
+- **Replay** (ADR-0006, ADR-0011): the scenario (by hash), the seed and the log give the same state hash on every day. A save stores `LawInForce`, the pending list and the log; replay from a save needs the engine and content hashes to match, as ADR-0011 says.
+- Every applied command emits an L5 event `PolicyChanged { lever, key, old, new, given, effective, seq }` (below).
+
+## Headless play
+```
+econ-cli play --scenario DIR --commands FILE.jsonl --until 2026-12-31 [--seed S] [--out DIR] [--series a,b,…] [--daily]
+just play FILE.jsonl            # the 1:1000 Romania scenario, seed 42, five years
+```
+- **In:** a scenario folder (ADR-0018) and a commands file in the form of the log; `seq` is optional (line order), `effective` is optional (the earliest allowed). The whole file is validated before the first day runs; any rejection stops with the line number and the message.
+- **Out**, in `--out`: `series_monthly.arrow` and `.csv` (one row per month; columns are the monthly series the `World` reports until the statistics registry of M6 exists, then the registry's alpha indicators; units in the header), with `--daily` also the fast daily series of ADR-0017 §8; `commands_applied.jsonl` (the log, every line with `seq` and `effective` filled); `events.jsonl` (L5, warnings included); `run.json` (scenario hash, seed, engine hash, the last day, the state hash of each month end).
+- **Round trip:** feeding `commands_applied.jsonl` back as the commands file gives byte-identical outputs (AC-LEV-08). This is how a bug report or a policy test is reproduced.
+- The policy-scenario suite of M4 (rate hike, VAT rise, …) is one commands file per scenario plus a Rust test that runs it at three scales and checks direction, rough size and timing, in `crates/econ-core/tests/acceptance/policy/` (protected, written in a test-authoring session).
+
+## World settings
+World settings (D8) are levers with `kind = world`, ids under `world.`, `group = world`, values in `world.json`. They are validated, logged, replayed and explained exactly like law. Two differences: the app shows them in their own "World settings" panel, marked as sandbox controls; and a value given as growth a year (foreign prices, foreign demand) is converted to the period of the process that reads it by the `econ-num` helper (ADR-0017 §3), once, when the command is applied. The constants the M3 mechanics hold today (`FOREIGN_RATE_PPM`, `DEMAND_INDEX_PPM`, the world price factor) become fields of `LawInForce` read from `world.json`.
+
+## Ministry budgets (owner decisions, 2026-10-22)
+- **The education and health budgets are levers,** each in two parts: **running** (staff and inputs: the budget cells `wages`, `employer_contributions`, `goods_services`) and **investment** (projects and maintenance: `investment`, `non_produced_assets`), handled through the project and maintenance system of [infrastructure](../economy/infrastructure.md). **The split is itself a lever.** Levers: `spend.ministry_budget[line]` (money, bani a year) and `spend.investment_share[line]` (rate), keyed by [budget line](../economy/budget-2021.md); starting values from `budget.json` (the five cells' sum; investment over that sum).
+- **Teacher and doctor pay are their own lever,** `spend.public_pay[unit]` (rate: pay of the unit's employees as a share of their pay on the start date; 100% at the start), keyed by public unit. A larger budget does not raise pay; a pay rise does not raise the budget.
+- **Unspent running money returns to the treasury at year end.**
+
+**Rule** (monthly, on the 1st and at pay day; amounts by budget-2021's twelfths rule). The running allowance of the year to date is $R_l = \sum$ monthly twelfths of $A_l (1 - s_l)$, with $A_l$ = `ministry_budget[l]` and $s_l$ = `ministry_investment_share[l]` in force each month (a change restarts the twelfths from its month). The public unit is paid its wage bill (employees × pay) first, then its inputs at the line's starting mix, up to $R_l$ less what it has already been paid this year. The unpaid rest is never posted; on 31 December the year's allowance closes and the next year starts from zero, so "returns to the treasury" means it was never drawn, and the deficit is smaller by it. The investment part, $A_l s_l$ in twelfths, goes to the infrastructure spec's maintenance and projects for that ministry's assets (schools, hospitals).
+
+> **Simplification (M4):** until the project system exists (M11), the investment part is spent each month as `gov.investment` purchases from the construction and equipment industries in the line's starting mix, and any of it unspent also lapses at year end. Quality effects of either part (education quality, health capacity) come with M14.
+
+> **Simplification (M4):** the other budget lines keep one lever, `spend.ministry_budget[line]`, with their running and investment shares fixed at the start (open question).
+
+If the wage bill exceeds the running allowance (pay raised, budget not), wages are paid in full, inputs fall to zero and the overrun is paid by the treasury with a warning event (open question).
+
+## How a lever change is explained
+Built on the five layers of [ADR-0008](../../03-architecture/decisions/0008-explainability-architecture.md):
+- **L5 event.** `PolicyChanged` when a command takes effect, `PolicyGiven` when it is accepted (pending), `PolicyWarning` for EU and consistency warnings. Charts mark the effective date with the lever's label.
+- **L2 driver terms name their lever.** A `behaviour_rule!` term whose input is a field of `LawInForce` declares the lever id as its source, so the "why" tree of an indicator shows, for example, "VAT standard rate 19% → 21% (1 March 2022): +1.4% on the price of cars". The macro's `META` gains an optional `lever` per term; the generator checks the id exists.
+- **L1 flow codes** show where the money moved (VAT revenue up, household spending by good).
+- **The lever's own page** in the panel shows: the value in force, the value on 1 December 2021, pending changes with their dates, the mechanic that reads it (`reader`, `spec`) and the indicators that mechanic moves.
+- **L4 counterfactuals** use the registry's `group` as the lever groups (six, ADR-0008's maximum): "your tax changes vs the oil price" forks runs with and without each group's commands since a date.
+
+## The alpha levers
+Levers tagged `alpha` in the [catalogue](levers.md) (D2). Ids are proposals for the registry; "Read today" is a check of `crates/` on 2026-10-22: **yes** = a field of the law the `World` reads (`Law`, `IncomeTaxLaw`, `TransferLaw`); **param** = a parameter or constant that exists but is not law yet (fixed at load); **gap** = no mechanic reads such a value.
+
+| Proposed id | Shape | 1 Dec 2021 | Reader (spec) | Read today |
+|---|---|---|---|---|
+| `tax.income.schedule` | schedule | flat 10% | pay day ([taxation](../economy/taxation.md)) | yes (`LabourTaxes.income`) |
+| `tax.income.deduction_base[dependants]`, `tax.income.deduction_full_until`, `tax.income.deduction_zero_at` | money | 510–1,310; 1,950; 3,600 lei | pay day (taxation) | yes (`DeductionRule`) |
+| `tax.income.credit_per_child` | money | 0 | pay day (taxation) | **gap** |
+| `tax.capital.dividend_rate`, `tax.capital.interest_rate` | rate | 5%, 10% | (taxation) | **gap**: no tax on dividends or interest |
+| `tax.profit.rate`, `tax.profit.micro_rate_staff`, `tax.profit.micro_rate_no_staff`, `tax.profit.micro_threshold` | rate, money | 16%, 1%, 3%, 1 m euro | quarterly tax (taxation) | yes (`ProfitTaxes`) |
+| `tax.vat.rate_standard`, `…rate_reduced`, `…rate_reduced_2` | rate | 19%, 9%, 5% | prices ([vat](../economy/vat.md)) | yes (`Law.vat`) |
+| `tax.vat.category[industry]` | choice | per good | prices (vat) | yes (`Law.vat_category`) |
+| `tax.contrib.cas`, `…pillar2_share`, `…cass`, `…cam` | rate | 25%, 3.75 pts, 10%, 2.25% | pay day (taxation) | yes (`LabourTaxes`) |
+| `tax.contrib.ceiling` | money | none (0 = none) | pay day (taxation) | **gap** (only the industry overrides have a ceiling) |
+| `tax.property.rate` | rate a year | ~0.1% homes (national stand-in) | revenue ([taxation](../economy/taxation.md)) | **param**: a fixed yearly total (3.86 bn lei) shared by owners, no rate |
+| `tax.wealth.threshold`, `tax.wealth.rate` | money, rate | none, 0% | (taxation) | **gap** |
+| `tax.excise.duty[good]` (fuel, tobacco, alcohol) | money per unit | the 2021 duties | goods market ([excise](../economy/excise.md)) | **param**: constants in `world/revenue.rs`, indexed each January |
+| `spend.ministry_budget[line]` | money a year | `budget.json` | public units ([fiscal policy](../economy/fiscal-policy.md)) | **gap**: purchases follow the input-output table; `budget.json` is loaded but not paid |
+| `spend.investment_share[education, health]` | rate | from `budget.json` | public units, [infrastructure](../economy/infrastructure.md) | **gap** |
+| `spend.public_pay[unit]` | rate | 100% | pay day ([budget-2021](../economy/budget-2021.md)) | **gap** |
+| `spend.public_headcount[unit]` | number | `public_posts[f]` | staffing ([labour market](../economy/labor-market.md)) | **gap**: no public hiring rule |
+| `spend.new_issue_years` | number | 7 | month end (fiscal policy) | **param** (`DebtParams`) |
+| `transfer.pension.point_value`, `…minimum` | money | 1,442, 800 lei | pay day ([social transfers](../economy/social-transfers.md)) | yes (`PensionRule`) |
+| `transfer.pension.retirement_age[sex]` | number (months) | 780; ~741 | demographics (M5) | **gap**: no retirement transition yet |
+| `transfer.pension.indexation` | choice | none (frozen) | yearly (social transfers) | **gap** |
+| `transfer.unemployment.isr`, `…isr_share`, `…wage_share_by_years`, `…months_by_years` | money, rate, schedule | 500 lei, 75%, … | pay day (social transfers) | yes (`UnemploymentRule`) |
+| `transfer.child.under2`, `transfer.child.to18` | money | 427, 214 lei | pay day (social transfers) | yes (`ChildRule`) |
+| `transfer.min_income.floor[size]`, `…per_extra` | money | 142 lei for one, … | pay day (social transfers) | yes (`MinimumIncomeRule`) |
+| `labour.minimum_wage` | money | 2,300 lei | wage round ([labour market](../economy/labor-market.md)) | yes (`Law.minimum_wage`) |
+| `money.inflation_target` | rate | 2.5% | central bank ([monetary policy](../economy/monetary-policy.md)) | **param**: constant at load |
+| `money.policy_rate` | rate | 1.75% | central bank, banks | **param** (`WorldParams.policy_rate_ppm`; the advisory rule only advises) |
+| `money.reserve_requirement` | rate | 8% | banks ([money & banking](../economy/money-banking.md)) | **param** (`BankParams`) |
+| `money.qe` | money a month (signed) | 0 | central bank (monetary policy) | **gap** |
+| `money.monetary_financing` | money a month | 0 | central bank, treasury | **param**: measured, not chosen |
+| `fx.regime` | choice | managed float | FX close ([trade & FX](../economy/trade-fx.md)) | **param**: managed float only (`intervention_share`) |
+| `fx.intervention` | money a month (signed) | 0 beyond the rule | FX close (trade & FX) | **param**: the rule's share, no player amount |
+| `informal.inspection_budget`, `informal.audit_budget` | money a year | 2021 spending | detection ([informal economy](../economy/informal-economy.md)) | **gap** |
+| `informal.penalty_multiple` | number (tenths) | ~1× | detection (informal economy) | **gap** |
+| `world.foreign_price_growth[bloc]` | rate a year | 2% | trade (trade & FX) | **param**: a constant level, no growth |
+| `world.fuel_price[fuel]` | money per unit | Dec 2021 prices | goods market, [energy](../economy/energy.md) | **gap**: fuel is an ordinary import |
+| `world.foreign_demand_growth[bloc]` | rate a year | 0 | trade | **param** (`DEMAND_INDEX_PPM`) |
+| `world.foreign_rate` | rate | −0.5% | FX close | **param** (`FOREIGN_RATE_PPM`) |
+| `world.wages_abroad` | rate (vs Romania) | 100% of start | emigration (M5, [demographics](../economy/demographics.md)) | **gap** |
+
+## Edge cases
+- Two commands for one lever and key, effective the same day: the later given wins; both logged.
+- A command given on the last day of a month (`law`) takes effect the next day, the 1st.
+- A ministry budget cut below what the year has already paid: the allowance left is zero for the rest of the year; nothing is clawed back.
+- A schedule with one row is a flat rate; a schedule may not be empty.
+- A save holding pending commands of a lever later retired loads, applies them and warns.
+- Moving any lever to either end of its range must not crash or break an invariant (D10); backstops are M10's.
+
+## Acceptance tests
+- [ ] **AC-LEV-01** `[unit]` The registry checks pass on the committed `levers.toml`, and each kind of fault (duplicate id, unknown shape, `spec` not in the index, `glossary` not in the glossary, unknown `reader`, missing key table) fails with the entry named; `just codegen-check` fails when the generated files are stale.
+- [ ] **AC-LEV-02** `[unit]` Every `active` lever is set exactly once in the Romania scenario's `law.json` or `world.json`; a scenario missing one fails to load, naming it.
+- [ ] **AC-LEV-03** `[unit]` Each rejection code of the table is returned for a command built to trigger it, with an English message that names the lever's label and, for `out_of_range`, the bounds and the value in display units; state and log are unchanged.
+- [ ] **AC-LEV-04** `[unit]` Effective dates: a `law` command given on any day of a month takes effect on the 1st of the next month (plus `min_lag`); `market` and `world` the next day; a later requested date is kept; an earlier one is `too_early`.
+- [ ] **AC-LEV-05** `[sim]` A command changes the law in force on its effective day and not before: until the day before, the daily state hashes equal those of a run without it.
+- [ ] **AC-LEV-06** `[sim]` Replay: a year at 1:1000 with twenty commands (a cancel and two same-day changes of one lever included), replayed from the scenario, seed and log, gives the same state hash every day.
+- [ ] **AC-LEV-07** `[sim]` Saving with commands pending, loading and running on gives the same daily hashes as the uninterrupted run.
+- [ ] **AC-LEV-08** `[sim]` `econ-cli play` writes the series, the applied log, the events and `run.json`; feeding the applied log back gives byte-identical outputs.
+- [ ] **AC-LEV-09** `[sim]` Setting every active lever to its starting value on the second day gives the same state hashes as no commands.
+- [ ] **AC-LEV-10** `[unit]` A VAT standard rate of 14% is accepted with a `PolicyWarning` (EU floor), not rejected.
+- [ ] **AC-LEV-11** `[sim]` Raising the education budget with pay unchanged raises education's input purchases and leaves its employees' pay unchanged; raising education's pay with the budget unchanged raises its wage bill and lowers its input purchases by the same amount, until inputs reach zero.
+- [ ] **AC-LEV-12** `[sim]` With an education budget above what the unit can spend, the year's government spending on education equals what was paid; no posting moves the unspent part, and on 1 January the allowance restarts from the new year's twelfths.
+- [ ] **AC-LEV-13** `[sim]` An investment share of 0 puts the whole health budget into running; a share of 100% sends all of it to investment purchases, wages are still paid and an overrun warning is emitted.
+- [ ] **AC-LEV-14** `[sim]` For every alpha lever: moving it to the bottom and the top of its range for three months changes the state hash against the baseline (it is read) and breaks no invariant I-1 to I-8.
+- [ ] **AC-LEV-15** `[sim]` After a VAT rise, `PolicyChanged` is in the events with old, new, given and effective, and the price "why" tree of a standard-rated good in the month of effect has a term tagged `tax.vat.rate_standard` with a non-zero contribution.
+- [ ] **AC-LEV-16** `[sim]` A change of `world.foreign_rate` is validated, logged and replayed like a law command, and in a two-group counterfactual (taxes, world) its effect is attributed to `world`.
+
+## API sketch
+```rust
+// crate econ-core; levers_gen.rs is generated from levers.toml
+pub enum LeverValue { Rate(i32 /* bp */), Money(Bani), Number(i64), Choice(u16), Flag(bool), Schedule(Vec<(Bani, i32)>) }
+pub struct Command { pub lever: LeverId, pub key: Option<u32>, pub value: LeverValue, pub effective: Option<Date> }
+pub enum Order { Set(Command), Cancel { seq: u64 } }
+pub struct Rejection { pub code: RejectCode, pub lever: Option<LeverId>, pub message: String }
+pub struct Accepted { pub seq: u64, pub effective: Date, pub warnings: Vec<Warning> }
+impl World {
+    pub fn give(&mut self, order: Order) -> Result<Accepted, Rejection>;     // today = the current day
+    pub fn law(&self) -> &LawInForce;
+    pub fn pending(&self) -> &[Pending];
+    pub fn command_log(&self) -> &[LogLine];
+}
+pub fn read_commands(path: &Path, registry: &Registry) -> Result<Vec<LogLine>, (usize, Rejection)>; // econ-io
+```
+The hand-written rule structs (`LabourTaxes`, `PensionRule`, `VatSchedule`, …) are filled from `LawInForce` by small adapters; `Law::law_2021()` is replaced by loading `law.json`.
+
+## Open questions
+- [ ] **Registry source:** one `levers.toml` (ADR-0018) checked against the specs, or a block in each spec gathered by the generator? Proposed: the TOML, as ADR-0018 decided; a spec lists its lever ids, and the check of the registry verifies them. Locked specs are not edited to add blocks.
+- [ ] **Values in files a person writes:** integers only, or also `"21%"` and `"2,550 lei"`? Proposed: the commands file accepts both, parsed exactly; the applied log always writes integers.
+- [ ] **Form of public pay:** % of the start (proposed), or the catalogue's "% vs private equivalent"? Proposed: % of the start, so pay does not drift with private wages; the ratio to private pay is shown as an indicator.
+- [ ] **Wage bill above the running allowance:** proposed: pay in full, inputs to zero, the treasury covers the overrun with a warning. Alternatives: a hiring freeze until it fits, or arrears.
+- [ ] **The running/investment split for the other lines** (administration, police and justice, …): proposed yes, the same two levers for every line from M4, since the rule is the same.
+- [ ] **Unspent investment money:** proposed: lapses at year end in M4 like running money; the infrastructure spec decides whether multi-year projects carry their money over (M11).
+- [ ] **Budget year:** proposed: the calendar year; the first year is December 2021 alone, with a twelfth of 2021's amounts.
+- [ ] **Property tax:** proposed: a national rate on dwelling value replacing the fixed total, calibrated so 2021's revenue is reproduced.
+- [ ] **QE and FX intervention:** proposed: signed amounts a month (buy > 0); the peg of `fx.regime` = intervention share 100% while reserves stay above the floor.
+- [ ] **Penalty multiple:** proposed: shape `number` in tenths (10 = 1×) rather than a new shape.
+- [ ] **Legal amounts in `law2021_ro.json`** (pension tax threshold, health contribution on other income, benefit floors): to be checked against the legal text by the owner or a research pass when the fixture is filled (carried from M0).
+- [ ] **Errors in a commands file:** proposed: the whole file is validated first and the first error stops the run, with its line number.

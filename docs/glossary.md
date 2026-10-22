@@ -4,7 +4,7 @@ title: Glossary & Variable Registry
 status: draft
 owner: horia
 depends_on: []
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # Glossary & Variable Registry
@@ -162,6 +162,9 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `last_wage` | Gross wage of the person's last job, kept when it is lost; the base of the unemployment benefit | LCU / month | state | economy/social-transfers |
 | — | `benefit_months_left` | Months of unemployment benefit the person has left | months | state | economy/social-transfers |
 | $W^{g}$ | `public_wage_bill` | Wages the government pays its employees (ESA D11): what the public units' employees earn | LCU / tick | flow | economy/budget-2021 |
+| $A_l$ | `ministry_budget[l]` | Lever: the year's budget of budget line *l* (running and investment parts together); integer bani in code | LCU / year | lever | game/lever-system |
+| $s_l$ | `ministry_investment_share[l]` | Lever: the share of `ministry_budget[l]` that goes to investment (projects and maintenance); the rest is running (staff and inputs); basis points in code | ratio | lever | game/lever-system |
+| — | `public_pay[f]` | Lever: pay of public firm unit *f*'s employees as a share of their pay on the start date (1 = unchanged); basis points in code | ratio | lever | game/lever-system |
 
 Indices: $g$ good, $j$ industry (same set as goods, except that the eight electricity generation industries share the good `wholesale_electricity` and `power_supply` sells `electricity`), $f$ firm unit (belongs to one industry; per-industry variables such as `output[j]` are also kept per unit as `output[f]`, and the industry value is the `firm_count`-weighted sum), $o$ occupation, $s$ skill tier, $r$ region, $c$ county, $h$ household, $i$ person, $p$ power plant, $\ell$ education level, $l$ budget line, $k$ economic type of spending. LCU = leu (RON).
 
