@@ -126,6 +126,8 @@ jobs:
     # The World at three population scales in a release build (roadmap M2):
     # its acceptance tests at 1:1000 and 1:100, the ignored 1:10 run and the
     # time budget of AC-WLD-10, one at a time so the timing is not shared.
+    # `world::` also matches `transfers_world::`, whose ignored tests are
+    # owed (AC-ST-08), so that module is skipped.
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
@@ -139,7 +141,7 @@ jobs:
           key: release
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: the World at 1:1000, 1:100 and 1:10
-        run: "cargo test --release -p econ-core --test acceptance -- --include-ignored --test-threads=1 world::"
+        run: "cargo test --release -p econ-core --test acceptance -- --include-ignored --test-threads=1 --skip transfers_world:: world::"
 
   ui:
     # The thin UI's frontend type-checks and builds (the Tauri host is
