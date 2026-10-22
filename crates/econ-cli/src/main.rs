@@ -60,8 +60,20 @@ fn main() -> ExitCode {
         Some("sim-population") => sim_population(&args[1..]),
         Some("build-scenario") => build_scenario(&args[1..]),
         Some("run-world") => run_world(&args[1..]),
+        #[cfg(feature = "levers")]
+        Some("play") => play(&args[1..]),
         _ => usage(),
     }
+}
+
+/// Headless play (spec `game/lever-system`, "Headless play"):
+/// `econ-cli play --scenario DIR --commands FILE.jsonl --until DATE [--seed S]
+/// [--out DIR] [--series a,b,…] [--daily]`. Test writer's addition
+/// (ADR-0014) for AC-LEV-08, behind the feature `levers`.
+#[cfg(feature = "levers")]
+fn play(args: &[String]) -> ExitCode {
+    let _ = args;
+    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
 }
 
 /// The scenario builder (spec `game/scenario-builder`): the world on the

@@ -16,6 +16,10 @@ econ-types.workspace = true
 # default now that the code exists.
 default = ["mechanic"]
 mechanic = []
+# Pay and job choice (roadmap M4): the test writer's addition (ADR-0014) for
+# AC-LM-11, an API skeleton until the implementation; off by default, turned
+# on by econ-core's `levers`.
+pay_choice = []
 
 [[test]]
 name = "acceptance"

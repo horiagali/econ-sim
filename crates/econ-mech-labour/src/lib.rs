@@ -144,3 +144,53 @@ mod tests {
         assert_eq!(wage_growth_ppm(25_000, 700_000, 700_000, &p), 25_000);
     }
 }
+
+/// Pay and job choice (spec `economy/labor-market`, "Pay and job choice",
+/// roadmap M4): hiring and quits respond to relative pay. Test writer's
+/// addition (ADR-0014) for AC-LM-11, behind the feature `pay_choice`; the
+/// implementation fills the bodies.
+#[cfg(feature = "pay_choice")]
+pub mod pay_choice {
+    /// The message of every body the test writer added.
+    const TEST_WRITER: &str = "test writer's addition (ADR-0014): the implementation fills it";
+
+    /// The parameters of the spec's table, in millionths.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct PayParams {
+        /// `fill_wage_elasticity` (eta f).
+        pub fill_wage_elasticity_ppm: u32,
+        /// `quit_wage_elasticity` (eta q).
+        pub quit_wage_elasticity_ppm: u32,
+        /// `quit_min`: a month.
+        pub quit_min_ppm: u32,
+        /// `quit_max`: a month.
+        pub quit_max_ppm: u32,
+        /// `job_to_job_share`.
+        pub job_to_job_share_ppm: u32,
+    }
+
+    impl PayParams {
+        /// The spec's defaults: 2, 2, 0.3%, 4%, 50%.
+        #[must_use]
+        pub fn spec_defaults() -> PayParams {
+            unimplemented!("{TEST_WRITER}")
+        }
+    }
+
+    /// A unit's fill rate given its relative pay `rho` (`w / w̄`, millionths):
+    /// `min(1, q * rho^eta_f)`, millionths.
+    #[must_use]
+    pub fn fill_rate_with_pay_ppm(q_ppm: u32, rho_ppm: u32, p: &PayParams) -> u32 {
+        let _ = (q_ppm, rho_ppm, p);
+        unimplemented!("{TEST_WRITER}")
+    }
+
+    /// An employee's monthly quit probability given relative pay `rho`
+    /// (millionths): `clamp(quit_rate * rho^-eta_q, quit_min, quit_max)`,
+    /// millionths.
+    #[must_use]
+    pub fn quit_probability_ppm(quit_rate_ppm: u32, rho_ppm: u32, p: &PayParams) -> u32 {
+        let _ = (quit_rate_ppm, rho_ppm, p);
+        unimplemented!("{TEST_WRITER}")
+    }
+}
