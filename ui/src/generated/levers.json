@@ -1,0 +1,837 @@
+{
+  "levers": [
+    {
+      "id": "tax.income.schedule",
+      "label": "lever.tax.income.schedule",
+      "group": "taxes",
+      "shape": "schedule",
+      "unit": "% of taxable income a month, by threshold in lei",
+      "range": [
+        0,
+        9000
+      ],
+      "milestone": "alpha",
+      "status": "active",
+      "rows": [
+        1,
+        10
+      ]
+    },
+    {
+      "id": "tax.income.deduction_base",
+      "label": "lever.tax.income.deduction_base",
+      "group": "taxes",
+      "shape": "money",
+      "unit": "lei a month",
+      "range": [
+        0,
+        1000000
+      ],
+      "milestone": "alpha",
+      "status": "active",
+      "key": "dependants",
+      "keys": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4_or_more"
+      ]
+    },
+    {
+      "id": "tax.income.deduction_full_until",
+      "label": "lever.tax.income.deduction_full_until",
+      "group": "taxes",
+      "shape": "money",
+      "unit": "lei a month",
+      "range": [
+        0,
+        10000000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "tax.income.deduction_zero_at",
+      "label": "lever.tax.income.deduction_zero_at",
+      "group": "taxes",
+      "shape": "money",
+      "unit": "lei a month",
+      "range": [
+        0,
+        10000000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "tax.income.credit_per_child",
+      "label": "lever.tax.income.credit_per_child",
+      "group": "taxes",
+      "shape": "money",
+      "unit": "lei a month",
+      "range": [
+        0,
+        500000
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "tax.income.pension_tax_free",
+      "label": "lever.tax.income.pension_tax_free",
+      "group": "taxes",
+      "shape": "money",
+      "unit": "lei a month",
+      "range": [
+        0,
+        10000000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "tax.capital.dividend_rate",
+      "label": "lever.tax.capital.dividend_rate",
+      "group": "taxes",
+      "shape": "rate",
+      "unit": "%",
+      "range": [
+        0,
+        6000
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "tax.capital.interest_rate",
+      "label": "lever.tax.capital.interest_rate",
+      "group": "taxes",
+      "shape": "rate",
+      "unit": "%",
+      "range": [
+        0,
+        6000
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "tax.profit.rate",
+      "label": "lever.tax.profit.rate",
+      "group": "taxes",
+      "shape": "rate",
+      "unit": "%",
+      "range": [
+        0,
+        6000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "tax.profit.micro_rate_staff",
+      "label": "lever.tax.profit.micro_rate_staff",
+      "group": "taxes",
+      "shape": "rate",
+      "unit": "% of turnover",
+      "range": [
+        0,
+        2000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "tax.profit.micro_rate_no_staff",
+      "label": "lever.tax.profit.micro_rate_no_staff",
+      "group": "taxes",
+      "shape": "rate",
+      "unit": "% of turnover",
+      "range": [
+        0,
+        2000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "tax.profit.micro_threshold",
+      "label": "lever.tax.profit.micro_threshold",
+      "group": "taxes",
+      "shape": "money",
+      "unit": "lei of turnover a year",
+      "range": [
+        0,
+        10000000000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "tax.vat.rate_standard",
+      "label": "lever.tax.vat.rate_standard",
+      "group": "taxes",
+      "shape": "rate",
+      "unit": "%",
+      "range": [
+        0,
+        4000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "tax.vat.rate_reduced",
+      "label": "lever.tax.vat.rate_reduced",
+      "group": "taxes",
+      "shape": "rate",
+      "unit": "%",
+      "range": [
+        0,
+        4000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "tax.vat.rate_reduced_2",
+      "label": "lever.tax.vat.rate_reduced_2",
+      "group": "taxes",
+      "shape": "rate",
+      "unit": "%",
+      "range": [
+        0,
+        4000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "tax.vat.category",
+      "label": "lever.tax.vat.category",
+      "group": "taxes",
+      "shape": "choice",
+      "unit": "category",
+      "range": null,
+      "milestone": "alpha",
+      "status": "active",
+      "key": "industries",
+      "keys": null,
+      "options": [
+        "standard",
+        "reduced",
+        "reduced_2",
+        "zero",
+        "exempt"
+      ]
+    },
+    {
+      "id": "tax.contrib.cas",
+      "label": "lever.tax.contrib.cas",
+      "group": "taxes",
+      "shape": "rate",
+      "unit": "% of gross wage",
+      "range": [
+        0,
+        4000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "tax.contrib.pillar2_share",
+      "label": "lever.tax.contrib.pillar2_share",
+      "group": "taxes",
+      "shape": "rate",
+      "unit": "points of CAS",
+      "range": [
+        0,
+        4000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "tax.contrib.cass",
+      "label": "lever.tax.contrib.cass",
+      "group": "taxes",
+      "shape": "rate",
+      "unit": "% of gross wage",
+      "range": [
+        0,
+        4000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "tax.contrib.cam",
+      "label": "lever.tax.contrib.cam",
+      "group": "taxes",
+      "shape": "rate",
+      "unit": "% of gross wage",
+      "range": [
+        0,
+        4000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "tax.contrib.ceiling",
+      "label": "lever.tax.contrib.ceiling",
+      "group": "taxes",
+      "shape": "money",
+      "unit": "lei a month (0 = none)",
+      "range": [
+        0,
+        10000000
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "tax.property.rate",
+      "label": "lever.tax.property.rate",
+      "group": "taxes",
+      "shape": "rate",
+      "unit": "% of dwelling value a year",
+      "range": [
+        0,
+        300
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "tax.wealth.threshold",
+      "label": "lever.tax.wealth.threshold",
+      "group": "taxes",
+      "shape": "money",
+      "unit": "lei of net worth",
+      "range": [
+        0,
+        1000000000000
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "tax.wealth.rate",
+      "label": "lever.tax.wealth.rate",
+      "group": "taxes",
+      "shape": "rate",
+      "unit": "% a year",
+      "range": [
+        0,
+        500
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "tax.excise.duty",
+      "label": "lever.tax.excise.duty",
+      "group": "taxes",
+      "shape": "money",
+      "unit": "lei per 1,000 units (1,000 lei of the good at starting prices)",
+      "range": [
+        0,
+        1015200
+      ],
+      "milestone": "alpha",
+      "status": "planned",
+      "key": "industries",
+      "keys": [
+        "refined_petroleum",
+        "tobacco",
+        "beverages"
+      ]
+    },
+    {
+      "id": "spend.ministry_budget",
+      "label": "lever.spend.ministry_budget",
+      "group": "spending",
+      "shape": "money",
+      "unit": "lei a year",
+      "range": [
+        0,
+        50000000000000
+      ],
+      "milestone": "alpha",
+      "status": "planned",
+      "key": "budget_lines",
+      "keys": null
+    },
+    {
+      "id": "spend.investment_share",
+      "label": "lever.spend.investment_share",
+      "group": "spending",
+      "shape": "rate",
+      "unit": "% of the ministry budget",
+      "range": [
+        0,
+        10000
+      ],
+      "milestone": "alpha",
+      "status": "planned",
+      "key": "budget_lines",
+      "keys": null
+    },
+    {
+      "id": "spend.public_pay",
+      "label": "lever.spend.public_pay",
+      "group": "spending",
+      "shape": "rate",
+      "unit": "% of pay on the start date",
+      "range": [
+        5000,
+        30000
+      ],
+      "milestone": "alpha",
+      "status": "planned",
+      "key": "public_units",
+      "keys": null
+    },
+    {
+      "id": "spend.public_headcount",
+      "label": "lever.spend.public_headcount",
+      "group": "spending",
+      "shape": "number",
+      "unit": "posts",
+      "range": [
+        0,
+        2000000
+      ],
+      "milestone": "alpha",
+      "status": "planned",
+      "key": "public_units",
+      "keys": null
+    },
+    {
+      "id": "spend.new_issue_years",
+      "label": "lever.spend.new_issue_years",
+      "group": "spending",
+      "shape": "number",
+      "unit": "years",
+      "range": [
+        1,
+        30
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "transfer.pension.point_value",
+      "label": "lever.transfer.pension.point_value",
+      "group": "transfers",
+      "shape": "money",
+      "unit": "lei a month",
+      "range": [
+        0,
+        1000000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "transfer.pension.minimum",
+      "label": "lever.transfer.pension.minimum",
+      "group": "transfers",
+      "shape": "money",
+      "unit": "lei a month",
+      "range": [
+        0,
+        1000000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "transfer.pension.retirement_age",
+      "label": "lever.transfer.pension.retirement_age",
+      "group": "transfers",
+      "shape": "number",
+      "unit": "months of age",
+      "range": [
+        600,
+        840
+      ],
+      "milestone": "alpha",
+      "status": "planned",
+      "key": "sexes",
+      "keys": [
+        "F",
+        "M"
+      ]
+    },
+    {
+      "id": "transfer.pension.indexation",
+      "label": "lever.transfer.pension.indexation",
+      "group": "transfers",
+      "shape": "choice",
+      "unit": "rule",
+      "range": null,
+      "milestone": "alpha",
+      "status": "planned",
+      "options": [
+        "none",
+        "prices",
+        "wages",
+        "mix"
+      ]
+    },
+    {
+      "id": "transfer.unemployment.isr",
+      "label": "lever.transfer.unemployment.isr",
+      "group": "transfers",
+      "shape": "money",
+      "unit": "lei a month",
+      "range": [
+        0,
+        1000000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "transfer.unemployment.isr_share",
+      "label": "lever.transfer.unemployment.isr_share",
+      "group": "transfers",
+      "shape": "rate",
+      "unit": "% of the ISR",
+      "range": [
+        0,
+        30000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "transfer.unemployment.wage_share_by_years",
+      "label": "lever.transfer.unemployment.wage_share_by_years",
+      "group": "transfers",
+      "shape": "rate",
+      "unit": "% of the last wage",
+      "range": [
+        0,
+        10000
+      ],
+      "milestone": "alpha",
+      "status": "active",
+      "key": "ui_share_bands",
+      "keys": [
+        "3y",
+        "5y",
+        "10y",
+        "20y"
+      ]
+    },
+    {
+      "id": "transfer.unemployment.months_by_years",
+      "label": "lever.transfer.unemployment.months_by_years",
+      "group": "transfers",
+      "shape": "number",
+      "unit": "months",
+      "range": [
+        0,
+        36
+      ],
+      "milestone": "alpha",
+      "status": "active",
+      "key": "ui_duration_bands",
+      "keys": [
+        "1y",
+        "5y",
+        "10y"
+      ]
+    },
+    {
+      "id": "transfer.child.under2",
+      "label": "lever.transfer.child.under2",
+      "group": "transfers",
+      "shape": "money",
+      "unit": "lei a month",
+      "range": [
+        0,
+        1000000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "transfer.child.to18",
+      "label": "lever.transfer.child.to18",
+      "group": "transfers",
+      "shape": "money",
+      "unit": "lei a month",
+      "range": [
+        0,
+        1000000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "transfer.min_income.floor",
+      "label": "lever.transfer.min_income.floor",
+      "group": "transfers",
+      "shape": "money",
+      "unit": "lei a month",
+      "range": [
+        0,
+        1000000
+      ],
+      "milestone": "alpha",
+      "status": "active",
+      "key": "household_sizes",
+      "keys": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ]
+    },
+    {
+      "id": "transfer.min_income.per_extra",
+      "label": "lever.transfer.min_income.per_extra",
+      "group": "transfers",
+      "shape": "money",
+      "unit": "lei a month",
+      "range": [
+        0,
+        1000000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "labour.minimum_wage",
+      "label": "lever.labour.minimum_wage",
+      "group": "transfers",
+      "shape": "money",
+      "unit": "lei a month",
+      "range": [
+        0,
+        2000000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
+      "id": "money.inflation_target",
+      "label": "lever.money.inflation_target",
+      "group": "money",
+      "shape": "rate",
+      "unit": "% a year",
+      "range": [
+        0,
+        1000
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "money.policy_rate",
+      "label": "lever.money.policy_rate",
+      "group": "money",
+      "shape": "rate",
+      "unit": "% a year",
+      "range": [
+        0,
+        5000
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "money.reserve_requirement",
+      "label": "lever.money.reserve_requirement",
+      "group": "money",
+      "shape": "rate",
+      "unit": "% of deposits",
+      "range": [
+        0,
+        5000
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "money.qe",
+      "label": "lever.money.qe",
+      "group": "money",
+      "shape": "money",
+      "unit": "lei a month (buy > 0)",
+      "range": [
+        -1000000000000,
+        1000000000000
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "money.monetary_financing",
+      "label": "lever.money.monetary_financing",
+      "group": "money",
+      "shape": "money",
+      "unit": "lei a month",
+      "range": [
+        0,
+        1000000000000
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "fx.regime",
+      "label": "lever.fx.regime",
+      "group": "trade",
+      "shape": "choice",
+      "unit": "regime",
+      "range": null,
+      "milestone": "alpha",
+      "status": "planned",
+      "options": [
+        "float",
+        "managed_float",
+        "peg"
+      ]
+    },
+    {
+      "id": "fx.intervention",
+      "label": "lever.fx.intervention",
+      "group": "trade",
+      "shape": "money",
+      "unit": "lei a month (buy foreign currency > 0)",
+      "range": [
+        -1000000000000,
+        1000000000000
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "informal.inspection_budget",
+      "label": "lever.informal.inspection_budget",
+      "group": "taxes",
+      "shape": "money",
+      "unit": "lei a year",
+      "range": [
+        0,
+        1000000000000
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "informal.audit_budget",
+      "label": "lever.informal.audit_budget",
+      "group": "taxes",
+      "shape": "money",
+      "unit": "lei a year",
+      "range": [
+        0,
+        1000000000000
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "informal.penalty_multiple",
+      "label": "lever.informal.penalty_multiple",
+      "group": "taxes",
+      "shape": "number",
+      "unit": "tenths of the evaded tax",
+      "range": [
+        0,
+        100
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "world.foreign_price_growth",
+      "label": "lever.world.foreign_price_growth",
+      "group": "world",
+      "shape": "rate",
+      "unit": "% a year",
+      "range": [
+        -2000,
+        5000
+      ],
+      "milestone": "alpha",
+      "status": "planned",
+      "key": "blocs",
+      "keys": [
+        "eu",
+        "non_eu"
+      ]
+    },
+    {
+      "id": "world.fuel_price",
+      "label": "lever.world.fuel_price",
+      "group": "world",
+      "shape": "money",
+      "unit": "lei per barrel (oil), per MWh (gas), per tonne (coal)",
+      "range": [
+        0,
+        1000000
+      ],
+      "milestone": "alpha",
+      "status": "planned",
+      "key": "fuels",
+      "keys": [
+        "oil",
+        "gas",
+        "coal"
+      ]
+    },
+    {
+      "id": "world.foreign_demand_growth",
+      "label": "lever.world.foreign_demand_growth",
+      "group": "world",
+      "shape": "rate",
+      "unit": "% a year",
+      "range": [
+        -2000,
+        2000
+      ],
+      "milestone": "alpha",
+      "status": "planned",
+      "key": "blocs",
+      "keys": [
+        "eu",
+        "non_eu"
+      ]
+    },
+    {
+      "id": "world.foreign_rate",
+      "label": "lever.world.foreign_rate",
+      "group": "world",
+      "shape": "rate",
+      "unit": "% a year",
+      "range": [
+        -200,
+        2000
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    },
+    {
+      "id": "world.wages_abroad",
+      "label": "lever.world.wages_abroad",
+      "group": "world",
+      "shape": "rate",
+      "unit": "% of Romania's at the start",
+      "range": [
+        2500,
+        40000
+      ],
+      "milestone": "alpha",
+      "status": "planned"
+    }
+  ]
+}

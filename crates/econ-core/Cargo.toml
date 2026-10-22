@@ -28,6 +28,9 @@ econ-mech-monetary = { workspace = true, optional = true }
 econ-mech-fiscal = { workspace = true, optional = true }
 econ-mech-trade = { workspace = true, optional = true }
 econ-mech-investment = { workspace = true, optional = true }
+# The lever registry (feature `levers`).
+serde = { workspace = true, optional = true }
+toml = { workspace = true, optional = true }
 
 [dev-dependencies]
 # The acceptance tests of the `World` build the Romania scenario and read it
@@ -91,7 +94,13 @@ revenue = ["fiscal"]
 # writer's additions for its acceptance tests (ADR-0014): econ-io's scenario
 # law, saves and commands files, and the labour market's pay and job choice
 # (AC-LM-11, AC-LM-12).
-levers = ["world", "econ-io/levers", "econ-mech-labour/pay_choice"]
+levers = [
+    "world",
+    "dep:serde",
+    "dep:toml",
+    "econ-io/levers",
+    "econ-mech-labour/pay_choice",
+]
 
 [[test]]
 name = "acceptance"

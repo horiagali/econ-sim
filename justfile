@@ -93,13 +93,15 @@ bench-save:
 calib-spike:
     uv --directory python/calib run python calibration_spike.py
 
-# Regenerate code from the glossary (ADR-0012)
+# Regenerate code from the glossary (ADR-0012) and the lever registry (ADR-0018)
 codegen:
     {{python}} scripts/codegen_glossary.py
+    {{python}} scripts/codegen_levers.py
 
-# Fail if generated glossary code is stale
+# Fail if generated glossary or lever code is stale
 codegen-check:
     {{python}} scripts/codegen_glossary.py --check
+    {{python}} scripts/codegen_levers.py --check
 
 # Every acceptance criterion in a spec has a live test, and no test cites an unknown ID (ADR-0014)
 trace:

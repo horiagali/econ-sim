@@ -4,7 +4,7 @@
 # `key` names a key table: a scenario table (industries, budget_lines, public_units) or one of
 # [key_tables] below; `keys` is the allowed subset. `range` of a schedule bounds each rate and
 # `rows` the number of rows. `# range: judgement` marks a range that is a judgement, not law.
-# Generated from this file by scripts/codegen_levers.py (not written yet): levers_gen.rs, the UI list, the test list.
+# Generated from this file by scripts/codegen_levers.py (`just codegen`): levers_gen.rs, the UI list, the test list.
 
 [key_tables]
 dependants = ["0", "1", "2", "3", "4_or_more"]

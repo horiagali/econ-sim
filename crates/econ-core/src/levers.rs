@@ -8,13 +8,10 @@
 //! default.
 //!
 //! The registry's data is `crates/econ-core/levers.toml`; the starting values
-//! are `python/pipeline/fixtures/law2021_ro.json`. [`LeverId`] and the typed
-//! fields of [`LawInForce`] are to be generated from the registry by
-//! `scripts/codegen_levers.py` into `levers_gen.rs`; until the generator
-//! exists, [`LeverId`] is written here by hand, one variant per registry entry
-//! in registry order.
+//! are `python/pipeline/fixtures/law2021_ro.json`. [`LeverId`] is generated
+//! from the registry by `scripts/codegen_levers.py` into `levers_gen.rs`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use econ_types::{Bani, Date};
@@ -77,206 +74,10 @@ pub enum Status {
     Retired,
 }
 
-/// The lever ids, one per registry entry, in registry order. To be generated
-/// from `levers.toml` (`levers_gen.rs`); written by hand until the generator
-/// exists.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum LeverId {
-    /// `tax.income.schedule`
-    TaxIncomeSchedule,
-    /// `tax.income.deduction_base`
-    TaxIncomeDeductionBase,
-    /// `tax.income.deduction_full_until`
-    TaxIncomeDeductionFullUntil,
-    /// `tax.income.deduction_zero_at`
-    TaxIncomeDeductionZeroAt,
-    /// `tax.income.credit_per_child`
-    TaxIncomeCreditPerChild,
-    /// `tax.income.pension_tax_free`
-    TaxIncomePensionTaxFree,
-    /// `tax.capital.dividend_rate`
-    TaxCapitalDividendRate,
-    /// `tax.capital.interest_rate`
-    TaxCapitalInterestRate,
-    /// `tax.profit.rate`
-    TaxProfitRate,
-    /// `tax.profit.micro_rate_staff`
-    TaxProfitMicroRateStaff,
-    /// `tax.profit.micro_rate_no_staff`
-    TaxProfitMicroRateNoStaff,
-    /// `tax.profit.micro_threshold`
-    TaxProfitMicroThreshold,
-    /// `tax.vat.rate_standard`
-    TaxVatRateStandard,
-    /// `tax.vat.rate_reduced`
-    TaxVatRateReduced,
-    /// `tax.vat.rate_reduced_2`
-    TaxVatRateReduced2,
-    /// `tax.vat.category`
-    TaxVatCategory,
-    /// `tax.contrib.cas`
-    TaxContribCas,
-    /// `tax.contrib.pillar2_share`
-    TaxContribPillar2Share,
-    /// `tax.contrib.cass`
-    TaxContribCass,
-    /// `tax.contrib.cam`
-    TaxContribCam,
-    /// `tax.contrib.ceiling`
-    TaxContribCeiling,
-    /// `tax.property.rate`
-    TaxPropertyRate,
-    /// `tax.wealth.threshold`
-    TaxWealthThreshold,
-    /// `tax.wealth.rate`
-    TaxWealthRate,
-    /// `tax.excise.duty`
-    TaxExciseDuty,
-    /// `spend.ministry_budget`
-    SpendMinistryBudget,
-    /// `spend.investment_share`
-    SpendInvestmentShare,
-    /// `spend.public_pay`
-    SpendPublicPay,
-    /// `spend.public_headcount`
-    SpendPublicHeadcount,
-    /// `spend.new_issue_years`
-    SpendNewIssueYears,
-    /// `transfer.pension.point_value`
-    TransferPensionPointValue,
-    /// `transfer.pension.minimum`
-    TransferPensionMinimum,
-    /// `transfer.pension.retirement_age`
-    TransferPensionRetirementAge,
-    /// `transfer.pension.indexation`
-    TransferPensionIndexation,
-    /// `transfer.unemployment.isr`
-    TransferUnemploymentIsr,
-    /// `transfer.unemployment.isr_share`
-    TransferUnemploymentIsrShare,
-    /// `transfer.unemployment.wage_share_by_years`
-    TransferUnemploymentWageShareByYears,
-    /// `transfer.unemployment.months_by_years`
-    TransferUnemploymentMonthsByYears,
-    /// `transfer.child.under2`
-    TransferChildUnder2,
-    /// `transfer.child.to18`
-    TransferChildTo18,
-    /// `transfer.min_income.floor`
-    TransferMinIncomeFloor,
-    /// `transfer.min_income.per_extra`
-    TransferMinIncomePerExtra,
-    /// `labour.minimum_wage`
-    LabourMinimumWage,
-    /// `money.inflation_target`
-    MoneyInflationTarget,
-    /// `money.policy_rate`
-    MoneyPolicyRate,
-    /// `money.reserve_requirement`
-    MoneyReserveRequirement,
-    /// `money.qe`
-    MoneyQe,
-    /// `money.monetary_financing`
-    MoneyMonetaryFinancing,
-    /// `fx.regime`
-    FxRegime,
-    /// `fx.intervention`
-    FxIntervention,
-    /// `informal.inspection_budget`
-    InformalInspectionBudget,
-    /// `informal.audit_budget`
-    InformalAuditBudget,
-    /// `informal.penalty_multiple`
-    InformalPenaltyMultiple,
-    /// `world.foreign_price_growth`
-    WorldForeignPriceGrowth,
-    /// `world.fuel_price`
-    WorldFuelPrice,
-    /// `world.foreign_demand_growth`
-    WorldForeignDemandGrowth,
-    /// `world.foreign_rate`
-    WorldForeignRate,
-    /// `world.wages_abroad`
-    WorldWagesAbroad,
-}
-
-impl LeverId {
-    /// Every lever, in registry order.
-    pub const ALL: [LeverId; 58] = [
-        LeverId::TaxIncomeSchedule,
-        LeverId::TaxIncomeDeductionBase,
-        LeverId::TaxIncomeDeductionFullUntil,
-        LeverId::TaxIncomeDeductionZeroAt,
-        LeverId::TaxIncomeCreditPerChild,
-        LeverId::TaxIncomePensionTaxFree,
-        LeverId::TaxCapitalDividendRate,
-        LeverId::TaxCapitalInterestRate,
-        LeverId::TaxProfitRate,
-        LeverId::TaxProfitMicroRateStaff,
-        LeverId::TaxProfitMicroRateNoStaff,
-        LeverId::TaxProfitMicroThreshold,
-        LeverId::TaxVatRateStandard,
-        LeverId::TaxVatRateReduced,
-        LeverId::TaxVatRateReduced2,
-        LeverId::TaxVatCategory,
-        LeverId::TaxContribCas,
-        LeverId::TaxContribPillar2Share,
-        LeverId::TaxContribCass,
-        LeverId::TaxContribCam,
-        LeverId::TaxContribCeiling,
-        LeverId::TaxPropertyRate,
-        LeverId::TaxWealthThreshold,
-        LeverId::TaxWealthRate,
-        LeverId::TaxExciseDuty,
-        LeverId::SpendMinistryBudget,
-        LeverId::SpendInvestmentShare,
-        LeverId::SpendPublicPay,
-        LeverId::SpendPublicHeadcount,
-        LeverId::SpendNewIssueYears,
-        LeverId::TransferPensionPointValue,
-        LeverId::TransferPensionMinimum,
-        LeverId::TransferPensionRetirementAge,
-        LeverId::TransferPensionIndexation,
-        LeverId::TransferUnemploymentIsr,
-        LeverId::TransferUnemploymentIsrShare,
-        LeverId::TransferUnemploymentWageShareByYears,
-        LeverId::TransferUnemploymentMonthsByYears,
-        LeverId::TransferChildUnder2,
-        LeverId::TransferChildTo18,
-        LeverId::TransferMinIncomeFloor,
-        LeverId::TransferMinIncomePerExtra,
-        LeverId::LabourMinimumWage,
-        LeverId::MoneyInflationTarget,
-        LeverId::MoneyPolicyRate,
-        LeverId::MoneyReserveRequirement,
-        LeverId::MoneyQe,
-        LeverId::MoneyMonetaryFinancing,
-        LeverId::FxRegime,
-        LeverId::FxIntervention,
-        LeverId::InformalInspectionBudget,
-        LeverId::InformalAuditBudget,
-        LeverId::InformalPenaltyMultiple,
-        LeverId::WorldForeignPriceGrowth,
-        LeverId::WorldFuelPrice,
-        LeverId::WorldForeignDemandGrowth,
-        LeverId::WorldForeignRate,
-        LeverId::WorldWagesAbroad,
-    ];
-
-    /// The stable dotted id, e.g. `tax.vat.rate_standard`.
-    #[must_use]
-    pub fn as_str(self) -> &'static str {
-        let _ = self;
-        unimplemented!("{LATER}")
-    }
-
-    /// The lever of a dotted id, if the registry has it.
-    #[must_use]
-    pub fn from_id(id: &str) -> Option<LeverId> {
-        let _ = id;
-        unimplemented!("{LATER}")
-    }
-}
+/// The lever ids, generated from `levers.toml` by `scripts/codegen_levers.py`.
+#[path = "levers_gen.rs"]
+mod levers_gen;
+pub use levers_gen::LeverId;
 
 /// A gradual change: the value in force moves toward the commanded one by at
 /// most `per_month` (in the shape's integer) on the first of each month.
@@ -352,8 +153,29 @@ impl Registry {
     /// # Errors
     /// A malformed entry, an unknown kind, shape, group, status or reader.
     pub fn parse(text: &str) -> Result<Registry, RegistryError> {
-        let _ = text;
-        unimplemented!("{LATER}")
+        let file: RawFile = toml::from_str(text).map_err(|e| RegistryError {
+            lever: None,
+            message: format!("levers.toml: {e}"),
+        })?;
+        let mut levers = Vec::with_capacity(file.lever.len());
+        for (n, entry) in file.lever.into_iter().enumerate() {
+            let id = entry
+                .get("id")
+                .and_then(toml::Value::as_str)
+                .map(str::to_string);
+            let fault = |message: String| RegistryError {
+                lever: id.clone(),
+                message,
+            };
+            let raw: RawLever = entry
+                .try_into()
+                .map_err(|e| fault(format!("entry {}: {e}", n + 1)))?;
+            levers.push(meta_of(raw, &file.key_tables).map_err(fault)?);
+        }
+        Ok(Registry {
+            levers,
+            key_tables: file.key_tables,
+        })
     }
 
     /// Read and parse `levers.toml`.
@@ -361,22 +183,31 @@ impl Registry {
     /// # Errors
     /// The file cannot be read, or [`Registry::parse`] fails.
     pub fn load(path: &Path) -> Result<Registry, RegistryError> {
-        let _ = path;
-        unimplemented!("{LATER}")
+        let text = std::fs::read_to_string(path).map_err(|e| RegistryError {
+            lever: None,
+            message: format!("{}: {e}", path.display()),
+        })?;
+        Registry::parse(&text)
     }
 
     /// The entry of a lever.
     #[must_use]
+    ///
+    /// # Panics
+    /// The registry has no entry for the lever (a registry not parsed from
+    /// the file the ids were generated from).
     pub fn get(&self, lever: LeverId) -> &LeverMeta {
-        let _ = (self, lever);
-        unimplemented!("{LATER}")
+        self.levers
+            .iter()
+            .find(|m| m.id == lever)
+            .unwrap_or_else(|| panic!("the registry has no entry {}", lever.as_str()))
     }
 
     /// The entry of a dotted id, if any.
     #[must_use]
     pub fn find(&self, id: &str) -> Option<&LeverMeta> {
-        let _ = (self, id);
-        unimplemented!("{LATER}")
+        let lever = LeverId::from_id(id)?;
+        self.levers.iter().find(|m| m.id == lever)
     }
 
     /// The registry checks of `just check` (spec, "Checks"): unique dotted
@@ -391,9 +222,217 @@ impl Registry {
         glossary_names: &[&str],
         scenario_key_tables: &[&str],
     ) -> Result<(), Vec<RegistryError>> {
-        let _ = (self, spec_ids, glossary_names, scenario_key_tables);
-        unimplemented!("{LATER}")
+        let mut errors = Vec::new();
+        let mut seen = BTreeSet::new();
+        for m in &self.levers {
+            let id = m.id.as_str();
+            let mut faults = Vec::new();
+            if !seen.insert(m.id) {
+                faults.push("duplicate id".to_string());
+            }
+            if !is_dotted(id) {
+                faults.push("the id is not lower-case dotted words".to_string());
+            }
+            match m.shape {
+                Shape::Rate | Shape::Money | Shape::Number if m.range.is_none() => {
+                    faults.push("a range is needed".to_string());
+                }
+                Shape::Schedule if m.range.is_none() || m.rows.is_none() => {
+                    faults.push("a schedule needs a range and rows".to_string());
+                }
+                Shape::Choice if m.options.is_empty() => {
+                    faults.push("a choice needs options".to_string());
+                }
+                _ => {}
+            }
+            if m.range.is_some_and(|(lo, hi)| lo > hi)
+                || m.rows.is_some_and(|(lo, hi)| lo > hi || lo == 0)
+            {
+                faults.push("a range runs backwards or allows no rows".to_string());
+            }
+            if !spec_ids.contains(&m.spec.as_str()) {
+                faults.push(format!("spec `{}` is not in the docs index", m.spec));
+            }
+            if !glossary_names.contains(&m.glossary.as_str()) {
+                faults.push(format!("glossary `{}` is not a glossary name", m.glossary));
+            }
+            if let Some(table) = &m.key {
+                match self.key_tables.get(table) {
+                    Some(all) => {
+                        if let Some(k) = m.keys.iter().find(|k| !all.contains(k)) {
+                            faults.push(format!("key `{k}` is not in the table `{table}`"));
+                        }
+                    }
+                    None if scenario_key_tables.contains(&table.as_str()) => {}
+                    None => faults.push(format!("no key table `{table}`")),
+                }
+            } else if !m.keys.is_empty() {
+                faults.push("keys without a key table".to_string());
+            }
+            if m.label.is_empty() {
+                faults.push("no label".to_string());
+            }
+            errors.extend(faults.into_iter().map(|f| RegistryError {
+                lever: Some(id.to_string()),
+                message: format!("{id}: {f}"),
+            }));
+        }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
+}
+
+/// `levers.toml` as written.
+#[derive(serde::Deserialize)]
+struct RawFile {
+    #[serde(default)]
+    key_tables: BTreeMap<String, Vec<String>>,
+    #[serde(default)]
+    lever: Vec<toml::Value>,
+}
+
+/// One `[[lever]]` table as written.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawLever {
+    id: String,
+    kind: String,
+    shape: String,
+    unit: String,
+    range: Option<[i64; 2]>,
+    rows: Option<[u32; 2]>,
+    key: Option<String>,
+    keys: Option<Vec<String>>,
+    options: Option<Vec<String>>,
+    /// `"1 month"`, `"3 months"`.
+    min_lag: Option<String>,
+    phase_in: Option<RawPhaseIn>,
+    spec: String,
+    glossary: String,
+    reader: String,
+    group: String,
+    milestone: String,
+    status: String,
+    label: String,
+}
+
+/// `phase_in = { per_month = … }`.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPhaseIn {
+    per_month: i64,
+}
+
+/// A registry entry from its table; the fault's text otherwise.
+fn meta_of(raw: RawLever, tables: &BTreeMap<String, Vec<String>>) -> Result<LeverMeta, String> {
+    let id = LeverId::from_id(&raw.id).ok_or_else(|| {
+        format!(
+            "`{}` is not among the generated ids: run scripts/codegen_levers.py",
+            raw.id
+        )
+    })?;
+    let kind = match raw.kind.as_str() {
+        "law" => Kind::Law,
+        "market" => Kind::Market,
+        "project" => Kind::Project,
+        "world" => Kind::World,
+        k => return Err(format!("unknown kind `{k}`")),
+    };
+    let shape = match raw.shape.as_str() {
+        "rate" => Shape::Rate,
+        "money" => Shape::Money,
+        "number" => Shape::Number,
+        "choice" => Shape::Choice,
+        "flag" => Shape::Flag,
+        "schedule" => Shape::Schedule,
+        k => return Err(format!("unknown shape `{k}`")),
+    };
+    let group = match raw.group.as_str() {
+        "taxes" => Group::Taxes,
+        "spending" => Group::Spending,
+        "transfers" => Group::Transfers,
+        "money" => Group::Money,
+        "trade" => Group::Trade,
+        "world" => Group::World,
+        k => return Err(format!("unknown group `{k}`")),
+    };
+    let status = match raw.status.as_str() {
+        "active" => Status::Active,
+        "planned" => Status::Planned,
+        "retired" => Status::Retired,
+        k => return Err(format!("unknown status `{k}`")),
+    };
+    let reader = phase_of(&raw.reader).ok_or_else(|| format!("unknown reader `{}`", raw.reader))?;
+    let min_lag_months = match &raw.min_lag {
+        None => 0,
+        Some(lag) => lag
+            .trim()
+            .strip_suffix("months")
+            .or_else(|| lag.trim().strip_suffix("month"))
+            .and_then(|n| n.trim().parse().ok())
+            .ok_or_else(|| format!("min_lag `{lag}` is not \"N months\""))?,
+    };
+    let keys = match (&raw.key, raw.keys) {
+        (_, Some(subset)) => subset,
+        (Some(table), None) => tables.get(table).cloned().unwrap_or_default(),
+        (None, None) => Vec::new(),
+    };
+    Ok(LeverMeta {
+        id,
+        kind,
+        shape,
+        unit: raw.unit,
+        range: raw.range.map(|[lo, hi]| (lo, hi)),
+        rows: raw.rows.map(|[lo, hi]| (lo, hi)),
+        key: raw.key,
+        keys,
+        options: raw.options.unwrap_or_default(),
+        min_lag_months,
+        phase_in: raw.phase_in.map(|p| PhaseIn {
+            per_month: p.per_month,
+        }),
+        spec: raw.spec,
+        glossary: raw.glossary,
+        reader,
+        group,
+        milestone: raw.milestone,
+        status,
+        label: raw.label,
+    })
+}
+
+/// The phase of a `reader` name (the `PhaseId` variant's name).
+fn phase_of(name: &str) -> Option<PhaseId> {
+    Some(match name {
+        "Commands" => PhaseId::Commands,
+        "Plan" => PhaseId::Plan,
+        "Staffing" => PhaseId::Staffing,
+        "Prices" => PhaseId::Prices,
+        "OutputAndInputs" => PhaseId::OutputAndInputs,
+        "FixedDemand" => PhaseId::FixedDemand,
+        "Households" => PhaseId::Households,
+        "GoodsMarket" => PhaseId::GoodsMarket,
+        "Quits" => PhaseId::Quits,
+        "Pay" => PhaseId::Pay,
+        "WageRound" => PhaseId::WageRound,
+        "MonthlyClose" => PhaseId::MonthlyClose,
+        "Checks" => PhaseId::Checks,
+        _ => return None,
+    })
+}
+
+/// Lower-case words of `a-z`, `0-9` and `_`, at least two, joined by dots.
+fn is_dotted(id: &str) -> bool {
+    let words: Vec<&str> = id.split('.').collect();
+    words.len() >= 2
+        && words.iter().all(|w| {
+            !w.is_empty()
+                && w.bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+        })
 }
 
 /// A lever's value, in one of the six shapes.
@@ -467,8 +506,18 @@ impl RejectCode {
     /// The code as the spec writes it, e.g. `out_of_range`.
     #[must_use]
     pub fn as_str(self) -> &'static str {
-        let _ = self;
-        unimplemented!("{LATER}")
+        match self {
+            RejectCode::UnknownLever => "unknown_lever",
+            RejectCode::Retired => "retired",
+            RejectCode::NotYet => "not_yet",
+            RejectCode::WrongShape => "wrong_shape",
+            RejectCode::OutOfRange => "out_of_range",
+            RejectCode::BadKey => "bad_key",
+            RejectCode::BadOption => "bad_option",
+            RejectCode::BadSchedule => "bad_schedule",
+            RejectCode::TooEarly => "too_early",
+            RejectCode::NothingToCancel => "nothing_to_cancel",
+        }
     }
 }
 
