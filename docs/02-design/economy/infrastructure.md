@@ -44,10 +44,16 @@ Each construction unit (`construction_civil` for networks, `construction_buildin
 - **Capacity.** A unit can take work up to its capacity (staff, capital) minus its order book.
 - **Price** = the estimate × the unit's cost level × (1 + markup) × (1 + a load premium that rises as the order book fills) × (1 + distance premium when the unit is far from the site on the graph).
 - **Delivery time** = the work spread over the capacity the unit has free.
-- **The state-owned company** bids with the cost level and efficiency of its directives. It may be dearer or full, and it can be ordered to take a contract at cost ([state enterprises](state-enterprises.md)).
+- **The state-owned company** bids with the cost level and efficiency of its directives. It may be more expensive than private bidders, or have no spare capacity. It can be ordered to take a contract at cost ([state enterprises](state-enterprises.md)).
+- **A company with no spare capacity can still get the contract** (owner, 2026-10-22). The project waits in its queue and starts when work ends elsewhere. Its bid shows the expected start and delivery date.
 - **A foreign contractor** brings its own capacity, so it is never full. Its margin and the staff it brings are imports; it still buys local materials and hires local workers.
 
-The player sees each bid with its price, time, the share that stays in Romania and the overrun risk, and picks one. The default is the cheapest. An unfilled tender (no capacity) is re-run the next month and raises a notification.
+The player sees each bid with its price, time, the share that stays in Romania and the overrun risk, and picks one. The default is the cheapest bid that can start within a set number of months. If no company has spare capacity, the tender is re-run the next month and raises a notification, unless the player queues it with one company.
+
+**A long order book makes a company grow** (owner, 2026-10-22):
+- **Price:** its bids rise with its load (the load premium above).
+- **Capacity:** its order book counts as expected demand in the [investment rule](investment-capital.md), so a company whose queue is long for months hires and invests, and its capacity grows with the rule's lag.
+- The same rule applies to every firm: one that cannot meet demand raises its markup with its utilisation ([prices](prices-inflation.md)) and expands through investment. *The investment rule is built and switched off until M7 calibration.*
 
 > **Simplification:** one bid per unit; no bid rigging or corruption in v1 (that is [state capacity](state-capacity.md), M16, which then raises prices and overruns).
 
@@ -124,7 +130,8 @@ Per type: unit cost, duration, terrain factors, overrun and delay risk, lifetime
 - [ ] **AC-INF-01** `[sim]` A large motorway contract raises construction employment and output in its county, and purchases of building materials and steel, while it is built.
 - [ ] **AC-INF-02** `[sim]` Every payment to a contractor goes through the ledger under `gov.investment`. EU-funded parts are claimed and received by the rules of eu-funds.
 - [ ] **AC-INF-03** `[sim]` With several large projects at once, construction bids rise and delivery times lengthen against a world with one project.
-- [ ] **AC-INF-04** `[sim]` When the cheapest bidder is full, the next bid wins, and a dearer state-owned bid is never the default.
+- [ ] **AC-INF-04** `[sim]` When the cheapest bidder is full, the next bid wins, and a more expensive state-owned bid is never the default. A contract given to a full company waits in its queue and starts when it has room.
+- [ ] **AC-INF-10** `[sim]` With the investment rule on, a construction company whose order book stays above its capacity for months raises its bids and its capacity, and its queue shortens.
 - [ ] **AC-INF-05** `[sim]` A foreign contractor's margin shows as imports. A domestic contractor's margin shows as domestic profit.
 - [ ] **AC-INF-06** `[sim]` A finished hospital with its running budget funded hires staff in its county and buys pharmaceuticals. Without the budget, its effective beds are lower, and the gap is reported.
 - [ ] **AC-INF-07** `[sim]` A school built in a county with unplaced pupils raises enrolment there. One built where places already exceed pupils raises it by much less.
