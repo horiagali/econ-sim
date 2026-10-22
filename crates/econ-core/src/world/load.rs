@@ -785,6 +785,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             households: Vec::new(),
         },
         months: Vec::new(),
+        #[cfg(feature = "levers")]
+        lev: None,
     };
     #[cfg(feature = "fiscal")]
     world.start_treasury(&s.gov_debt_profile, &s.gov_transfers_year);

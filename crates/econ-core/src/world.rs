@@ -990,6 +990,35 @@ pub struct World {
     slips: PaySlips,
     demand: DayDemand,
     months: Vec<MonthStats>,
+    /// The lever system's state: the registry, the law in force, pending
+    /// commands, the log and the events (`None` for a world built without
+    /// `law.json`).
+    #[cfg(feature = "levers")]
+    lev: Option<Box<crate::levers::LeverState>>,
+}
+
+/// What the lever system reaches inside the `World` (spec game/lever-system).
+#[cfg(feature = "levers")]
+impl World {
+    /// The lever system's state, if the world was built under `law.json`.
+    pub(crate) fn lever_state(&self) -> Option<&crate::levers::LeverState> {
+        self.lev.as_deref()
+    }
+
+    /// The lever system's state, mutable.
+    pub(crate) fn lever_state_mut(&mut self) -> Option<&mut crate::levers::LeverState> {
+        self.lev.as_deref_mut()
+    }
+
+    /// Install the lever system's state (at load).
+    pub(crate) fn set_lever_state(&mut self, state: crate::levers::LeverState) {
+        self.lev = Some(Box::new(state));
+    }
+
+    /// Replace the law the mechanics read (a command took effect).
+    pub(crate) fn set_law(&mut self, law: Law) {
+        self.law = law;
+    }
 }
 
 impl World {
@@ -1038,7 +1067,11 @@ impl World {
                 _ => 0,
             };
             match id {
-                PhaseId::Commands => self.pay_transfer(),
+                PhaseId::Commands => {
+                    #[cfg(feature = "levers")]
+                    crate::levers::apply_due(self, date);
+                    self.pay_transfer();
+                }
                 PhaseId::Plan => self.plan(cohort),
                 PhaseId::Staffing => self.staffing(cohort),
                 PhaseId::Prices => self.prices(),

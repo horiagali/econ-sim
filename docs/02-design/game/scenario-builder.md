@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [adr/0018-scenario-and-commands, economy/opening-balance-sheet, economy/accounting, society/population-generator, society/population-employers, adr/0016-firm-representation, adr/0012-data-pipeline-and-licensing, adr/0006-determinism-contract, adr/0003-people-representation]
 research: [research/opening-balance-sheet-romania]
-updated: 2026-10-15
+updated: 2026-10-22
 ---
 
 # Scenario Builder
@@ -24,11 +24,11 @@ None of its own. Every number comes from a stage or file with its own spec: the 
 - the firm-unit table;
 - the opening balance sheet, posted through the ledger;
 - `scenario.json`;
+- `law.json` and `world.json` (amendment of 2026-10-22, below);
 - the consistency report;
 - `econ-cli build-scenario` and `just build-scenario`.
 
 **Not in this increment:**
-- `law.json` and `world.json`: they need the lever registry, roadmap M4. Until then `scenario.json` says `"law": null`, and a loader must refuse such a scenario for a run.
 - `params.json`: calibration, roadmap M6.
 - The input-output table as a scenario table: the production milestone, M2.
 - Banks and public assets as tables: M9 and later.
@@ -43,17 +43,19 @@ All from one fixtures directory (default `python/pipeline/fixtures`), plus `--sa
 | `firm_units2021_ro.json`, `firm_balance_sheets2021_ro.json` | the firm-unit table |
 | `balance_sheets2021q4_ro.json`, `sector_details2021_ro.json` | the opening balance sheet |
 | `io_table2021_ro.json` | checks only |
+| `law2021_ro.json` | `law.json` and `world.json` (amendment of 2026-10-22) |
 
 ## Outputs
 A folder `DIR`:
 
 | File | Content |
 |---|---|
-| `scenario.json` | `format` (1), `name`, `start_date` "2021-12-01", `sample_scale`, `rng_seed`, `engine_version`, the hash of every stage (population, attributes, jobs, housing, wages, pensions, wealth, incomes, employers), the opening hash, the SHA-256 of every input file and of every other file of the folder, `law: null`, the provenance blocks of the inputs, `consistent` (bool) |
+| `scenario.json` | `format` (1), `name`, `start_date` "2021-12-01", `sample_scale`, `rng_seed`, `engine_version`, the hash of every stage (population, attributes, jobs, housing, wages, pensions, wealth, incomes, employers), the opening hash, the SHA-256 of every input file and of every other file of the folder, `law: {"law": "law.json", "world": "world.json"}` (until 2026-10-22 `law: null`), the provenance blocks of the inputs, `consistent` (bool) |
 | `tables/households.arrow`, `tables/persons.arrow` | the columns of stages A to J, as `econ-cli synth-population` writes them with every stage |
 | `tables/firm_units.arrow` | one row per firm unit (below) |
 | `balances.arrow` | the opening balance sheet: one row per (instrument, sector) with `instrument` (u8), `sector` (u8), `balance` (i64, bani), in matrix order |
 | `report.json` | the consistency report (below) |
+| `law.json`, `world.json` | the law in force and the world settings on the start date: one JSON line per lever, and per key of a keyed lever, from `law2021_ro.json`, with `given` and `effective` the start date and no `seq` ([lever system](lever-system.md), "Logging and deterministic replay"); ids under `world.` go to `world.json` |
 
 **`firm_units.arrow`**, in the order of `firm_units2021_ro.json`:
 - Identity and size: `unit_id` (string), `industry` (u8, catalogue index), `industry_group` (u8), `size` (u8: micro 0, small 1, large 2, public 3), `kind` (u8: cohort 0, public 1), `controller` (u8: domestic 0, foreign 1, state 2).
@@ -169,7 +171,7 @@ pub enum BuildError {
 `econ-cli build-scenario --sample-scale N [--seed S] [--fixtures DIR] --out DIR`. The justfile recipe is `build-scenario sample_scale out="python/pipeline/data/scenario"`.
 
 ## Open questions
-- [x] **A scenario without `law.json`** until M4: written with `law: null` and refused for a run (owner, 2026-10-14).
+- [x] **A scenario without `law.json`** until M4: written with `law: null` and refused for a run (owner, 2026-10-14). **Amended by the owner, 2026-10-22 (M4):** the builder now writes `law.json` and `world.json` from `law2021_ro.json`, and `scenario.json` names them; AC-SCB-01's check of `law` is restated with it.
 - [x] **Where the report's tolerances live:** in the code as constants (owner, 2026-10-14).
 - [x] **CI:** builds 1:1000 on every push (owner, 2026-10-14).
 - [x] **Firm-unit stocks are cohort totals** (all firms of the unit together); per-firm values come with the firm mechanics that need them (owner, 2026-10-14).
