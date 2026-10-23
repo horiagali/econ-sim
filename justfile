@@ -77,6 +77,11 @@ synth-population sample_scale out="python/pipeline/data/population" fixtures="py
 build-scenario sample_scale out="python/pipeline/data/scenario":
     cargo run -q --release -p econ-cli -- build-scenario --sample-scale {{sample_scale}} --out {{out}}
 
+# Headless play (spec game/lever-system): a commands file on the 1:1000 Romania scenario, seed 42, five years; outputs in `out`
+play file out="target/play/out":
+    cargo run -q --release -p econ-cli -- build-scenario --sample-scale 1000 --out target/play/scenario_1000
+    cargo run -q --release -p econ-cli --features levers -- play --scenario target/play/scenario_1000 --commands {{file}} --until 2026-11-30 --seed 42 --out {{out}}
+
 # Run the scale world on the Romanian starting population (census households and ages; jobs and wages still invented)
 sim-romania sample_scale="100" ticks="12" margins="python/pipeline/fixtures/census2021_margins_ro.json":
     cargo run -q --release -p econ-cli -- sim-population --margins {{margins}} --sample-scale {{sample_scale}} --ticks {{ticks}}

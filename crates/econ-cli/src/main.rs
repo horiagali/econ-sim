@@ -68,12 +68,340 @@ fn main() -> ExitCode {
 
 /// Headless play (spec `game/lever-system`, "Headless play"):
 /// `econ-cli play --scenario DIR --commands FILE.jsonl --until DATE [--seed S]
-/// [--out DIR] [--series a,b,…] [--daily]`. Test writer's addition
-/// (ADR-0014) for AC-LEV-08, behind the feature `levers`.
+/// [--out DIR] [--series a,b,…] [--io-table FILE]`, behind the feature
+/// `levers`. The whole commands file is validated before the first day; any
+/// rejection stops with its line number (exit 2). Writes `series_monthly.arrow`
+/// and `.csv`, `commands_applied.jsonl`, `events.jsonl` and `run.json`; exits
+/// 1 if a check of a day fails. `--daily` (the fast daily series) comes with
+/// the statistics registry (M6) and is refused until then.
 #[cfg(feature = "levers")]
 fn play(args: &[String]) -> ExitCode {
-    let _ = args;
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    use std::path::PathBuf;
+
+    let mut scenario: Option<PathBuf> = None;
+    let mut commands: Option<PathBuf> = None;
+    let mut until: Option<econ_types::Date> = None;
+    let mut seed: Option<u64> = None;
+    let mut out = PathBuf::from("play_out");
+    let mut series: Option<Vec<String>> = None;
+    let mut io_table = PathBuf::from("python/pipeline/fixtures/io_table2021_ro.json");
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--scenario" => scenario = it.next().map(PathBuf::from),
+            "--commands" => commands = it.next().map(PathBuf::from),
+            "--until" => until = it.next().and_then(|d| parse_date(d)),
+            "--seed" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(s) => seed = Some(s),
+                None => return usage(),
+            },
+            "--out" => match it.next() {
+                Some(d) => out = PathBuf::from(d),
+                None => return usage(),
+            },
+            "--series" => {
+                series = it
+                    .next()
+                    .map(|v| v.split(',').map(str::to_string).collect())
+            }
+            "--io-table" => match it.next() {
+                Some(f) => io_table = PathBuf::from(f),
+                None => return usage(),
+            },
+            "--daily" => {
+                eprintln!("--daily: the daily series come with the statistics registry (M6)");
+                return ExitCode::from(2);
+            }
+            _ => return usage(),
+        }
+    }
+    let (Some(dir), Some(commands), Some(until)) = (scenario, commands, until) else {
+        return usage();
+    };
+    let fail = |what: String| {
+        eprintln!("{what}");
+        ExitCode::from(2)
+    };
+
+    let registry = econ_core::levers::Registry::committed();
+    let law = match econ_io::commands::read_scenario_law(&dir, &registry) {
+        Ok(l) => l,
+        Err((line, r)) => return fail(format!("law.json/world.json line {line}: {}", r.message)),
+    };
+    let start = match econ_io::read_start_state(&dir, &io_table) {
+        Ok(s) => s,
+        Err(e) => return fail(format!("{}: {e:?}", dir.display())),
+    };
+    let seed = seed.unwrap_or(start.rng_seed);
+    let params = econ_core::world::WorldParams::spec_defaults(seed);
+    let mut world = match econ_core::world::World::with_law(start, law.registry, law.law, params) {
+        Ok(w) => w,
+        Err(e) => return fail(format!("the world does not build: {e:?}")),
+    };
+    let orders = match econ_io::commands::read_commands(&commands, world.registry()) {
+        Ok(o) => o,
+        Err((line, r)) => {
+            return fail(format!("{} line {line}: {}", commands.display(), r.message));
+        }
+    };
+
+    // Run, giving each order on its day.
+    let mut next = 0;
+    let mut month_ends: Vec<(econ_types::Date, u64)> = Vec::new();
+    let mut failed = false;
+    while world.date() <= until {
+        let today = world.date();
+        while next < orders.len() && orders[next].given <= today {
+            if let Err(r) = world.give(orders[next].order.clone()) {
+                return fail(format!(
+                    "{} order {}: {}",
+                    commands.display(),
+                    next + 1,
+                    r.message
+                ));
+            }
+            next += 1;
+        }
+        let report = match world.step(&[]) {
+            Ok(r) => r,
+            Err(e) => return fail(format!("{today:?}: {e:?}")),
+        };
+        if !report.failed.is_empty() {
+            eprintln!("{}: checks failed: {:?}", iso_date(today), report.failed);
+            failed = true;
+        }
+        if today.is_month_end() {
+            month_ends.push((today, report.state_hash));
+        }
+    }
+
+    if let Err(e) = write_play(&world, &dir, &out, seed, &month_ends, series.as_deref()) {
+        return fail(format!("{}: {e}", out.display()));
+    }
+    if failed {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+/// `2022-03-01`.
+#[cfg(feature = "levers")]
+fn parse_date(s: &str) -> Option<econ_types::Date> {
+    let mut p = s.split('-');
+    let (y, m, d) = (
+        p.next()?.parse().ok()?,
+        p.next()?.parse().ok()?,
+        p.next()?.parse().ok()?,
+    );
+    if p.next().is_some() {
+        return None;
+    }
+    econ_types::Date::new(y, m, d)
+}
+
+/// `2022-03-01`.
+#[cfg(feature = "levers")]
+fn iso_date(d: econ_types::Date) -> String {
+    econ_io::commands::iso(d)
+}
+
+/// The outputs of `play` (spec, "Headless play").
+#[cfg(feature = "levers")]
+fn write_play(
+    world: &econ_core::world::World,
+    scenario: &std::path::Path,
+    out: &std::path::Path,
+    seed: u64,
+    month_ends: &[(econ_types::Date, u64)],
+    series: Option<&[String]>,
+) -> Result<(), String> {
+    use econ_core::levers::PolicyEvent;
+    use econ_io::commands::{iso, log_line_json, value_json};
+    use econ_io::table::{Column, NamedColumn, ipc_table};
+
+    std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
+    let write = |name: &str, bytes: &[u8]| {
+        std::fs::write(out.join(name), bytes).map_err(|e| format!("{name}: {e}"))
+    };
+
+    // The monthly series the `World` reports (until the statistics registry, M6).
+    let months = world.months();
+    let i64s = |f: &dyn Fn(&econ_core::world::MonthStats) -> i64| {
+        months.iter().map(f).collect::<Vec<i64>>()
+    };
+    let all: Vec<(&'static str, &'static str, Vec<i64>)> = vec![
+        ("cpi", "ppm", i64s(&|m| i64::from(m.cpi_ppm))),
+        (
+            "inflation",
+            "ppm a year",
+            i64s(&|m| i64::from(m.inflation_ppm)),
+        ),
+        (
+            "expected_inflation",
+            "ppm a year",
+            i64s(&|m| i64::from(m.expected_inflation_ppm)),
+        ),
+        (
+            "employed",
+            "persons",
+            i64s(&|m| i64::try_from(m.employed).unwrap_or(i64::MAX)),
+        ),
+        (
+            "unemployed",
+            "persons",
+            i64s(&|m| i64::try_from(m.unemployed).unwrap_or(i64::MAX)),
+        ),
+        ("wage_bill", "bani", i64s(&|m| m.wage_bill.get())),
+        ("consumption", "bani", i64s(&|m| m.consumption.get())),
+        ("gdp_production", "bani", i64s(&|m| m.gdp_production.get())),
+        (
+            "gdp_expenditure",
+            "bani",
+            i64s(&|m| m.gdp_expenditure.get()),
+        ),
+        ("gdp_income", "bani", i64s(&|m| m.gdp_income.get())),
+        (
+            "hardship_households",
+            "households",
+            i64s(&|m| i64::try_from(m.hardship_households).unwrap_or(i64::MAX)),
+        ),
+    ];
+    if let Some(bad) = series
+        .unwrap_or(&[])
+        .iter()
+        .find(|w| !all.iter().any(|(n, _, _)| n == w))
+    {
+        return Err(format!("no series `{bad}`"));
+    }
+    let chosen: Vec<&(&'static str, &'static str, Vec<i64>)> = all
+        .iter()
+        .filter(|(n, _, _)| series.is_none_or(|w| w.iter().any(|x| x == n)))
+        .collect();
+    let month_ids: Vec<u32> = months.iter().map(|m| m.month.0).collect();
+    let mut columns = vec![NamedColumn {
+        name: "month",
+        values: Column::U32(month_ids.clone()),
+        unit: Some("months from the start"),
+    }];
+    for (name, unit, values) in &chosen {
+        columns.push(NamedColumn {
+            name,
+            values: Column::I64(values.clone()),
+            unit: Some(unit),
+        });
+    }
+    write(
+        "series_monthly.arrow",
+        &ipc_table(columns).map_err(|e| format!("{e:?}"))?,
+    )?;
+    let mut csv = String::from("month");
+    for (name, unit, _) in &chosen {
+        csv.push_str(&format!(",{name} ({unit})"));
+    }
+    csv.push('\n');
+    for (i, m) in month_ids.iter().enumerate() {
+        csv.push_str(&m.to_string());
+        for (_, _, values) in &chosen {
+            csv.push_str(&format!(",{}", values[i]));
+        }
+        csv.push('\n');
+    }
+    write("series_monthly.csv", csv.as_bytes())?;
+
+    // The applied log and the events.
+    let registry = world.registry();
+    let mut log = String::new();
+    for line in world.command_log() {
+        log.push_str(&log_line_json(line, registry));
+        log.push('\n');
+    }
+    write("commands_applied.jsonl", log.as_bytes())?;
+    let text = |s: &str| serde_json::to_string(s).unwrap_or_default();
+    let key = |lever: econ_core::levers::LeverId, k: Option<u32>| match k {
+        None => String::new(),
+        Some(k) => {
+            let meta = registry.get(lever);
+            let name = usize::try_from(k)
+                .ok()
+                .and_then(|k| meta.keys.get(k))
+                .cloned()
+                .unwrap_or_else(|| k.to_string());
+            format!(",\"key\":{}", text(&name))
+        }
+    };
+    let mut events = String::new();
+    for e in world.events() {
+        let line = match e {
+            PolicyEvent::Given {
+                seq,
+                lever,
+                key: k,
+                given,
+                effective,
+            } => format!(
+                "{{\"event\":\"PolicyGiven\",\"seq\":{seq},\"lever\":{}{},\"given\":\"{}\",\"effective\":\"{}\"}}",
+                text(lever.as_str()),
+                key(*lever, *k),
+                iso(*given),
+                iso(*effective)
+            ),
+            PolicyEvent::Changed(c) => {
+                let meta = registry.get(c.lever);
+                format!(
+                    "{{\"event\":\"PolicyChanged\",\"seq\":{},\"lever\":{}{},\"old\":{},\"new\":{},\"given\":\"{}\",\"effective\":\"{}\"}}",
+                    c.seq,
+                    text(c.lever.as_str()),
+                    key(c.lever, c.key),
+                    value_json(meta, &c.old),
+                    value_json(meta, &c.new),
+                    iso(c.given),
+                    iso(c.effective)
+                )
+            }
+            PolicyEvent::Warning {
+                seq,
+                given,
+                warning,
+            } => format!(
+                "{{\"event\":\"PolicyWarning\",\"seq\":{seq},\"lever\":{},\"code\":{},\"given\":\"{}\",\"message\":{}}}",
+                text(warning.lever.as_str()),
+                text(&format!("{:?}", warning.code)),
+                iso(*given),
+                text(&warning.message)
+            ),
+            PolicyEvent::BudgetOverrun {
+                date,
+                line,
+                overrun,
+            } => format!(
+                "{{\"event\":\"BudgetOverrun\",\"date\":\"{}\",\"line\":{},\"overrun\":{}}}",
+                iso(*date),
+                text(line),
+                overrun.get()
+            ),
+        };
+        events.push_str(&line);
+        events.push('\n');
+    }
+    write("events.jsonl", events.as_bytes())?;
+
+    // run.json.
+    let scenario_json =
+        std::fs::read(scenario.join("scenario.json")).map_err(|e| format!("scenario.json: {e}"))?;
+    let run = serde_json::json!({
+        "scenario_hash": econ_scenario::sha256_hex(&scenario_json),
+        "seed": seed,
+        "engine_version": env!("CARGO_PKG_VERSION"),
+        "last_day": month_ends.last().map(|_| iso(world.date())),
+        "month_ends": month_ends
+            .iter()
+            .map(|(d, h)| serde_json::json!({ "date": iso(*d), "state_hash": format!("{h:016x}") }))
+            .collect::<Vec<_>>(),
+    });
+    let mut bytes = serde_json::to_vec_pretty(&run).map_err(|e| e.to_string())?;
+    bytes.push(b'\n');
+    write("run.json", &bytes)
 }
 
 /// The scenario builder (spec `game/scenario-builder`): the world on the
