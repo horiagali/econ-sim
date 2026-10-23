@@ -1110,6 +1110,12 @@ impl World {
         self.calendar.date(self.today)
     }
 
+    /// The parameters the world runs with.
+    #[must_use]
+    pub fn params(&self) -> &WorldParams {
+        &self.params
+    }
+
     /// The day the next [`World::step`] runs (day 0 after [`World::new`]).
     #[must_use]
     pub fn day(&self) -> Day {

@@ -175,6 +175,15 @@ impl Registry {
         })
     }
 
+    /// The registry committed with this engine (`crates/econ-core/levers.toml`).
+    ///
+    /// # Panics
+    /// The committed file does not parse (`just check` keeps it parsing).
+    #[must_use]
+    pub fn committed() -> Registry {
+        Registry::parse(include_str!("../levers.toml")).expect("the committed levers.toml parses")
+    }
+
     /// Read and parse `levers.toml`.
     ///
     /// # Errors
@@ -1016,7 +1025,7 @@ fn grouped_u(v: u64) -> String {
     let digits = v.to_string();
     let mut out = String::with_capacity(digits.len() + digits.len() / 3);
     for (i, c) in digits.chars().enumerate() {
-        if i > 0 && (digits.len() - i) % 3 == 0 {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
             out.push(',');
         }
         out.push(c);
@@ -1066,6 +1075,16 @@ impl World {
         let (effective, mut warnings) = validate(&st.registry, &order, today, &st.pending)?;
         let seq = st.next_seq;
         st.next_seq += 1;
+        // Pending and logged with the effective day filled (spec: the log,
+        // every line with seq and effective filled), so a replay of the log
+        // gives the same log.
+        let order = match order {
+            Order::Set(cmd) => Order::Set(Command {
+                effective: Some(effective),
+                ..cmd
+            }),
+            cancel @ Order::Cancel { .. } => cancel,
+        };
         match &order {
             Order::Set(cmd) => {
                 warnings.extend(consistency_warnings(

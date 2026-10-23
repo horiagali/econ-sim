@@ -10,7 +10,7 @@ use econ_core::levers::{
     Command, LawInForce, LeverMeta, LeverValue, LogLine, Order, Pending, Registry, RejectCode,
     Rejection, Shape, validate,
 };
-use econ_core::world::World;
+use econ_core::world::{World, WorldParams};
 use econ_types::{Bani, Date};
 use serde_json::Value;
 
@@ -317,28 +317,178 @@ fn parse_date(s: &str) -> Option<Date> {
     Date::new(year, month, day)
 }
 
-// --- Test writer's additions (ADR-0014) ----------------------------------------
+/// One line of the command log as JSON (spec, "Logging and deterministic
+/// replay"): `{"seq":17,"given":"2022-02-14","lever":"…","key":"…",
+/// "value":2100,"effective":"2022-03-01"}` or `{"seq":19,"given":"…",
+/// "cancel":17}`. Values are the shape's integers, a choice its option's
+/// text, a schedule `[[threshold_bani, rate_bp], …]`; a key its text.
+#[must_use]
+pub fn log_line_json(line: &LogLine, registry: &Registry) -> String {
+    let text = |s: &str| serde_json::to_string(s).unwrap_or_else(|_| String::from("\"\""));
+    let mut out = String::from("{");
+    if let Some(seq) = line.seq {
+        out.push_str(&format!("\"seq\":{seq},"));
+    }
+    out.push_str(&format!("\"given\":\"{}\"", iso(line.given)));
+    match &line.order {
+        Order::Cancel { seq } => out.push_str(&format!(",\"cancel\":{seq}")),
+        Order::Set(c) => {
+            let meta = registry.get(c.lever);
+            out.push_str(&format!(",\"lever\":{}", text(c.lever.as_str())));
+            if let Some(k) = c.key {
+                let key = usize::try_from(k)
+                    .ok()
+                    .and_then(|k| meta.keys.get(k))
+                    .map_or_else(|| k.to_string(), Clone::clone);
+                out.push_str(&format!(",\"key\":{}", text(&key)));
+            }
+            let value = match &c.value {
+                LeverValue::Rate(v) => v.to_string(),
+                LeverValue::Money(b) => b.get().to_string(),
+                LeverValue::Number(n) => n.to_string(),
+                LeverValue::Choice(i) => meta
+                    .options
+                    .get(usize::from(*i))
+                    .map_or_else(|| i.to_string(), |o| text(o)),
+                LeverValue::Flag(f) => f.to_string(),
+                LeverValue::Schedule(rows) => format!(
+                    "[{}]",
+                    rows.iter()
+                        .map(|(t, r)| format!("[{},{r}]", t.get()))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                ),
+            };
+            out.push_str(&format!(",\"value\":{value}"));
+            if let Some(e) = line.effective {
+                out.push_str(&format!(",\"effective\":\"{}\"", iso(e)));
+            }
+        }
+    }
+    out.push('}');
+    out
+}
 
-/// The message of every body the test writer added.
-const TEST_WRITER: &str = "test writer's addition (ADR-0014): the implementation fills it";
+/// A date as `2022-03-01`.
+fn iso(d: Date) -> String {
+    format!("{:04}-{:02}-{:02}", d.year, d.month, d.day)
+}
+
+/// The format of a save of [`save_world`].
+const SAVE_FORMAT: u64 = 1;
 
 /// A save of a `World` under the lever system (spec, "Logging and
-/// deterministic replay"; ADR-0011): bytes holding what loading needs to go
-/// on, the law in force, the pending list and the command log included.
+/// deterministic replay"; ADR-0011).
+///
+/// > **Simplification (M4):** a save is the replay the determinism contract
+/// > guarantees (ADR-0006: the scenario, the seed and the log give the same
+/// > state every day), not a snapshot of the columns: the engine version,
+/// > the seed, the day the world stands on, its state hash and the command
+/// > log, as JSON. Loading rebuilds the world from the scenario folder,
+/// > replays the log to that day and checks the hash; the law in force and
+/// > the pending list follow from the log. Loading takes as long as running
+/// > to the saved day. Only worlds with the spec defaults' parameters are
+/// > saved until the parameters are a scenario file (M6).
 ///
 /// # Errors
-/// On encoding failures.
+/// A world built without `law.json`, or with parameters other than the spec
+/// defaults.
 pub fn save_world(world: &World) -> Result<Vec<u8>, SaveError> {
-    let _ = world;
-    unimplemented!("{TEST_WRITER}")
+    let seed = world.params().rng_seed;
+    if *world.params() != WorldParams::spec_defaults(seed) {
+        return Err(SaveError::Io(
+            "only worlds with the spec defaults' parameters are saved (M4)".to_string(),
+        ));
+    }
+    let registry = world.registry();
+    let log: Vec<Value> = world
+        .command_log()
+        .iter()
+        .map(|l| serde_json::from_str(&log_line_json(l, registry)))
+        .collect::<Result<_, _>>()
+        .map_err(|e| SaveError::Parse(e.to_string()))?;
+    let save = serde_json::json!({
+        "format": SAVE_FORMAT,
+        "engine_version": env!("CARGO_PKG_VERSION"),
+        "seed": seed,
+        "date": iso(world.date()),
+        "state_hash": format!("{:016x}", world.state_hash()),
+        "log": log,
+    });
+    serde_json::to_vec_pretty(&save).map_err(|e| SaveError::Parse(e.to_string()))
 }
 
 /// Load a save of [`save_world`] made on a world of the scenario folder `dir`
 /// (`io_table`: the input-output table, as for `read_start_state`).
 ///
 /// # Errors
-/// A damaged save, or one of another scenario or engine.
+/// A damaged save, one of another engine, a log the scenario's registry
+/// refuses, or a replay whose state hash differs from the saved one (another
+/// scenario).
 pub fn load_world(bytes: &[u8], dir: &Path, io_table: &Path) -> Result<World, SaveError> {
-    let _ = (bytes, dir, io_table);
-    unimplemented!("{TEST_WRITER}")
+    let parse = |m: String| SaveError::Parse(m);
+    let save: Value = serde_json::from_slice(bytes).map_err(|e| parse(e.to_string()))?;
+    let format = save["format"]
+        .as_u64()
+        .ok_or_else(|| parse("no format".into()))?;
+    if format != SAVE_FORMAT {
+        return Err(SaveError::Version(
+            u32::try_from(format).unwrap_or(u32::MAX),
+        ));
+    }
+    if save["engine_version"].as_str() != Some(env!("CARGO_PKG_VERSION")) {
+        return Err(parse("a save of another engine version".into()));
+    }
+    let seed = save["seed"]
+        .as_u64()
+        .ok_or_else(|| parse("no seed".into()))?;
+    let date = save["date"]
+        .as_str()
+        .and_then(parse_date)
+        .ok_or_else(|| parse("no date".into()))?;
+    let expected = save["state_hash"]
+        .as_str()
+        .ok_or_else(|| parse("no state hash".into()))?
+        .to_string();
+
+    let rejected = |(n, r): (usize, Rejection)| parse(format!("line {n}: {}", r.message));
+    let law = read_scenario_law(dir, &Registry::committed()).map_err(rejected)?;
+    let start = crate::read_start_state(dir, io_table)?;
+    let mut world = World::with_law(
+        start,
+        law.registry,
+        law.law,
+        WorldParams::spec_defaults(seed),
+    )
+    .map_err(|e| parse(format!("{e:?}")))?;
+    let mut log = Vec::new();
+    for (n, line) in save["log"]
+        .as_array()
+        .map_or(&[][..], Vec::as_slice)
+        .iter()
+        .enumerate()
+    {
+        log.push(
+            parse_line(&line.to_string(), world.registry()).map_err(|r| rejected((n + 1, r)))?,
+        );
+    }
+    let mut next = 0;
+    loop {
+        let today = world.date();
+        while next < log.len() && log[next].given == today {
+            world
+                .give(log[next].order.clone())
+                .map_err(|r| rejected((next + 1, r)))?;
+            next += 1;
+        }
+        if today >= date {
+            break;
+        }
+        world.step(&[]).map_err(|e| parse(format!("{e:?}")))?;
+    }
+    let got = format!("{:016x}", world.state_hash());
+    if got != expected || world.date() != date {
+        return Err(SaveError::StateHash { expected, got });
+    }
+    Ok(world)
 }
