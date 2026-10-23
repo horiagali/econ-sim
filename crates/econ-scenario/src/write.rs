@@ -174,7 +174,54 @@ fn files(scenario: &Scenario, inputs: &Inputs) -> Result<BTreeMap<String, Vec<u8
         out.insert("budget.json".to_string(), bytes.clone());
     }
     out.insert("report.json".to_string(), pretty(&report_json(scenario))?);
+    let (law, world) = law_files(inputs)?;
+    out.insert("law.json".to_string(), law);
+    out.insert("world.json".to_string(), world);
     Ok(out)
+}
+
+/// `law.json` and `world.json` (spec `game/lever-system`, "Logging and
+/// deterministic replay"): one JSON line per lever, and per key of a keyed
+/// lever, dated the start date and without `seq`. World settings (ids under
+/// `world.`) go to `world.json`, the law to `law.json`.
+fn law_files(inputs: &Inputs) -> Result<(Vec<u8>, Vec<u8>), BuildError> {
+    let name = crate::build::LAW;
+    let levers = inputs
+        .docs
+        .get(name)
+        .and_then(|d| d["levers"].as_object())
+        .ok_or_else(|| io_err(format!("{name}: no levers")))?;
+    let (mut law, mut world) = (Vec::new(), Vec::new());
+    for (id, value) in levers {
+        let out = if id.starts_with("world.") {
+            &mut world
+        } else {
+            &mut law
+        };
+        let mut line = |key: Option<&str>, value: &Value| -> Result<(), BuildError> {
+            let mut l = Map::new();
+            l.insert("given".to_string(), Value::from(START_DATE));
+            l.insert("lever".to_string(), Value::from(id.as_str()));
+            if let Some(k) = key {
+                l.insert("key".to_string(), Value::from(k));
+            }
+            l.insert("value".to_string(), value.clone());
+            l.insert("effective".to_string(), Value::from(START_DATE));
+            let text = serde_json::to_string(&Value::Object(l)).map_err(io_err)?;
+            out.extend_from_slice(text.as_bytes());
+            out.push(b'\n');
+            Ok(())
+        };
+        match value.as_object() {
+            Some(by_key) => {
+                for (k, v) in by_key {
+                    line(Some(k), v)?;
+                }
+            }
+            None => line(None, value)?,
+        }
+    }
+    Ok((law, world))
 }
 
 fn scenario_json(scenario: &Scenario, inputs: &Inputs, files: &BTreeMap<String, Vec<u8>>) -> Value {
@@ -227,7 +274,8 @@ fn scenario_json(scenario: &Scenario, inputs: &Inputs, files: &BTreeMap<String, 
             .collect::<Vec<_>>(),
         "inputs": input_hashes,
         "files": file_hashes,
-        "law": Value::Null,
+        // The law in force on the start date (spec game/lever-system).
+        "law": { "law": "law.json", "world": "world.json" },
         "provenance": provenance,
         "consistent": scenario.report.consistent(),
     })

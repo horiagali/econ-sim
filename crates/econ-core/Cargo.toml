@@ -96,6 +96,7 @@ revenue = ["fiscal"]
 # (AC-LM-11, AC-LM-12).
 levers = [
     "world",
+    "fiscal",
     "dep:serde",
     "dep:toml",
     "econ-io/levers",

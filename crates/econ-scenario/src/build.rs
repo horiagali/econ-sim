@@ -27,7 +27,7 @@ use crate::{
 };
 
 /// The input files of the spec's table, in its order.
-pub(crate) const INPUT_FILES: [&str; 14] = [
+pub(crate) const INPUT_FILES: [&str; 15] = [
     MARGINS,
     ATTRIBUTES,
     JOBS,
@@ -42,6 +42,7 @@ pub(crate) const INPUT_FILES: [&str; 14] = [
     DETAILS,
     IO,
     BUDGET,
+    LAW,
 ];
 const MARGINS: &str = "census2021_margins_ro.json";
 const ATTRIBUTES: &str = "census2021_edu_activity_ro.json";
@@ -59,6 +60,10 @@ pub(crate) const IO: &str = "io_table2021_ro.json";
 /// The starting budget (spec `economy/budget-2021`), written to the scenario
 /// as `budget.json` as it is (ADR-0018 Amendment 1).
 pub(crate) const BUDGET: &str = "budget2021_ro.json";
+/// The law in force on the start date, by lever id (spec
+/// `game/lever-system`, "Default"), written to the scenario as `law.json`
+/// and `world.json`.
+pub(crate) const LAW: &str = "law2021_ro.json";
 
 /// The margin files of the stages, parsed.
 #[derive(Debug, Clone)]

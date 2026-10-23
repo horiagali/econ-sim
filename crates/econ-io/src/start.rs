@@ -110,6 +110,29 @@ fn rdiv(n: i128, d: i128) -> i128 {
     if 2 * r.abs() >= d { q + n.signum() } else { q }
 }
 
+/// The catalogue industries of a scenario folder, in catalogue order: the
+/// key table `industries` of the lever registry (spec game/lever-system).
+///
+/// # Errors
+/// `tables/firm_units.arrow` missing or malformed, or an industry without units.
+#[cfg(feature = "levers")]
+pub(crate) fn industry_ids(scenario_dir: &Path) -> Result<Vec<String>, SaveError> {
+    let ff = "tables/firm_units.arrow";
+    let fb = read(scenario_dir, ff)?;
+    let ids = column::<StringArray>(&fb, ff, "unit_id")?;
+    let unit_industry = u8s(&fb, ff, "industry")?;
+    let n_i = 1 + usize::from(unit_industry.iter().copied().max().unwrap_or(0));
+    let mut industry_id = vec![String::new(); n_i];
+    for u in 0..ids.len() {
+        let id = ids.value(u);
+        industry_id[usize::from(unit_industry[u])] = id.split('.').next().unwrap_or(id).to_string();
+    }
+    if industry_id.iter().any(String::is_empty) {
+        return Err(parse(format!("{ff}: an industry without units")));
+    }
+    Ok(industry_id)
+}
+
 /// Read a scenario folder and the input-output table as a `StartState`.
 ///
 /// # Errors
