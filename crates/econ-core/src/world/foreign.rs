@@ -313,10 +313,11 @@ impl World {
             .ledger
             .balance(Sector::Banks, Instrument::Reserves)
             .max(Bani::ZERO);
-        let intervention = s
-            .intervention
-            .min((reserves - floor).max(Bani::ZERO))
-            .min(bank_reserves);
+        let intervention = s.intervention.min((reserves - floor).max(Bani::ZERO));
+        // `fx.intervention`: the player's amount on top of the rule's.
+        #[cfg(feature = "levers")]
+        let intervention = self.fx_with_player(intervention, reserves - floor);
+        let intervention = intervention.min(bank_reserves);
         let mut post = Postings::default();
         let code = FlowCode::FX_INTERVENTION;
         if intervention > Bani::ZERO {

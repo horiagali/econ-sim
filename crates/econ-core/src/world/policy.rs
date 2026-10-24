@@ -42,6 +42,50 @@ impl World {
         if let Some(v) = target {
             self.mac.target_ppm = v * 100;
         }
+        #[cfg(feature = "trade")]
+        self.fx_refresh_regime();
+    }
+
+    /// `fx.regime`: the share of the exchange rate's monthly move the central
+    /// bank offsets while its reserves are above the floor: none for a
+    /// float, trade's parameter for a managed float (kept from load), all of
+    /// it for a peg (the owner's decision of 2026-10-22).
+    #[cfg(feature = "trade")]
+    fn fx_refresh_regime(&mut self) {
+        let managed = *self
+            .bud
+            .fx_managed_ppm
+            .get_or_insert(self.params.trade.fx.intervention_ppm);
+        let Some(LeverValue::Choice(i)) = self
+            .lever_state()
+            .and_then(|s| s.law.get(LeverId::FxRegime, None))
+            .cloned()
+        else {
+            return;
+        };
+        let option = self.lever_state().and_then(|s| {
+            s.registry
+                .get(LeverId::FxRegime)
+                .options
+                .get(usize::from(i))
+                .cloned()
+        });
+        self.params.trade.fx.intervention_ppm = match option.as_deref() {
+            Some("float") => 0,
+            Some("peg") => 1_000_000,
+            _ => managed,
+        };
+    }
+
+    /// `fx.intervention` added to the rule's at the month end: the player's
+    /// purchase of foreign assets (> 0) or sale (< 0), in lei; sales never
+    /// take reserves below the floor. Returns the intervention in trade's
+    /// sign (sales > 0).
+    #[cfg(feature = "trade")]
+    pub(super) fn fx_with_player(&self, rule: Bani, above_floor: Bani) -> Bani {
+        let player = self.lever_money(LeverId::FxIntervention);
+        let total = rule - Bani(player);
+        total.min(above_floor.max(Bani::ZERO))
     }
 
     /// A money lever's amount a month, bani.

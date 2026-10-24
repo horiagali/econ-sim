@@ -712,7 +712,7 @@ glossary = "fx_regime"
 reader = "MonthlyClose"
 group = "trade"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.fx.regime"
 
 [[lever]]
@@ -726,7 +726,7 @@ glossary = "fx_intervention"
 reader = "MonthlyClose"
 group = "trade"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.fx.intervention"
 
 [[lever]]

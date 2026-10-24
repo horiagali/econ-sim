@@ -693,7 +693,7 @@
       "unit": "regime",
       "range": null,
       "milestone": "alpha",
-      "status": "planned",
+      "status": "active",
       "options": [
         "float",
         "managed_float",
@@ -711,7 +711,7 @@
         1000000000000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "informal.inspection_budget",

@@ -74,6 +74,8 @@ pub(super) struct BudgetState {
     pub(super) market_wage: Vec<[i128; 3]>,
     pub(super) national_wage: [i128; 3],
     pub(super) job_seekers: Vec<u32>,
+    /// `fx.regime`: trade's intervention share at load (the managed float).
+    pub(super) fx_managed_ppm: Option<u32>,
 }
 
 /// What [`World::start_budget`] needs from the starting state.
