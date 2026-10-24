@@ -642,7 +642,7 @@ glossary = "inflation_target"
 reader = "MonthlyClose"
 group = "money"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.money.inflation_target"
 
 [[lever]]
@@ -656,7 +656,7 @@ glossary = "policy_rate"
 reader = "MonthlyClose"
 group = "money"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.money.policy_rate"
 
 [[lever]]
@@ -670,7 +670,7 @@ glossary = "reserve_requirement"
 reader = "MonthlyClose"
 group = "money"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.money.reserve_requirement"
 
 [[lever]]
@@ -684,7 +684,7 @@ glossary = "qe_purchases"
 reader = "MonthlyClose"
 group = "money"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.money.qe"
 
 [[lever]]
@@ -698,7 +698,7 @@ glossary = "cb_deficit_funding"
 reader = "MonthlyClose"
 group = "money"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.money.monetary_financing"
 
 [[lever]]

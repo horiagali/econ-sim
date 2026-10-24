@@ -65,7 +65,7 @@
 mod banking;
 #[cfg(feature = "monetary")]
 mod central_bank;
-// Ministry budgets (spec game/lever-system).
+// Ministry budgets and the money levers (spec game/lever-system).
 #[cfg(feature = "levers")]
 #[allow(clippy::needless_range_loop)]
 mod budget;
@@ -86,6 +86,8 @@ mod labour;
 #[allow(clippy::needless_range_loop)]
 mod load;
 mod money;
+#[cfg(feature = "levers")]
+mod policy;
 // The test writer's additions of M3's investment and revenue (ADR-0014).
 #[cfg(any(feature = "investment", feature = "revenue"))]
 mod observe;

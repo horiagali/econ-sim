@@ -631,7 +631,7 @@
         1000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "money.policy_rate",
@@ -644,7 +644,7 @@
         5000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "money.reserve_requirement",
@@ -657,7 +657,7 @@
         5000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "money.qe",
@@ -670,7 +670,7 @@
         1000000000000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "money.monetary_financing",
@@ -683,7 +683,7 @@
         1000000000000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "fx.regime",

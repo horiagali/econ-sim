@@ -236,7 +236,7 @@ Spec: [lever system](02-design/game/lever-system.md).
 - [ ] PC model added to the differential test (open follow-up of Spike 2; moved from M3 at its close, 2026-10-22).
 - [ ] **Lever system:** every lever and world setting is a typed command with validation, range, effective date and lag; commands are logged and replayable (ADR-0011); a lever registry generated from the specs so the UI and the tests share one list.
 - [ ] **Pay and job choice** (owner, 2026-10-22; [labour market](02-design/economy/labor-market.md)): hiring and quits respond to a unit's pay against the market, with job-to-job moves, so the public pay lever bites. Ministry budgets with a running and an investment part for every line; a wage bill above the running part freezes hiring.
-- [ ] Wire every lever tagged `alpha` in D2 to its mechanic. Since 2026-10-10 that includes three tools against the informal economy (labour inspection budget, tax audit budget, penalties), with a first version of detection: taxes are computed on declared amounts from the start (M3), because the starting state carries the split.
+- [ ] Wire every lever tagged `alpha` in D2 to its mechanic. Since 2026-10-10 that includes three tools against the informal economy (labour inspection budget, tax audit budget, penalties), with a first version of detection: taxes are computed on declared amounts from the start (M3), because the starting state carries the split. **Owner, 2026-10-24:** the three informal levers move to M15 with detection (its criteria AC-INF-01 to 09 have no tests yet); with them, `transfer.pension.retirement_age` and `world.wages_abroad` wait for M5 and `world.fuel_price` for the energy mechanic. AC-LEV-14 covers the other 52 alpha levers.
 - [ ] **Policy-scenario test suite** (qualitative: direction, rough size, timing): rate hike, income-tax cut, VAT rise, deficit spending, monetary financing, devaluation, minimum-wage rise, pension rise, oil-price shock. One test file per scenario, written tests-first. Every later milestone adds its own scenarios to this suite.
 - [ ] Headless "play" from a command file: scenario plus dated lever changes in, time series out.
 
@@ -361,6 +361,7 @@ Specs: [identity](02-design/society/identity.md), [interest-groups](02-design/so
 Spec: [informal-economy](02-design/economy/informal-economy.md). The split into declared and undeclared is in the starting state (M1), taxes use it from M3 and three enforcement levers are in the alpha (M4); this milestone is the behaviour and the rest of the tools.
 - [ ] Undeclared work and envelope wages by industry and firm size; unreported sales and the VAT gap; the choice to evade as a rule of taxes, enforcement and penalties.
 - [ ] Data: published estimates of undeclared work and the VAT gap.
+- [ ] Detection and the alpha levers moved from M4 (owner, 2026-10-24): `informal.inspection_budget`, `informal.audit_budget`, `informal.penalty_multiple`, registered and planned; tests of AC-INF-01 to 09 first.
 - [ ] Levers: tax administration and inspection budget, digitalisation, penalties, amnesty.
 - [ ] Official statistics against the true economy: both visible (imperfect information stays after v1).
 

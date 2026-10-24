@@ -1208,6 +1208,7 @@ pub(crate) fn apply_due(world: &mut World, today: Date) {
     let law = law_of(&st.law, &st.registry, &industries);
     world.set_law(law);
     world.budget_refresh_pay();
+    world.levers_refresh_params();
 }
 
 /// The hand-written rule structs the mechanics read, filled from the law in
@@ -1492,6 +1493,7 @@ impl World {
             next_seq: 1,
         });
         world.start_budget(&budget);
+        world.levers_refresh_params();
         Ok(world)
     }
 
