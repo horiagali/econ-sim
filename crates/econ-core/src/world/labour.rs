@@ -20,6 +20,10 @@ use super::money::{Postings, bani, ratio};
 const DRAW_LAYOFF: u32 = 1;
 const DRAW_QUIT: u32 = 2;
 const DRAW_HIRE: u32 = 3;
+/// Whether an underpaid quitter looks for work while employed (pay and job
+/// choice, step 4).
+#[cfg(feature = "levers")]
+const DRAW_JOB_TO_JOB: u32 = 4;
 const ONE: i128 = 1_000_000;
 
 /// Take records, in order, until their weight is as close as it gets to
@@ -39,7 +43,7 @@ fn take(order: &[u32], weight: impl Fn(u32) -> u64, target: u64) -> Vec<u32> {
 }
 
 impl World {
-    fn person_weight(&self, i: u32) -> u64 {
+    pub(super) fn person_weight(&self, i: u32) -> u64 {
         u64::from(self.households.hh_weight[self.persons.household_id[i as usize] as usize])
     }
 
@@ -90,6 +94,31 @@ impl World {
         self.pp.seeking[p] = true;
     }
 
+    /// A person leaves its unit for another job on the same day (pay and job
+    /// choice, step 4): paid for the days worked, no unemployment claim, not
+    /// seeking.
+    #[cfg(feature = "levers")]
+    fn leave_for_job(&mut self, i: u32) {
+        let p = i as usize;
+        let u = self.persons.employer[p];
+        let first = self.month_first();
+        let start = self.job_start(p, first);
+        let date = self.calendar.date(self.today);
+        let dim = date.days_in_month();
+        let worked = date.day.saturating_sub(start);
+        let pay = part_month_pay(self.persons.wage[p], worked, dim);
+        let declared = part_month_pay(self.persons.wage_declared[p], worked, dim);
+        if pay > Bani::ZERO {
+            self.mac.owed.push((i, u, pay, declared));
+        }
+        let k = usize::from(u);
+        self.units.staff[k] -= self.person_weight(i);
+        if let Ok(pos) = self.uu.members[k].binary_search(&i) {
+            self.uu.members[k].remove(pos);
+        }
+        self.persons.employer[p] = NO_EMPLOYER;
+    }
+
     /// Every unit of an industry lays off `share_ppm` of its employees (a
     /// starting edit): the first in keyed priority, rounded per unit.
     pub(super) fn lay_off_share(&mut self, industry: usize, share_ppm: u32) {
@@ -138,6 +167,15 @@ impl World {
             .collect();
         seekers.sort_unstable();
         let mut order: Vec<u32> = seekers.into_iter().map(|s| s.2).collect();
+        // Pay and job choice: yesterday's underpaid quitters who look while
+        // employed go first, for better-paid vacancies only.
+        #[cfg(feature = "levers")]
+        let job_seekers: Vec<u32> = std::mem::take(&mut self.bud.job_seekers)
+            .into_iter()
+            .filter(|&i| self.persons.employer[i as usize] != NO_EMPLOYER)
+            .collect();
+        #[cfg(feature = "levers")]
+        order.splice(0..0, job_seekers.iter().copied());
         for u in 0..self.units.industry.len() {
             if self.units.unit_stagger_day[u] != cohort {
                 continue;
@@ -199,10 +237,28 @@ impl World {
                     continue;
                 }
                 self.uu.vacancies_month[u][t] += v;
+                // The lowest wage the unit offers in this tier.
+                let offered = |w: &World, o: usize| {
+                    let base = w.mac.reference_wage[group][o];
+                    #[cfg(feature = "levers")]
+                    let base = w.budget_hire_wage(u, group, o).unwrap_or(base);
+                    base.max(minimum)
+                };
+                let lowest_offer = (0..10)
+                    .filter(|&o| {
+                        by_occ[o] > 0 && tier(u8::try_from(o).expect("an occupation")) == Some(t)
+                    })
+                    .map(|o| offered(self, o))
+                    .min()
+                    .unwrap_or(minimum);
                 let reach = |w: &World, i: u32| {
                     let p = i as usize;
+                    let employed = w.persons.employer[p] != NO_EMPLOYER;
                     qualifies(t, w.persons.edu_level[p])
                         && (regions == 0 || regions & (1u64 << (w.pp.region[p] % 64)) != 0)
+                        && (!employed
+                            || (usize::from(w.persons.employer[p]) != u
+                                && w.persons.wage[p] < lowest_offer))
                 };
                 // Seekers in order until those reached cover the vacancies (and
                 // a record more): the cap of the hires binds only below that.
@@ -224,6 +280,17 @@ impl World {
                     self.mac.tier_vacancies[t],
                     &self.params.labour,
                 );
+                // Pay and job choice, step 2: relative pay speeds or slows hiring.
+                #[cfg(feature = "levers")]
+                let q = if self.pay_choice_active() {
+                    econ_mech_labour::pay_choice::fill_rate_with_pay_ppm(
+                        q,
+                        self.unit_rho_ppm(u, t, lowest_offer),
+                        &econ_mech_labour::pay_choice::PayParams::spec_defaults(),
+                    )
+                } else {
+                    q
+                };
                 let h = hires(v, reachable_weight, q, &mut self.uu.hire_carry[u][t]);
                 let hired = take(&reachable, |i| self.person_weight(i), h);
                 // Occupations of the tier, each hire to the one still owed the most.
@@ -242,10 +309,12 @@ impl World {
                     owed[k].1 -= w;
                     let o = owed[k].0;
                     let occupation = u8::try_from(o).expect("an occupation");
-                    let wage = self.mac.reference_wage[group][o];
+                    let wage = offered(self, o);
+                    // A job-to-job move: the person leaves its unit today.
                     #[cfg(feature = "levers")]
-                    let wage = self.budget_hire_wage(u, group, o).unwrap_or(wage);
-                    let wage = wage.max(minimum);
+                    if self.persons.employer[p] != NO_EMPLOYER {
+                        self.leave_for_job(i);
+                    }
                     self.persons.employer[p] = u16::try_from(u).expect("a unit id");
                     self.persons.occupation[p] = occupation;
                     self.persons.wage[p] = wage;
@@ -273,6 +342,11 @@ impl World {
     /// Phase 9: each employee quits with probability `quit_rate` a month,
     /// aligned per industry group (the first in keyed priority quit).
     pub(super) fn quits(&mut self) {
+        #[cfg(feature = "levers")]
+        if self.pay_choice_active() {
+            self.quits_by_pay();
+            return;
+        }
         let today = self.today;
         let dim = self.calendar.date(today).days_in_month();
         let groups = self.mac.normal_tightness.len();
@@ -299,6 +373,56 @@ impl World {
             .expect("quits");
             for i in take(&order, |i| self.person_weight(i), target) {
                 self.separate(i, dim, false);
+            }
+        }
+    }
+
+    /// Pay and job choice, steps 3 and 4: each employee's quit probability
+    /// from its relative pay; the quitters are taken in keyed order weighted
+    /// by it (M2's order when every relative pay is 1), the month's total is
+    /// the sum of the probabilities; a share of the underpaid quitters look
+    /// for work while employed instead.
+    #[cfg(feature = "levers")]
+    fn quits_by_pay(&mut self) {
+        use econ_mech_labour::pay_choice::{PayParams, quit_probability_ppm};
+        let pay = PayParams::spec_defaults();
+        let today = self.today;
+        let dim = self.calendar.date(today).days_in_month();
+        let rate = self.params.labour.quit_rate_ppm;
+        let groups = self.mac.normal_tightness.len();
+        let mut by_group: Vec<Vec<(u128, u32, u32)>> = vec![Vec::new(); groups];
+        for (u, members) in self.uu.members.iter().enumerate() {
+            let g = usize::from(self.industries.group[usize::from(self.units.industry[u])]);
+            for &i in members {
+                let rho = self.person_rho_ppm(i as usize);
+                let prob = quit_probability_ppm(rate, rho, &pay).max(1);
+                let draw = self
+                    .seed
+                    .fast_u64(Stream::Labour, today.0, u64::from(i), DRAW_QUIT);
+                let key = u128::from(draw >> 24) * 1_000_000 / u128::from(prob);
+                by_group[g].push((key, i, prob));
+            }
+        }
+        for mut list in by_group {
+            list.sort_unstable();
+            let order: Vec<u32> = list.iter().map(|&(_, i, _)| i).collect();
+            let expected: u128 = list
+                .iter()
+                .map(|&(_, i, prob)| u128::from(self.person_weight(i)) * u128::from(prob))
+                .sum();
+            let target = u64::try_from((expected + 500_000) / 1_000_000).expect("quits");
+            for i in take(&order, |i| self.person_weight(i), target) {
+                let p = i as usize;
+                let draw =
+                    self.seed
+                        .fast_u64(Stream::Labour, today.0, u64::from(i), DRAW_JOB_TO_JOB);
+                if self.person_rho_ppm(p) < 1_000_000
+                    && draw % 1_000_000 < u64::from(pay.job_to_job_share_ppm)
+                {
+                    self.bud.job_seekers.push(i);
+                } else {
+                    self.separate(i, dim, false);
+                }
             }
         }
     }
