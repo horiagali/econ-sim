@@ -782,11 +782,14 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         mac,
         demand: DayDemand {
             units: vec![Vec::new(); n_i],
+            agents: vec![Vec::new(); n_i],
             households: Vec::new(),
         },
         months: Vec::new(),
         #[cfg(feature = "levers")]
         lev: None,
+        #[cfg(feature = "levers")]
+        bud: Default::default(),
     };
     #[cfg(feature = "fiscal")]
     world.start_treasury(&s.gov_debt_profile, &s.gov_transfers_year);

@@ -100,6 +100,8 @@ pub struct PublicUnitBudget {
     pub wages: Bani,
     /// Employers' contributions (D12) a year.
     pub employer_contributions: Bani,
+    /// The COFOG subgroups whose compensation goes to it.
+    pub cofog: Vec<String>,
 }
 
 /// Published national totals by ESA code, as bani (`TE`, `D1`, `D11`, `D12`,
@@ -302,6 +304,8 @@ struct RawUnit {
     posts: u32,
     wages: i64,
     employer_contributions: i64,
+    #[serde(default)]
+    cofog: Vec<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -450,6 +454,7 @@ impl Budget {
                 employer_contributions: bani(u.employer_contributions, &u.unit)?,
                 unit: u.unit,
                 posts: u.posts,
+                cofog: u.cofog,
             });
         }
         let mut published = Vec::with_capacity(raw.published.len());

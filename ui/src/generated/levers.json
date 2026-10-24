@@ -360,7 +360,7 @@
         50000000000000
       ],
       "milestone": "alpha",
-      "status": "planned",
+      "status": "active",
       "key": "budget_lines",
       "keys": null
     },
@@ -375,7 +375,7 @@
         10000
       ],
       "milestone": "alpha",
-      "status": "planned",
+      "status": "active",
       "key": "budget_lines",
       "keys": null
     },
@@ -390,7 +390,7 @@
         30000
       ],
       "milestone": "alpha",
-      "status": "planned",
+      "status": "active",
       "key": "public_units",
       "keys": null
     },
@@ -405,7 +405,7 @@
         2000000
       ],
       "milestone": "alpha",
-      "status": "planned",
+      "status": "active",
       "key": "public_units",
       "keys": null
     },

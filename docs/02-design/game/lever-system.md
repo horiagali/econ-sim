@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [game/levers, adr/0018-scenario-and-commands, adr/0011-storage-saves-history, adr/0017-time-base, adr/0008-explainability-architecture, adr/0006-determinism-contract, economy/budget-2021, economy/fiscal-policy, economy/infrastructure, game/world-loop, game/scenario-builder]
 research: [research/law-in-force-romania-2021]
-updated: 2026-10-22
+updated: 2026-10-23
 ---
 
 # Lever System — Commands, Registry, Replay and the Alpha Levers
@@ -143,6 +143,17 @@ World settings (D8) are levers with `kind = world`, ids under `world.`, `group =
 **Wage bill above the running allowance** (pay raised, budget not; owner, 2026-10-22): **a hiring freeze.** Wages already owed are always paid in full. Inputs are cut first, down to zero. While the wage bill still exceeds the allowance, the unit posts no vacancies, so staff who quit or retire are not replaced, and headcount falls until the bill fits. A warning event names the line. Any overrun left in the month (the bill above the allowance even with inputs at zero) is paid by the treasury and reported. Classes grow and wards thin as staff leave, through the [labour market](../economy/labor-market.md)'s quits.
 
 **Public pay and the labour market** (owner, 2026-10-22): pay is % of the start, and it bites because hiring and quits respond to pay. A public unit paying less than similar jobs in its region fills vacancies more slowly and loses staff to better-paid jobs ([labour market](../economy/labor-market.md), "Pay and job choice"). Frozen pay while private wages rise therefore shows up as unfilled posts, rural ones first. The ratio of public to private pay by sector is an indicator.
+
+**How the `World` carries it** (owner's decisions, 2026-10-23; in worlds built from `law.json`):
+- **Lines and units.** Each line's COFOG subgroups belong to public units (the budget's `public_units[].cofog`); eleven lines fall in one unit, `social_protection` and `research` in several. A line's 2021 wage cell (D11) is split over its units by their own D11 totals. A unit's wage bill is shared among its lines in proportion to those parts, and a line's inputs and investment go to its units in the same proportion. Eight lines share `public_administration.public`.
+- **Public units are the government's agents.** At each month end, right after wages, each line takes its share of its units' labour cost (gross wages and the employer's contribution), then the rest of its running allowance of the year to date as inputs. The government pays each unit the sum under `gov.purchases` and the line's investment twelfth under `gov.investment`. A wage bill above what is left is paid in full, reported as overrun, with a `BudgetOverrun` event. The unit's output is non-market output valued at what the government paid (the at-cost rule of [budget-2021](../economy/budget-2021.md)).
+- **What the units buy.** Over the next month, each unit spends its input money day by day in its own industry's input structure in the input-output table (imports included), and its investment money in the mix of the investment column. Rationing can leave money unspent; it stays with the unit for later days. *(2026-10-23, implementation: the owner's choice was the government column's mix; on the `World` it put about 120 billion lei a year into industries that sell the government 46 billion, rationed households there and sank output by half within eight months. A public producer's inputs are its industry's, so that mix is used.)*
+- **Market sales.** A public unit still produces and sells to households and other industries (health and education fees, intermediate services), planning that output from its sales as any unit; the government no longer buys its output. *(2026-10-23, implementation: with no production, the industries that hold its services as essential inputs ran out within months.)*
+- **Staffing.** Its staff target is its starting staff times `spend.public_headcount` over the starting posts. While its monthly labour cost exceeds its lines' running allowance for the month, it posts no vacancies (the hiring freeze). A lower target lays staff off through the labour market's layoff rule.
+- **What it replaces.** The government's fixed purchases of the input-output table's government column, its imports, and its share of the investment column. Public units pay no profit tax.
+- **Extreme spending.** The treasury's bond issue is bought out of the banks' reserves by every buyer but the central bank; when an issue would take more than the reserves hold, it is scaled down and the government's deposits stay below the target (an extreme ministry budget or pension point ends in a bad economy, not a crash).
+
+> **Simplification (M4):** a line's inputs are fixed at the month end for the next month (paid then, spent over the month), so in the first month the units have no input money; the input mix is the unit's industry's, not the line's. A public unit's surplus on its market sales stays with it.
 
 ## How a lever change is explained
 Built on the five layers of [ADR-0008](../../03-architecture/decisions/0008-explainability-architecture.md):

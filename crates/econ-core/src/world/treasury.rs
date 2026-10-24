@@ -378,6 +378,30 @@ impl World {
                     .expect("the rest of the world holds bonds");
                 parts[row] += i128::from(issue.get()) - placed;
             }
+            // Every buyer but the central bank pays out of the banks'
+            // reserves: what they buy together cannot exceed them. The rest
+            // of the issue is not placed, and the government's deposits stay
+            // below the target (an extreme lever, spec game/lever-system,
+            // "Edge cases": a bad economy, not a crash).
+            let reserves = i128::from(
+                self.ledger
+                    .balance(Sector::Banks, Instrument::Reserves)
+                    .get(),
+            )
+            .max(0);
+            let drain: i128 = holders
+                .iter()
+                .zip(&parts)
+                .filter(|&(&s, _)| s != Sector::CentralBank)
+                .map(|(_, &p)| p)
+                .sum();
+            if drain > reserves {
+                for (&s, p) in holders.iter().zip(parts.iter_mut()) {
+                    if s != Sector::CentralBank {
+                        *p = *p * reserves / drain;
+                    }
+                }
+            }
             for (&s, &part) in holders.iter().zip(&parts) {
                 net += self.buy_bonds(s, bani(part));
             }

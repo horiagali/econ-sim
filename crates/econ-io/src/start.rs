@@ -522,6 +522,7 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     s.hh_consumer_debt = money(&hb, hf, "hh_consumer_debt")?;
     s.gov_debt_profile = debt_profile(&scenario)?;
     s.gov_transfers_year = budget_transfers(scenario_dir)?;
+    s.budget_wage_shares = budget_wage_shares(scenario_dir)?;
     s.gov_investment_year = budget_investment(scenario_dir)?;
     Ok(s)
 }
@@ -580,6 +581,45 @@ fn budget_investment(scenario_dir: &Path) -> Result<Bani, SaveError> {
 /// EU budget (D76) to the rest of the world; the other current transfers and
 /// the other taxes to households; capital transfers and subsidies to firms.
 /// None when the scenario has no budget.
+/// Each budget line's D11 split over the public units its COFOG subgroups
+/// belong to, by the units' own D11 totals (the last unit takes the
+/// remainder, so a line's parts add up exactly); a line none of whose
+/// subgroups belongs to a unit is left out.
+fn budget_wage_shares(scenario_dir: &Path) -> Result<Vec<(String, String, Bani)>, SaveError> {
+    use crate::budget::{Budget, EconType};
+    let path = scenario_dir.join("budget.json");
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let bytes = std::fs::read(&path).map_err(|e| SaveError::Io(format!("budget.json: {e}")))?;
+    let b = Budget::from_json(&bytes).map_err(|e| parse(format!("budget.json: {e:?}")))?;
+    let mut out = Vec::new();
+    for line in &b.lines {
+        let units: Vec<_> = b
+            .public_units
+            .iter()
+            .filter(|u| u.cofog.iter().any(|c| line.cofog.contains(c)))
+            .collect();
+        let total: i128 = units.iter().map(|u| i128::from(u.wages.get())).sum();
+        if units.is_empty() || total <= 0 {
+            continue;
+        }
+        let d11 = i128::from(line.per_year[EconType::Wages as usize].get());
+        let mut left = d11;
+        for (k, u) in units.iter().enumerate() {
+            let part = if k + 1 == units.len() {
+                left
+            } else {
+                d11 * i128::from(u.wages.get()) / total
+            };
+            left -= part;
+            let part = i64::try_from(part).map_err(|_| parse("budget.json: a wage cell"))?;
+            out.push((line.id.clone(), u.unit.clone(), Bani(part)));
+        }
+    }
+    Ok(out)
+}
+
 fn budget_transfers(
     scenario_dir: &Path,
 ) -> Result<Vec<(econ_ledger::FlowCode, econ_ledger::Sector, Bani)>, SaveError> {

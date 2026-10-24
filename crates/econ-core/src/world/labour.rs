@@ -242,7 +242,10 @@ impl World {
                     owed[k].1 -= w;
                     let o = owed[k].0;
                     let occupation = u8::try_from(o).expect("an occupation");
-                    let wage = self.mac.reference_wage[group][o].max(minimum);
+                    let wage = self.mac.reference_wage[group][o];
+                    #[cfg(feature = "levers")]
+                    let wage = self.budget_hire_wage(u, group, o).unwrap_or(wage);
+                    let wage = wage.max(minimum);
                     self.persons.employer[p] = u16::try_from(u).expect("a unit id");
                     self.persons.occupation[p] = occupation;
                     self.persons.wage[p] = wage;
@@ -376,6 +379,9 @@ impl World {
             let j = usize::from(self.units.industry[u]);
             self.ii.wages_month[j] += bani(paid);
         }
+        // The ministry budgets reimburse the public units and pay the lines.
+        #[cfg(feature = "levers")]
+        self.budget_month_end(&unit_pays);
         post.deposits(
             Sector::Firms,
             Sector::Households,
@@ -518,6 +524,11 @@ impl World {
         for p in 0..self.persons.employer.len() {
             let e = self.persons.employer[p];
             if e == NO_EMPLOYER {
+                continue;
+            }
+            // Public pay is a share of the start (`spend.public_pay`): no round.
+            #[cfg(feature = "levers")]
+            if self.budget_public(usize::from(e)) {
                 continue;
             }
             let g = growth[usize::from(
