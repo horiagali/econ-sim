@@ -342,23 +342,7 @@ pub fn log_line_json(line: &LogLine, registry: &Registry) -> String {
                     .map_or_else(|| k.to_string(), Clone::clone);
                 out.push_str(&format!(",\"key\":{}", text(&key)));
             }
-            let value = match &c.value {
-                LeverValue::Rate(v) => v.to_string(),
-                LeverValue::Money(b) => b.get().to_string(),
-                LeverValue::Number(n) => n.to_string(),
-                LeverValue::Choice(i) => meta
-                    .options
-                    .get(usize::from(*i))
-                    .map_or_else(|| i.to_string(), |o| text(o)),
-                LeverValue::Flag(f) => f.to_string(),
-                LeverValue::Schedule(rows) => format!(
-                    "[{}]",
-                    rows.iter()
-                        .map(|(t, r)| format!("[{},{r}]", t.get()))
-                        .collect::<Vec<_>>()
-                        .join(",")
-                ),
-            };
+            let value = value_json(meta, &c.value);
             out.push_str(&format!(",\"value\":{value}"));
             if let Some(e) = line.effective {
                 out.push_str(&format!(",\"effective\":\"{}\"", iso(e)));
@@ -369,8 +353,32 @@ pub fn log_line_json(line: &LogLine, registry: &Registry) -> String {
     out
 }
 
+/// A lever's value as JSON, as the log writes it: the shape's integers, a
+/// choice its option's text, a schedule `[[threshold_bani, rate_bp], …]`.
+#[must_use]
+pub fn value_json(meta: &LeverMeta, value: &LeverValue) -> String {
+    match value {
+        LeverValue::Rate(v) => v.to_string(),
+        LeverValue::Money(b) => b.get().to_string(),
+        LeverValue::Number(n) => n.to_string(),
+        LeverValue::Choice(i) => meta.options.get(usize::from(*i)).map_or_else(
+            || i.to_string(),
+            |o| serde_json::to_string(o).unwrap_or_else(|_| String::from("\"\"")),
+        ),
+        LeverValue::Flag(f) => f.to_string(),
+        LeverValue::Schedule(rows) => format!(
+            "[{}]",
+            rows.iter()
+                .map(|(t, r)| format!("[{},{r}]", t.get()))
+                .collect::<Vec<_>>()
+                .join(",")
+        ),
+    }
+}
+
 /// A date as `2022-03-01`.
-fn iso(d: Date) -> String {
+#[must_use]
+pub fn iso(d: Date) -> String {
     format!("{:04}-{:02}-{:02}", d.year, d.month, d.day)
 }
 

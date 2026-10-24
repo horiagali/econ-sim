@@ -17,12 +17,13 @@ econ-core.workspace = true
 econ-io = { workspace = true, features = ["world"] }
 econ-popgen.workspace = true
 econ-scenario.workspace = true
+# `play`'s outputs (feature `levers`).
+serde_json = { workspace = true, optional = true }
 econ-rng.workspace = true
 
 [features]
-# `play` (spec game/lever-system, headless play): the test writer's addition
-# (ADR-0014) for AC-LEV-08; off until the lever system is implemented.
-levers = ["econ-core/levers", "econ-io/levers"]
+# `play` (spec game/lever-system, headless play), with the lever system.
+levers = ["econ-core/levers", "econ-io/levers", "dep:serde_json"]
 
 [lints]
 workspace = true

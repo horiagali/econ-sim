@@ -222,6 +222,7 @@ dependencies = [
  "econ-rng",
  "econ-scenario",
  "econ-types",
+ "serde_json",
 ]
 
 [[package]]
