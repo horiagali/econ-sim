@@ -68,6 +68,12 @@ pub(super) struct BudgetState {
     year: i32,
     /// Every line in every closed month.
     pub(super) months: Vec<BudgetLineMonth>,
+    /// Pay and job choice (spec `economy/labor-market`): each tier's mean
+    /// wage by region and nationally at the last month end, and the persons
+    /// looking for work while employed in the next day's matching.
+    pub(super) market_wage: Vec<[i128; 3]>,
+    pub(super) national_wage: [i128; 3],
+    pub(super) job_seekers: Vec<u32>,
 }
 
 /// What [`World::start_budget`] needs from the starting state.
@@ -78,6 +84,15 @@ pub(crate) struct BudgetStart {
     pub(crate) investment_domestic: Vec<Bani>,
     pub(crate) investment_imported: Vec<Bani>,
     pub(crate) gov_investment_year: Bani,
+}
+
+/// `wage / market`, millionths; 1 without a market wage.
+fn rho(wage: i128, market: i128) -> u32 {
+    if market <= 0 {
+        1_000_000
+    } else {
+        u32::try_from(ratio(wage.max(0), ONE, market)).unwrap_or(u32::MAX)
+    }
 }
 
 /// A year's amount's twelfth of calendar month `k` (0 = January): the
@@ -227,6 +242,86 @@ impl World {
         }
         b.lines = lines;
         self.bud = b;
+        self.budget_market_wages();
+    }
+
+    /// Each tier's weighted mean wage by region and nationally (pay and job
+    /// choice, step 1).
+    pub(super) fn budget_market_wages(&mut self) {
+        let n_r = 1 + usize::from(self.pp.region.iter().copied().max().unwrap_or(0));
+        let mut sum = vec![[0i128; 3]; n_r];
+        let mut weight = vec![[0i128; 3]; n_r];
+        for p in 0..self.persons.employer.len() {
+            if self.persons.employer[p] == econ_popgen::NO_EMPLOYER {
+                continue;
+            }
+            let Some(t) = super::load::tier(self.persons.occupation[p]) else {
+                continue;
+            };
+            let r = usize::from(self.pp.region[p]);
+            let w = i128::from(self.person_weight(u32::try_from(p).expect("a person id")));
+            sum[r][t] += w * i128::from(self.persons.wage[p].get());
+            weight[r][t] += w;
+        }
+        let mean = |s: i128, w: i128| if w > 0 { s / w } else { 0 };
+        let mut national = [0i128; 3];
+        for t in 0..3 {
+            let (s, w) = (0..n_r).fold((0, 0), |(s, w), r| (s + sum[r][t], w + weight[r][t]));
+            national[t] = mean(s, w);
+        }
+        self.bud.market_wage = (0..n_r)
+            .map(|r| {
+                let mut row = [0i128; 3];
+                for t in 0..3 {
+                    row[t] = if weight[r][t] > 0 {
+                        mean(sum[r][t], weight[r][t])
+                    } else {
+                        national[t]
+                    };
+                }
+                row
+            })
+            .collect();
+        self.bud.national_wage = national;
+    }
+
+    /// Whether pay and job choice acts (a world built from `law.json`).
+    pub(super) fn pay_choice_active(&self) -> bool {
+        self.bud.active
+    }
+
+    /// A person's relative pay: wage over the market wage of its tier in its
+    /// region, millionths (1 without a market wage).
+    pub(super) fn person_rho_ppm(&self, p: usize) -> u32 {
+        let Some(t) = super::load::tier(self.persons.occupation[p]) else {
+            return 1_000_000;
+        };
+        let market = self
+            .bud
+            .market_wage
+            .get(usize::from(self.pp.region[p]))
+            .map_or(0, |row| row[t]);
+        rho(i128::from(self.persons.wage[p].get()), market)
+    }
+
+    /// A unit's relative pay in a tier: its employees' mean wage there (the
+    /// wage it offers if it has none) over the national market wage.
+    pub(super) fn unit_rho_ppm(&self, u: usize, t: usize, offered: Bani) -> u32 {
+        let (mut s, mut w) = (0i128, 0i128);
+        for &i in &self.uu.members[u] {
+            let p = i as usize;
+            if super::load::tier(self.persons.occupation[p]) == Some(t) {
+                let wt = i128::from(self.person_weight(i));
+                s += wt * i128::from(self.persons.wage[p].get());
+                w += wt;
+            }
+        }
+        let wage = if w > 0 {
+            s / w
+        } else {
+            i128::from(offered.get())
+        };
+        rho(wage, self.bud.national_wage[t])
     }
 
     /// Whether unit `u` is a public unit the budget pays.
@@ -338,6 +433,7 @@ impl World {
         if !date.is_month_end() {
             return;
         }
+        self.budget_market_wages();
         let month = self.calendar.month(self.today);
         if date.year != self.bud.year {
             self.bud.year = date.year;

@@ -147,12 +147,10 @@ mod tests {
 
 /// Pay and job choice (spec `economy/labor-market`, "Pay and job choice",
 /// roadmap M4): hiring and quits respond to relative pay. Test writer's
-/// addition (ADR-0014) for AC-LM-11, behind the feature `pay_choice`; the
-/// implementation fills the bodies.
+/// addition (ADR-0014) for AC-LM-11, behind the feature `pay_choice`.
 #[cfg(feature = "pay_choice")]
 pub mod pay_choice {
-    /// The message of every body the test writer added.
-    const TEST_WRITER: &str = "test writer's addition (ADR-0014): the implementation fills it";
+    use econ_num::math::powf;
 
     /// The parameters of the spec's table, in millionths.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -173,7 +171,13 @@ pub mod pay_choice {
         /// The spec's defaults: 2, 2, 0.3%, 4%, 50%.
         #[must_use]
         pub fn spec_defaults() -> PayParams {
-            unimplemented!("{TEST_WRITER}")
+            PayParams {
+                fill_wage_elasticity_ppm: 2_000_000,
+                quit_wage_elasticity_ppm: 2_000_000,
+                quit_min_ppm: 3_000,
+                quit_max_ppm: 40_000,
+                job_to_job_share_ppm: 500_000,
+            }
         }
     }
 
@@ -181,8 +185,27 @@ pub mod pay_choice {
     /// `min(1, q * rho^eta_f)`, millionths.
     #[must_use]
     pub fn fill_rate_with_pay_ppm(q_ppm: u32, rho_ppm: u32, p: &PayParams) -> u32 {
-        let _ = (q_ppm, rho_ppm, p);
-        unimplemented!("{TEST_WRITER}")
+        if rho_ppm == 1_000_000 {
+            return q_ppm.min(1_000_000);
+        }
+        let factor = rho_power(rho_ppm, f64::from(p.fill_wage_elasticity_ppm) / 1e6);
+        to_ppm(f64::from(q_ppm) * factor).min(1_000_000)
+    }
+
+    /// `rho^eta` for `rho` in millionths (a relative pay of 0 is taken as a
+    /// millionth).
+    fn rho_power(rho_ppm: u32, eta: f64) -> f64 {
+        powf(f64::from(rho_ppm.max(1)) / 1e6, eta)
+    }
+
+    /// A non-negative value rounded to whole millionths, saturating.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    fn to_ppm(v: f64) -> u32 {
+        if v.is_finite() {
+            (v + 0.5).clamp(0.0, f64::from(u32::MAX)) as u32
+        } else {
+            u32::MAX
+        }
     }
 
     /// An employee's monthly quit probability given relative pay `rho`
@@ -190,7 +213,12 @@ pub mod pay_choice {
     /// millionths.
     #[must_use]
     pub fn quit_probability_ppm(quit_rate_ppm: u32, rho_ppm: u32, p: &PayParams) -> u32 {
-        let _ = (quit_rate_ppm, rho_ppm, p);
-        unimplemented!("{TEST_WRITER}")
+        let q = if rho_ppm == 1_000_000 {
+            quit_rate_ppm
+        } else {
+            let factor = rho_power(rho_ppm, -f64::from(p.quit_wage_elasticity_ppm) / 1e6);
+            to_ppm(f64::from(quit_rate_ppm) * factor)
+        };
+        q.clamp(p.quit_min_ppm, p.quit_max_ppm)
     }
 }
