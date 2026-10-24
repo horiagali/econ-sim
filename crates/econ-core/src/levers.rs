@@ -1207,6 +1207,7 @@ pub(crate) fn apply_due(world: &mut World, today: Date) {
     }
     let law = law_of(&st.law, &st.registry, &industries);
     world.set_law(law);
+    world.budget_refresh_pay();
 }
 
 /// The hand-written rule structs the mechanics read, filled from the law in
@@ -1451,6 +1452,12 @@ impl World {
         params: crate::world::WorldParams,
     ) -> Result<World, crate::world::WorldError> {
         let industries = start.industry_id.clone();
+        let budget = crate::world::BudgetStart {
+            wage_shares: start.budget_wage_shares.clone(),
+            investment_domestic: start.investment_domestic.clone(),
+            investment_imported: start.investment_imported.clone(),
+            gov_investment_year: start.gov_investment_year,
+        };
         let mut world = World::new(start, law_of(&law, &registry, &industries), params)?;
         world.set_lever_state(LeverState {
             registry,
@@ -1460,6 +1467,7 @@ impl World {
             events: Vec::new(),
             next_seq: 1,
         });
+        world.start_budget(&budget);
         Ok(world)
     }
 
@@ -1482,8 +1490,7 @@ impl World {
     /// Every budget line in every closed month, by month then line.
     #[must_use]
     pub fn budget_months(&self) -> &[BudgetLineMonth] {
-        let _ = self;
-        unimplemented!("{TEST_WRITER}")
+        self.budget_rows()
     }
 
     /// The terms of the "why" tree of a catalogue industry's consumer price

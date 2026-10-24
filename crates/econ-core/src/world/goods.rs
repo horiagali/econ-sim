@@ -109,6 +109,14 @@ impl World {
             u_cols.sales_since_plan[u] = 0;
             u_cols.last_plan[u] = Some(today);
         }
+        // Public units under the ministry budgets staff to their target
+        // (their output still follows their market sales).
+        #[cfg(feature = "levers")]
+        for u in 0..self.units.industry.len() {
+            if self.units.unit_stagger_day[u] == cohort && self.budget_public(u) {
+                self.budget_plan(u);
+            }
+        }
         // The month's investment budget of the same units (investment and
         // capital, step 1).
         #[cfg(feature = "investment")]
@@ -209,6 +217,10 @@ impl World {
     pub(super) fn output_and_inputs(&mut self) {
         let mut post = Postings::default();
         for u in 0..self.units.industry.len() {
+            #[cfg(feature = "levers")]
+            if self.budget_public(u) {
+                self.budget_buy(u, &mut post);
+            }
             let j = usize::from(self.units.industry[u]);
             let (y, days, done) = (
                 self.uu.plan_output[u],
@@ -344,6 +356,8 @@ impl World {
                 let x = -self.units.deposits[u];
                 self.units.deposits[u] += x;
                 at_cost += i128::from(x.get());
+                #[cfg(feature = "levers")]
+                self.budget_topup(u, i128::from(x.get()));
             }
         }
         post.gov_pays(Sector::Firms, bani(at_cost), FlowCode::GOV_PURCHASES);
@@ -615,9 +629,12 @@ impl World {
         for i in 0..n_i {
             let price = i128::from(self.industries.price_ppm[i]);
             let unit_buyers = std::mem::take(&mut self.demand.units[i]);
+            let agents = std::mem::take(&mut self.demand.agents[i]);
+            let na = agents.len();
             let hh_want = i128::from(hh_want_q[i]);
             let (g, inv, x) = (self.ii.gov_q[i], self.ii.inv_q[i], self.ii.exp_q[i]);
             let mut demands: Vec<i64> = unit_buyers.iter().map(|&(_, q)| q).collect();
+            demands.extend(agents.iter().map(|&(_, q)| q));
             demands.push(i64::try_from(hh_want).expect("a demand"));
             demands.extend([g, inv, x]);
             let total: i64 = demands.iter().sum();
@@ -629,18 +646,18 @@ impl World {
             let served = ration(&demands, available);
             let nb = unit_buyers.len();
             // Households: their served total shared back, each in proportion to its want.
-            let hh_sold = i128::from(served.sold[nb]);
+            let hh_sold = i128::from(served.sold[nb + na]);
             if hh_want > 0 {
                 hh_served_ppm[i] = hh_sold * ONE / hh_want;
             }
             let (g_s, i_s, x_s) = (
-                served.sold[nb + 1],
-                served.sold[nb + 2],
-                served.sold[nb + 3],
+                served.sold[nb + na + 1],
+                served.sold[nb + na + 2],
+                served.sold[nb + na + 3],
             );
             #[cfg(feature = "trade")]
             self.trade_exported(x_s);
-            let unit_sold: i64 = served.sold[..nb].iter().sum();
+            let unit_sold: i64 = served.sold[..nb + na].iter().sum();
             let sold = i128::from(unit_sold) + hh_sold + i128::from(g_s + i_s + x_s);
             let sold = i64::try_from(sold).expect("sales");
             self.industries.demand_today[i] = total;
@@ -673,6 +690,8 @@ impl World {
                 paid += v;
                 self.mac.month.inputs_home += v;
                 self.fs.add_inputs(u, v);
+                #[cfg(feature = "levers")]
+                self.budget_paid(u, v, 0);
                 #[cfg(feature = "revenue")]
                 {
                     self.rev_input_purchase(u, v);
@@ -688,6 +707,19 @@ impl World {
                     self.uu.input_stock[u][k] += s;
                     worst[u] = worst[u].min(share);
                 }
+            }
+            // Public units' investment for the government (ministry budgets).
+            for (a, &(u, _)) in agents.iter().enumerate() {
+                let v = value(served.sold[nb + a]);
+                self.units.deposits[u] -= bani(v);
+                paid += v;
+                self.mac.month.investment += v;
+                #[cfg(feature = "revenue")]
+                self.rev_investment_purchase(u, v);
+                #[cfg(feature = "levers")]
+                self.budget_paid(u, 0, v);
+                #[cfg(not(feature = "levers"))]
+                let _ = u;
             }
             let gv = value(g_s);
             post.gov_pays(Sector::Firms, bani(gv), FlowCode::GOV_PURCHASES);

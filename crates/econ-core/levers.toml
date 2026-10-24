@@ -382,7 +382,7 @@ glossary = "ministry_budget[l]"
 reader = "Pay"
 group = "spending"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.spend.ministry_budget"
 
 [[lever]]
@@ -397,7 +397,7 @@ glossary = "ministry_investment_share[l]"
 reader = "FixedDemand"
 group = "spending"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.spend.investment_share"
 
 [[lever]]
@@ -412,7 +412,7 @@ glossary = "public_pay[f]"
 reader = "Pay"
 group = "spending"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.spend.public_pay"
 
 [[lever]]
@@ -427,7 +427,7 @@ glossary = "public_headcount[f]"
 reader = "Staffing"
 group = "spending"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.spend.public_headcount"
 
 [[lever]]

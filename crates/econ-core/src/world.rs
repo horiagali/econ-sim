@@ -65,6 +65,10 @@
 mod banking;
 #[cfg(feature = "monetary")]
 mod central_bank;
+// Ministry budgets (spec game/lever-system).
+#[cfg(feature = "levers")]
+#[allow(clippy::needless_range_loop)]
+mod budget;
 #[allow(clippy::needless_range_loop)]
 mod close;
 #[allow(clippy::needless_range_loop)]
@@ -215,6 +219,12 @@ pub struct StartState {
     /// the yearly amount (spec `economy/fiscal-policy`, "In", step 1); empty
     /// when the scenario has no budget.
     pub gov_transfers_year: Vec<(econ_ledger::FlowCode, econ_ledger::Sector, Bani)>,
+    /// Each budget line's 2021 wage cell (D11) split over the public units
+    /// its COFOG subgroups belong to, by their own D11 totals: (line id,
+    /// public unit id, D11 a year), in the budget's line order (spec
+    /// `game/lever-system`, "How the `World` carries it"); empty when the
+    /// scenario has no budget.
+    pub budget_wage_shares: Vec<(String, String, Bani)>,
     /// Each firm unit's loans in the firm-unit table (all lenders).
     pub unit_loans: Vec<Bani>,
     /// Each household's mortgage (stage H).
@@ -951,6 +961,9 @@ struct MacroState {
 struct DayDemand {
     /// `[industry]`: per buying unit (unit, quantity).
     units: Vec<Vec<(usize, i64)>>,
+    /// `[industry]`: per public unit buying investment goods for the
+    /// government (unit, quantity; ministry budgets, feature `levers`).
+    agents: Vec<Vec<(usize, i64)>>,
     /// Per household buying today: its month's spending, VAT included.
     households: Vec<(usize, Bani)>,
 }
@@ -995,7 +1008,13 @@ pub struct World {
     /// `law.json`).
     #[cfg(feature = "levers")]
     lev: Option<Box<crate::levers::LeverState>>,
+    /// The ministry budgets.
+    #[cfg(feature = "levers")]
+    bud: budget::BudgetState,
 }
+
+#[cfg(feature = "levers")]
+pub(crate) use budget::BudgetStart;
 
 /// What the lever system reaches inside the `World` (spec game/lever-system).
 #[cfg(feature = "levers")]

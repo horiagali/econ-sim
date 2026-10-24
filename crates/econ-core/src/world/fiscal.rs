@@ -519,6 +519,11 @@ impl World {
         };
         let (mut profit_tax, mut micro_tax) = (0i128, 0i128);
         for u in 0..self.units.industry.len() {
+            // Public units paid by the ministry budgets pay no profit tax.
+            #[cfg(feature = "levers")]
+            let exempt = self.budget_public(u);
+            #[cfg(not(feature = "levers"))]
+            let exempt = false;
             let fs = &mut self.fs;
             fs.sales_4q[u].rotate_left(1);
             fs.sales_4q[u][3] = fs.q_sales[u];
@@ -529,7 +534,11 @@ impl World {
             let micro = fs
                 .is_micro(u, law.profit.micro_threshold)
                 .then(|| (bani(fs.q_sales[u]), self.units.staff[u] > 0));
-            let tax = tax_quarter(profit, &mut fs.losses[u], micro, &law.profit);
+            let tax = if exempt {
+                Bani::ZERO
+            } else {
+                tax_quarter(profit, &mut fs.losses[u], micro, &law.profit)
+            };
             if tax > Bani::ZERO {
                 self.units.deposits[u] -= tax;
                 if micro.is_some() {
