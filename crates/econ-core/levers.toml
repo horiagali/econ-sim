@@ -783,7 +783,7 @@ glossary = "foreign_price_growth[b]"
 reader = "Prices"
 group = "world"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.world.foreign_price_growth"
 
 [[lever]]
@@ -813,7 +813,7 @@ glossary = "foreign_demand_growth[b]"
 reader = "FixedDemand"
 group = "world"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.world.foreign_demand_growth"
 
 [[lever]]
@@ -827,7 +827,7 @@ glossary = "foreign_rate"
 reader = "MonthlyClose"
 group = "world"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.world.foreign_rate"
 
 [[lever]]

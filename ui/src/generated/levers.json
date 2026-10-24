@@ -763,7 +763,7 @@
         5000
       ],
       "milestone": "alpha",
-      "status": "planned",
+      "status": "active",
       "key": "blocs",
       "keys": [
         "eu",
@@ -800,7 +800,7 @@
         2000
       ],
       "milestone": "alpha",
-      "status": "planned",
+      "status": "active",
       "key": "blocs",
       "keys": [
         "eu",
@@ -818,7 +818,7 @@
         2000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "world.wages_abroad",

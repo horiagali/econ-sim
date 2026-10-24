@@ -8,6 +8,7 @@
 
 pub mod lu;
 pub mod math;
+pub mod rates;
 mod sum;
 
 pub use sum::{CHUNK, det_sum, det_sum_chunks};

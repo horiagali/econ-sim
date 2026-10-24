@@ -99,9 +99,6 @@ const START_RATE_PPM: u32 = 4_948_100;
 /// and expected inflation, a year, millionths.
 const FOREIGN_RATE_PPM: i32 = -5_000;
 const FOREIGN_EXPECTED_INFLATION_PPM: i32 = 20_000;
-/// The demand index of the outside world.
-const DEMAND_INDEX_PPM: u32 = 1_000_000;
-
 /// What the `World` keeps for trade.
 #[derive(Debug, Clone, Default)]
 pub(super) struct ForeignState {
@@ -110,6 +107,8 @@ pub(super) struct ForeignState {
     months: Vec<TradeMonth>,
     /// Each good's euro price, millionths of its starting price.
     world_price_ppm: Vec<u32>,
+    /// Foreign demand, millionths of the start (`world.foreign_demand_growth`).
+    demand_index_ppm: u32,
     /// The starting export quantities a day and households' import shares.
     exports0: Vec<i64>,
     basket_import0: Vec<u32>,
@@ -159,6 +158,7 @@ impl World {
             u32::try_from(u64::from(START_RATE_PPM) * u64::from(depreciation_ppm) / 1_000_000)
                 .unwrap_or(u32::MAX);
         f.view.start_rate_ppm = START_RATE_PPM;
+        f.demand_index_ppm = 1_000_000;
         self.trade_prices();
         self.ledger
             .allow_negative(Sector::RestOfWorld, Instrument::Deposits);
@@ -223,7 +223,7 @@ impl World {
                 self.industries.price_ppm[g],
                 e,
                 self.fx.world_price_ppm[g],
-                DEMAND_INDEX_PPM,
+                self.fx.demand_index_ppm,
                 eps,
             )
             .max(0);
@@ -234,6 +234,62 @@ impl World {
     pub(super) fn trade_exported(&mut self, quantity: i64) {
         if self.fx.active {
             self.fx.exports_month += quantity;
+        }
+    }
+
+    /// The foreign interest rate, millionths a year: `world.foreign_rate` in
+    /// a world under `law.json`, else the constant of M3.
+    fn foreign_rate_ppm(&self) -> i32 {
+        #[cfg(feature = "levers")]
+        if let Some(crate::levers::LeverValue::Rate(bp)) = self
+            .lever_state()
+            .and_then(|s| s.law.get(crate::levers::LeverId::WorldForeignRate, None))
+        {
+            return bp * 100;
+        }
+        FOREIGN_RATE_PPM
+    }
+
+    /// A month of the world settings' growth (spec game/lever-system, "World
+    /// settings"): each good's euro price by `world.foreign_price_growth`
+    /// and foreign demand by `world.foreign_demand_growth`, each the mean of
+    /// the two blocs' rates, converted from a year to a month.
+    #[cfg(feature = "levers")]
+    fn world_settings_month(&mut self) {
+        use crate::levers::{LeverId, LeverValue};
+        let (price_bp, demand_bp) = {
+            let Some(st) = self.lever_state() else {
+                return;
+            };
+            let mean_bp = |l: LeverId| -> Option<i64> {
+                let keys = st.registry.get(l).keys.len();
+                let rates: Vec<i64> = (0..keys)
+                    .filter_map(|k| match st.law.get(l, u32::try_from(k).ok()) {
+                        Some(LeverValue::Rate(v)) => Some(i64::from(*v)),
+                        _ => None,
+                    })
+                    .collect();
+                let n = i64::try_from(rates.len()).ok()?;
+                (n > 0).then(|| rates.iter().sum::<i64>() / n)
+            };
+            (
+                mean_bp(LeverId::WorldForeignPriceGrowth),
+                mean_bp(LeverId::WorldForeignDemandGrowth),
+            )
+        };
+        let month = |bp: i64| econ_num::rates::annual_to_period_ppm(bp * 100, 12);
+        let grow = |v: u32, g: i64| {
+            u32::try_from((i64::from(v) * (1_000_000 + g) + 500_000) / 1_000_000)
+                .unwrap_or(u32::MAX)
+        };
+        if let Some(bp) = price_bp {
+            let g = month(bp);
+            for p in &mut self.fx.world_price_ppm {
+                *p = grow(*p, g);
+            }
+        }
+        if let Some(bp) = demand_bp {
+            self.fx.demand_index_ppm = grow(self.fx.demand_index_ppm, month(bp));
         }
     }
 
@@ -265,6 +321,9 @@ impl World {
             return;
         }
         let month = Month(u32::try_from(self.months.len().saturating_sub(1)).expect("months"));
+        // The world settings' growth of the month (world prices, foreign demand).
+        #[cfg(feature = "levers")]
+        self.world_settings_month();
         // Import shares toward Armington's (step 2).
         let p = self.params.trade;
         for g in 0..self.ii.basket_import_ppm.len() {
@@ -294,7 +353,7 @@ impl World {
             .ledger
             .balance(Sector::CentralBank, Instrument::ForeignAssets);
         let gap = (self.trade_policy_rate() - self.mac.expected_inflation_ppm)
-            - (FOREIGN_RATE_PPM - FOREIGN_EXPECTED_INFLATION_PPM);
+            - (self.foreign_rate_ppm() - FOREIGN_EXPECTED_INFLATION_PPM);
         let s = fx_step(
             self.fx.view.exchange_rate_ppm,
             gap,
