@@ -206,6 +206,13 @@ impl World {
             .collect()
     }
 
+    /// The policy rate in force from today (`money.policy_rate`); the banks
+    /// reprice at the next monthly close.
+    #[cfg(feature = "levers")]
+    pub(super) fn bank_set_policy_rate(&mut self, rate_ppm: i32) {
+        self.bk.view.policy_rate_ppm = rate_ppm;
+    }
+
     /// The policy rate today.
     pub(super) fn bank_policy_rate(&self) -> i32 {
         self.bk.view.policy_rate_ppm

@@ -340,6 +340,11 @@ impl World {
             }
             book[0] += matured - redeemed;
         }
+        // The money levers' month-end operations (monetary financing, QE).
+        #[cfg(feature = "levers")]
+        let central = self.policy_bond_operations();
+        #[cfg(not(feature = "levers"))]
+        let central = Bani::ZERO;
         let spending = self.month_spending_so_far();
         let target =
             bani(i128::from(spending.get()) * i128::from(self.params.fiscal.cash_target_months));
@@ -348,7 +353,7 @@ impl World {
             .balance(Sector::Government, Instrument::GovDepositsAtCb);
         let issue = target - deposits;
         let (holders, holdings) = self.bond_holders();
-        let mut net = Bani::ZERO;
+        let mut net = central;
         if issue > Bani::ZERO {
             // Buyers by their holdings; the central bank buys none (no
             // monetary financing unless the player chooses it, step 5), or
@@ -543,6 +548,16 @@ impl World {
 
     /// A holder buys new bonds out of its deposits (banks out of reserves);
     /// returns what it bought.
+    /// The central bank buys `amount` of new bonds (`money.monetary_financing`);
+    /// returns what it bought.
+    #[cfg(feature = "levers")]
+    pub(super) fn treasury_sell_to_central_bank(&mut self, amount: Bani) -> Bani {
+        if !self.tr.active {
+            return Bani::ZERO;
+        }
+        self.buy_bonds(Sector::CentralBank, amount)
+    }
+
     fn buy_bonds(&mut self, sector: Sector, amount: Bani) -> Bani {
         if amount <= Bani::ZERO {
             return Bani::ZERO;

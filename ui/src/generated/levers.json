@@ -420,7 +420,7 @@
         30
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "transfer.pension.point_value",
@@ -474,7 +474,7 @@
       "unit": "rule",
       "range": null,
       "milestone": "alpha",
-      "status": "planned",
+      "status": "active",
       "options": [
         "none",
         "prices",
@@ -631,7 +631,7 @@
         1000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "money.policy_rate",
@@ -644,7 +644,7 @@
         5000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "money.reserve_requirement",
@@ -657,7 +657,7 @@
         5000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "money.qe",
@@ -670,7 +670,7 @@
         1000000000000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "money.monetary_financing",
@@ -683,7 +683,7 @@
         1000000000000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "fx.regime",
@@ -693,7 +693,7 @@
       "unit": "regime",
       "range": null,
       "milestone": "alpha",
-      "status": "planned",
+      "status": "active",
       "options": [
         "float",
         "managed_float",
@@ -711,7 +711,7 @@
         1000000000000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "informal.inspection_budget",
@@ -763,7 +763,7 @@
         5000
       ],
       "milestone": "alpha",
-      "status": "planned",
+      "status": "active",
       "key": "blocs",
       "keys": [
         "eu",
@@ -800,7 +800,7 @@
         2000
       ],
       "milestone": "alpha",
-      "status": "planned",
+      "status": "active",
       "key": "blocs",
       "keys": [
         "eu",
@@ -818,7 +818,7 @@
         2000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "world.wages_abroad",

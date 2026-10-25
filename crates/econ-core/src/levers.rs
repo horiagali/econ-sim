@@ -1208,6 +1208,7 @@ pub(crate) fn apply_due(world: &mut World, today: Date) {
     let law = law_of(&st.law, &st.registry, &industries);
     world.set_law(law);
     world.budget_refresh_pay();
+    world.levers_refresh_params();
 }
 
 /// The hand-written rule structs the mechanics read, filled from the law in
@@ -1492,6 +1493,7 @@ impl World {
             next_seq: 1,
         });
         world.start_budget(&budget);
+        world.levers_refresh_params();
         Ok(world)
     }
 
@@ -1541,6 +1543,44 @@ pub fn attribute_groups(
     until: Date,
     indicator: fn(&World) -> i64,
 ) -> Result<Vec<(Group, i64)>, Rejection> {
-    let _ = (fork, log, groups, until, indicator);
-    unimplemented!("{TEST_WRITER}")
+    // One run from the fork, giving the log's orders on their days, without
+    // those of `skip`'s group (and cancels of orders left out).
+    let run = |skip: Option<Group>| -> Result<i64, Rejection> {
+        let mut w = fork.clone();
+        let mut skipped: Vec<u64> = Vec::new();
+        let mut next = 0;
+        while w.date() <= until {
+            let today = w.date();
+            while next < log.len() && log[next].given <= today {
+                let line = &log[next];
+                next += 1;
+                let order = match &line.order {
+                    Order::Set(c) => {
+                        if skip == Some(w.registry().get(c.lever).group) {
+                            skipped.extend(line.seq);
+                            continue;
+                        }
+                        Order::Set(Command {
+                            effective: line.effective.or(c.effective),
+                            ..c.clone()
+                        })
+                    }
+                    Order::Cancel { seq } => {
+                        if skipped.contains(seq) {
+                            continue;
+                        }
+                        Order::Cancel { seq: *seq }
+                    }
+                };
+                w.give(order)?;
+            }
+            w.step(&[]).expect("a day of the counterfactual runs");
+        }
+        Ok(indicator(&w))
+    };
+    let full = run(None)?;
+    groups
+        .iter()
+        .map(|&g| Ok((g, full - run(Some(g))?)))
+        .collect()
 }

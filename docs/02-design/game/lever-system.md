@@ -167,6 +167,16 @@ In worlds built from `law.json`; M3's `Law::law_2021()` keeps its own rules (no 
 
 > **Simplification (M4):** at the top of its range, `tax.contrib.ceiling` (100,000 lei a month) is above every wage of the 1:1000 sample, and `tax.wealth.threshold` does nothing while `tax.wealth.rate` is 0, so neither end moves the state hash in AC-LEV-14's three months: both are read, but only bite with a wage above the ceiling or a wealth tax.
 
+## The money, FX, world, bond and pension levers on the `World` (implementation, 2026-10-25)
+In worlds built from `law.json`, like the tax levers; worlds without it are unchanged.
+- **Money (group 8).** `money.policy_rate`, `money.reserve_requirement` and `money.inflation_target` set the banks' policy rate, the reserve requirement and the target at load and whenever a command takes effect. At each month end, before the treasury's issue, the central bank buys `money.monetary_financing` of the new bonds and `money.qe` of the banks' bonds (a negative amount sells its own, never more than the banks' reserves pay for), against reserves.
+- **FX (group 9).** `fx.regime` sets the share of the exchange rate's monthly move the central bank offsets: none for `float`, trade's parameter for `managed_float` (kept from load), all of it for `peg`. `fx.intervention` adds the player's purchase (> 0) or sale of foreign assets to the rule's; a sale never takes reserves below the floor, nor more than the banks' reserves pay for.
+- **World settings (group 10).** `world.foreign_rate` replaces trade's constant foreign rate; `world.foreign_price_growth` and `world.foreign_demand_growth` grow each good's euro price and foreign demand every month end, at the blocs' mean rate a year converted once to a month.
+- **Bond maturity (group 11).** `spend.new_issue_years` is the maturity of the treasury's issues from its effective day; bonds already issued keep theirs.
+- **Pension indexation (group 11).** At the wage round (1 January) the pension point in force grows by the twelve-month inflation of the December close (`prices`), by the round's mean wage growth across industry groups (`wages`), or by their mean (`mix`); `none` keeps it frozen, as in 2021. Neither rate lowers the point. The new point becomes the value of `transfer.pension.point_value` in force (no command is logged; a replay recomputes it), so a later command on the point replaces it.
+
+> **Simplification (M4):** the player's FX intervention moves money and reserves; its effect on the rate itself waits for calibration (M7). One world price per good, so the two blocs' growth rates are averaged. The `wages` indexation uses the industry groups' mean growth, unweighted by employment.
+
 ## How a lever change is explained
 Built on the five layers of [ADR-0008](../../03-architecture/decisions/0008-explainability-architecture.md):
 - **L5 event.** `PolicyChanged` when a command takes effect, `PolicyGiven` when it is accepted (pending), `PolicyWarning` for EU and consistency warnings. Charts mark the effective date with the lever's label.

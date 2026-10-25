@@ -441,7 +441,7 @@ glossary = "new_issue_years"
 reader = "MonthlyClose"
 group = "spending"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.spend.new_issue_years"
 
 [[lever]]
@@ -499,7 +499,7 @@ glossary = "pension_indexation"
 reader = "WageRound"
 group = "transfers"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.transfer.pension.indexation"
 
 [[lever]]
@@ -642,7 +642,7 @@ glossary = "inflation_target"
 reader = "MonthlyClose"
 group = "money"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.money.inflation_target"
 
 [[lever]]
@@ -656,7 +656,7 @@ glossary = "policy_rate"
 reader = "MonthlyClose"
 group = "money"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.money.policy_rate"
 
 [[lever]]
@@ -670,7 +670,7 @@ glossary = "reserve_requirement"
 reader = "MonthlyClose"
 group = "money"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.money.reserve_requirement"
 
 [[lever]]
@@ -684,7 +684,7 @@ glossary = "qe_purchases"
 reader = "MonthlyClose"
 group = "money"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.money.qe"
 
 [[lever]]
@@ -698,7 +698,7 @@ glossary = "cb_deficit_funding"
 reader = "MonthlyClose"
 group = "money"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.money.monetary_financing"
 
 [[lever]]
@@ -712,7 +712,7 @@ glossary = "fx_regime"
 reader = "MonthlyClose"
 group = "trade"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.fx.regime"
 
 [[lever]]
@@ -726,7 +726,7 @@ glossary = "fx_intervention"
 reader = "MonthlyClose"
 group = "trade"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.fx.intervention"
 
 [[lever]]
@@ -783,7 +783,7 @@ glossary = "foreign_price_growth[b]"
 reader = "Prices"
 group = "world"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.world.foreign_price_growth"
 
 [[lever]]
@@ -813,7 +813,7 @@ glossary = "foreign_demand_growth[b]"
 reader = "FixedDemand"
 group = "world"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.world.foreign_demand_growth"
 
 [[lever]]
@@ -827,7 +827,7 @@ glossary = "foreign_rate"
 reader = "MonthlyClose"
 group = "world"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.world.foreign_rate"
 
 [[lever]]
