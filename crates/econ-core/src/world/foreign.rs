@@ -109,6 +109,11 @@ pub(super) struct ForeignState {
     world_price_ppm: Vec<u32>,
     /// Foreign demand, millionths of the start (`world.foreign_demand_growth`).
     demand_index_ppm: u32,
+    /// The oil goods (`crude_oil`, `refined_petroleum`), whose euro price
+    /// `world.fuel_price[oil]` scales, and each industry's oil share of its
+    /// imported inputs, millionths.
+    oil_goods: Vec<usize>,
+    oil_import_ppm: Vec<u32>,
     /// The starting export quantities a day and households' import shares.
     exports0: Vec<i64>,
     basket_import0: Vec<u32>,
@@ -140,7 +145,12 @@ impl World {
     /// Trade at load: the outside world's prices (times a world-constants
     /// edit's factor), the starting rate (times a depreciation edit's factor,
     /// with e0 unchanged), exports and import shares.
-    pub(super) fn start_trade(&mut self, world_factor_ppm: u32, depreciation_ppm: u32) {
+    pub(super) fn start_trade(
+        &mut self,
+        world_factor_ppm: u32,
+        depreciation_ppm: u32,
+        oil_import_ppm: &[u32],
+    ) {
         let active = self.law.income.is_some();
         let n_i = self.industries.id.len();
         self.fx = ForeignState {
@@ -150,7 +160,17 @@ impl World {
         if !active {
             return;
         }
+        let oil_goods: Vec<usize> = self
+            .industries
+            .id
+            .iter()
+            .enumerate()
+            .filter(|(_, id)| *id == "crude_oil" || *id == "refined_petroleum")
+            .map(|(g, _)| g)
+            .collect();
         let f = &mut self.fx;
+        f.oil_goods = oil_goods;
+        f.oil_import_ppm = oil_import_ppm.to_vec();
         f.world_price_ppm = vec![world_factor_ppm; n_i];
         f.exports0 = self.ii.exp_q.clone();
         f.basket_import0 = self.ii.basket_import_ppm.clone();
@@ -198,15 +218,53 @@ impl World {
             .collect();
     }
 
-    /// The import price index of the day, millionths: the mean of the goods'
-    /// import prices (1,000,000 when trade does not act).
+    /// The import price index of the day, millionths: the mean of the import
+    /// prices of the goods other than oil (1,000,000 when trade does not
+    /// act). Oil has its own price ([`World::oil_import_price_ppm`]); while
+    /// it moves with the rest, this is the mean of all goods.
     pub(super) fn import_index_ppm(&self) -> u32 {
         let p = &self.fx.view.import_price_ppm;
         if !self.fx.active || p.is_empty() {
             return 1_000_000;
         }
-        let sum: u64 = p.iter().map(|&x| u64::from(x)).sum();
-        u32::try_from(sum / p.len() as u64).unwrap_or(u32::MAX)
+        let oil = &self.fx.oil_goods;
+        let (sum, n) = p
+            .iter()
+            .enumerate()
+            .filter(|(g, _)| !oil.contains(g))
+            .fold((0u64, 0u64), |(s, n), (_, &x)| (s + u64::from(x), n + 1));
+        if n == 0 {
+            return 1_000_000;
+        }
+        u32::try_from(sum / n).unwrap_or(u32::MAX)
+    }
+
+    /// The day's import price of oil, millionths: that of `refined_petroleum`
+    /// (crude moves with it), or the index when the catalogue has no oil.
+    fn oil_import_price_ppm(&self) -> u32 {
+        self.fx
+            .oil_goods
+            .last()
+            .and_then(|&g| self.fx.view.import_price_ppm.get(g).copied())
+            .unwrap_or_else(|| self.import_index_ppm())
+    }
+
+    /// Industry `j`'s imported inputs worth `v` at the starting prices, at
+    /// the day's: the oil share at oil's import price, the rest at the
+    /// index. While oil moves with the rest, the index alone.
+    pub(super) fn trade_inputs_import_value(&self, j: usize, v: i128) -> i128 {
+        let idx = i128::from(self.import_index_ppm());
+        let oil = i128::from(self.oil_import_price_ppm());
+        let o = i128::from(self.fx.oil_import_ppm.get(j).copied().unwrap_or(0));
+        if !self.fx.active || oil == idx || o == 0 {
+            return if idx == 1_000_000 {
+                v
+            } else {
+                super::money::ratio(v, idx, 1_000_000)
+            };
+        }
+        let price = super::money::ratio((1_000_000 - o) * idx + o * oil, 1, 1_000_000);
+        super::money::ratio(v, price, 1_000_000)
     }
 
     /// The start of a day: import prices and the day's export demand.
@@ -291,6 +349,43 @@ impl World {
         if let Some(bp) = demand_bp {
             self.fx.demand_index_ppm = grow(self.fx.demand_index_ppm, month(bp));
         }
+    }
+
+    /// `fx.devaluation` on its effective day (spec economy/trade-fx,
+    /// amendment of 2026-10-25): the exchange rate steps once by `bp`
+    /// (1000 = the leu 10% weaker; negative revalues), and the managed float
+    /// continues from the new level. Import prices and export demand follow
+    /// the same day.
+    #[cfg(feature = "levers")]
+    pub(crate) fn fx_devalue(&mut self, bp: i32) {
+        if !self.fx.active || bp == 0 {
+            return;
+        }
+        let factor = (10_000 + i64::from(bp)).max(1);
+        let e = i64::from(self.fx.view.exchange_rate_ppm);
+        self.fx.view.exchange_rate_ppm =
+            u32::try_from(((e * factor + 5_000) / 10_000).max(1)).unwrap_or(u32::MAX);
+        self.trade_begin_day();
+    }
+
+    /// `world.fuel_price[oil]` on its effective day (owner's decision of
+    /// 2026-10-25): the euro prices of `crude_oil` and `refined_petroleum`
+    /// scale by the new oil price over the old, so each is its growth path
+    /// times the oil price over its starting value. Import prices follow the
+    /// same day.
+    #[cfg(feature = "levers")]
+    pub(crate) fn fx_oil_price(&mut self, old: i64, new: i64) {
+        if !self.fx.active || old <= 0 || old == new {
+            return;
+        }
+        for &g in &self.fx.oil_goods {
+            let p = &mut self.fx.world_price_ppm[g];
+            *p = u32::try_from(
+                (i128::from(*p) * i128::from(new.max(0)) + i128::from(old) / 2) / i128::from(old),
+            )
+            .unwrap_or(u32::MAX);
+        }
+        self.trade_begin_day();
     }
 
     /// The policy rate the exchange rate sees.

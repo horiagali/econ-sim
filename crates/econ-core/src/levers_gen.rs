@@ -104,6 +104,8 @@ pub enum LeverId {
     FxRegime,
     /// `fx.intervention`
     FxIntervention,
+    /// `fx.devaluation`
+    FxDevaluation,
     /// `informal.inspection_budget`
     InformalInspectionBudget,
     /// `informal.audit_budget`
@@ -123,7 +125,7 @@ pub enum LeverId {
 }
 
 /// The dotted ids, in the order of [`LeverId::ALL`].
-const IDS: [&str; 58] = [
+const IDS: [&str; 59] = [
     "tax.income.schedule",
     "tax.income.deduction_base",
     "tax.income.deduction_full_until",
@@ -174,6 +176,7 @@ const IDS: [&str; 58] = [
     "money.monetary_financing",
     "fx.regime",
     "fx.intervention",
+    "fx.devaluation",
     "informal.inspection_budget",
     "informal.audit_budget",
     "informal.penalty_multiple",
@@ -186,7 +189,7 @@ const IDS: [&str; 58] = [
 
 impl LeverId {
     /// Every lever, in registry order.
-    pub const ALL: [LeverId; 58] = [
+    pub const ALL: [LeverId; 59] = [
         LeverId::TaxIncomeSchedule,
         LeverId::TaxIncomeDeductionBase,
         LeverId::TaxIncomeDeductionFullUntil,
@@ -237,6 +240,7 @@ impl LeverId {
         LeverId::MoneyMonetaryFinancing,
         LeverId::FxRegime,
         LeverId::FxIntervention,
+        LeverId::FxDevaluation,
         LeverId::InformalInspectionBudget,
         LeverId::InformalAuditBudget,
         LeverId::InformalPenaltyMultiple,

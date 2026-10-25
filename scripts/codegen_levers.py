@@ -106,6 +106,8 @@ def render_ui(levers: list[dict], tables: dict) -> str:
             # Scenario tables (industries, budget lines, public units) are
             # filled by the app from the scenario.
             row["keys"] = lv.get("keys", tables.get(lv["key"]))
+            if "planned_keys" in lv:
+                row["planned_keys"] = lv["planned_keys"]
         if "options" in lv:
             row["options"] = lv["options"]
         rows.append(row)

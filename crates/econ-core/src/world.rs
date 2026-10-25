@@ -258,6 +258,9 @@ pub struct StartState {
     /// Each industry's imported refined petroleum over its imported inputs,
     /// millionths (spec economy/excise).
     pub fuel_import_ppm: Vec<u32>,
+    /// Each industry's imported oil (crude and refined petroleum) over its
+    /// imported inputs, millionths (`world.fuel_price[oil]`).
+    pub oil_import_ppm: Vec<u32>,
     edits: Vec<StartEdit>,
 }
 
@@ -1073,6 +1076,9 @@ impl World {
     /// Replace the law the mechanics read (a command took effect).
     pub(crate) fn set_law(&mut self, law: Law) {
         let old = std::mem::replace(&mut self.law, law);
+        if self.law.minimum_wage > old.minimum_wage {
+            self.lift_to_minimum();
+        }
         #[cfg(feature = "revenue")]
         self.rev_law_changed(&old);
         #[cfg(not(feature = "revenue"))]

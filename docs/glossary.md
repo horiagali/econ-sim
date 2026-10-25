@@ -196,6 +196,7 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `cb_deficit_funding` | Lever: the central bank's direct funding of the deficit a month; it adds to `monetary_financing` | LCU / month | lever | economy/monetary-policy |
 | — | `fx_regime` | Lever: exchange-rate regime: float, managed float, peg to the euro | category | lever | economy/trade-fx |
 | — | `fx_intervention` | Lever: foreign currency the central bank buys (> 0) or sells (< 0) a month beyond its rule | LCU / month | lever | economy/trade-fx |
+| — | `fx_devaluation` | Lever: a one-off step of `exchange_rate` on its effective day (> 0: the leu weaker); the managed float continues from the new level; basis points in code | % | lever | economy/trade-fx |
 | — | `inspection_budget`, `audit_budget` | Lever: labour inspection and tax audit spending | LCU / year | lever | economy/informal-economy |
 | — | `penalty_multiple` | Lever: fine as a multiple of the evaded tax; tenths in code (10 = 1×) | ratio | lever | economy/informal-economy |
 | — | `foreign_price_growth[b]`, `foreign_demand_growth[b]` | World setting: growth a year of import prices and of demand for exports, by bloc *b* (EU, non-EU); basis points in code | % / year | lever | economy/trade-fx |

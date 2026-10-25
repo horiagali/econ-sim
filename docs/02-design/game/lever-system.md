@@ -28,6 +28,7 @@ A lever is a named, typed setting of the law in force (or of the outside world, 
 | `unit` | display unit; the stored value is the shape's integer (basis points, bani, count) | `%` |
 | `range` | inclusive bounds in the shape's integer; for `schedule` the bounds of each rate and the number of rows | `[0, 4000]` |
 | `key` | for a lever set once per good, industry, budget line, public unit, county or bloc: the table of keys, and optionally the subset allowed | `budget_line: [education, health]` |
+| `planned_keys` | optional, for an `active` keyed lever: keys registered but not wired yet; their commands are rejected with `not_yet` (added 2026-10-25) | `[gas, coal]` |
 | `options` | for `choice`: the allowed values, in order | `[float, managed_float, peg]` |
 | `min_lag` | an extra calendar delay beyond the kind's, if the law has one | `1 month` |
 | `phase_in` | optional: the in-force value moves toward the commanded one by at most this step per month | `{ per_month = 1 }` (months of retirement age) |
@@ -165,13 +166,13 @@ In worlds built from `law.json`; M3's `Law::law_2021()` keeps its own rules (no 
 - **Excise.** `tax.excise.duty[good]` in bani per 1,000 units is ten times the duty in millionths of the starting price per unit (51,250 → 512,500 for fuel). A change replaces that good's indexed duty on its effective day; the others keep theirs.
 - **Extreme levers.** The central bank's sale of foreign currency at the month end is capped by the banks' reserves (an excise duty at the top of its range drained them below zero).
 
-> **Simplification (M4):** at the top of its range, `tax.contrib.ceiling` (100,000 lei a month) is above every wage of the 1:1000 sample, and `tax.wealth.threshold` does nothing while `tax.wealth.rate` is 0, so neither end moves the state hash in AC-LEV-14's three months: both are read, but only bite with a wage above the ceiling or a wealth tax.
+> **Simplification (M4):** at the top of its range, `tax.contrib.ceiling` (100,000 lei a month) is above every wage of the 1:1000 sample, and `tax.wealth.threshold` does nothing while `tax.wealth.rate` is 0, so neither end moves the state hash in AC-LEV-14's three months: both are read, but only bite with a wage above the ceiling or a wealth tax. AC-LEV-14 moves them under the conditions of [the alpha levers](#the-alpha-levers).
 
 ## The money, FX, world, bond and pension levers on the `World` (implementation, 2026-10-25)
 In worlds built from `law.json`, like the tax levers; worlds without it are unchanged.
 - **Money (group 8).** `money.policy_rate`, `money.reserve_requirement` and `money.inflation_target` set the banks' policy rate, the reserve requirement and the target at load and whenever a command takes effect. At each month end, before the treasury's issue, the central bank buys `money.monetary_financing` of the new bonds and `money.qe` of the banks' bonds (a negative amount sells its own, never more than the banks' reserves pay for), against reserves.
-- **FX (group 9).** `fx.regime` sets the share of the exchange rate's monthly move the central bank offsets: none for `float`, trade's parameter for `managed_float` (kept from load), all of it for `peg`. `fx.intervention` adds the player's purchase (> 0) or sale of foreign assets to the rule's; a sale never takes reserves below the floor, nor more than the banks' reserves pay for.
-- **World settings (group 10).** `world.foreign_rate` replaces trade's constant foreign rate; `world.foreign_price_growth` and `world.foreign_demand_growth` grow each good's euro price and foreign demand every month end, at the blocs' mean rate a year converted once to a month.
+- **FX (group 9).** `fx.regime` sets the share of the exchange rate's monthly move the central bank offsets: none for `float`, trade's parameter for `managed_float` (kept from load), all of it for `peg`. `fx.intervention` adds the player's purchase (> 0) or sale of foreign assets to the rule's; a sale never takes reserves below the floor, nor more than the banks' reserves pay for. `fx.devaluation` (added 2026-10-25, owner's decision) steps the exchange rate once on its effective day by its rate (1000 = the leu 10% weaker), and the managed float continues from the new level ([trade & FX](../economy/trade-fx.md), amendment of 2026-10-25); every command that takes effect is one step, and the value in force only records the latest.
+- **World settings (group 10).** `world.foreign_rate` replaces trade's constant foreign rate; `world.foreign_price_growth` and `world.foreign_demand_growth` grow each good's euro price and foreign demand every month end, at the blocs' mean rate a year converted once to a month. `world.fuel_price[oil]` (wired 2026-10-25, owner's decision) scales the euro price of `crude_oil` and `refined_petroleum` by the new value over the old on its effective day, so the two goods' euro prices are their growth path times the oil price over its starting value; gas and coal are `planned_keys` until the energy mechanic (M12).
 - **Bond maturity (group 11).** `spend.new_issue_years` is the maturity of the treasury's issues from its effective day; bonds already issued keep theirs.
 - **Pension indexation (group 11).** At the wage round (1 January) the pension point in force grows by the twelve-month inflation of the December close (`prices`), by the round's mean wage growth across industry groups (`wages`), or by their mean (`mix`); `none` keeps it frozen, as in 2021. Neither rate lowers the point. The new point becomes the value of `transfer.pension.point_value` in force (no command is logged; a replay recomputes it), so a later command on the point replaces it.
 
@@ -221,13 +222,34 @@ Levers tagged `alpha` in the [catalogue](levers.md) (D2). Ids are proposals for 
 | `money.monetary_financing` | money a month | 0 | central bank, treasury | **param**: measured, not chosen |
 | `fx.regime` | choice | managed float | FX close ([trade & FX](../economy/trade-fx.md)) | **param**: managed float only (`intervention_share`) |
 | `fx.intervention` | money a month (signed) | 0 beyond the rule | FX close (trade & FX) | **param**: the rule's share, no player amount |
+| `fx.devaluation` | rate (signed, one-off) | 0 | the exchange rate on its effective day (trade & FX) | added 2026-10-25 (owner) |
 | `informal.inspection_budget`, `informal.audit_budget` | money a year | 2021 spending | detection ([informal economy](../economy/informal-economy.md)) | **gap** |
 | `informal.penalty_multiple` | number (tenths) | ~1× | detection (informal economy) | **gap** |
 | `world.foreign_price_growth[bloc]` | rate a year | 2% | trade (trade & FX) | **param**: a constant level, no growth |
-| `world.fuel_price[fuel]` | money per unit | Dec 2021 prices | goods market, [energy](../economy/energy.md) | **gap**: fuel is an ordinary import |
+| `world.fuel_price[fuel]` | money per unit | Dec 2021 prices | goods market, [energy](../economy/energy.md) | oil: the euro import price of crude and refined petroleum (2026-10-25); gas, coal: **gap** until M12 |
 | `world.foreign_demand_growth[bloc]` | rate a year | 0 | trade | **param** (`DEMAND_INDEX_PPM`) |
 | `world.foreign_rate` | rate | −0.5% | FX close | **param** (`FOREIGN_RATE_PPM`) |
 | `world.wages_abroad` | rate (vs Romania) | 100% of start | emigration (M5, [demographics](../economy/demographics.md)) | **gap** |
+
+**Deferred beyond M4** (owner, 2026-10-24, [roadmap](../../roadmap.md) M4): registered `planned`, so a command on them is rejected with `not_yet` until their mechanic wires them.
+
+| Lever | Wired with |
+|---|---|
+| `transfer.pension.retirement_age[sex]` | M5 (retirement transition, [demographics](../economy/demographics.md)) |
+| `world.wages_abroad` | M5 (emigration) |
+| `world.fuel_price[fuel]` | M12 (the [energy](../economy/energy.md) mechanic) |
+| `informal.inspection_budget`, `informal.audit_budget`, `informal.penalty_multiple` | M15 (detection, [informal economy](../economy/informal-economy.md)) |
+
+**Ends that bind only under a condition** (AC-LEV-14, 2026-10-25). Six ends of active levers cannot bind in the starting state, by the rules of the mechanics that read them; AC-LEV-14 moves those levers against a baseline that holds the condition under which they bind (orders given on the start date to both runs):
+
+| Lever | Why an end does not bind at the start | Condition in both runs |
+|---|---|---|
+| `tax.contrib.ceiling` | top: above every wage of the 1:1000 sample (the start is 0, none) | a ceiling of 6,000 lei a month (about the mean wage) |
+| `tax.wealth.threshold` | top: no wealth tax at the start (rate 0) | `tax.wealth.rate` 1% a year |
+| `transfer.pension.minimum` | bottom: stage G puts no pension below the minimum ([population-pensions](../society/population-pensions.md), AC-POPP-01), so the points give every pension at least 800 lei and the minimum never lifts one | a minimum pension of 1,000 lei |
+| `transfer.min_income.per_extra` | bottom: no household of six or more qualifies for the minimum income at the 2021 floors | the floor of five members at 10,000 lei |
+| `labour.minimum_wage` | bottom: the minimum only lifts wages below it; no wage is below 2,300 lei at the start and the January round raises every group's wages | the minimum wage at 2,550 lei (the law of January 2022) |
+| `money.qe` | bottom: a sale of the central bank's bonds, and it holds none at the start | QE of 1 billion lei in December, nothing from 1 January (the end's effective day) |
 
 ## Edge cases
 - Two commands for one lever and key, effective the same day: the later given wins; both logged.
@@ -242,7 +264,7 @@ Written on 2026-10-22 by the test writer (ADR-0014) in `crates/econ-core/tests/a
 
 - [ ] **AC-LEV-01** `[unit]` The registry checks pass on the committed `levers.toml`, and each kind of fault (duplicate id, unknown shape, `spec` not in the index, `glossary` not in the glossary, unknown `reader`, missing key table) fails with the entry named; `just codegen-check` fails when the generated files are stale.
 - [ ] **AC-LEV-02** `[unit]` Every `active` lever is set exactly once in the Romania scenario's `law.json` or `world.json`; a scenario missing one fails to load, naming it.
-- [ ] **AC-LEV-03** `[unit]` Each rejection code of the table is returned for a command built to trigger it, with an English message that names the lever's label and, for `out_of_range`, the bounds and the value in display units; state and log are unchanged.
+- [ ] **AC-LEV-03** `[unit]` Each rejection code of the table is returned for a command built to trigger it, with an English message that names the lever's label and, for `out_of_range`, the bounds and the value in display units; state and log are unchanged. *(2026-10-25: `not_yet` is shown on a lever the registry holds as `planned` when the test runs; the test named `money.policy_rate`, which M4 group 8 wired.)*
 - [ ] **AC-LEV-04** `[unit]` Effective dates: a `law` command given on any day of a month takes effect on the 1st of the next month (plus `min_lag`); `market` and `world` the next day; a later requested date is kept; an earlier one is `too_early`.
 - [ ] **AC-LEV-05** `[sim]` A command changes the law in force on its effective day and not before: until the day before, the daily state hashes equal those of a run without it.
 - [ ] **AC-LEV-06** `[sim]` Replay: a year at 1:1000 with twenty commands (a cancel and two same-day changes of one lever included), replayed from the scenario, seed and log, gives the same state hash every day.
@@ -253,7 +275,7 @@ Written on 2026-10-22 by the test writer (ADR-0014) in `crates/econ-core/tests/a
 - [ ] **AC-LEV-11** `[sim]` Raising the education budget with pay unchanged raises education's input purchases and leaves its employees' pay unchanged; raising education's pay with the budget unchanged raises its wage bill and lowers its input purchases by the same amount, until inputs reach zero.
 - [ ] **AC-LEV-12** `[sim]` With an education budget above what the unit can spend, the year's government spending on education equals what was paid; no posting moves the unspent part, and on 1 January the allowance restarts from the new year's twelfths.
 - [ ] **AC-LEV-13** `[sim]` An investment share of 0 puts the whole health budget into running; a share of 100% sends all of it to investment purchases, wages are still paid and an overrun warning is emitted.
-- [ ] **AC-LEV-14** `[sim]` For every alpha lever: moving it to the bottom and the top of its range for three months changes the state hash against the baseline (it is read) and breaks no invariant I-1 to I-8.
+- [ ] **AC-LEV-14** `[sim]` For every alpha lever with `status = "active"`: moving it to the bottom and the top of its range for three months changes the state hash against the baseline (it is read) and breaks no invariant I-1 to I-8; a lever with an end that cannot bind in the starting state is moved against a baseline holding the condition under which it binds ([the alpha levers](#the-alpha-levers)). Every alpha lever still `planned` is one the owner deferred, and a command at either end of its range is rejected with `not_yet`. *(Restated 2026-10-25: it covered every alpha lever; the owner deferred six beyond M4 on 2026-10-24, and six ends of active levers cannot bind in the starting state.)*
 - [ ] **AC-LEV-15** `[sim]` After a VAT rise, `PolicyChanged` is in the events with old, new, given and effective, and the price "why" tree of a standard-rated good in the month of effect has a term tagged `tax.vat.rate_standard` with a non-zero contribution.
 - [ ] **AC-LEV-16** `[sim]` A change of `world.foreign_rate` is validated, logged and replayed like a law command, and in a two-group counterfactual (taxes, world) its effect is attributed to `world`.
 

@@ -730,6 +730,20 @@ status = "active"
 label = "lever.fx.intervention"
 
 [[lever]]
+id = "fx.devaluation"
+kind = "market"
+shape = "rate"
+unit = "% (> 0: the leu weaker), a one-off step"
+range = [-5000, 5000]  # range: judgement
+spec = "economy/trade-fx"
+glossary = "fx_devaluation"
+reader = "Commands"
+group = "trade"
+milestone = "alpha"
+status = "active"
+label = "lever.fx.devaluation"
+
+[[lever]]
 id = "informal.inspection_budget"
 kind = "law"
 shape = "money"
@@ -795,10 +809,13 @@ range = [0, 1000000]  # range: judgement
 key = "fuels"
 spec = "economy/energy"
 glossary = "fuel_price[fuel]"
-reader = "Prices"
+reader = "Commands"
 group = "world"
 milestone = "alpha"
-status = "planned"
+status = "active"
+# Gas and coal wait for the energy mechanic (M12): commands on them are
+# rejected with `not_yet` (owner's decision of 2026-10-25: oil only in M4).
+planned_keys = ["gas", "coal"]
 label = "lever.world.fuel_price"
 
 [[lever]]
