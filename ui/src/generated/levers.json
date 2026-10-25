@@ -75,7 +75,7 @@
         500000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "tax.income.pension_tax_free",
@@ -101,7 +101,7 @@
         6000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "tax.capital.interest_rate",
@@ -114,7 +114,7 @@
         6000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "tax.profit.rate",
@@ -289,7 +289,7 @@
         10000000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "tax.property.rate",
@@ -302,7 +302,7 @@
         300
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "tax.wealth.threshold",
@@ -315,7 +315,7 @@
         1000000000000
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "tax.wealth.rate",
@@ -328,7 +328,7 @@
         500
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "tax.excise.duty",
@@ -341,7 +341,7 @@
         1015200
       ],
       "milestone": "alpha",
-      "status": "planned",
+      "status": "active",
       "key": "industries",
       "keys": [
         "refined_petroleum",

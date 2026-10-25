@@ -9,8 +9,8 @@
 
 use econ_ledger::{FlowCode, Sector};
 use econ_mech_tax::income::{
-    DeductionRule, IndustryOverride, LabourTaxes, ProfitTaxes, Schedule, WageTax, tax_pension,
-    tax_quarter, tax_wage,
+    DeductionRule, IndustryOverride, LabourTaxes, ProfitTaxes, Schedule, WageLevers, WageTax,
+    tax_pension, tax_quarter, tax_wage_with,
 };
 use econ_mech_transfers::{
     ChildRule, MinimumIncomeRule, PensionRule, Separation, UnemploymentClaim, UnemploymentRule,
@@ -34,6 +34,17 @@ pub struct IncomeTaxLaw {
     pub pension_tax_free: Bani,
     /// Profit and micro-enterprise taxes.
     pub profit: ProfitTaxes,
+    /// `dividend_tax_rate`, basis points: withheld on households' dividends.
+    pub dividend_bp: u32,
+    /// `interest_tax_rate`, basis points: withheld by the banks on
+    /// households' deposit interest.
+    pub interest_bp: u32,
+    /// `contribution_ceiling`: the declared wage a month above which no CAS
+    /// or CASS is due; zero for none.
+    pub contribution_ceiling: Bani,
+    /// `child_tax_credit`: income tax credit a month per child, to the earner
+    /// who claims the household's dependants.
+    pub child_credit: Bani,
 }
 
 /// The social transfers of the law in force.
@@ -64,7 +75,9 @@ impl Law {
     /// taxed above 2,000 lei, profit tax 16%, micro tax 1% or 3% under 1
     /// million euro; pension point 1,442 lei and minimum pension 800, the
     /// unemployment benefit, child allowance 427 and 214 lei, the minimum
-    /// income with 60% take-up.
+    /// income with 60% take-up; dividends taxed at 5%. Deposit interest is
+    /// not taxed under this law (M3's worlds); the law of `law.json` taxes it
+    /// at 2021's 10% (spec `game/lever-system`).
     ///
     /// [law in force]: ../../../docs/01-research/notes/law-in-force-romania-2021.md
     #[must_use]
@@ -109,6 +122,10 @@ impl Law {
                 micro_with_staff_bp: 100,
                 micro_no_staff_bp: 300,
             },
+            dividend_bp: 500,
+            interest_bp: 0,
+            contribution_ceiling: Bani::ZERO,
+            child_credit: Bani::ZERO,
         });
         law.transfers = Some(TransferLaw {
             pension: PensionRule {
@@ -380,7 +397,18 @@ impl World {
         } else {
             0
         };
-        tax_wage(gross, declared.min(gross), dependants, &law.labour, over)
+        let levers = WageLevers {
+            contribution_ceiling: law.contribution_ceiling,
+            tax_credit: Bani(law.child_credit.get().saturating_mul(i64::from(dependants))),
+        };
+        tax_wage_with(
+            gross,
+            declared.min(gross),
+            dependants,
+            &law.labour,
+            over,
+            &levers,
+        )
     }
 
     /// Post the month's withholding: contributions and income tax to the

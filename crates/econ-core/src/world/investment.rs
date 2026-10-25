@@ -39,8 +39,6 @@ use super::World;
 use super::money::{Postings, bani, ratio};
 use super::observe::{InvestmentMonth, InvestmentPlans};
 
-/// The dividend tax, millionths (5% in 2021, spec economy/taxation step 10).
-const DIVIDEND_TAX_PPM: i128 = 50_000;
 /// The day of the month dividends are paid.
 const DIVIDEND_DAY: u8 = 15;
 /// `tfp_base_growth`, a year (production's 1%; spec open question 7: run
@@ -623,6 +621,13 @@ impl World {
         let mut hh_net = 0i128;
         let mut tax = 0i128;
         let mut hh_gross = 0i128;
+        // `dividend_tax_rate` of the law in force (5% in 2021, spec
+        // economy/taxation step 10), millionths.
+        let tax_ppm = self
+            .law
+            .income
+            .as_ref()
+            .map_or(0, |l| i128::from(l.dividend_bp) * 100);
         if to_hh > 0
             && let Some(parts) =
                 super::treasury::weighted_parts(to_hh, &self.households.hh_weight, &self.inv.hh_key)
@@ -631,7 +636,7 @@ impl World {
                 if a == 0 {
                     continue;
                 }
-                let t = ratio(a, DIVIDEND_TAX_PPM, 1_000_000);
+                let t = ratio(a, tax_ppm, 1_000_000);
                 let net = bani(a - t);
                 let w = i128::from(self.households.hh_weight[h]);
                 let hh = &mut self.households;

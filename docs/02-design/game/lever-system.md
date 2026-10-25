@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [game/levers, adr/0018-scenario-and-commands, adr/0011-storage-saves-history, adr/0017-time-base, adr/0008-explainability-architecture, adr/0006-determinism-contract, economy/budget-2021, economy/fiscal-policy, economy/infrastructure, game/world-loop, game/scenario-builder]
 research: [research/law-in-force-romania-2021]
-updated: 2026-10-23
+updated: 2026-10-25
 ---
 
 # Lever System — Commands, Registry, Replay and the Alpha Levers
@@ -155,6 +155,18 @@ World settings (D8) are levers with `kind = world`, ids under `world.`, `group =
 
 > **Simplification (M4):** a line's inputs are fixed at the month end for the next month (paid then, spent over the month), so in the first month the units have no input money; the input mix is the unit's industry's, not the line's. A public unit's surplus on its market sales stays with it.
 
+## The tax levers on the `World` (implementation, 2026-10-25)
+In worlds built from `law.json`; M3's `Law::law_2021()` keeps its own rules (no tax on deposit interest, the fixed property total), so worlds without `law.json` and their hashes are unchanged.
+- **Dividends and interest.** `tax.capital.dividend_rate` is the rate withheld on households' dividends (it was a 5% constant). `tax.capital.interest_rate` is withheld by the banks on households' deposit interest at each month end (10% in 2021; firms' and other depositors' interest is not taxed); the household receives the net, and the banks pay the tax from their reserves to the government's account under 3010 `tax.interest` (the code taxation proposed).
+- **Contribution ceiling.** `tax.contrib.ceiling` caps the declared wage on which CAS (Pillar II share included) and CASS are due, the industry override's part first; CAM stays on the whole declared wage; income tax is then computed on the wage less the capped contributions. 0 = none.
+- **Child tax credit.** `tax.income.credit_per_child` times the household's children under 18, to the earner who claims the household's dependants, taken off that wage's income tax, never below zero (not refundable).
+- **Property tax.** `tax.property.rate` a year on each owner household's dwelling value (the median owner's when it has none recorded), a twelfth a month at the month end (remainders to the first months), none paying more than its deposits; the rest falls short and is reported as before. Calibrated on the `World`: owner households' dwellings are worth 1,157.4 billion lei (weighted, the same at 1:1000 and 1:100), so 2021's 3,864.1 million is 0.334%; the lever holds whole basis points, and 0.33% gives 3,819.3 million a year (1.2% under 2021).
+- **Wealth tax.** `tax.wealth.rate` a year on each household's net worth (cash, deposits and dwelling value less its mortgage and consumer loans) above `tax.wealth.threshold`, a twelfth a month at the month end, none paying more than its deposits (the rest forgiven); under 3016 `tax.wealth`. None in 2021.
+- **Excise.** `tax.excise.duty[good]` in bani per 1,000 units is ten times the duty in millionths of the starting price per unit (51,250 → 512,500 for fuel). A change replaces that good's indexed duty on its effective day; the others keep theirs.
+- **Extreme levers.** The central bank's sale of foreign currency at the month end is capped by the banks' reserves (an excise duty at the top of its range drained them below zero).
+
+> **Simplification (M4):** at the top of its range, `tax.contrib.ceiling` (100,000 lei a month) is above every wage of the 1:1000 sample, and `tax.wealth.threshold` does nothing while `tax.wealth.rate` is 0, so neither end moves the state hash in AC-LEV-14's three months: both are read, but only bite with a wage above the ceiling or a wealth tax.
+
 ## How a lever change is explained
 Built on the five layers of [ADR-0008](../../03-architecture/decisions/0008-explainability-architecture.md):
 - **L5 event.** `PolicyChanged` when a command takes effect, `PolicyGiven` when it is accepted (pending), `PolicyWarning` for EU and consistency warnings. Charts mark the effective date with the lever's label.
@@ -177,7 +189,7 @@ Levers tagged `alpha` in the [catalogue](levers.md) (D2). Ids are proposals for 
 | `tax.vat.category[industry]` | choice | per good | prices (vat) | yes (`Law.vat_category`) |
 | `tax.contrib.cas`, `…pillar2_share`, `…cass`, `…cam` | rate | 25%, 3.75 pts, 10%, 2.25% | pay day (taxation) | yes (`LabourTaxes`) |
 | `tax.contrib.ceiling` | money | none (0 = none) | pay day (taxation) | **gap** (only the industry overrides have a ceiling) |
-| `tax.property.rate` | rate a year | ~0.1% homes (national stand-in) | revenue ([taxation](../economy/taxation.md)) | **param**: a fixed yearly total (3.86 bn lei) shared by owners, no rate |
+| `tax.property.rate` | rate a year | 0.33% (national stand-in, calibrated to 2021's revenue) | revenue ([taxation](../economy/taxation.md)) | **param**: a fixed yearly total (3.86 bn lei) shared by owners, no rate |
 | `tax.wealth.threshold`, `tax.wealth.rate` | money, rate | none, 0% | (taxation) | **gap** |
 | `tax.excise.duty[good]` (fuel, tobacco, alcohol) | money per unit | the 2021 duties | goods market ([excise](../economy/excise.md)) | **param**: constants in `world/revenue.rs`, indexed each January |
 | `spend.ministry_budget[line]` | money a year | `budget.json` | public units ([fiscal policy](../economy/fiscal-policy.md)) | **gap**: purchases follow the input-output table; `budget.json` is loaded but not paid |

@@ -132,7 +132,7 @@
   "tax.contrib.cass": 1000,
   "tax.contrib.cam": 225,
   "tax.contrib.ceiling": 0,
-  "tax.property.rate": 10,
+  "tax.property.rate": 33,
   "tax.wealth.threshold": 0,
   "tax.wealth.rate": 0,
   "tax.excise.duty": {
@@ -517,11 +517,11 @@
    },
    {
     "id": "tax.property.rate",
-    "value": 10,
+    "value": 33,
     "unit": "basis points (% of dwelling value a year)",
-    "what": "national stand-in for the municipal rates on homes (0.08% to 0.2%); to be calibrated to 2021's revenue",
-    "source": "docs/01-research/notes/law-in-force-romania-2021.md",
-    "confidence": "low"
+    "what": "national stand-in for the municipal taxes on homes and vehicles (rates on homes 0.08% to 0.2%), calibrated on the World (2026-10-25): owner households' dwellings are worth 1,157.4 billion lei (weighted, at 1:1000 and 1:100), so 2021's 3,864.1 million lei (D59) is 0.334%; the nearest basis point, 0.33%, gives 3,819.3 million a year (1.2% under)",
+    "source": "docs/02-design/economy/government-revenue-2021.md (D59); docs/02-design/game/lever-system.md",
+    "confidence": "medium"
    },
    {
     "id": "tax.wealth.threshold",
