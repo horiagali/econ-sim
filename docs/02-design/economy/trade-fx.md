@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/production, economy/prices-inflation, economy/money-banking, economy/monetary-policy, economy/opening-balance-sheet, game/world-loop, adr/0017-time-base]
 research: []
-updated: 2026-10-22
+updated: 2026-10-25
 ---
 
 # Trade & Exchange Rate
@@ -85,6 +85,15 @@ What is built first, on the `World` of [game/world-loop](../game/world-loop.md).
 > **Simplification (M3):** one foreign bloc for prices (the euro area) with the dollar at a constant cross rate; no tariffs (EU single market; the common external tariff on non-EU goods is small and constant); no capital account beyond the rest of the world's deposits and the central bank's intervention; no J-curve beyond what the monthly adjustment gives.
 
 **Not in M3:** two blocs with their own demand (when D8 becomes dynamic), pegs and ERM II ([euro](euro.md), M20), tariffs and capital controls (EU rules, M18), remittances (M5), dividends of foreign-owned firms (with investment and capital, M3, owner of that spec).
+
+## Amendment (owner, 2026-10-25): one-off devaluation
+Asked by the owner for the policy-scenario suite ([policy-scenarios](../game/policy-scenarios.md), S6). A `market` lever `fx.devaluation` (glossary `fx_devaluation`), a signed rate in basis points: on its effective day the exchange rate steps once,
+$$e \leftarrow e \cdot (1 + d)$$
+with $d$ the command's rate (1000 = +10%, the leu 10% weaker; a negative rate revalues). Import prices in lei and the day's export demand follow the same day; $e_0$ is unchanged. The managed float of step 4 then continues from the new level: the intervention offsets only later moves, never the step. Each command that takes effect is one step; the value in force records the latest command and is not applied again. Its starting value is 0.
+
+> **Simplification (M4):** a one-off step, not a regime. A peg at a chosen rate comes with the euro and ERM II ([euro](euro.md), M18/M20).
+
+**Oil (owner's decision of the same day, game/lever-system).** `world.fuel_price[oil]` scales the euro price of `crude_oil` and `refined_petroleum` by its ratio to the value in force before it, from its effective day. Imported inputs pay a price per using industry: its oil share of imported inputs (from the input-output table: the output shares of the two oil industries in each imported product, and refining's imported mining products counted whole as crude) at oil's import price, the rest at the index of the other goods. Gas and coal wait for [energy](energy.md) (M12).
 
 ## Tuning parameters
 | Parameter | Default | Effect |

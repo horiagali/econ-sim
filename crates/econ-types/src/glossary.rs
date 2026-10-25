@@ -228,6 +228,7 @@ pub const VARIABLES: &[Variable] = &[
     Variable { code_name: "cb_deficit_funding", meaning: "Lever: the central bank's direct funding of the deficit a month; it adds to `monetary_financing`", unit: "LCU / month", kind: "lever", owner: "economy/monetary-policy" },
     Variable { code_name: "fx_regime", meaning: "Lever: exchange-rate regime: float, managed float, peg to the euro", unit: "category", kind: "lever", owner: "economy/trade-fx" },
     Variable { code_name: "fx_intervention", meaning: "Lever: foreign currency the central bank buys (> 0) or sells (< 0) a month beyond its rule", unit: "LCU / month", kind: "lever", owner: "economy/trade-fx" },
+    Variable { code_name: "fx_devaluation", meaning: "Lever: a one-off step of `exchange_rate` on its effective day (> 0: the leu weaker); the managed float continues from the new level; basis points in code", unit: "%", kind: "lever", owner: "economy/trade-fx" },
     Variable { code_name: "inspection_budget", meaning: "Lever: labour inspection and tax audit spending", unit: "LCU / year", kind: "lever", owner: "economy/informal-economy" },
     Variable { code_name: "audit_budget", meaning: "Lever: labour inspection and tax audit spending", unit: "LCU / year", kind: "lever", owner: "economy/informal-economy" },
     Variable { code_name: "penalty_multiple", meaning: "Lever: fine as a multiple of the evaded tax; tenths in code (10 = 1×)", unit: "ratio", kind: "lever", owner: "economy/informal-economy" },

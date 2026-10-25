@@ -801,7 +801,7 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         &s.unit_output,
     );
     #[cfg(feature = "trade")]
-    world.start_trade(world_factor, depreciation);
+    world.start_trade(world_factor, depreciation, &s.oil_import_ppm);
     #[cfg(feature = "revenue")]
     world.start_revenue(&s, &without_revenue);
     #[cfg(feature = "monetary")]
