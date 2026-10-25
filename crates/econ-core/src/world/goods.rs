@@ -74,14 +74,15 @@ impl World {
         if mi == ONE { v } else { ratio(v, mi, ONE) }
     }
 
-    /// The VAT households pay on good `j`, basis points: the legal rate less
-    /// the VAT gap (M2 placeholder until the informal economy, M15).
-    pub(super) fn rate_bp(&self, j: usize) -> Option<u32> {
+    /// The VAT households pay on good `j`, millionths: the legal rate less
+    /// the VAT gap (M2 placeholder until the informal economy, M15). Kept in
+    /// millionths, not basis points, so that a one-basis-point move of the
+    /// legal rate is never rounded away.
+    pub(super) fn rate_ppm(&self, j: usize) -> Option<u32> {
         let cat: VatCategory = self.law.vat_category[j];
-        self.law
-            .vat
-            .rate_for(cat)
-            .map(|r| u32::try_from(ratio(i128::from(r.0), ONE - VAT_GAP_PPM, ONE)).expect("a rate"))
+        self.law.vat.rate_for(cat).map(|r| {
+            u32::try_from(ratio(i128::from(r.0) * 100, ONE - VAT_GAP_PPM, ONE)).expect("a rate")
+        })
     }
 
     /// Phase 2: the plan of each unit whose day it is (production, step 1).
@@ -596,7 +597,7 @@ impl World {
             .map(|((_, s), &w)| w * i128::from(s.get()))
             .sum();
         let rates: Vec<i64> = (0..n_i)
-            .map(|j| self.rate_bp(j).map_or(0, i64::from))
+            .map(|j| self.rate_ppm(j).map_or(0, i64::from))
             .collect();
         let shares: Vec<i128> = self
             .industries
@@ -611,7 +612,7 @@ impl World {
         for j in 0..n_i {
             imp_money[j] = money[j] * i128::from(self.ii.basket_import_ppm[j]) / ONE;
             dom_money[j] = money[j] - imp_money[j];
-            let net = dom_money[j] * 10_000 / (10_000 + i128::from(rates[j]));
+            let net = dom_money[j] * ONE / (ONE + i128::from(rates[j]));
             let p = i128::from(self.industries.price_ppm[j].max(1));
             // With excise the unit costs the price plus the duty.
             hh_want_q[j] = i64::try_from(net * ONE / (p + self.excise_of(j))).expect("a quantity");
@@ -802,8 +803,8 @@ impl World {
         let mut parts = Vec::with_capacity(4 * n_i);
         for j in 0..n_i {
             let dom = dom_money[j] * hh_served_ppm[j] / ONE;
-            let dom_net = dom * 10_000 / (10_000 + i128::from(rates[j]));
-            let imp_net = imp_money[j] * 10_000 / (10_000 + i128::from(rates[j]));
+            let dom_net = dom * ONE / (ONE + i128::from(rates[j]));
+            let imp_net = imp_money[j] * ONE / (ONE + i128::from(rates[j]));
             parts.extend([dom_net, dom - dom_net, imp_net, imp_money[j] - imp_net]);
         }
         let served: i128 = parts.iter().sum();

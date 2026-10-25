@@ -439,8 +439,8 @@ impl World {
 
     /// `(p + d)(1 + VAT)` of good `j` at price `p`, millionths, unscaled.
     fn raw_consumer_price(&self, j: usize, p: u32) -> i128 {
-        let vat = i128::from(self.rate_bp(j).unwrap_or(0));
-        (i128::from(p) + self.excise_duty_ppm(j)) * (10_000 + vat) / 10_000
+        let vat = i128::from(self.rate_ppm(j).unwrap_or(0));
+        (i128::from(p) + self.excise_duty_ppm(j)) * (1_000_000 + vat) / 1_000_000
     }
 
     /// Good `j`'s consumer price at producer price `p` (the producer price
