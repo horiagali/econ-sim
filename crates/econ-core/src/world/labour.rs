@@ -620,6 +620,24 @@ impl World {
         post.commit(&mut self.ledger);
     }
 
+    /// A higher minimum wage took effect today (AC-LM-05): every employee
+    /// paid below it is paid the minimum from today, the declared part
+    /// raised by the same amount (as at load); nobody else changes. New
+    /// hires and the January round read the law directly.
+    #[cfg(feature = "levers")]
+    pub(super) fn lift_to_minimum(&mut self) {
+        let minimum = self.law.minimum_wage;
+        for p in 0..self.persons.employer.len() {
+            if self.persons.employer[p] == NO_EMPLOYER || self.persons.wage[p] >= minimum {
+                continue;
+            }
+            let w = self.persons.wage[p];
+            self.persons.wage[p] = minimum;
+            self.persons.wage_declared[p] =
+                (self.persons.wage_declared[p] + (minimum - w)).min(minimum);
+        }
+    }
+
     /// Phase 11: each January, every wage and reference wage of an industry
     /// group moves by expected inflation plus the response to its tightness;
     /// then no wage is below the minimum wage.

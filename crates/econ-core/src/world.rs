@@ -1073,6 +1073,9 @@ impl World {
     /// Replace the law the mechanics read (a command took effect).
     pub(crate) fn set_law(&mut self, law: Law) {
         let old = std::mem::replace(&mut self.law, law);
+        if self.law.minimum_wage > old.minimum_wage {
+            self.lift_to_minimum();
+        }
         #[cfg(feature = "revenue")]
         self.rev_law_changed(&old);
         #[cfg(not(feature = "revenue"))]
