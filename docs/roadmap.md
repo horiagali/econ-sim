@@ -303,6 +303,7 @@ Specs: [production](02-design/economy/production.md), [state-enterprises](02-des
 - [ ] **Innovation** (owner, 2026-10-22): a firm can spend on research and its own efficiency, among its surplus choices; productivity rises with a lag and uncertainty. Replaces the calibrated productivity growth for firms that do it.
 - [ ] Levers: nationalise, privatise, bail out a named firm, directives; all subsidy kinds (production, investment, wage, consumer); price caps with shortages; research grants and an R&D tax credit.
 - [ ] Industry and supply-chain views; company pages.
+- [ ] **A stock index like the BET** (owner, 2026-10-25): an index of the largest named companies, weighted like the Bucharest Stock Exchange's BET, shown as a chart of how the top companies are doing. First version: a visual only, from their profits and value (no trading); with the stock exchange above, it follows share prices.
 
 **Exit:** nationalising a firm moves equity through the ledger at the right value; a price cap below cost produces a shortage that the "why" panel names.
 
