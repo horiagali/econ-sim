@@ -14,7 +14,7 @@ use std::process::Command as Process;
 use std::sync::OnceLock;
 
 use econ_core::levers::{
-    Group, LeverId, LeverMeta, LeverValue, Order, PolicyEvent, Shape, attribute_groups,
+    Group, LeverId, LeverMeta, LeverValue, Order, PolicyEvent, RejectCode, Shape, attribute_groups,
 };
 use econ_core::world::World;
 use econ_io::commands::{load_world, save_world};
@@ -792,43 +792,157 @@ fn end_value(meta: &LeverMeta, top: bool) -> LeverValue {
     }
 }
 
-/// One end of one lever for three months against the baseline; what went
-/// wrong, if anything.
-fn try_end(
-    base_w: &World,
-    base: &[u64],
+/// The alpha levers the owner deferred beyond M4 (roadmap M4, owner,
+/// 2026-10-24), registered `planned`, and the milestone that wires each
+/// (spec, "The alpha levers", deferred).
+const DEFERRED: [(&str, &str); 6] = [
+    ("transfer.pension.retirement_age", "M5"),
+    ("world.wages_abroad", "M5"),
+    ("world.fuel_price", "M12"),
+    ("informal.inspection_budget", "M15"),
+    ("informal.audit_budget", "M15"),
+    ("informal.penalty_multiple", "M15"),
+];
+
+/// The condition under which a lever's ends bind, for a lever whose end
+/// cannot bind in the starting state (spec, "The alpha levers", ends that
+/// bind under a condition): orders given on 1 December 2021 to the baseline
+/// and to the end's run alike, and the day the end takes effect if not the
+/// earliest. `None` for a lever that binds in the starting state.
+struct Condition {
+    orders: Vec<Order>,
+    end_effective: Option<Date>,
+}
+
+fn condition(w: &World, lever: LeverId) -> Option<Condition> {
+    use LeverId as L;
+    let lei = |v: i64| LeverValue::Money(Bani::from_lei(v));
+    let law = |orders: Vec<Order>| {
+        Some(Condition {
+            orders,
+            end_effective: None,
+        })
+    };
+    match lever {
+        // A ceiling below some wages (6,000 lei a month, about the mean
+        // wage): the ceiling's top (above every wage) removes it.
+        L::TaxContribCeiling => law(vec![set(L::TaxContribCeiling, None, lei(6_000))]),
+        // A wealth tax of 1% a year: a threshold above every net worth
+        // (the top) takes it away.
+        L::TaxWealthThreshold => law(vec![set(L::TaxWealthRate, None, LeverValue::Rate(100))]),
+        // A minimum pension of 1,000 lei, above the 800 lei at which stage
+        // G puts the lowest pensions: the bottom drops the lifted ones back.
+        L::TransferPensionMinimum => law(vec![set(L::TransferPensionMinimum, None, lei(1_000))]),
+        // Households of six or more on the minimum income: the floor of a
+        // five-person household at the top of its range (10,000 lei), so
+        // every one of them that takes the benefit up qualifies.
+        L::TransferMinIncomePerExtra => law(vec![set(
+            L::TransferMinIncomeFloor,
+            Some(key_of(w, L::TransferMinIncomeFloor, "5")),
+            lei(10_000),
+        )]),
+        // A minimum wage that lifts wages: 2,550 lei, the law of January
+        // 2022, from the wage round on.
+        L::LabourMinimumWage => law(vec![set(L::LabourMinimumWage, None, lei(2_550))]),
+        // Bonds held by the central bank: 1 billion lei bought at the end of
+        // December, nothing in force from 1 January, when the end takes
+        // effect (so a sale has something to sell).
+        L::MoneyQe => Some(Condition {
+            orders: vec![
+                set_on(L::MoneyQe, None, lei(1_000_000_000), date(2021, 12, 2)),
+                set_on(L::MoneyQe, None, lei(0), date(2022, 1, 1)),
+            ],
+            end_effective: Some(date(2022, 1, 1)),
+        }),
+        _ => None,
+    }
+}
+
+/// A run of the baseline: the world as the end's run starts from it, its
+/// daily hashes and the world after `last`.
+struct Baseline {
+    start: World,
+    hashes: Vec<u64>,
+    end: World,
+}
+
+/// Run a world through `last`, every day checked; what went wrong, if
+/// anything.
+fn run_through(w: &mut World, last: Date, what: &str) -> Result<Vec<u64>, String> {
+    let mut hashes = Vec::new();
+    while w.date() <= last {
+        let r = w
+            .step(&[])
+            .map_err(|e| format!("{what}: a day fails on {:?}: {e:?}", w.date()))?;
+        if !r.checks_ok || !r.failed.is_empty() || w.ledger().check_invariants().is_err() {
+            return Err(format!(
+                "{what}: checks fail on {:?}: {:?}",
+                r.date, r.failed
+            ));
+        }
+        hashes.push(r.state_hash);
+    }
+    Ok(hashes)
+}
+
+/// The baseline of a lever under its condition; `None` for a lever without
+/// one (its baseline is the shared one).
+fn baseline_of(
+    shared: &Baseline,
     meta: &LeverMeta,
-    top: bool,
     last: Date,
-) -> Option<String> {
+) -> Result<Option<Baseline>, String> {
+    let id = meta.id.as_str();
+    let Some(cond) = condition(&shared.start, meta.id) else {
+        return Ok(None);
+    };
+    let mut start = shared.start.clone();
+    for order in cond.orders {
+        if let Err(r) = start.give(order) {
+            return Err(format!(
+                "{id}: its condition is rejected {:?}: {}",
+                r.code, r.message
+            ));
+        }
+    }
+    let mut end = start.clone();
+    let hashes = run_through(
+        &mut end,
+        last,
+        &format!("{id}: the baseline under its condition"),
+    )?;
+    Ok(Some(Baseline { start, hashes, end }))
+}
+
+/// One end of one active lever for three months against its baseline;
+/// what went wrong, if anything.
+fn try_end(base: &Baseline, meta: &LeverMeta, top: bool, last: Date) -> Option<String> {
     let id = meta.id.as_str();
     let end = if top { "top" } else { "bottom" };
     let value = end_value(meta, top);
-    let mut w = base_w.clone();
+    let effective = condition(&base.start, meta.id).and_then(|c| c.end_effective);
+    let mut w = base.start.clone();
     let mut moves = false;
     for key in keys_of(meta) {
-        if w.law().get(meta.id, key) != Some(&value) {
+        if base.end.law().get(meta.id, key) != Some(&value) {
             moves = true;
         }
-        if let Err(r) = w.give(set(meta.id, key, value.clone())) {
+        let order = match effective {
+            Some(d) => set_on(meta.id, key, value.clone(), d),
+            None => set(meta.id, key, value.clone()),
+        };
+        if let Err(r) = w.give(order) {
             return Some(format!(
                 "{id} at its {end}: rejected {:?}: {}",
                 r.code, r.message
             ));
         }
     }
-    let mut hashes = Vec::with_capacity(base.len());
-    while w.date() <= last {
-        let r = w.step(&[]).expect("a day runs");
-        if !r.checks_ok || !r.failed.is_empty() || w.ledger().check_invariants().is_err() {
-            return Some(format!(
-                "{id} at its {end}: checks fail on {:?}: {:?}",
-                r.date, r.failed
-            ));
-        }
-        hashes.push(r.state_hash);
-    }
-    if moves && hashes == base {
+    let hashes = match run_through(&mut w, last, &format!("{id} at its {end}")) {
+        Ok(h) => h,
+        Err(e) => return Some(e),
+    };
+    if moves && hashes == base.hashes {
         return Some(format!(
             "{id} at its {end}: the state hash never moves (not read)"
         ));
@@ -836,47 +950,114 @@ fn try_end(
     None
 }
 
-/// **AC-LEV-14** `[sim]` For every alpha lever: moving it to the bottom and
-/// the top of its range for three months changes the state hash against the
-/// baseline (it is read) and breaks no invariant I-1 to I-8.
+/// Both ends of a planned lever are rejected with `not_yet`; what went
+/// wrong, if anything.
+fn try_planned(start: &World, meta: &LeverMeta) -> Vec<String> {
+    let id = meta.id.as_str();
+    let mut out = Vec::new();
+    for top in [false, true] {
+        let end = if top { "top" } else { "bottom" };
+        let mut w = start.clone();
+        for key in keys_of(meta) {
+            match w.give(set(meta.id, key, end_value(meta, top))) {
+                Err(r) if r.code == RejectCode::NotYet => {}
+                Err(r) => out.push(format!(
+                    "{id} (planned) at its {end}: rejected {:?}, not not_yet: {}",
+                    r.code, r.message
+                )),
+                Ok(a) => out.push(format!("{id} (planned) at its {end}: accepted {a:?}")),
+            }
+        }
+    }
+    out
+}
+
+/// **AC-LEV-14** `[sim]` For every alpha lever with `status = "active"`:
+/// moving it to the bottom and the top of its range for three months changes
+/// the state hash against the baseline (it is read) and breaks no invariant
+/// I-1 to I-8; an end that cannot bind in the starting state is moved
+/// against a baseline that holds the condition under which it binds (the
+/// spec's list). Every alpha lever still `planned` is one the owner deferred
+/// (the spec's list), and a command at either end of its range is rejected
+/// with `not_yet`.
 ///
-/// Readings: every registry entry with `milestone = "alpha"` (planned ones
-/// included: this test waits for every implementation group to wire its
-/// levers), every key of a keyed lever moved together; the bottom and top
-/// are those of `end_value` (a choice's first and last option; a schedule
-/// one row from 0 at the lowest or highest rate). Given on 1 December 2021
-/// and run to 31 March 2022 (three months from the law's effective day of 1
-/// January). "Changes the state hash": some day's hash differs from the
-/// baseline's; an end equal to the starting value is not expected to. "No
-/// invariant": every day's checks of phase 13 and the ledger's invariants
-/// hold. All failures are gathered and reported together.
+/// *Restated 2026-10-25:* the criterion covered every alpha lever, planned
+/// ones included; the owner deferred six of them beyond M4 (2026-10-24), and
+/// six ends of active levers cannot bind in the starting state (the spec
+/// names the condition of each).
+///
+/// Readings: the alpha levers are the registry entries with `milestone =
+/// "alpha"`, their status read at run time; every key of a keyed lever is
+/// moved together; the bottom and top are those of `end_value` (a choice's
+/// first and last option; a schedule one row from 0 at the lowest or highest
+/// rate). Given on 1 December 2021, taking effect at the earliest (1 January
+/// for a law; for `money.qe` under its condition, 1 January) and run to 31
+/// March 2022. The baseline is the run without the end, under the lever's
+/// condition where it has one (`condition`, the spec's list; the condition's
+/// orders are given before the end, so for a condition on the lever itself
+/// the end, given later for the same day, wins). "Changes the state hash":
+/// some day's hash differs from the baseline's; an end equal to the value
+/// the baseline has in force is not expected to. "No invariant": every
+/// day's checks of phase 13 and the ledger's invariants hold, in the
+/// baselines too. All failures are gathered and reported together.
 #[test]
 fn ac_lev_14() {
     let last = date(2022, 3, 31);
-    let base_w = lever_world(1000);
-    let base = {
-        let mut w = base_w.clone();
-        run_checked_through(&mut w, last)
+    let start = lever_world(1000);
+    let shared = {
+        let mut end = start.clone();
+        let hashes = run_checked_through(&mut end, last);
+        Baseline {
+            start: start.clone(),
+            hashes,
+            end,
+        }
     };
-    let metas: Vec<LeverMeta> = base_w
+    let alpha: Vec<LeverMeta> = start
         .registry()
         .levers
         .iter()
         .filter(|m| m.milestone == "alpha")
         .cloned()
         .collect();
-    assert!(metas.len() >= 50, "the alpha levers: {}", metas.len());
+    let (active, planned): (Vec<LeverMeta>, Vec<LeverMeta>) =
+        alpha.into_iter().partition(is_active);
+    assert!(
+        active.len() >= 50,
+        "the active alpha levers: {}",
+        active.len()
+    );
+    for meta in &planned {
+        assert!(
+            DEFERRED.iter().any(|(id, _)| *id == meta.id.as_str()),
+            "{} is planned but not among the levers the owner deferred",
+            meta.id.as_str()
+        );
+    }
+    let mut failures: Vec<String> = planned
+        .iter()
+        .flat_map(|m| try_planned(&start, m))
+        .collect();
     let threads = std::thread::available_parallelism().map_or(1, |n| n.get().min(4));
-    let chunk = metas.len().div_ceil(threads);
-    let failures: Vec<String> = std::thread::scope(|s| {
-        let handles: Vec<_> = metas
+    let chunk = active.len().div_ceil(threads);
+    failures.extend(std::thread::scope(|s| {
+        let handles: Vec<_> = active
             .chunks(chunk)
             .map(|part| {
-                let (base_w, base) = (&base_w, &base);
+                let shared = &shared;
                 s.spawn(move || {
                     part.iter()
-                        .flat_map(|m| [false, true].map(|top| try_end(base_w, base, m, top, last)))
-                        .flatten()
+                        .flat_map(|m| {
+                            let own = match baseline_of(shared, m, last) {
+                                Err(e) => return vec![e],
+                                Ok(own) => own,
+                            };
+                            let base = own.as_ref().unwrap_or(shared);
+                            [false, true]
+                                .into_iter()
+                                .filter_map(|top| try_end(base, m, top, last))
+                                .collect()
+                        })
                         .collect::<Vec<_>>()
                 })
             })
@@ -884,13 +1065,14 @@ fn ac_lev_14() {
         handles
             .into_iter()
             .flat_map(|h| h.join().expect("a lever thread"))
-            .collect()
-    });
+            .collect::<Vec<_>>()
+    }));
     assert!(
         failures.is_empty(),
-        "{} of {} lever ends fail:\n{}",
+        "{} failures over {} active alpha levers' ends and {} planned levers:\n{}",
         failures.len(),
-        metas.len() * 2,
+        active.len() * 2,
+        planned.len(),
         failures.join("\n")
     );
 }
