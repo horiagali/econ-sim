@@ -74,6 +74,20 @@ impl World {
         if mi == ONE { v } else { ratio(v, mi, ONE) }
     }
 
+    /// Industry `j`'s imported inputs worth `v` at the starting prices, at
+    /// the day's import prices (oil at its own, `world.fuel_price[oil]`).
+    pub(super) fn inputs_import_value(&self, j: usize, v: i128) -> i128 {
+        #[cfg(feature = "trade")]
+        {
+            self.trade_inputs_import_value(j, v)
+        }
+        #[cfg(not(feature = "trade"))]
+        {
+            let _ = j;
+            self.at_import_price(v)
+        }
+    }
+
     /// The VAT households pay on good `j`, basis points: the legal rate less
     /// the VAT gap (M2 placeholder until the informal economy, M15).
     pub(super) fn rate_bp(&self, j: usize) -> Option<u32> {
@@ -147,7 +161,7 @@ impl World {
             .collect();
         unit_cost_ppm(
             &home,
-            u32::try_from(self.at_import_price(i128::from(self.ii.import_ppm[j])))
+            u32::try_from(self.inputs_import_value(j, i128::from(self.ii.import_ppm[j])))
                 .unwrap_or(u32::MAX),
             self.ii.wage_cost_ppm[j],
             self.ii.other_ppm[j],
@@ -289,11 +303,8 @@ impl World {
                     self.demand.units[i].push((u, q));
                 }
             }
-            let imported = bani(self.at_import_price(ratio(
-                i128::from(part),
-                i128::from(self.ii.import_ppm[j]),
-                ONE,
-            )));
+            let at_start = ratio(i128::from(part), i128::from(self.ii.import_ppm[j]), ONE);
+            let imported = bani(self.inputs_import_value(j, at_start));
             if imported > Bani::ZERO {
                 self.units.deposits[u] -= imported;
                 post.deposits(
@@ -307,7 +318,9 @@ impl World {
                 #[cfg(feature = "revenue")]
                 {
                     self.rev_input_purchase(u, i128::from(imported.get()));
-                    self.rev_imported_fuel(u, i128::from(imported.get()));
+                    // Its fuel's quantity is read at the index, as before
+                    // oil had its own price.
+                    self.rev_imported_fuel(u, self.at_import_price(at_start));
                 }
                 self.mac.month.imports += i128::from(imported.get());
             }

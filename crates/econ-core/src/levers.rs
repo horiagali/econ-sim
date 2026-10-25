@@ -103,6 +103,10 @@ pub struct LeverMeta {
     pub key: Option<String>,
     /// For a keyed lever: the allowed keys (the subset, or the whole table).
     pub keys: Vec<String>,
+    /// For an active keyed lever: the keys not wired yet, whose commands are
+    /// rejected with `not_yet` (e.g. `world.fuel_price`'s gas and coal until
+    /// the energy mechanic).
+    pub planned_keys: Vec<String>,
     /// For a choice: the allowed values, in order.
     pub options: Vec<String>,
     /// Extra delay beyond the kind's, in months.
@@ -275,6 +279,9 @@ impl Registry {
             } else if !m.keys.is_empty() {
                 faults.push("keys without a key table".to_string());
             }
+            if let Some(k) = m.planned_keys.iter().find(|k| !m.keys.contains(k)) {
+                faults.push(format!("planned key `{k}` is not among the lever's keys"));
+            }
             if m.label.is_empty() {
                 faults.push("no label".to_string());
             }
@@ -312,6 +319,7 @@ struct RawLever {
     rows: Option<[u32; 2]>,
     key: Option<String>,
     keys: Option<Vec<String>>,
+    planned_keys: Option<Vec<String>>,
     options: Option<Vec<String>>,
     /// `"1 month"`, `"3 months"`.
     min_lag: Option<String>,
@@ -395,6 +403,7 @@ fn meta_of(raw: RawLever, tables: &BTreeMap<String, Vec<String>>) -> Result<Leve
         rows: raw.rows.map(|[lo, hi]| (lo, hi)),
         key: raw.key,
         keys,
+        planned_keys: raw.planned_keys.unwrap_or_default(),
         options: raw.options.unwrap_or_default(),
         min_lag_months,
         phase_in: raw.phase_in.map(|p| PhaseIn {
@@ -1073,6 +1082,9 @@ impl World {
         let today = self.date();
         let st = self.lever_state_mut().expect(NO_LAW);
         let (effective, mut warnings) = validate(&st.registry, &order, today, &st.pending)?;
+        if let Order::Set(cmd) = &order {
+            planned_key(&st.registry, &st.law, cmd)?;
+        }
         let seq = st.next_seq;
         st.next_seq += 1;
         // Pending and logged with the effective day filled (spec: the log,
@@ -1150,6 +1162,28 @@ impl World {
     }
 }
 
+/// A command that changes a planned key of an active lever (`planned_keys`)
+/// is rejected with `not_yet`; one that gives the value in force changes
+/// nothing and is accepted, as for every other lever (AC-LEV-09).
+fn planned_key(registry: &Registry, law: &LawInForce, cmd: &Command) -> Result<(), Rejection> {
+    let meta = registry.get(cmd.lever);
+    let Some(k) = cmd
+        .key
+        .and_then(|k| meta.keys.get(usize::try_from(k).ok()?))
+        .filter(|k| meta.planned_keys.contains(k))
+    else {
+        return Ok(());
+    };
+    if law.get(cmd.lever, cmd.key) == Some(&cmd.value) {
+        return Ok(());
+    }
+    Err(Rejection {
+        code: RejectCode::NotYet,
+        lever: Some(meta.id),
+        message: format!("`{}` for `{k}` arrives later.", meta.label),
+    })
+}
+
 /// The message of a lever call on a world built without `law.json`.
 const NO_LAW: &str = "a world built with World::with_law (under law.json)";
 
@@ -1191,9 +1225,32 @@ pub(crate) fn apply_due(world: &mut World, today: Date) {
         }
     });
     due.sort_by_key(|p| p.seq);
+    // The one-off effects of the day, in the order given: each
+    // `fx.devaluation` command steps the exchange rate once, and a change of
+    // `world.fuel_price[oil]` rescales the oil goods' euro prices.
+    #[cfg_attr(not(feature = "trade"), allow(unused_mut, unused_variables))]
+    let mut one_off: Vec<(LeverId, i64, i64)> = Vec::new();
+    let oil = st
+        .registry
+        .get(LeverId::WorldFuelPrice)
+        .keys
+        .iter()
+        .position(|k| k == "oil")
+        .and_then(|k| u32::try_from(k).ok());
     for p in due {
         let c = &p.command;
         let old = st.law.get(c.lever, c.key).cloned();
+        match (c.lever, &old, &c.value) {
+            (LeverId::FxDevaluation, _, LeverValue::Rate(bp)) => {
+                one_off.push((c.lever, 0, i64::from(*bp)));
+            }
+            (LeverId::WorldFuelPrice, Some(LeverValue::Money(o)), LeverValue::Money(n))
+                if c.key.is_some() && c.key == oil =>
+            {
+                one_off.push((c.lever, o.get(), n.get()));
+            }
+            _ => {}
+        }
         st.law.set(c);
         st.events.push(PolicyEvent::Changed(PolicyChanged {
             lever: c.lever,
@@ -1209,6 +1266,14 @@ pub(crate) fn apply_due(world: &mut World, today: Date) {
     world.set_law(law);
     world.budget_refresh_pay();
     world.levers_refresh_params();
+    #[cfg(feature = "trade")]
+    for (lever, old, new) in one_off {
+        if lever == LeverId::FxDevaluation {
+            world.fx_devalue(i32::try_from(new).unwrap_or(0));
+        } else {
+            world.fx_oil_price(old, new);
+        }
+    }
 }
 
 /// The hand-written rule structs the mechanics read, filled from the law in

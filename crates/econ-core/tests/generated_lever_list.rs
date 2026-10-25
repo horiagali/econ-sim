@@ -54,6 +54,7 @@ pub const LEVERS: &[(&str, &str)] = &[
     ("money.monetary_financing", "alpha"),
     ("fx.regime", "alpha"),
     ("fx.intervention", "alpha"),
+    ("fx.devaluation", "alpha"),
     ("informal.inspection_budget", "alpha"),
     ("informal.audit_budget", "alpha"),
     ("informal.penalty_multiple", "alpha"),

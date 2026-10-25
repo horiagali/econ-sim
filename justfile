@@ -120,6 +120,10 @@ ac-stubs spec prefix out:
 mutants crate:
     cargo mutants -p {{crate}}
 
+# The policy suite's mutation check (AC-POL-11): each sign mutant MUT-1..3 must fail its scenario at 1:1000 (needs cargo-mutants)
+policy-mutants *which:
+    {{python}} scripts/policy_mutants.py {{which}}
+
 # Data pipeline unit tests (offline)
 pipeline-test:
     {{python}} -m unittest discover -s python/pipeline/tests

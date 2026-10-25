@@ -258,6 +258,9 @@ pub struct StartState {
     /// Each industry's imported refined petroleum over its imported inputs,
     /// millionths (spec economy/excise).
     pub fuel_import_ppm: Vec<u32>,
+    /// Each industry's imported oil (crude and refined petroleum) over its
+    /// imported inputs, millionths (`world.fuel_price[oil]`).
+    pub oil_import_ppm: Vec<u32>,
     edits: Vec<StartEdit>,
 }
 

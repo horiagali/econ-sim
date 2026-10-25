@@ -714,6 +714,19 @@
       "status": "active"
     },
     {
+      "id": "fx.devaluation",
+      "label": "lever.fx.devaluation",
+      "group": "trade",
+      "shape": "rate",
+      "unit": "% (> 0: the leu weaker), a one-off step",
+      "range": [
+        -5000,
+        5000
+      ],
+      "milestone": "alpha",
+      "status": "active"
+    },
+    {
       "id": "informal.inspection_budget",
       "label": "lever.informal.inspection_budget",
       "group": "taxes",
@@ -781,10 +794,14 @@
         1000000
       ],
       "milestone": "alpha",
-      "status": "planned",
+      "status": "active",
       "key": "fuels",
       "keys": [
         "oil",
+        "gas",
+        "coal"
+      ],
+      "planned_keys": [
         "gas",
         "coal"
       ]

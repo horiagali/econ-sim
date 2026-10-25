@@ -178,7 +178,7 @@ The levers' values are the shape's integers: rates in basis points, money in ban
 | The current account improves after the J-curve | current account, % of GDP | 13–24 | 0 to +3 | watched | E12 |
 
 **Channels.** Import prices in lei are the euro price times $e/e_0$, so they rise at once. Import shares and export volumes adjust monthly (Armington, `share_adjustment`). Domestic prices rise through imported inputs and the household basket. A better current account then pulls the leu back a little ($\gamma_2$ term).
-**Status today.** **Blocked:** there is no lever for a step of the rate. `fx.regime` and `fx.intervention` are `planned`, and an intervention amount has no rule for how far it moves $e$ ([trade & FX](../economy/trade-fx.md) is locked). Until the lever exists, AC-TFX-04's world-price edit (every euro price ×1.1) gives the same import prices and export demand and can stand in.
+**Status today.** *Wired 2026-10-25:* `fx.devaluation` is `active` ([trade & FX](../economy/trade-fx.md), amendment of 2026-10-25). *Before:* **Blocked:** there is no lever for a step of the rate. `fx.regime` and `fx.intervention` are `planned`, and an intervention amount has no rule for how far it moves $e$ ([trade & FX](../economy/trade-fx.md) is locked). Until the lever exists, AC-TFX-04's world-price edit (every euro price ×1.1) gives the same import prices and export demand and can stand in.
 
 ### S7 Minimum-wage rise (AC-POL-07)
 **Commands.** `labour.minimum_wage` 230,000 → 300,000 bani (2,300 → 3,000 lei, +30%: the 2023 level, about 69% of the starting median), effective T0.
@@ -218,20 +218,20 @@ The levers' values are the shape's integers: rates in basis points, money in ban
 | Real GDP is lower | `gdp_real`, flow % | 6–18 | −2 to 0 | watched | E16 |
 
 **Channels (proposed wiring).** Fuel is an ordinary import today ([energy](../economy/energy.md) comes in M12). Proposed for M4: the oil setting scales the euro price of the imported variants of `crude_oil` and `refined_petroleum` by its ratio to the starting value. Refining, transport and households then pay more through unit cost and the basket. The excise is per unit, so the pump price rises by less than crude in percent.
-**Status today.** **Blocked:** `world.fuel_price` is `planned`, and no mechanic reads a fuel price (lever-system table: "gap"). The world-price table holds a euro price per good, so wiring the oil key to two goods is small. Gas and coal wait for M12.
+**Status today.** *Wired 2026-10-25:* the oil key is `active` and scales the euro price of `crude_oil` and `refined_petroleum`; imported inputs pay oil's price on their oil share (trade & FX, amendment of 2026-10-25); gas and coal are `planned_keys`. *Before:* **Blocked:** `world.fuel_price` is `planned`, and no mechanic reads a fuel price (lever-system table: "gap"). The world-price table holds a euro price per good, so wiring the oil key to two goods is small. Gas and coal wait for M12.
 
 ### Summary
 | # | Scenario | Command (T0 = 1 Mar 2022) | Headline checked expectation | Status today |
 |---|---|---|---|---|
-| S1 | Rate hike | `money.policy_rate` +2 points | leu stronger in months 1–3; CPI 0.2–6% lower in months 12–24; unemployment higher | blocked (lever planned) |
+| S1 | Rate hike | `money.policy_rate` +2 points | leu stronger in months 1–3; CPI 0.2–6% lower in months 12–24; unemployment higher | wired (2026-10-25) |
 | S2 | Income-tax cut | `tax.income.schedule` 10% → 5% | income-tax revenue −25 to −65%; consumption +0.2 to +4% | ready |
 | S3 | VAT rise | `tax.vat.rate_standard` 19% → 24% | CPI +1 to +6% once; inflation back within 1.5 points in months 14–24 | ready |
 | S4 | Deficit spending | education and health +6 bn lei a year each | deficit +0.3 to +1.1% of GDP; real GDP +0.1 to +2% | ready |
-| S5 | Monetary financing | `money.monetary_financing` 8 bn lei a month, 24 months | expected inflation up; credibility down; CPI +0.5 to +25% | blocked (lever planned) |
-| S6 | Devaluation | leu −10% (lever to be decided) | CPI +0.5 to +6%; exports +1 to +12% | blocked (no lever) |
+| S5 | Monetary financing | `money.monetary_financing` 8 bn lei a month, 24 months | expected inflation up; credibility down; CPI +0.5 to +25% | wired (2026-10-25) |
+| S6 | Devaluation | `fx.devaluation` 1000 (leu −10%) | CPI +0.5 to +6%; exports +1 to +12% | wired (2026-10-25) |
 | S7 | Minimum wage | `labour.minimum_wage` 2,300 → 3,000 lei | mean wage +1.5 to +12%; CPI +0.2 to +5% | ready |
 | S8 | Pension rise | `transfer.pension.point_value` +10% | pension bill +6 to +10.5%; consumption +0.3 to +3% | ready |
-| S9 | Oil shock | `world.fuel_price[oil]` +50% | CPI +0.2 to +4%; current account worse | blocked (lever planned, no reader) |
+| S9 | Oil shock | `world.fuel_price[oil]` +50% | CPI +0.2 to +4%; current account worse | wired (2026-10-25, oil only) |
 
 ## Three scales
 The scales are those of CI's `scales` job: **1:1000, 1:100 and 1:10**. Each scale runs the baseline, the placebo and the nine scenarios: eleven runs of 39 months. At 1:1000 and 1:100 they run in the `scales` job on every PR that touches `crates/`. That is about 0.5 minutes at 1:1000 and 2–4 at 1:100 with M3's speed, measured when the suite exists. The 1:10 runs are `#[ignore]`d and run nightly, like AC-WLD-10's 1:10 run. A run at any scale must also keep invariants I-1 to I-8 and person conservation every day, as every `[sim]` test does.

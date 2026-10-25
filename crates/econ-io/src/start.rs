@@ -290,6 +290,18 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     // inputs (spec economy/excise, step 2).
     let mut fuel_import_ppm = vec![0u32; n_i];
     let c19 = codes.iter().position(|c| c == "C19");
+    // Each industry's imported oil (crude and refined) over its imported
+    // inputs, for `world.fuel_price[oil]` (owner's decision of 2026-10-25):
+    // the oil part of an imported product is the output share of
+    // `crude_oil` and `refined_petroleum` in it, except that refining's
+    // imported mining products count whole as crude.
+    let mut oil_import_ppm = vec![0u32; n_i];
+    let oil_of = |id: &str| industry_id.iter().position(|x| x == id);
+    let (crude_c, refined_c) = (oil_of("crude_oil"), oil_of("refined_petroleum"));
+    let oil_share: Vec<i128> = (0..n_t)
+        .map(|t| crude_c.map_or(0, |c| share[t][c]) + refined_c.map_or(0, |c| share[t][c]))
+        .collect();
+    let mining = codes.iter().position(|c| c == "B");
     // The product-tax rate is net of the starting fuel duty, which excise
     // now charges (spec economy/government-revenue-2021, part 1): the
     // excise spec's duty on refined petroleum's share of each industry's C19
@@ -307,6 +319,7 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
         let (mut imported, mut other) = (0i128, 0i128);
         let (mut bought, mut ptax, mut d29) = (0i128, 0i128, 0i128);
         let mut fuel_imp = 0i128;
+        let mut oil_imp = 0i128;
         let mut fuel_duty = 0i128;
         let exempt = FUEL_EXEMPT.contains(&industry_id[c].as_str());
         for t in 0..n_t {
@@ -325,6 +338,12 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
                     }
                 }
                 imported += s * (imports_eu[t2][t] + imports_non_eu[t2][t]);
+                let oil = if Some(t) == c19 && Some(t2) == mining {
+                    ONE
+                } else {
+                    oil_share[t2]
+                };
+                oil_imp += s * (imports_eu[t2][t] + imports_non_eu[t2][t]) * oil / ONE;
             }
             other += s * (other_taxes[t] + product_taxes[t]);
             ptax += s * product_taxes[t];
@@ -348,6 +367,7 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
         production_tax_ppm[c] = ppm(rdiv(d29 * ONE, out_c[c]));
         if imported > 0 {
             fuel_import_ppm[c] = ppm(rdiv(fuel_imp * ONE, imported));
+            oil_import_ppm[c] = ppm(rdiv(oil_imp * ONE, imported));
         }
         for c2 in 0..n_i {
             home_coefficient_ppm[c][c2] = ppm(rdiv(home[c2], out_c[c]));
@@ -469,6 +489,7 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     s.product_tax_ppm = product_tax_ppm;
     s.production_tax_ppm = production_tax_ppm;
     s.fuel_import_ppm = fuel_import_ppm;
+    s.oil_import_ppm = oil_import_ppm;
     // The product taxes on investment and inventories over their value.
     let pt_final = |use_: &str| -> Result<i128, SaveError> {
         io["product_taxes_final"][use_]

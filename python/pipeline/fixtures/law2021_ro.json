@@ -223,6 +223,7 @@
   "money.monetary_financing": 0,
   "fx.regime": "managed_float",
   "fx.intervention": 0,
+  "fx.devaluation": 0,
   "informal.inspection_budget": 35000000000,
   "informal.audit_budget": 80000000000,
   "informal.penalty_multiple": 10,
@@ -807,6 +808,14 @@
     "unit": "bani (lei a month (buy foreign currency > 0))",
     "what": "no player amount beyond the managed-float rule",
     "source": "docs/02-design/game/lever-system.md",
+    "confidence": "high"
+   },
+   {
+    "id": "fx.devaluation",
+    "value": 0,
+    "unit": "basis points (% (> 0: the leu weaker), a one-off step)",
+    "what": "no devaluation: the exchange rate moves only by the managed-float rule",
+    "source": "docs/02-design/economy/trade-fx.md",
     "confidence": "high"
    },
    {
