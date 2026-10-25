@@ -395,15 +395,27 @@ fn assert_rejected(
 /// `20,000 lei`. No committed lever is `retired`, and the choice levers are
 /// keyed by scenario tables or planned, so `retired` and `bad_option` use
 /// the committed registry with one lever's status changed (a `Registry` is
-/// plain data). "State and log are unchanged": on a world, each rejected
-/// order leaves the state hash, the pending list and the command log as
-/// they were.
+/// plain data). The planned lever is read from the committed registry at
+/// run time (its first unkeyed `planned` entry), so wiring a lever does not
+/// break this test (restated 2026-10-25: it named `money.policy_rate`, which
+/// M4 group 8 made active); if no lever is planned any more, one lever is
+/// made planned in the copy, and the world part has no `not_yet` case.
+/// "State and log are unchanged": on a world, each rejected order leaves the
+/// state hash, the pending list and the command log as they were.
 #[test]
 fn ac_lev_03() {
     use LeverId as L;
     use LeverValue as V;
     let base = registry();
     let today = date(2021, 12, 10);
+    // A planned lever of the committed registry, or one made planned in the
+    // copy once every lever is wired.
+    let committed_planned = base
+        .levers
+        .iter()
+        .find(|m| m.status == Status::Planned && m.key.is_none())
+        .map(|m| m.id);
+    let planned = committed_planned.unwrap_or(L::TaxProfitMicroThreshold);
     let mut reg = base.clone();
     for m in &mut reg.levers {
         if m.id == L::TaxProfitRate {
@@ -412,7 +424,11 @@ fn ac_lev_03() {
         if m.id == L::TransferPensionIndexation {
             m.status = Status::Active;
         }
+        if m.id == planned {
+            m.status = Status::Planned;
+        }
     }
+    let planned_value = in_range(reg.get(planned));
     let check = |order: Order, code: RejectCode, lever: Option<LeverId>, what: &str| {
         assert_rejected(validate(&reg, &order, today, &[]), code, lever, what)
     };
@@ -460,11 +476,10 @@ fn ac_lev_03() {
         Some(L::TaxProfitRate),
         "a retired lever",
     );
-    assert_eq!(base.get(L::MoneyPolicyRate).status, Status::Planned);
     check(
-        set(L::MoneyPolicyRate, None, V::Rate(200)),
+        set(planned, None, planned_value.clone()),
         RejectCode::NotYet,
-        Some(L::MoneyPolicyRate),
+        Some(planned),
         "a planned lever",
     );
 
@@ -608,11 +623,12 @@ fn ac_lev_03() {
     let pending = w.pending().to_vec();
     let log = w.command_log().to_vec();
     let events = w.events().len();
-    for (order, code) in [
-        (
-            set(L::MoneyPolicyRate, None, V::Rate(200)),
-            RejectCode::NotYet,
-        ),
+    let mut cases = Vec::new();
+    if let Some(lever) = committed_planned {
+        assert_eq!(w.registry().get(lever).status, Status::Planned);
+        cases.push((set(lever, None, planned_value), RejectCode::NotYet));
+    }
+    cases.extend([
         (
             set(L::TaxVatRateStandard, None, V::Money(Bani(1))),
             RejectCode::WrongShape,
@@ -641,7 +657,8 @@ fn ac_lev_03() {
             },
             RejectCode::NothingToCancel,
         ),
-    ] {
+    ]);
+    for (order, code) in cases {
         let r = w.give(order).expect_err("rejected on the world");
         assert_eq!(r.code, code, "{}", r.message);
         assert_eq!(
@@ -666,6 +683,21 @@ fn ac_lev_03() {
     }
 }
 
+/// A value of a lever's shape inside its range (its bottom; a choice's
+/// first option).
+fn in_range(meta: &econ_core::levers::LeverMeta) -> LeverValue {
+    let lo = meta.range.map_or(0, |(lo, _)| lo);
+    let rate = || i32::try_from(lo).expect("a rate fits i32");
+    match meta.shape {
+        Shape::Rate => LeverValue::Rate(rate()),
+        Shape::Money => LeverValue::Money(Bani(lo)),
+        Shape::Number => LeverValue::Number(lo),
+        Shape::Choice => LeverValue::Choice(0),
+        Shape::Flag => LeverValue::Flag(false),
+        Shape::Schedule => LeverValue::Schedule(vec![(Bani::ZERO, rate())]),
+    }
+}
+
 /// The lever of a `Set`.
 fn order_lever(order: &Order) -> LeverId {
     match order {
@@ -680,9 +712,10 @@ fn order_lever(order: &Order) -> LeverId {
 /// earlier one is `too_early`.
 ///
 /// Readings: `min_lag` is shown on a copy of the VAT standard rate's entry
-/// with `min_lag_months = 1` (no committed lever has one). The committed
-/// `market` lever (`money.policy_rate`) is planned, so the validation part
-/// uses the registry with it made active.
+/// with `min_lag_months = 1` (no committed lever has one). The validation
+/// part uses a copy of the registry with the `market` lever
+/// `money.policy_rate` made active, so it holds whatever its committed
+/// status.
 #[test]
 fn ac_lev_04() {
     use LeverId as L;
