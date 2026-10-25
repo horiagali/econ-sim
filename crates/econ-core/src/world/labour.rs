@@ -668,5 +668,13 @@ impl World {
                 *w = raise(*w, growth[g]).max(minimum);
             }
         }
+        // `transfer.pension.indexation` under `law.json`: by the year's
+        // prices or the round's mean wage growth across industry groups.
+        #[cfg(feature = "levers")]
+        {
+            let n = i64::try_from(growth.len().max(1)).unwrap_or(1);
+            let mean = growth.iter().map(|&g| i64::from(g)).sum::<i64>() / n;
+            self.pension_indexation(i32::try_from(mean).unwrap_or(0));
+        }
     }
 }

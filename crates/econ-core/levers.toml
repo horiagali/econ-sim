@@ -441,7 +441,7 @@ glossary = "new_issue_years"
 reader = "MonthlyClose"
 group = "spending"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.spend.new_issue_years"
 
 [[lever]]
@@ -499,7 +499,7 @@ glossary = "pension_indexation"
 reader = "WageRound"
 group = "transfers"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.transfer.pension.indexation"
 
 [[lever]]

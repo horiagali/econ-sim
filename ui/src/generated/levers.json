@@ -420,7 +420,7 @@
         30
       ],
       "milestone": "alpha",
-      "status": "planned"
+      "status": "active"
     },
     {
       "id": "transfer.pension.point_value",
@@ -474,7 +474,7 @@
       "unit": "rule",
       "range": null,
       "milestone": "alpha",
-      "status": "planned",
+      "status": "active",
       "options": [
         "none",
         "prices",
