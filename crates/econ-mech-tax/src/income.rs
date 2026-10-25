@@ -167,6 +167,42 @@ pub fn tax_wage(
     t: &LabourTaxes,
     over: Option<&IndustryOverride>,
 ) -> WageTax {
+    tax_wage_with(wage, declared, dependants, t, over, &WageLevers::NONE)
+}
+
+/// The levers of the law in force on a wage beyond [`LabourTaxes`] (spec
+/// `game/lever-system`, the tax levers of M4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WageLevers {
+    /// `contribution_ceiling`: the declared wage a month above which no CAS
+    /// or CASS is due; zero for none.
+    pub contribution_ceiling: Bani,
+    /// The income tax credit of the wage: `child_tax_credit` times the
+    /// children the earner claims; it lowers the income tax, never below
+    /// zero.
+    pub tax_credit: Bani,
+}
+
+impl WageLevers {
+    /// No ceiling and no credit (the law of 2021).
+    pub const NONE: WageLevers = WageLevers {
+        contribution_ceiling: Bani::ZERO,
+        tax_credit: Bani::ZERO,
+    };
+}
+
+/// [`tax_wage`] under the wage levers: CAS and CASS on the declared wage up
+/// to the contribution ceiling (the override's part first), the income tax
+/// less the credit. With [`WageLevers::NONE`] it is [`tax_wage`].
+#[must_use]
+pub fn tax_wage_with(
+    wage: Bani,
+    declared: Bani,
+    dependants: u8,
+    t: &LabourTaxes,
+    over: Option<&IndustryOverride>,
+    levers: &WageLevers,
+) -> WageTax {
     if declared <= Bani::ZERO {
         return WageTax {
             cas_public: Bani::ZERO,
@@ -185,21 +221,39 @@ pub fn tax_wage(
         ),
         None => (Bani::ZERO, declared),
     };
+    // Each part's base for CAS and CASS: the ceiling takes the override's
+    // part first.
+    let ceiling = levers.contribution_ceiling;
+    let (own_base, general_base) = if ceiling > Bani::ZERO {
+        let o = own.min(ceiling);
+        (o, general.min(ceiling - o))
+    } else {
+        (own, general)
+    };
     let (own_cas, own_cass) = over.map_or((0, 0), |o| (o.cas_bp, o.cass_bp));
-    let cas = from_bp(times_bp(own, own_cas).saturating_add(times_bp(general, t.cas_bp)));
-    let cas_pillar2 = from_bp(times_bp(declared, t.pillar2_bp)).min(cas);
-    let cass = from_bp(times_bp(own, own_cass).saturating_add(times_bp(general, t.cass_bp)));
+    let cas = from_bp(times_bp(own_base, own_cas).saturating_add(times_bp(general_base, t.cas_bp)));
+    let pillar2_base = if ceiling > Bani::ZERO {
+        declared.min(ceiling)
+    } else {
+        declared
+    };
+    let cas_pillar2 = from_bp(times_bp(pillar2_base, t.pillar2_bp)).min(cas);
+    let cass =
+        from_bp(times_bp(own_base, own_cass).saturating_add(times_bp(general_base, t.cass_bp)));
     // Income after each part's own contributions (rounded per part only to
     // place the deduction; the tax is rounded once).
-    let after = |part: Bani, cas_bp: u32, cass_bp: u32| {
-        part - from_bp(times_bp(part, cas_bp)) - from_bp(times_bp(part, cass_bp))
+    let after = |part: Bani, base: Bani, cas_bp: u32, cass_bp: u32| {
+        part - from_bp(times_bp(base, cas_bp)) - from_bp(times_bp(base, cass_bp))
     };
     let own_rate = over.and_then(|o| o.income_rate_bp);
-    let (mut by_schedule, mut flat_part) = (after(general, t.cas_bp, t.cass_bp), Bani::ZERO);
+    let (mut by_schedule, mut flat_part) = (
+        after(general, general_base, t.cas_bp, t.cass_bp),
+        Bani::ZERO,
+    );
     if own_rate.is_some() {
-        flat_part = after(own, own_cas, own_cass);
+        flat_part = after(own, own_base, own_cas, own_cass);
     } else {
-        by_schedule += after(own, own_cas, own_cass);
+        by_schedule += after(own, own_base, own_cas, own_cass);
     }
     let deduction = personal_deduction(declared, dependants, &t.deduction);
     let used = deduction.min(by_schedule.max(Bani::ZERO));
@@ -210,6 +264,7 @@ pub fn tax_wage(
             .tax_bp(by_schedule)
             .saturating_add(times_bp(flat_part, own_rate.unwrap_or(0))),
     );
+    let income_tax = (income_tax - levers.tax_credit.max(Bani::ZERO)).max(Bani::ZERO);
     WageTax {
         cas_public: cas - cas_pillar2,
         cas_pillar2,

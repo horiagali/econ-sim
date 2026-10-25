@@ -66,6 +66,8 @@ impl FlowCode {
     pub const TAX_MICRO: FlowCode = FlowCode(3008);
     /// The tax on dividends, withheld by the paying unit.
     pub const TAX_DIVIDEND: FlowCode = FlowCode(3009);
+    /// The tax on households' deposit interest, withheld by the banks.
+    pub const TAX_INTEREST: FlowCode = FlowCode(3010);
     /// Excise duties on fuel, tobacco and alcohol.
     pub const TAX_EXCISE: FlowCode = FlowCode(3011);
     /// Taxes on products that firms pay on their inputs and investment.
@@ -76,6 +78,9 @@ impl FlowCode {
     pub const TAX_PROPERTY: FlowCode = FlowCode(3014);
     /// The tax on gambling winnings.
     pub const TAX_GAMBLING: FlowCode = FlowCode(3015);
+    /// The tax on households' net worth above a threshold (a lever; none in
+    /// 2021).
+    pub const TAX_WEALTH: FlowCode = FlowCode(3016);
     // 4xxx — social transfers (numbering of spec `economy/budget-2021`)
     /// Old-age and survivors' pensions.
     pub const BENEFIT_PENSION: FlowCode = FlowCode(4001);
@@ -135,7 +140,7 @@ impl FlowCode {
 
     /// Every code the ledger knows, in ascending order. A new code is added here
     /// and in [`FlowCode::name`] in the same change.
-    pub const ALL: [FlowCode; 55] = [
+    pub const ALL: [FlowCode; 57] = [
         Self::CONSUMPTION,
         Self::GOV_PURCHASES,
         Self::GOV_INVESTMENT,
@@ -161,11 +166,13 @@ impl FlowCode {
         Self::TAX_PROFIT,
         Self::TAX_MICRO,
         Self::TAX_DIVIDEND,
+        Self::TAX_INTEREST,
         Self::TAX_EXCISE,
         Self::TAX_PRODUCTS,
         Self::TAX_PRODUCTION,
         Self::TAX_PROPERTY,
         Self::TAX_GAMBLING,
+        Self::TAX_WEALTH,
         Self::BENEFIT_PENSION,
         Self::BENEFIT_DISABILITY,
         Self::BENEFIT_FAMILY,
@@ -228,11 +235,13 @@ impl FlowCode {
             3007 => "tax.profit",
             3008 => "tax.micro",
             3009 => "tax.dividend",
+            3010 => "tax.interest",
             3011 => "tax.excise",
             3012 => "tax.products",
             3013 => "tax.production",
             3014 => "tax.property",
             3015 => "tax.gambling",
+            3016 => "tax.wealth",
             4001 => "benefit.pension",
             4002 => "benefit.disability",
             4003 => "benefit.family",

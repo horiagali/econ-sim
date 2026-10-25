@@ -84,7 +84,7 @@ glossary = "child_tax_credit"
 reader = "Pay"
 group = "taxes"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.tax.income.credit_per_child"
 
 [[lever]]
@@ -112,7 +112,7 @@ glossary = "dividend_tax_rate"
 reader = "MonthlyClose"
 group = "taxes"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.tax.capital.dividend_rate"
 
 [[lever]]
@@ -126,7 +126,7 @@ glossary = "interest_tax_rate"
 reader = "MonthlyClose"
 group = "taxes"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.tax.capital.interest_rate"
 
 [[lever]]
@@ -309,7 +309,7 @@ glossary = "contribution_ceiling"
 reader = "Pay"
 group = "taxes"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.tax.contrib.ceiling"
 
 [[lever]]
@@ -323,7 +323,7 @@ glossary = "property_tax_rate"
 reader = "MonthlyClose"
 group = "taxes"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.tax.property.rate"
 
 [[lever]]
@@ -337,7 +337,7 @@ glossary = "wealth_tax_threshold"
 reader = "MonthlyClose"
 group = "taxes"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.tax.wealth.threshold"
 
 [[lever]]
@@ -351,7 +351,7 @@ glossary = "wealth_tax_rate"
 reader = "MonthlyClose"
 group = "taxes"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.tax.wealth.rate"
 
 [[lever]]
@@ -367,7 +367,7 @@ glossary = "excise_duty[g]"
 reader = "GoodsMarket"
 group = "taxes"
 milestone = "alpha"
-status = "planned"
+status = "active"
 label = "lever.tax.excise.duty"
 
 [[lever]]
