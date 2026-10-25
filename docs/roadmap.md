@@ -4,7 +4,7 @@ title: Roadmap
 status: draft
 owner: horia
 depends_on: [vision/scope]
-updated: 2026-10-22
+updated: 2026-10-25
 ---
 
 # Roadmap
@@ -237,7 +237,7 @@ Spec: [lever system](02-design/game/lever-system.md).
 - [ ] **Lever system:** every lever and world setting is a typed command with validation, range, effective date and lag; commands are logged and replayable (ADR-0011); a lever registry generated from the specs so the UI and the tests share one list.
 - [ ] **Pay and job choice** (owner, 2026-10-22; [labour market](02-design/economy/labor-market.md)): hiring and quits respond to a unit's pay against the market, with job-to-job moves, so the public pay lever bites. Ministry budgets with a running and an investment part for every line; a wage bill above the running part freezes hiring.
 - [ ] Wire every lever tagged `alpha` in D2 to its mechanic. Since 2026-10-10 that includes three tools against the informal economy (labour inspection budget, tax audit budget, penalties), with a first version of detection: taxes are computed on declared amounts from the start (M3), because the starting state carries the split.
-- [ ] **Policy-scenario test suite** (qualitative: direction, rough size, timing): rate hike, income-tax cut, VAT rise, deficit spending, monetary financing, devaluation, minimum-wage rise, pension rise, oil-price shock. One test file per scenario, written tests-first. Every later milestone adds its own scenarios to this suite.
+- [ ] **Policy-scenario test suite** (qualitative: direction, rough size, timing): rate hike, income-tax cut, VAT rise, deficit spending, monetary financing, devaluation, minimum-wage rise, pension rise, oil-price shock. One test file per scenario, written tests-first. Every later milestone adds its own scenarios to this suite. Spec: [policy scenarios](02-design/game/policy-scenarios.md).
 - [ ] Headless "play" from a command file: scenario plus dated lever changes in, time series out.
 
 **Exit:** each scenario test passes at three scales; a mutated rule (wrong sign) makes at least one of them fail.
