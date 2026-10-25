@@ -4,7 +4,7 @@ title: Roadmap
 status: draft
 owner: horia
 depends_on: [vision/scope]
-updated: 2026-10-22
+updated: 2026-10-25
 ---
 
 # Roadmap
@@ -237,7 +237,7 @@ Spec: [lever system](02-design/game/lever-system.md).
 - [ ] **Lever system:** every lever and world setting is a typed command with validation, range, effective date and lag; commands are logged and replayable (ADR-0011); a lever registry generated from the specs so the UI and the tests share one list.
 - [ ] **Pay and job choice** (owner, 2026-10-22; [labour market](02-design/economy/labor-market.md)): hiring and quits respond to a unit's pay against the market, with job-to-job moves, so the public pay lever bites. Ministry budgets with a running and an investment part for every line; a wage bill above the running part freezes hiring.
 - [ ] Wire every lever tagged `alpha` in D2 to its mechanic. Since 2026-10-10 that includes three tools against the informal economy (labour inspection budget, tax audit budget, penalties), with a first version of detection: taxes are computed on declared amounts from the start (M3), because the starting state carries the split. **Owner, 2026-10-24:** the three informal levers move to M15 with detection (its criteria AC-INF-01 to 09 have no tests yet); with them, `transfer.pension.retirement_age` and `world.wages_abroad` wait for M5 and `world.fuel_price` for the energy mechanic. AC-LEV-14 covers the other 52 alpha levers.
-- [ ] **Policy-scenario test suite** (qualitative: direction, rough size, timing): rate hike, income-tax cut, VAT rise, deficit spending, monetary financing, devaluation, minimum-wage rise, pension rise, oil-price shock. One test file per scenario, written tests-first. Every later milestone adds its own scenarios to this suite.
+- [ ] **Policy-scenario test suite** (qualitative: direction, rough size, timing): rate hike, income-tax cut, VAT rise, deficit spending, monetary financing, devaluation, minimum-wage rise, pension rise, oil-price shock. One test file per scenario, written tests-first. Every later milestone adds its own scenarios to this suite. Spec: [policy scenarios](02-design/game/policy-scenarios.md).
 - [ ] Headless "play" from a command file: scenario plus dated lever changes in, time series out.
 
 **Exit:** each scenario test passes at three scales; a mutated rule (wrong sign) makes at least one of them fail.
@@ -303,6 +303,7 @@ Specs: [production](02-design/economy/production.md), [state-enterprises](02-des
 - [ ] **Innovation** (owner, 2026-10-22): a firm can spend on research and its own efficiency, among its surplus choices; productivity rises with a lag and uncertainty. Replaces the calibrated productivity growth for firms that do it.
 - [ ] Levers: nationalise, privatise, bail out a named firm, directives; all subsidy kinds (production, investment, wage, consumer); price caps with shortages; research grants and an R&D tax credit.
 - [ ] Industry and supply-chain views; company pages.
+- [ ] **A stock index like the BET** (owner, 2026-10-25): an index of the largest named companies, weighted like the Bucharest Stock Exchange's BET, shown as a chart of how the top companies are doing. First version: a visual only, from their profits and value (no trading); with the stock exchange above, it follows share prices.
 
 **Exit:** nationalising a firm moves equity through the ledger at the right value; a price cap below cost produces a shortage that the "why" panel names.
 
