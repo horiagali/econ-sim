@@ -102,6 +102,19 @@ levers = [
     "econ-io/levers",
     "econ-mech-labour/pay_choice",
 ]
+# The policy-scenario suite (spec game/policy-scenarios, AC-POL-*): the
+# harness, the baseline and placebo runs, and the scenarios whose levers are
+# active today (S2, S3, S4, S7, S8), the three-scale and mutation criteria.
+# Test writer's addition (ADR-0014); the implementation adds it to `default`
+# once they pass.
+policy = ["levers", "trade", "monetary"]
+# One per scenario whose lever is not wired yet (S1, S5, S6, S9): it turns on
+# that scenario's test and includes the scenario in AC-POL-10 and 11. The PR
+# that wires the lever adds its feature to `default`.
+lever_policy_rate = ["policy"]
+lever_monetary_financing = ["policy"]
+lever_fx_devaluation = ["policy"]
+lever_fuel_price = ["policy"]
 
 [[test]]
 name = "acceptance"
