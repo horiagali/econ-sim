@@ -21,7 +21,7 @@ use econ_mech_banking::{Rates, capital_ratio_ppm, credit_room, month_interest, r
 use econ_types::{Bani, Day};
 
 use super::World;
-use super::money::{Postings, bani};
+use super::money::{Postings, bani, ratio};
 
 /// The banks' state after the latest day. Money in bani; per-unit columns
 /// aligned with [`super::FirmUnitColumns`] (a unit's amounts are already
@@ -354,17 +354,31 @@ impl World {
         let r = self.bk.view.rates;
         let mut post = Postings::default();
         // Households: interest on their loans, out of deposits then cash;
-        // on their deposits, as income of the month.
+        // on their deposits, as income of the month, less the tax the banks
+        // withhold at `interest_tax_rate` (spec economy/taxation step 10).
+        let tax_bp = self
+            .law
+            .income
+            .as_ref()
+            .map_or(0, |l| i128::from(l.interest_bp));
         let (mut hh_paid_dep, mut hh_paid_cash, mut hh_got) = (0i128, 0i128, 0i128);
+        let mut hh_tax = 0i128;
         for h in 0..self.households.hh_weight.len() {
             let w = i128::from(self.households.hh_weight[h]);
             let v = &mut self.bk.view;
             let due = month_interest(v.hh_mortgage[h], r.mortgage_ppm)
                 + month_interest(v.hh_consumer_debt[h], r.consumer_ppm);
-            let got = month_interest(
+            let gross = month_interest(
                 self.households.hh_deposits[h].max(Bani::ZERO),
                 r.deposit_ppm,
             );
+            let tax = if tax_bp > 0 && gross > Bani::ZERO {
+                ratio(i128::from(gross.get()), tax_bp, 10_000)
+            } else {
+                0
+            };
+            hh_tax += w * tax;
+            let got = gross - bani(tax);
             v.hh_interest_received[h] = got;
             let hh = &mut self.households;
             hh.hh_deposits[h] += got;
@@ -386,6 +400,21 @@ impl World {
             Instrument::Deposits,
             bani(hh_got),
             FlowCode::INTEREST_DEPOSIT,
+        );
+        // The tax withheld: the banks pay it to the government's account.
+        post.leg(
+            Sector::Banks,
+            Sector::CentralBank,
+            Instrument::Reserves,
+            bani(hh_tax),
+            FlowCode::TAX_INTEREST,
+        );
+        post.leg(
+            Sector::CentralBank,
+            Sector::Government,
+            Instrument::GovDepositsAtCb,
+            bani(hh_tax),
+            FlowCode::TAX_INTEREST,
         );
         post.leg(
             Sector::Households,

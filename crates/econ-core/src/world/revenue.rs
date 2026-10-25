@@ -45,6 +45,13 @@
 //! twelve-month inflation (never down). The consumer price is
 //! `(p + d)(1 + VAT)`, scaled so that the starting CPI is one.
 //!
+//! **The tax levers** (spec `game/lever-system`, M4): the duties are the
+//! law's `excise_duty[g]` (a change replaces the indexed duty); under the law
+//! of `law.json` the property tax is `property_tax_rate` on each owner's
+//! dwelling value instead of 2021's fixed total, and the wealth tax
+//! (`wealth_tax_rate` above `wealth_tax_threshold`, none in 2021) is paid at
+//! the month end.
+//!
 //! > **Simplification (M3):** the fuel duty stays inside firms' "other costs"
 //! > (where the input-output table put it), so starting prices do not move
 //! > and a change of the duty does not reach producer prices until the
@@ -127,13 +134,6 @@ enum Key {
 const PUPIL: u8 = 1;
 const STUDENT: u8 = 2;
 const INACTIVE_OTHER: u8 = 6;
-/// The starting excise duties, millionths of the starting price per unit
-/// (spec economy/excise, "Starting state").
-const DUTIES: [(&str, u32); 3] = [
-    ("refined_petroleum", 512_500),
-    ("tobacco", 2_030_400),
-    ("beverages", 71_200),
-];
 /// The industries whose fuel pays no duty (feedstock, jet fuel).
 const FUEL_EXEMPT: [&str; 4] = [
     "refined_petroleum",
@@ -199,6 +199,9 @@ pub(super) struct Revenue {
     real_estate: Option<usize>,
     /// Each owner household's key (its dwelling value); zero for others.
     rent_key: Vec<i128>,
+    /// Each household's dwelling value (zero when it does not own its home),
+    /// for its net worth.
+    dwelling: Vec<i128>,
     /// Each unit's net household spending on real estate this month and last.
     rent_month: Vec<i128>,
     rent_last: Vec<i128>,
@@ -312,6 +315,9 @@ impl World {
                 }
             })
             .collect();
+        r.dwelling = (0..n_h)
+            .map(|h| dwelling.get(h).map_or(0, |d| i128::from(d.get()).max(0)))
+            .collect();
         r.rent_month = vec![0; n_u];
         r.rent_last = vec![0; n_u];
         let n_i = self.industries.id.len();
@@ -333,15 +339,13 @@ impl World {
             .collect();
         r.fuel_import_ppm.clone_from(&s.fuel_import_ppm);
         let ids = &self.industries.id;
+        // `excise_duty[g]` of the law in force.
         r.duty_ppm = (0..n_i)
             .map(|j| {
                 if r.no_excise {
                     return 0;
                 }
-                DUTIES
-                    .iter()
-                    .find(|(id, _)| *id == ids[j])
-                    .map_or(0, |&(_, d)| d)
+                self.law.excise_duty_ppm.get(j).copied().unwrap_or(0)
             })
             .collect();
         r.fuel_exempt = (0..n_i)
@@ -537,6 +541,25 @@ impl World {
         self.rev.excise_today += duty;
         self.rev.excise_month[good] += duty;
         self.rev.day.unit_excise[u] += bani(duty);
+    }
+
+    /// A command changed the law: each good whose `excise_duty[g]` changed
+    /// takes the new duty in place of its indexed one.
+    #[cfg(feature = "levers")]
+    pub(super) fn rev_law_changed(&mut self, old: &super::Law) {
+        if !self.rev.active || self.rev.no_excise {
+            return;
+        }
+        let new = &self.law.excise_duty_ppm;
+        for j in 0..self.rev.duty_ppm.len() {
+            let d = new.get(j).copied().unwrap_or(0);
+            if old.excise_duty_ppm.get(j).copied().unwrap_or(0) != d {
+                self.rev.duty_ppm[j] = d;
+                if let Some(v) = self.rev.day.excise_duty_ppm.get_mut(j) {
+                    *v = d;
+                }
+            }
+        }
     }
 
     /// 1 January: every duty times one plus the twelve-month inflation of the
@@ -742,8 +765,14 @@ impl World {
             paid: bani(paid),
             shortfall: bani(due - paid),
         };
-        let due = Self::twelfth(PROPERTY, k);
-        let (by_hh, property) = self.households_pay(due, &owners);
+        let (due, by_hh, property) = match self.law.property_tax_bp {
+            Some(bp) => self.property_by_value(bp, k),
+            None => {
+                let due = Self::twelfth(PROPERTY, k);
+                let (by_hh, paid) = self.households_pay(due, &owners);
+                (due, by_hh, paid)
+            }
+        };
         post.pays_gov(Sector::Households, bani(property), FlowCode::TAX_PROPERTY);
         held.push(line(FlowCode::TAX_PROPERTY, due, property));
         let due = Self::twelfth(GAMBLING, k);
@@ -803,6 +832,76 @@ impl World {
         held.push(line(FlowCode::TRANSFER_CAPITAL_RECEIVED, due, capital));
         post.commit(&mut self.ledger);
         (held, by_hh.into_iter().map(bani).collect())
+    }
+
+    /// The property tax of month `k` of the year under `property_tax_rate`
+    /// (`bp` a year): each owner household's yearly tax is the rate on its
+    /// dwelling value (the median owner's when it has none recorded), paid a
+    /// twelfth a month (the remainder in the first months); none pays more
+    /// than its deposits, the rest falling short. Returns what was due in
+    /// all, each household's payment and what was paid in all.
+    fn property_by_value(&mut self, bp: u32, k: u32) -> (i128, Vec<i128>, i128) {
+        let n_h = self.households.hh_weight.len();
+        let mut parts = vec![0i128; n_h];
+        let (mut due, mut paid) = (0i128, 0i128);
+        for h in 0..n_h {
+            let key = self.rev.rent_key[h];
+            if key <= 0 {
+                continue;
+            }
+            let year = ratio(key, i128::from(bp), 10_000);
+            let a = year / 12 + i128::from(i128::from(k) < year % 12);
+            let w = i128::from(self.households.hh_weight[h]);
+            due += w * a;
+            let hh = &mut self.households;
+            let x = a.min(i128::from(hh.hh_deposits[h].get()).max(0));
+            if x > 0 {
+                hh.hh_deposits[h] -= bani(x);
+                paid += w * x;
+            }
+            parts[h] = x;
+        }
+        (due, parts, paid)
+    }
+
+    /// The wealth tax at the month end: `wealth_tax_rate` a year on each
+    /// household's net worth (cash, deposits and dwelling, less its loans)
+    /// above `wealth_tax_threshold`, a twelfth a month, none paying more than
+    /// its deposits (the rest is forgiven). Nothing when the rate is zero.
+    fn pay_wealth_tax(&mut self) {
+        let bp = i128::from(self.law.wealth_tax_bp);
+        if bp <= 0 {
+            return;
+        }
+        let threshold = i128::from(self.law.wealth_tax_threshold.get());
+        let n_h = self.households.hh_weight.len();
+        let mut paid = 0i128;
+        for h in 0..n_h {
+            let hh = &self.households;
+            let mut worth = i128::from(hh.hh_cash[h].get())
+                + i128::from(hh.hh_deposits[h].get())
+                + self.rev.dwelling[h];
+            #[cfg(feature = "banking")]
+            {
+                let b = self.bank();
+                worth -= b.hh_mortgage.get(h).map_or(0, |x| i128::from(x.get()));
+                worth -= b.hh_consumer_debt.get(h).map_or(0, |x| i128::from(x.get()));
+            }
+            let base = worth - threshold;
+            if base <= 0 {
+                continue;
+            }
+            let a = ratio(base, bp, 120_000);
+            let hh = &mut self.households;
+            let x = a.min(i128::from(hh.hh_deposits[h].get()).max(0));
+            if x > 0 {
+                hh.hh_deposits[h] -= bani(x);
+                paid += i128::from(hh.hh_weight[h]) * x;
+            }
+        }
+        let mut post = Postings::default();
+        post.pays_gov(Sector::Households, bani(paid), FlowCode::TAX_WEALTH);
+        post.commit(&mut self.ledger);
     }
 
     /// A unit bought inputs worth `value` today: its product tax.
@@ -914,6 +1013,7 @@ impl World {
         post.pays_gov(Sector::Firms, bani(total), FlowCode::TAX_PRODUCTION);
         post.commit(&mut self.ledger);
         let (held, property) = self.pay_held_revenue(k);
+        self.pay_wealth_tax();
         let eu = self.pay_eu_funds(u8::try_from(k).expect("a month"));
         let own_resources = i128::from(
             self.ledger

@@ -406,7 +406,29 @@ pub struct Law {
     /// Social transfers; `None` in M2's placeholder law (pensions are then
     /// paid at their starting amounts).
     pub transfers: Option<TransferLaw>,
+    /// `excise_duty[g]`: each catalogue industry's excise duty per unit,
+    /// millionths of its starting price (0 for a good without one; spec
+    /// `economy/excise`). A change takes the place of the indexed duty.
+    pub excise_duty_ppm: Vec<u32>,
+    /// `property_tax_rate`, basis points of the dwelling value a year. `None`:
+    /// M3's rule, 2021's yearly total shared equally by owner households
+    /// (spec `economy/government-revenue-2021`); the law of `law.json` has
+    /// the rate (spec `game/lever-system`).
+    pub property_tax_bp: Option<u32>,
+    /// `wealth_tax_threshold`: the household net worth above which the
+    /// wealth tax is due.
+    pub wealth_tax_threshold: Bani,
+    /// `wealth_tax_rate`, basis points a year (0: none, as in 2021).
+    pub wealth_tax_bp: u32,
 }
+
+/// The excise duties of 1 December 2021, millionths of the starting price per
+/// unit (spec `economy/excise`, "Starting state"): fuel, tobacco, alcohol.
+pub const EXCISE_2021: [(&str, u32); 3] = [
+    ("refined_petroleum", 512_500),
+    ("tobacco", 2_030_400),
+    ("beverages", 71_200),
+];
 
 /// The catalogue industries in the order of the firm-unit file, with the VAT
 /// category of their good on 1 December 2021 (spec `economy/vat`: 9% for
@@ -524,6 +546,18 @@ impl Law {
             minimum_wage: Bani::from_lei(2_300),
             income: None,
             transfers: None,
+            excise_duty_ppm: CATALOGUE_VAT
+                .iter()
+                .map(|&(id, _)| {
+                    EXCISE_2021
+                        .iter()
+                        .find(|&&(g, _)| g == id)
+                        .map_or(0, |&(_, d)| d)
+                })
+                .collect(),
+            property_tax_bp: None,
+            wealth_tax_threshold: Bani::ZERO,
+            wealth_tax_bp: 0,
         }
     }
 }
@@ -1036,7 +1070,11 @@ impl World {
 
     /// Replace the law the mechanics read (a command took effect).
     pub(crate) fn set_law(&mut self, law: Law) {
-        self.law = law;
+        let old = std::mem::replace(&mut self.law, law);
+        #[cfg(feature = "revenue")]
+        self.rev_law_changed(&old);
+        #[cfg(not(feature = "revenue"))]
+        let _ = old;
     }
 }
 

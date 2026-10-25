@@ -305,8 +305,18 @@ impl World {
         );
         self.fx.view.exchange_rate_ppm = s.rate_ppm;
         self.fx.view.reserves_floor = floor;
-        // Never sell more foreign assets than lie above the floor.
-        let intervention = s.intervention.min((reserves - floor).max(Bani::ZERO));
+        // Never sell more foreign assets than lie above the floor, nor more
+        // than the banks' reserves can pay for (an extreme lever, such as an
+        // excise duty at the top of its range, ends in a bad economy, not a
+        // crash).
+        let bank_reserves = self
+            .ledger
+            .balance(Sector::Banks, Instrument::Reserves)
+            .max(Bani::ZERO);
+        let intervention = s
+            .intervention
+            .min((reserves - floor).max(Bani::ZERO))
+            .min(bank_reserves);
         let mut post = Postings::default();
         let code = FlowCode::FX_INTERVENTION;
         if intervention > Bani::ZERO {

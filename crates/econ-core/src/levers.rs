@@ -1303,6 +1303,30 @@ pub(crate) fn law_of(f: &LawInForce, reg: &Registry, industries: &[String]) -> L
         p.micro_threshold = money(L::TaxProfitMicroThreshold, None).unwrap_or(p.micro_threshold);
         p.micro_with_staff_bp = rate(L::TaxProfitMicroRateStaff).unwrap_or(p.micro_with_staff_bp);
         p.micro_no_staff_bp = rate(L::TaxProfitMicroRateNoStaff).unwrap_or(p.micro_no_staff_bp);
+        income.dividend_bp = rate(L::TaxCapitalDividendRate).unwrap_or(income.dividend_bp);
+        income.interest_bp = rate(L::TaxCapitalInterestRate).unwrap_or(income.interest_bp);
+        income.contribution_ceiling =
+            money(L::TaxContribCeiling, None).unwrap_or(income.contribution_ceiling);
+        income.child_credit =
+            money(L::TaxIncomeCreditPerChild, None).unwrap_or(income.child_credit);
+    }
+    if let Some(v) = rate(L::TaxPropertyRate) {
+        law.property_tax_bp = Some(v);
+    }
+    law.wealth_tax_threshold =
+        money(L::TaxWealthThreshold, None).unwrap_or(law.wealth_tax_threshold);
+    law.wealth_tax_bp = rate(L::TaxWealthRate).unwrap_or(law.wealth_tax_bp);
+    // `excise_duty[g]`: bani per 1,000 units (1,000 lei of the good at
+    // starting prices) in the registry, millionths of the starting price per
+    // unit in the law (one ban per 1,000 units is ten millionths).
+    for (key, v) in keyed(L::TaxExciseDuty) {
+        let (Some(j), LeverValue::Money(b)) = (industries.iter().position(|id| id == key), v)
+        else {
+            continue;
+        };
+        if let Some(slot) = law.excise_duty_ppm.get_mut(j) {
+            *slot = u32::try_from(b.get().max(0).saturating_mul(10)).unwrap_or(u32::MAX);
+        }
     }
     if let Some(tr) = law.transfers.as_mut() {
         tr.pension.point_value =
