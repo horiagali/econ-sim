@@ -153,25 +153,26 @@ impl World {
     /// same share of every employee's pay. A rounding margin of two bani per
     /// weighted payment keeps the posting within the sector's money.
     pub(super) fn wage_shares(&mut self, payments: &[(u32, u16, Bani, Bani)]) -> Option<Vec<u32>> {
-        let n_u = self.units.industry.len();
-        let mut gross = vec![0i128; n_u];
-        let mut count = vec![0i128; n_u];
-        for &(i, u, g, _) in payments {
-            let w = i128::from(self.person_weight(i));
-            gross[usize::from(u)] += w * i128::from(g.get());
-            count[usize::from(u)] += w;
-        }
-        let private: Vec<bool> = (0..n_u).map(|u| !self.wages_reimbursed(u)).collect();
         let room = self.firm_money_free();
-        // A cheap bound first: the employer's contribution is far below a
-        // tenth of the gross.
-        let bound: i128 = (0..n_u)
-            .filter(|&u| private[u])
-            .map(|u| gross[u] + gross[u] / 10 + 2 * count[u])
-            .sum();
+        // The fast path of every normal pay day, without allocating: the
+        // whole bill (public units included), with the employer's
+        // contribution bounded by a tenth of the gross and a rounding
+        // margin, against the sector's free money.
+        let mut bound = 0i128;
+        for &(i, _, g, _) in payments {
+            let w = i128::from(self.person_weight(i));
+            let g = i128::from(g.get());
+            bound += w * (g + g / 10 + 2);
+        }
         if bound <= room {
             return None;
         }
+        let n_u = self.units.industry.len();
+        let mut count = vec![0i128; n_u];
+        for &(i, u, _, _) in payments {
+            count[usize::from(u)] += i128::from(self.person_weight(i));
+        }
+        let private: Vec<bool> = (0..n_u).map(|u| !self.wages_reimbursed(u)).collect();
         let mut cost = vec![0i128; n_u];
         for &(i, u, g, d) in payments {
             let w = i128::from(self.person_weight(i));
@@ -235,6 +236,9 @@ impl World {
     /// day (a unit that paid less than its bill lays off, within
     /// `max_layoff_share`, and does not hire).
     pub(super) fn affordable_staff(&self, u: usize, staff: u64, desired: u64) -> u64 {
+        if self.uu.pay_share_ppm.is_empty() {
+            return desired;
+        }
         let s = self.unit_pay_share_ppm(u);
         if s >= 1_000_000 {
             return desired;
