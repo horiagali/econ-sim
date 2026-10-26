@@ -840,6 +840,8 @@ dependencies = [
  "econ-popgen",
  "econ-rng",
  "econ-types",
+ "serde",
+ "toml 1.1.8+spec-1.1.0",
 ]
 
 [[package]]
@@ -913,6 +915,7 @@ name = "econ-mech-prices"
 version = "0.1.0"
 dependencies = [
  "econ-num",
+ "econ-types",
 ]
 
 [[package]]
