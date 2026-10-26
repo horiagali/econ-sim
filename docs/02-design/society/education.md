@@ -220,10 +220,10 @@ impl World {
 
 ## Open questions
 **First version (M5):**
-- [ ] **Rates for new cohorts against the start's pattern.** `primary_intake` is 0.97, so that early leavers come out near 15%; at the start only 82–85% of a year of age is enrolled (Stage K, partly children living abroad). With 0.97 the primary places bind for the first cohorts and leave about one child in ten out, as at the start. *Proposed:* keep 0.97 and let the places do the rest; revisit when [demographics](../economy/demographics.md) has its first births.
-- [ ] **Leavers' choice between looking for work and inactivity** (`leaver_seek_share`): a fixed share by education, or a labour-market rule for the re-entry of the inactive by kind? *Proposed:* the fixed shares now; the labour market's rule when it has one (none in M4).
-- [ ] **Adult students.** The start's 360,000 adults enrolled graduate or leave and are not replaced, so tertiary and post-secondary enrolment fall in the first years. *Proposed:* accept for M5 (display only, no budget effect); M14 adds adult entry with student finance.
-- [ ] **Graduates' emigration.** Tertiary attainment of 25–34 has been flat at about 23% because young graduates emigrate. *Proposed:* [migration](../economy/migration-remittances.md) reads `edu_level` and age; AC-EDU-06's band (18–32%) passes with or without it.
+- [x] **Decided as proposed (owner's delegation, 2026-10-26).** **Rates for new cohorts against the start's pattern.** `primary_intake` is 0.97, so that early leavers come out near 15%; at the start only 82–85% of a year of age is enrolled (Stage K, partly children living abroad). With 0.97 the primary places bind for the first cohorts and leave about one child in ten out, as at the start. *Proposed:* keep 0.97 and let the places do the rest; revisit when [demographics](../economy/demographics.md) has its first births.
+- [x] **Decided as proposed (owner's delegation, 2026-10-26).** **Leavers' choice between looking for work and inactivity** (`leaver_seek_share`): a fixed share by education, or a labour-market rule for the re-entry of the inactive by kind? *Proposed:* the fixed shares now; the labour market's rule when it has one (none in M4).
+- [x] **Decided as proposed (owner's delegation, 2026-10-26).** **Adult students.** The start's 360,000 adults enrolled graduate or leave and are not replaced, so tertiary and post-secondary enrolment fall in the first years. *Proposed:* accept for M5 (display only, no budget effect); M14 adds adult entry with student finance.
+- [x] **Decided as proposed (owner's delegation, 2026-10-26).** **Graduates' emigration.** Tertiary attainment of 25–34 has been flat at about 23% because young graduates emigrate. *Proposed:* [migration](../economy/migration-remittances.md) reads `edu_level` and age; AC-EDU-06's band (18–32%) passes with or without it.
 
 **Later versions:**
 - [ ] Private schools and universities as an industry (education industry) in addition to public?

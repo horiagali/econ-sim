@@ -171,10 +171,10 @@ impl World {
 
 ## Open questions
 **First version (M5):**
-- [ ] **Household total or per equivalised adult** for the income part? *Proposed:* household total (a birth is not a loss), as in the simplification.
-- [ ] **Inflation felt by basket.** With one basket for all, felt inflation is the CPI. Give the poorest fifths a basket heavier in food and energy (their own price index, `hh_price_index`) now, or with the households' baskets by income (M7 or later)? *Proposed:* later, with the baskets; it moves behaviour too, which is not this spec's to change.
-- [ ] **Where approval starts.** 50 less the unemployment and hardship parts gives a national mean near 47–48 at the start. Rescale so that the start equals a poll (about 30)? *Proposed:* no, keep 50 as "nothing changed"; a poll-matching offset is M14's, with the national term.
-- [ ] **The voters.** Adults of 18 or more resident in Romania; the diaspora votes too (about a million voters abroad in recent elections), but it has no persons in the `World`. *Proposed:* residents only.
+- [x] **Decided as proposed (owner's delegation, 2026-10-26).** **Household total or per equivalised adult** for the income part? *Proposed:* household total (a birth is not a loss), as in the simplification.
+- [x] **Decided as proposed (owner's delegation, 2026-10-26).** **Inflation felt by basket.** With one basket for all, felt inflation is the CPI. Give the poorest fifths a basket heavier in food and energy (their own price index, `hh_price_index`) now, or with the households' baskets by income (M7 or later)? *Proposed:* later, with the baskets; it moves behaviour too, which is not this spec's to change.
+- [x] **Decided as proposed (owner's delegation, 2026-10-26).** **Where approval starts.** 50 less the unemployment and hardship parts gives a national mean near 47–48 at the start. Rescale so that the start equals a poll (about 30)? *Proposed:* no, keep 50 as "nothing changed"; a poll-matching offset is M14's, with the national term.
+- [x] **Decided as proposed (owner's delegation, 2026-10-26).** **The voters.** Adults of 18 or more resident in Romania; the diaspora votes too (about a million voters abroad in recent elections), but it has no persons in the `World`. *Proposed:* residents only.
 
 **Later versions:**
 - [ ] Are three ideology axes enough, or do we want a fourth (e.g. authoritarian vs liberal-democratic)?
