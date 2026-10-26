@@ -123,7 +123,17 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | $Y^{disp}_h$ | `hh_disposable_income` | Disposable income of household *h* | LCU / tick | flow | economy/households |
 | $C_{h,g}$ | `hh_consumption[g]` | Household consumption of good *g* | LCU / tick | flow | economy/households |
 | $P_h$ | `hh_price_index` | Personal price index of household *h* | index | derived | economy/households |
-| $Rem_h$ | `hh_remittances_in` | Remittances received from abroad | LCU / tick | flow | economy/demographics |
+| $Rem_h$ | `hh_remittances_in` | Remittances received from abroad | LCU / tick | flow | economy/migration-remittances |
+| — | `abroad` | Person is a linked emigrant: lives abroad, belongs to a resident household, counted in the diaspora and not in the resident population | bool | state | economy/migration-remittances |
+| — | `months_abroad` | Months since a linked emigrant left | months | state | economy/migration-remittances |
+| — | `diaspora_stock[k]` | Emigrants not linked to a resident household, by cell *k* (origin region, sex, year of birth, skill tier) | persons | state | economy/migration-remittances |
+| — | `migration_carry[cell]` | Real persons owed to a migration cell's next month by whole-record alignment (signed) | persons | state | economy/migration-remittances |
+| $\bar r$ | `remittance_base` | Euro a month one linked emigrant sends at the start, before decay; fitted at load to the 2021 flow | EUR / month | parameter | economy/migration-remittances |
+| $\alpha_c$ | `county_appeal[c]` | Fixed attractiveness of county *c* in the choice of destination of internal moves, fitted to 2021's net balances | utility | parameter | economy/migration-remittances |
+| $p^0_a$, $q^0_a$ | `emigration_base[a]`, `return_base[a]` | Monthly base rates of emigration and return by age band *a*, fitted at load to 2021 | ppm / month | parameter | economy/migration-remittances |
+| $R_s$ | `emigration_pull[s]` | Wages abroad over tier *s*'s net wage at home in euro, both relative to the start | ratio | derived | economy/migration-remittances |
+| — | `emigrants`, `returnees`, `immigrants` | Persons who left, came back (Romanian citizens) and came in (foreigners) in the month | persons / month | flow | economy/migration-remittances |
+| — | `diaspora` | Linked emigrants plus the diaspora stock | persons | derived | economy/migration-remittances |
 | $Q^{edu}_{r,\ell}$ | `edu_quality` | Education quality by region and level | 0–1 | state | society/education |
 | — | `crime_rate` | Offences per 1,000 people per year, by region | rate | state | society/social-outcomes |
 | — | `health` | Person's health index | 0–1 | state | society/social-outcomes |
@@ -239,7 +249,7 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `foreign_price_growth[b]`, `foreign_demand_growth[b]` | World setting: growth a year of import prices and of demand for exports, by bloc *b* (EU, non-EU); basis points in code | % / year | lever | economy/trade-fx |
 | — | `fuel_price[fuel]` | World setting: world price of oil (a barrel), gas (a MWh) and coal (a tonne) | LCU / unit | lever | economy/energy |
 | — | `foreign_rate` | World setting: interest rate abroad (the ECB's); basis points in code | % / year | lever | economy/trade-fx |
-| — | `wages_abroad` | World setting: wages abroad relative to Romania's at the start; basis points in code | ratio | lever | economy/demographics |
+| — | `wages_abroad` | World setting: wages abroad relative to Romania's at the start; basis points in code | ratio | lever | economy/migration-remittances |
 
 Indices: $g$ good, $j$ industry (same set as goods, except that the eight electricity generation industries share the good `wholesale_electricity` and `power_supply` sells `electricity`), $f$ firm unit (belongs to one industry; per-industry variables such as `output[j]` are also kept per unit as `output[f]`, and the industry value is the `firm_count`-weighted sum), $o$ occupation, $s$ skill tier, $r$ region, $c$ county, $h$ household, $i$ person, $p$ power plant, $\ell$ education level, $l$ budget line, $k$ economic type of spending. LCU = leu (RON).
 
