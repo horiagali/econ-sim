@@ -44,7 +44,7 @@ docs-index:
 sim ticks="200":
     cargo run -q -p econ-cli -- sim --ticks {{ticks}}
 
-# Differential test: Rust SIM vs the independent Python reference, exact in bani
+# Differential test: Rust SIM and PC vs the independent Python references, exact in bani
 diff-sim:
     cargo build -q -p econ-cli
     {{python}} python/reference/diff_sim.py

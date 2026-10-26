@@ -63,7 +63,7 @@ jobs:
         run: python -m unittest discover -s python/pipeline/tests
       - name: protect-paths hook tests
         run: python -m unittest discover -s scripts/tests
-      - name: differential SIM test (Rust vs Python reference)
+      - name: differential SIM and PC test (Rust vs Python reference)
         run: |
           cargo build -q -p econ-cli
           python python/reference/diff_sim.py
