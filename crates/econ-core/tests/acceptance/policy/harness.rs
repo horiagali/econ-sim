@@ -84,7 +84,8 @@ pub enum Ind {
     ExpectedInflation,
     /// `unemployment_rate`: unemployed / (employed + unemployed), in points.
     Unemployment,
-    /// `wage_nominal`: `wage_bill / employed`.
+    /// `wage_nominal`: the mean gross wage of employees at the close (see
+    /// [`Monthly::employee_wages`]).
     MeanWage,
     /// `consumption`: `MonthStats::consumption` (VAT included).
     Consumption,
@@ -214,6 +215,12 @@ pub struct Monthly {
     pub trade: Option<TradeMonth>,
     /// The government's budget of the month.
     pub fiscal: Option<FiscalMonth>,
+    /// Employees at the close: the weighted sum of their gross monthly wages
+    /// (bani) and their weighted count. Reading (AC-POL-07, restated
+    /// 2026-10-25): an employee is a person whose `wage` is above zero, as
+    /// the glossary's `wage` is "the person's gross monthly wage as an
+    /// employee; 0 for everyone else", so the self-employed are left out.
+    pub employee_wages: (i128, u64),
 }
 
 /// A whole run: the industries' ids and the 39 monthly closes.
@@ -288,6 +295,20 @@ fn persons(w: &World) -> u64 {
     person_weights(w).iter().map(|&x| u64::from(x)).sum()
 }
 
+/// Employees' weighted wage sum and weighted count (`Monthly::employee_wages`).
+fn employee_wages(w: &World) -> (i128, u64) {
+    let weights = person_weights(w);
+    let mut sum = 0i128;
+    let mut count = 0u64;
+    for (&wage, &wt) in w.persons().wage.iter().zip(&weights) {
+        if wage.get() > 0 {
+            sum += i128::from(wage.get()) * i128::from(wt);
+            count += u64::from(wt);
+        }
+    }
+    (sum, count)
+}
+
 /// One run, uncached. `Err` when a command is rejected.
 fn run_uncached(scale: u32, commands: Option<&str>) -> Result<Run, String> {
     let (start, law) = base(scale);
@@ -350,6 +371,7 @@ fn run_uncached(scale: u32, commands: Option<&str>) -> Result<Run, String> {
                 price_ppm: w.industries().price_ppm.clone(),
                 trade: None,
                 fiscal: None,
+                employee_wages: employee_wages(&w),
             });
         }
     }
@@ -488,10 +510,11 @@ fn value(ind: Ind, run: &Run, m: &Monthly) -> Result<i128, String> {
             i128::from(s.unemployed) * HUNDRED / labour
         }
         Ind::MeanWage => {
-            if s.employed == 0 {
-                return Err(format!("nobody employed in {:?}", m.close));
+            let (sum, count) = m.employee_wages;
+            if count == 0 {
+                return Err(format!("no employee in {:?}", m.close));
             }
-            i128::from(s.wage_bill.get()) * 1_000 / i128::from(s.employed)
+            sum * 1_000 / i128::from(count)
         }
         Ind::Consumption => i128::from(s.consumption.get()),
         Ind::RealConsumption => real(s.consumption)?,

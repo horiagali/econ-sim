@@ -3,6 +3,11 @@
 Every change to a golden hash or snapshot needs an entry here with the reason
 (ADR-0010). Newest first.
 
+## 2026-10-25 — Households' VAT rate kept to the millionth
+- **Re-golden (owner approved, 2026-10-25):** households pay the legal VAT rate less the 36.7% VAT gap (M2 placeholder until M15). That effective rate was rounded to whole basis points, so a small change of the legal rate could vanish: 19% (1,202.7 bp) and 19.01% (1,203.3 bp) both gave 1,203 bp, and the policy suite's placebo left every statistic equal to the baseline. It is now kept in millionths (12.027% instead of 12.03% at the 2021 law), so small VAT changes reach prices and VAT revenue (`world/goods.rs`, `world/revenue.rs`).
+  - `tests/golden/world_ro_2021.hashes` (AC-WLD-05, day 31 at 1:1000, seed 42): `407f56fb8ccd24ea` → `237397d72f440b0c`.
+- **Unchanged:** `tests/golden/sim_200.hashes`, the budget, opening, firm and population goldens (none runs the World's household purchases).
+
 ## 2026-10-20 — The starting budget: first golden hash
 - Added `tests/golden/budget_ro_2021.hashes` (AC-BUD-11): the budget hash of the fixture `budget2021_ro.json` (lines, sectors and public units in bani; spec `economy/budget-2021`): `fixture ffd4772468f8552e`. Reason: initial baseline. The value is that of the spec, reproduced on the day with the Python reference (`python/reference/budget_reference.py`); the Rust loader does not exist yet.
 - **Unchanged:** every other golden.

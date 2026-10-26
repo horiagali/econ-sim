@@ -47,7 +47,7 @@ Every indicator is read at each monthly close of both runs. Sources are the `Wor
 | Twelve-month inflation | `inflation` | `MonthStats::inflation_ppm` |
 | Expected inflation | `inflation_expectation` | `MonthStats::expected_inflation_ppm` |
 | Unemployment rate | `unemployment_rate` | `unemployed / (employed + unemployed)` of `MonthStats` |
-| Mean gross wage | `wage_nominal` | `MonthStats::wage_bill / employed` |
+| Mean gross wage of employees | `wage_nominal` | weighted mean of `World::persons().wage` over persons whose `wage` is above zero (employees), at the close; *restated 2026-10-25, was `MonthStats::wage_bill / employed` (see AC-POL-07)* |
 | Household consumption | `consumption` | `MonthStats::consumption` (VAT included) |
 | Real GDP | `gdp_real` | `MonthStats::gdp_expenditure / price_level` |
 | Exchange rate (lei per euro) | `exchange_rate` | `World::foreign().exchange_rate_ppm` at the close; **lower = stronger leu** |
@@ -185,7 +185,7 @@ The levers' values are the shape's integers: rates in basis points, money in ban
 
 | Expectation | Indicator, kind | Window | Band | | Evidence |
 |---|---|---|---|---|---|
-| The mean wage rises | `wage_nominal`, level % | 1–6 | +1.5 to +12 | checked | E14, AC-LM-05 |
+| The mean wage of employees rises | `wage_nominal`, level % | 1–6 | +1 to +12 | checked | E14, AC-LM-05 |
 | Prices are higher | `price_level`, level % | 6–18 | +0.2 to +5 | checked | E13, AC-PRICE-05 |
 | Employment falls a little, if at all | `employment`, level % | 6–18 | −3 to +0.5 | watched | E13, AC-LM-09 |
 | Fewer households in hardship | `hh_hardship` households, level % | 3–12 | −30 to 0 | watched | income |
@@ -229,7 +229,7 @@ The levers' values are the shape's integers: rates in basis points, money in ban
 | S4 | Deficit spending | education and health +6 bn lei a year each | deficit +0.3 to +1.1% of GDP; real GDP +0.1 to +2% | ready |
 | S5 | Monetary financing | `money.monetary_financing` 8 bn lei a month, 24 months | expected inflation up; credibility down; CPI +0.5 to +25% | wired (2026-10-25) |
 | S6 | Devaluation | `fx.devaluation` 1000 (leu −10%) | CPI +0.5 to +6%; exports +1 to +12% | wired (2026-10-25) |
-| S7 | Minimum wage | `labour.minimum_wage` 2,300 → 3,000 lei | mean wage +1.5 to +12%; CPI +0.2 to +5% | ready |
+| S7 | Minimum wage | `labour.minimum_wage` 2,300 → 3,000 lei | employees' mean wage +1 to +12%; CPI +0.2 to +5% | ready |
 | S8 | Pension rise | `transfer.pension.point_value` +10% | pension bill +6 to +10.5%; consumption +0.3 to +3% | ready |
 | S9 | Oil shock | `world.fuel_price[oil]` +50% | CPI +0.2 to +4%; current account worse | wired (2026-10-25, oil only) |
 
@@ -273,7 +273,7 @@ Each scenario criterion means: the scenario's commands file is accepted; the sce
 - [ ] **AC-POL-04** `[sim]` Deficit spending (S4): with education and health budgets each 6 billion lei a year higher from T0, the deficit is 0.3–1.1% of GDP larger in the first year and real GDP 0.1–2% higher in months 3–12.
 - [ ] **AC-POL-05** `[sim]` Monetary financing (S5): with the central bank funding 8 billion lei a month for 24 months, expected inflation is higher in months 3–12, credibility lower in months 6–24 and the price level higher in months 12–24, within the bands of S5.
 - [ ] **AC-POL-06** `[sim]` Devaluation (S6): with the leu devalued by 10% on T0, the exchange rate is 5–11% weaker in months 1–3, the price level 0.5–6% higher in months 6–12 and export volumes 1–12% higher in months 7–18.
-- [ ] **AC-POL-07** `[sim]` Minimum-wage rise (S7): with the minimum wage at 3,000 lei from T0, the mean gross wage is 1.5–12% higher in months 1–6 and the price level 0.2–5% higher in months 6–18.
+- [ ] **AC-POL-07** `[sim]` Minimum-wage rise (S7): with the minimum wage at 3,000 lei from T0, the mean gross wage of employees is 1–12% higher in months 1–6 and the price level 0.2–5% higher in months 6–18. *Restated 2026-10-25 (owner decision):* the mean gross wage is over employees only (it was `wage_bill / employed`, which counts the self-employed, who earn no wage, and diluted the rise), and the band starts at +1% (was +1.5%) because 21% of employees earn below 3,000 lei in the starting data; the upper bound is unchanged and the check stays checked, so a fall still fails.
 - [ ] **AC-POL-08** `[sim]` Pension rise (S8): with the pension point 10% higher from T0, state pension spending is 6–10.5% higher and household consumption 0.3–3% higher over the first year.
 - [ ] **AC-POL-09** `[sim]` Oil shock (S9): with the world oil price 50% higher from T0, the price level is 0.2–4% higher in months 3–12 and the current account 0.1–2% of GDP lower over the first year.
 - [ ] **AC-POL-10** `[sim]` Three scales: AC-POL-01 to 09 pass at 1:1000, 1:100 and 1:10 (1:10 in the nightly run). Every run (baseline, placebo, scenarios) keeps invariants I-1 to I-8 and person conservation every day. At each scale, the placebo's measured differences are below every checked band's lower bound in absolute value.
