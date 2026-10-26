@@ -67,7 +67,7 @@ In every other month nobody's `enrolled`, `study_year` or `edu_level` changes. A
 |---|---|---|---|
 | — | `enrolled` | Level the person is enrolled at (Stage K, now kept by the `World`) | category (8) |
 | — | `study_year` | Year of study within that level, from 0 | years |
-| $\text{Cap}_\ell$ | `school_places[ℓ]` | Places at level $\ell$, national, weighted persons; fixed in M5 | persons |
+| $\text{Cap}_\ell$ | `edu_capacity` | Places at level $\ell$ (the general `edu_capacity` without regions), weighted persons; fixed in M5 | persons |
 | — | `activity` | Stage C's activity, now kept by the `World`; education moves a leaver from pupil or student to unemployed or other inactive | category |
 
 **The levels.**
@@ -86,7 +86,7 @@ In every other month nobody's `enrolled`, `study_year` or `edu_level` changes. A
 
 > **Simplification:** completing upper secondary gives ISCED 3 and the right to go on; the baccalaureate (passed by about two thirds of candidates) is not modelled separately. Its effect is inside `continue_rate[4→6]`.
 
-**Starting state.** At load, `enrolled` and `activity` come from the scenario's persons table (Stages C and K). Each enrolled person's `study_year` is their age on 1 September 2021 (age in months at day 0, less 3, in whole years) less the level's typical starting age, if that lies between 0 and the level's years less 1. A person outside that range (repeating, late or adult students: about 360,000 enrolled persons who are employed, unemployed or other inactive) gets a uniform draw over the level's years: `draw(Education, tick 0, entity = person)`, first word, modulo the years. `school_places[ℓ]` is the weighted count of persons enrolled at $\ell$ at load, so the 380,000 pupils above the school statistics' places (Stage K) have none.
+**Starting state.** At load, `enrolled` and `activity` come from the scenario's persons table (Stages C and K). Each enrolled person's `study_year` is their age on 1 September 2021 (age in months at day 0, less 3, in whole years) less the level's typical starting age, if that lies between 0 and the level's years less 1. A person outside that range (repeating, late or adult students: about 360,000 enrolled persons who are employed, unemployed or other inactive) gets a uniform draw over the level's years: `draw(Education, tick 0, entity = person)`, first word, modulo the years. `edu_capacity` is the weighted count of persons enrolled at $\ell$ at load, so the 380,000 pupils above the school statistics' places (Stage K) have none.
 
 **The June close.** For each enrolled person, in index order, with `draw(Education, tick = the day of the close, entity = person)`, first word in millionths $u_1$, second $u_2$:
 1. **Dropout.** If $u_1$ < `dropout_rate[ℓ]`, the person leaves the level: `enrolled` none, `study_year` 0, `edu_level` unchanged.
@@ -96,7 +96,7 @@ In every other month nobody's `enrolled`, `study_year` or `edu_level` changes. A
 **The August close.** Intake for 1 September:
 1. **Pre-school:** each child not enrolled who is 3, 4 or 5 on 1 September is given pre-school with probability `preschool_intake[age]` (draw of the close).
 2. **Primary:** each child who is 6 on 1 September and not in primary is given primary with probability `primary_intake`.
-3. **Places.** For each level, the persons given it at this close (continuing from the level below in June, or starting now) are the **entrants**; those already in it (`study_year` > 0) the **continuing**. Continuing students keep their place even above `school_places[ℓ]`. Entrants are admitted in ascending (keyed priority, index) while the level's enrolled weight stays within its places; the rest are refused: `enrolled` none. A refused entrant of 16 or more becomes a leaver at once (step 3 of June); a younger one stays a pupil not enrolled, as Stage K's pupils above the places.
+3. **Places.** For each level, the persons given it at this close (continuing from the level below in June, or starting now) are the **entrants**; those already in it (`study_year` > 0) the **continuing**. Continuing students keep their place even above `edu_capacity`. Entrants are admitted in ascending (keyed priority, index) while the level's enrolled weight stays within its places; the rest are refused: `enrolled` none. A refused entrant of 16 or more becomes a leaver at once (step 3 of June); a younger one stays a pupil not enrolled, as Stage K's pupils above the places.
 
 With the start's places, primary binds at first: a year of 6-year-olds (about 190,000) times `primary_intake` is above primary's places per grade (867,000 ÷ 5), so about one child in ten is left out, as at the start. As cohorts shrink (births of about 150,000 a year from 2023, [demographics](../economy/demographics.md)) the places stop binding. This is the shortage that school building fixes in M11.
 
@@ -160,7 +160,7 @@ First version (M5). All are educated guesses (confidence low unless stated), tun
 IDs are stable. The M5 criteria (first version) go in `crates/econ-core/tests/acceptance/education.rs` (protected; written by the test-writer subagent before the code), compiled with a crate feature `education`. "1:100" and "1:1000" are the Romania fixture scenario at that scale, seed 42, under `Law::law_2021()`, with no lever changes.
 
 **First version (M5):**
-- [ ] **AC-EDU-01** `[unit]` Starting `study_year`: for a person whose age on 1 September 2021 less the level's starting age lies within the level's years, it is that difference; otherwise it is the keyed draw modulo the years. `school_places[ℓ]` equals the weighted enrolled count of each level at load. Same inputs and seed give the same columns.
+- [ ] **AC-EDU-01** `[unit]` Starting `study_year`: for a person whose age on 1 September 2021 less the level's starting age lies within the level's years, it is that difference; otherwise it is the keyed draw modulo the years. `edu_capacity` equals the weighted enrolled count of each level at load. Same inputs and seed give the same columns.
 - [ ] **AC-EDU-02** `[unit]` The June rule for one person, for given draws: a dropout keeps `edu_level` and leaves; a completer's `edu_level` becomes the maximum of the old one and the level's completion value, never lower; continuation follows the rates in the table's order; a leaver of 16 or more without a job becomes a seeker or other inactive by `leaver_seek_share`, one with a job stays employed; a leaver under 16 stays a pupil not enrolled.
 - [ ] **AC-EDU-03** `[unit]` Places at the August close: continuing students are never removed; entrants are admitted in ascending (keyed priority, index) while the level's weight stays within its places; with a cohort of 6-year-olds above primary's free places, exactly the surplus (to within one person's weight) is refused and stays not enrolled; with places to spare nobody is refused.
 - [ ] **AC-EDU-04** `[sim]` At 1:100, the weighted completers of each of the June closes of 2022, 2023 and 2024 are within 25% of 2021's graduates for upper secondary (175,934) and bachelor (76,593), and within 30% for post-secondary (31,705) and master and doctorate (54,941).

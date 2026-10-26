@@ -85,6 +85,16 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `inactive_kind` | Kind of inactivity of a person whose `activity` is other inactive: homemaker (looks after the home or family), disabled (cannot work for reasons of health), other (supported by others, discouraged, other situations); none for everyone else | category (4) | state | society/population-inactivity-enrolment |
 | — | `enrolled` | Level of formal education a person is enrolled at: none, pre-school, primary, lower secondary, upper secondary, post-secondary non-tertiary, tertiary (ISCED 5–6), master or doctorate (ISCED 7–8) | category (8) | state | society/population-inactivity-enrolment |
 | — | `homemaker_child_link` | Chance that a person other inactive who lives with a child younger than 7 is placed first among the homemakers of their sex and age band when starting kinds are set (default 0.5) | ratio | parameter | society/population-inactivity-enrolment |
+| — | `study_year` | Year of study within the level a person is enrolled at, from 0 | years | state | society/education |
+| $\text{Cap}_{r,\ell}$ | `edu_capacity` | School and university places by region and education level, in weighted persons; in M5 one national pool per level, the enrolment of the start, fixed until infrastructure builds schools (M11) | persons | state | society/education |
+| — | `dropout_rate[ℓ]` | Yearly chance that a person enrolled at level ℓ leaves it before completing it | ratio / year | parameter | society/education |
+| — | `continue_rate[ℓ→ℓ']` | Chance that a person completing level ℓ goes on to level ℓ' | ratio | parameter | society/education |
+| — | `primary_intake` | Share of a year of 6-year-olds who seek a primary school place (default 0.97) | ratio | parameter | society/education |
+| — | `preschool_intake[a]` | Chance that a child not enrolled starts pre-school at age *a* (3 to 5) | ratio | parameter | society/education |
+| — | `leaver_seek_share[e]` | Share of persons leaving education with `edu_level` *e* who look for work; the rest become inactive | ratio | parameter | society/education |
+| — | `min_leaving_age` | Age from which a person who leaves education enters the labour market (default 16) | years | parameter | society/education |
+| — | `early_leavers_rate` | Share of persons of 18 to 24 with at most lower secondary education who are not enrolled | ratio | derived | society/education |
+| — | `tertiary_attainment` | Share of persons of 25 to 34 with tertiary education (ISCED 5–8) | ratio | derived | society/education |
 | — | `school_age` | Age from which a child below the minimum working age is a pupil (default 6) | years | parameter | society/population-attributes |
 | — | `hh_locality_size` | Size class of the locality a household lives in (six classes, from under 2,000 to 200,000 or more inhabitants) | category (6) | state | society/population-housing |
 | — | `hh_urban` | The household's locality is urban (for now: 10,000 inhabitants or more) | bool | derived | society/population-housing |
@@ -99,6 +109,16 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | $m_{i,g}$ | `interest[g]` | Person's membership intensity in interest group *g* | 0–1 | state | society/interest-groups |
 | $A_i$ | `approval` | Person's approval of head of state | 0–100 | state | society/opinion-approval |
 | $A$ | `approval_national` | Weighted average approval | 0–100 | derived | society/opinion-approval |
+| $s_{i,k}$ | `approval_component[k]` | The smoothed part *k* of a person's approval (income, unemployment, inflation, hardship, bounds); approval is 50 plus their sum | points | state | society/opinion-approval |
+| $r_h$ | `hh_real_income_reference` | The real income a household is used to, against which approval judges its recent income | LCU of day 0 / month | state | society/opinion-approval |
+| $\alpha_y$ | `approval_income_weight` | Approval points per unit of relative change in real income (default 60) | points | parameter | society/opinion-approval |
+| $\kappa$ | `approval_loss_aversion` | How many times a loss of real income counts against an equal gain (default 2) | ratio | parameter | society/opinion-approval |
+| $c^{max}$ | `approval_income_cap` | Largest income part of approval, either way (default 25) | points | parameter | society/opinion-approval |
+| $\lambda_r$ | `approval_reference_speed` | Share of the gap to recent income that the reference closes each month (default 1/24) | ratio / month | parameter | society/opinion-approval |
+| $u_{self}$, $u_{hh}$ | `approval_unemployed_self`, `approval_unemployed_household` | Approval lost when the person, or another member of the household, is looking for work (defaults 10 and 4) | points | parameter | society/opinion-approval |
+| $\alpha_\pi$, $\pi_0$ | `approval_inflation_weight`, `approval_inflation_neutral` | Approval lost per percentage point of twelve-month inflation above the neutral rate (defaults 1 and 3%) | points, % / year | parameter | society/opinion-approval |
+| $h$ | `approval_hardship` | Approval lost when the household is in hardship (default 8) | points | parameter | society/opinion-approval |
+| $\lambda_A$ | `approval_smoothing` | Share of the gap to its target each part of approval closes each month (default 0.5) | ratio / month | parameter | society/opinion-approval |
 | — | `ethnicity`, `mother_tongue`, `religion`, `religiosity` | Person's identity attributes | category / 0–1 | state | society/identity |
 | $Y^{disp}_h$ | `hh_disposable_income` | Disposable income of household *h* | LCU / tick | flow | economy/households |
 | $C_{h,g}$ | `hh_consumption[g]` | Household consumption of good *g* | LCU / tick | flow | economy/households |
@@ -150,6 +170,20 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `hh_stagger_day` | The household's own day of the month (1 to 28) for its monthly decisions; a keyed draw, fixed for life (ADR-0017) | day of month | state | economy/households |
 | — | `hh_income_received` | Money a household received since its last decision day | LCU | state | economy/households |
 | — | `hh_hardship` | The household could not pay for the subsistence basket this month | bool | state | economy/households |
+| $e_h$ | `eq_adults` | Household's equivalised size on the modified OECD scale: 1 for the first adult, 0.5 per further member of 14 or more, 0.3 per child under 14; thousandths in code | adults | state | society/poverty-inequality |
+| $\tilde y_h$ | `hh_real_income_recent` | Household's recent real income: a moving average (1/3 a month) of its money income at prices of day 0 | LCU of day 0 / month | state | society/poverty-inequality |
+| — | `hh_income_year` | Household's money income in the calendar year so far | LCU | state | society/poverty-inequality |
+| $m^{2021}$ | `poverty_anchor` | Median equivalised recent income of month 0 (December 2021), real; frozen, the base of the class lines | LCU of day 0 / month | parameter | society/poverty-inequality |
+| — | `median_eq_income` | Weighted median over persons of equivalised recent income | LCU / month | derived | society/poverty-inequality |
+| — | `poverty_rate` | At-risk-of-poverty rate: persons in private households below 60% of the current median equivalised income | ratio | derived | society/poverty-inequality |
+| — | `poverty_rate_anchored` | Persons below 60% of `poverty_anchor` in real terms (the class at risk) | ratio | derived | society/poverty-inequality |
+| — | `gini` | Gini coefficient of equivalised income over persons | 0–1 | derived | society/poverty-inequality |
+| — | `s80_s20` | Equivalised income of the richest fifth of persons over that of the poorest fifth | ratio | derived | society/poverty-inequality |
+| — | `hardship_rate` | Share of persons living in a household in hardship | ratio | derived | society/poverty-inequality |
+| — | `class_share[k]`, `class_flows[k]` | Share of persons in standard-of-living class *k* (at risk, lower-middle, middle, affluent), and persons who entered and left it since the last close | ratio, persons | derived | society/poverty-inequality |
+| — | `poverty_line_share` | Poverty line as a share of the median (0.6, Eurostat) | ratio | parameter | society/poverty-inequality |
+| — | `class_lines` | Bounds of the standard-of-living classes as multiples of `poverty_anchor`: 0.60, 0.75, 2.00 (owner, 2026-10-26) | ratio | parameter | society/poverty-inequality |
+| $\lambda_y$ | `income_recent_speed` | Share of the gap to the month's real income that `hh_real_income_recent` closes each month (default 1/3) | ratio / month | parameter | society/poverty-inequality |
 | — | `basket_share[g]` | Share of household spending that goes to good *g* (from the input-output table; fixed in M2) | ratio | parameter | economy/households |
 | — | `unit_stagger_day` | The firm unit's own day of the month (1 to 28) for its plan and staffing (ADR-0017) | day of month | state | economy/labor-market |
 | — | `months_unemployed` | Months since the person lost a job or started looking | months | state | economy/labor-market |
