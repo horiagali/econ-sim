@@ -19,6 +19,10 @@ use super::wired;
 /// `ac_pol_05`) and fails unless each of the three is caught; cargo-mutants'
 /// own baseline run is the unmutated build passing.
 #[test]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "the policy suite runs in release builds only: cargo test --release -p econ-core --test acceptance -- --test-threads=1 policy::"
+)]
 fn ac_pol_11() {
     let scenarios = wired();
     prepare(&[1000], &scenarios);
