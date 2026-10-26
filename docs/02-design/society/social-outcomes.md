@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [society/population-groups, society/education, economy/fiscal-policy]
 research: []
-updated: 2026-10-08
+updated: 2026-10-26
 ---
 
 # Social Outcomes — Crime, Health, Wellbeing, Poverty
@@ -31,7 +31,7 @@ with $g$ decreasing and diminishing. Effects: property-crime losses (wealth tran
 - Effects: mortality (demographics), labour-force participation (sick → inactive), productivity, healthcare consumption demand.
 
 ## Wellbeing and poverty
-- `poverty_rate` (relative and absolute), `gini`, `real_income_per_capita` for any group.
+- `poverty_rate` (relative and anchored), `gini`, `s80_s20`, `hardship_rate` and the standard-of-living classes are computed from incomes by [poverty and inequality](poverty-inequality.md) (roadmap M5); `real_income_per_capita` for any group.
 - A composite wellbeing index (income, health, safety, employment, education) as an output for the player and politics later.
 
 ## Player levers

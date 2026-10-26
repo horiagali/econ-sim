@@ -4,7 +4,7 @@ title: Economy — System Overview
 status: draft
 owner: horia
 depends_on: [vision/pillars, society/overview]
-updated: 2026-10-10
+updated: 2026-10-26
 ---
 
 # Economy — System Overview
@@ -62,6 +62,7 @@ Accounting ([accounting](accounting.md)) sits under everything: every arrow that
 | [fiscal-policy](fiscal-policy.md) | Budget, spending, subsidies, deficit, debt, bond market |
 | [trade-fx](trade-fx.md) | Exports, imports, tariffs, exchange rate, capital flows |
 | [demographics](demographics.md) | Births, deaths, migration, diaspora |
+| [migration-remittances](migration-remittances.md) | Moves between counties, emigration and return, the diaspora, remittances, foreign immigration |
 | [eu-membership](eu-membership.md) | Single market, Schengen, free movement, state aid, fiscal rules, EU budget contribution |
 | [euro](euro.md) | Joining (ERM II, convergence criteria, conversion) and leaving the euro area |
 | [eu-funds](eu-funds.md) | Cohesion, CAP and recovery funds; project pipeline and absorption |
