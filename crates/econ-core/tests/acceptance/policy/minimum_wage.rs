@@ -59,6 +59,10 @@ pub static S7: Scenario = Scenario {
 /// (`MonthStats::employed`), households in hardship
 /// (`MonthStats::hardship_households`).
 #[test]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "the policy suite runs in release builds only: cargo test --release -p econ-core --test acceptance -- --test-threads=1 policy::"
+)]
 fn ac_pol_07() {
     super::harness::assert_scenario(&S7, 1000);
 }

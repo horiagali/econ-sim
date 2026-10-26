@@ -65,6 +65,10 @@ pub static S5: Scenario = Scenario {
 /// rejected with `not_yet` until the lever is wired.
 #[cfg(feature = "lever_monetary_financing")]
 #[test]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "the policy suite runs in release builds only: cargo test --release -p econ-core --test acceptance -- --test-threads=1 policy::"
+)]
 fn ac_pol_05() {
     super::harness::assert_scenario(&S5, 1000);
 }
