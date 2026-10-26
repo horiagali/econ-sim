@@ -86,7 +86,7 @@ R_{s,t} = \frac{\omega_t}{H_{s,t}}, \qquad H_{s,t} = \frac{\bar W^{net}_{s,t} / 
 $\bar W^{net}_{s,t}$ is the mean net wage of the tier's employees at the last monthly close. At the start $R = 1$. A tax cut on wages, a minimum-wage rise or faster wage growth lowers the pull; a weaker leu or higher wages abroad raise it.
 
 ### 2. Emigration (monthly close)
-Each resident person aged 15 to 64, not a pensioner, has a monthly probability
+Each resident person aged 18 to 64, not a pensioner, has a monthly probability (younger persons leave only with their household)
 ```math
 p_i = \min\Big(p^{max},\ p^0_{a(i)} \cdot R_{s(i)}^{\varepsilon} \cdot \frac{1 + \beta_u u_{r(i)}}{1 + \beta_u u_{r(i),0}} \cdot (1 + \beta_{net} \cdot \text{linked}_h) \cdot m^{unemp}_i \cdot B\Big)
 ```
