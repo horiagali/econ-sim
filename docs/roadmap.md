@@ -249,7 +249,7 @@ Without this a long run is a frozen population.
 - [ ] **Demographics:** ageing, deaths, births, retirement, household formation and dissolution, moves between counties, emigration and return, the diaspora and remittances, with alignment to official projections.
 - [ ] **Education flows:** enrolment, graduation, entry to the labour market (simple version; depth in M14).
 - [ ] **Approval, first version:** the per-person number of [opinion-approval](02-design/society/opinion-approval.md), driven by own finances. Display only. Depth in M14.
-- [ ] Poverty and inequality indicators from incomes.
+- [ ] Poverty and inequality indicators from incomes: [poverty and inequality](02-design/society/poverty-inequality.md) (with the standard-of-living classes of M6).
 
 **Exit:** a 50-year run reproduces the direction of the official population projection (shrinking, ageing); pension spending responds to it.
 

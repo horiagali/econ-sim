@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [vision/pillars, game/overview]
 research: [research/people-model-approaches]
-updated: 2026-10-08
+updated: 2026-10-26
 ---
 
 # Society — People Model Overview
@@ -24,6 +24,7 @@ Any slice of the population (*"well-educated students in Cluj: 5,000 people"*) i
 | [opinion-approval](opinion-approval.md) | Ideology axes, issue salience, approval (a number in v1) |
 | [education](education.md) | Schooling, enrolment, graduation, skills, returns to education |
 | [social-outcomes](social-outcomes.md) | Crime, health and life expectancy, wellbeing, poverty |
+| [poverty-inequality](poverty-inequality.md) | Poverty rate, Gini, S80/S20, hardship rate and standard-of-living classes, from incomes |
 | [demographics](../economy/demographics.md) | Births, deaths, migration rates |
 
 The economic behaviour of households (budget, consumption, saving, borrowing) is specified in [households](../economy/households.md).
