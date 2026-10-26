@@ -794,11 +794,12 @@ fn end_value(meta: &LeverMeta, top: bool) -> LeverValue {
 
 /// The alpha levers the owner deferred beyond M4 (roadmap M4, owner,
 /// 2026-10-24), registered `planned`, and the milestone that wires each
-/// (spec, "The alpha levers", deferred).
-const DEFERRED: [(&str, &str); 6] = [
+/// (spec, "The alpha levers", deferred). `world.fuel_price` left the list on
+/// 2026-10-26: its oil key is wired (owner, 2026-10-25); gas and coal are
+/// planned keys of the active lever.
+const DEFERRED: [(&str, &str); 5] = [
     ("transfer.pension.retirement_age", "M5"),
     ("world.wages_abroad", "M5"),
-    ("world.fuel_price", "M12"),
     ("informal.inspection_budget", "M15"),
     ("informal.audit_budget", "M15"),
     ("informal.penalty_multiple", "M15"),
@@ -914,16 +915,45 @@ fn baseline_of(
     Ok(Some(Baseline { start, hashes, end }))
 }
 
+/// Whether a key of a lever's commands is one of its planned keys
+/// (`planned_keys`, read from the registry at run time): registered, not
+/// wired yet.
+fn is_planned_key(meta: &LeverMeta, key: Option<u32>) -> bool {
+    key.is_some_and(|k| {
+        let name = &meta.keys[usize::try_from(k).expect("fits")];
+        meta.planned_keys.contains(name)
+    })
+}
+
 /// One end of one active lever for three months against its baseline;
-/// what went wrong, if anything.
-fn try_end(base: &Baseline, meta: &LeverMeta, top: bool, last: Date) -> Option<String> {
+/// what went wrong, if anything. Its active keys are moved to the end
+/// together; a command at the end on each of its planned keys must be
+/// rejected with `not_yet`.
+fn try_end(base: &Baseline, meta: &LeverMeta, top: bool, last: Date) -> Vec<String> {
     let id = meta.id.as_str();
     let end = if top { "top" } else { "bottom" };
     let value = end_value(meta, top);
     let effective = condition(&base.start, meta.id).and_then(|c| c.end_effective);
+    let mut out = Vec::new();
+    let (planned_keys, active_keys): (Vec<_>, Vec<_>) = keys_of(meta)
+        .into_iter()
+        .partition(|k| is_planned_key(meta, *k));
+    for key in planned_keys {
+        let mut probe = base.start.clone();
+        match probe.give(set(meta.id, key, value.clone())) {
+            Err(r) if r.code == RejectCode::NotYet => {}
+            Err(r) => out.push(format!(
+                "{id} planned key {key:?} at its {end}: rejected {:?}, not not_yet: {}",
+                r.code, r.message
+            )),
+            Ok(a) => out.push(format!(
+                "{id} planned key {key:?} at its {end}: accepted {a:?}"
+            )),
+        }
+    }
     let mut w = base.start.clone();
     let mut moves = false;
-    for key in keys_of(meta) {
+    for key in active_keys {
         if base.end.law().get(meta.id, key) != Some(&value) {
             moves = true;
         }
@@ -932,22 +962,26 @@ fn try_end(base: &Baseline, meta: &LeverMeta, top: bool, last: Date) -> Option<S
             None => set(meta.id, key, value.clone()),
         };
         if let Err(r) = w.give(order) {
-            return Some(format!(
+            out.push(format!(
                 "{id} at its {end}: rejected {:?}: {}",
                 r.code, r.message
             ));
+            return out;
         }
     }
     let hashes = match run_through(&mut w, last, &format!("{id} at its {end}")) {
         Ok(h) => h,
-        Err(e) => return Some(e),
+        Err(e) => {
+            out.push(e);
+            return out;
+        }
     };
     if moves && hashes == base.hashes {
-        return Some(format!(
+        out.push(format!(
             "{id} at its {end}: the state hash never moves (not read)"
         ));
     }
-    None
+    out
 }
 
 /// Both ends of a planned lever are rejected with `not_yet`; what went
@@ -977,7 +1011,9 @@ fn try_planned(start: &World, meta: &LeverMeta) -> Vec<String> {
 /// the state hash against the baseline (it is read) and breaks no invariant
 /// I-1 to I-8; an end that cannot bind in the starting state is moved
 /// against a baseline that holds the condition under which it binds (the
-/// spec's list). Every alpha lever still `planned` is one the owner deferred
+/// spec's list). For a keyed lever with planned keys, its active keys are
+/// moved to each end, and a command changing a planned key is rejected with
+/// `not_yet`. Every alpha lever still `planned` is one the owner deferred
 /// (the spec's list), and a command at either end of its range is rejected
 /// with `not_yet`.
 ///
@@ -986,9 +1022,14 @@ fn try_planned(start: &World, meta: &LeverMeta) -> Vec<String> {
 /// six ends of active levers cannot bind in the starting state (the spec
 /// names the condition of each).
 ///
+/// *Restated 2026-10-26:* `world.fuel_price` is active with only its oil key
+/// wired (owner, 2026-10-25); gas and coal are `planned_keys` until M12, so
+/// moving every key of it was rejected `not_yet` and counted as a failure.
+///
 /// Readings: the alpha levers are the registry entries with `milestone =
-/// "alpha"`, their status read at run time; every key of a keyed lever is
-/// moved together; the bottom and top are those of `end_value` (a choice's
+/// "alpha"`, their status and planned keys read at run time; every active
+/// key of a keyed lever is moved together, and each planned key is tried
+/// alone at the same end on the starting world; the bottom and top are those of `end_value` (a choice's
 /// first and last option; a schedule one row from 0 at the lowest or highest
 /// rate). Given on 1 December 2021, taking effect at the earliest (1 January
 /// for a law; for `money.qe` under its condition, 1 January) and run to 31
@@ -1055,7 +1096,7 @@ fn ac_lev_14() {
                             let base = own.as_ref().unwrap_or(shared);
                             [false, true]
                                 .into_iter()
-                                .filter_map(|top| try_end(base, m, top, last))
+                                .flat_map(|top| try_end(base, m, top, last))
                                 .collect()
                         })
                         .collect::<Vec<_>>()

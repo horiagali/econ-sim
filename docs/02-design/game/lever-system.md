@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [game/levers, adr/0018-scenario-and-commands, adr/0011-storage-saves-history, adr/0017-time-base, adr/0008-explainability-architecture, adr/0006-determinism-contract, economy/budget-2021, economy/fiscal-policy, economy/infrastructure, game/world-loop, game/scenario-builder]
 research: [research/law-in-force-romania-2021]
-updated: 2026-10-25
+updated: 2026-10-26
 ---
 
 # Lever System — Commands, Registry, Replay and the Alpha Levers
@@ -237,8 +237,9 @@ Levers tagged `alpha` in the [catalogue](levers.md) (D2). Ids are proposals for 
 |---|---|
 | `transfer.pension.retirement_age[sex]` | M5 (retirement transition, [demographics](../economy/demographics.md)) |
 | `world.wages_abroad` | M5 (emigration) |
-| `world.fuel_price[fuel]` | M12 (the [energy](../economy/energy.md) mechanic) |
 | `informal.inspection_budget`, `informal.audit_budget`, `informal.penalty_multiple` | M15 (detection, [informal economy](../economy/informal-economy.md)) |
+
+`world.fuel_price[fuel]` left this table on 2026-10-26: the lever is `active` with its oil key wired (owner, 2026-10-25); its gas and coal keys are `planned_keys`, rejected with `not_yet` until M12 (the [energy](../economy/energy.md) mechanic).
 
 **Ends that bind only under a condition** (AC-LEV-14, 2026-10-25). Six ends of active levers cannot bind in the starting state, by the rules of the mechanics that read them; AC-LEV-14 moves those levers against a baseline that holds the condition under which they bind (orders given on the start date to both runs):
 
@@ -275,7 +276,7 @@ Written on 2026-10-22 by the test writer (ADR-0014) in `crates/econ-core/tests/a
 - [ ] **AC-LEV-11** `[sim]` Raising the education budget with pay unchanged raises education's input purchases and leaves its employees' pay unchanged; raising education's pay with the budget unchanged raises its wage bill and lowers its input purchases by the same amount, until inputs reach zero.
 - [ ] **AC-LEV-12** `[sim]` With an education budget above what the unit can spend, the year's government spending on education equals what was paid; no posting moves the unspent part, and on 1 January the allowance restarts from the new year's twelfths.
 - [ ] **AC-LEV-13** `[sim]` An investment share of 0 puts the whole health budget into running; a share of 100% sends all of it to investment purchases, wages are still paid and an overrun warning is emitted.
-- [ ] **AC-LEV-14** `[sim]` For every alpha lever with `status = "active"`: moving it to the bottom and the top of its range for three months changes the state hash against the baseline (it is read) and breaks no invariant I-1 to I-8; a lever with an end that cannot bind in the starting state is moved against a baseline holding the condition under which it binds ([the alpha levers](#the-alpha-levers)). Every alpha lever still `planned` is one the owner deferred, and a command at either end of its range is rejected with `not_yet`. *(Restated 2026-10-25: it covered every alpha lever; the owner deferred six beyond M4 on 2026-10-24, and six ends of active levers cannot bind in the starting state.)*
+- [ ] **AC-LEV-14** `[sim]` For every alpha lever with `status = "active"`: moving it to the bottom and the top of its range for three months changes the state hash against the baseline (it is read) and breaks no invariant I-1 to I-8; a lever with an end that cannot bind in the starting state is moved against a baseline holding the condition under which it binds ([the alpha levers](#the-alpha-levers)). For a keyed lever with `planned_keys`, its active keys are moved to each end, and a command changing a planned key is rejected with `not_yet`. Every alpha lever still `planned` is one the owner deferred, and a command at either end of its range is rejected with `not_yet`. *(Restated 2026-10-25: it covered every alpha lever; the owner deferred six beyond M4 on 2026-10-24, and six ends of active levers cannot bind in the starting state. Restated 2026-10-26: `world.fuel_price` is active with only oil wired, gas and coal `planned_keys` until M12 (owner, 2026-10-25), so moving all its keys was rejected `not_yet`.)*
 - [ ] **AC-LEV-15** `[sim]` After a VAT rise, `PolicyChanged` is in the events with old, new, given and effective, and the price "why" tree of a standard-rated good in the month of effect has a term tagged `tax.vat.rate_standard` with a non-zero contribution.
 - [ ] **AC-LEV-16** `[sim]` A change of `world.foreign_rate` is validated, logged and replayed like a law command, and in a two-group counterfactual (taxes, world) its effect is attributed to `world`.
 
