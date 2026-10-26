@@ -151,22 +151,27 @@ impl World {
         let date = self.calendar.date(today);
         let minimum = self.law.minimum_wage;
         // Today's seekers, longest unemployed first, then by keyed priority.
-        let mut seekers: Vec<(std::cmp::Reverse<u16>, u64, u32)> = (0..self.persons.employer.len())
-            .filter(|&i| self.pp.seeking[i])
-            .map(|i| {
+        // The key (months unemployed descending, priority, id) packed in one
+        // integer, which sorts in the same order as the tuple, faster.
+        let mut seekers: Vec<u128> = self
+            .pp
+            .seeking
+            .iter()
+            .enumerate()
+            .filter(|&(_, &s)| s)
+            .map(|(i, _)| {
                 let id = u32::try_from(i).expect("a person id");
                 let prio = self
                     .seed
                     .fast_u64(Stream::Labour, today.0, i as u64, DRAW_HIRE);
-                (
-                    std::cmp::Reverse(self.persons.months_unemployed[i]),
-                    prio,
-                    id,
-                )
+                u128::from(u16::MAX - self.persons.months_unemployed[i]) << 96
+                    | u128::from(prio) << 32
+                    | u128::from(id)
             })
             .collect();
         seekers.sort_unstable();
-        let mut order: Vec<u32> = seekers.into_iter().map(|s| s.2).collect();
+        #[allow(clippy::cast_possible_truncation)]
+        let mut order: Vec<u32> = seekers.into_iter().map(|s| s as u32).collect();
         // Pay and job choice: yesterday's underpaid quitters who look while
         // employed go first, for better-paid vacancies only.
         #[cfg(feature = "levers")]

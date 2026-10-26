@@ -49,6 +49,12 @@ default = [
     "trade",
     "investment",
     "revenue",
+    # The lever system and the policy-scenario suite, every scenario's
+    # lever wired (roadmap M4, closed 2026-10-26).
+    "lever_policy_rate",
+    "lever_monetary_financing",
+    "lever_fx_devaluation",
+    "lever_fuel_price",
 ]
 # Gates the `World` of spec game/world-loop and its acceptance tests (AC-WLD-*
 # and the owed `[sim]` criteria of the four M2 mechanics), written before the

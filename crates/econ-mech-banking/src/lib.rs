@@ -21,9 +21,9 @@ fn ratio(a: i128, b: i128, c: i128) -> i128 {
     debug_assert!(c > 0);
     let n = a * b;
     if n >= 0 {
-        (n + c / 2) / c
+        econ_types::div_i128(n + c / 2, c)
     } else {
-        -((-n + c / 2) / c)
+        -econ_types::div_i128(-n + c / 2, c)
     }
 }
 

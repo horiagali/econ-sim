@@ -11,6 +11,7 @@
 mod hash;
 #[cfg(feature = "levers")]
 pub mod levers;
+pub mod pc;
 pub mod scale_spike;
 pub mod schedule;
 pub mod sim;

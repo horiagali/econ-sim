@@ -2,6 +2,7 @@
 //!
 //! ```text
 //! econ-cli sim [--ticks N] [--hashes] [--check-golden FILE] [--mutate tax-sign|consume-gross]
+//! econ-cli pc [--ticks N] [--rate-tick N] [--mutate interest-income|portfolio-sign]
 //! econ-cli rng-raw [--pattern entity|tick|grid] [--entities N] [--bytes N] [--seed S]
 //! econ-cli synth-population --margins FILE --sample-scale N [--seed S] --out DIR
 //!                           [--attributes FILE [--jobs FILE [--wages FILE]] [--pensions FILE]]
@@ -11,7 +12,9 @@
 //! econ-cli build-scenario --sample-scale N [--seed S] [--fixtures DIR] --out DIR
 //! ```
 //! Default output of `sim` is CSV: tick,Y,T,YD,C,G,H,GOV_DEFICIT,state_hash
-//! (money in bani). `rng-raw` writes raw `fast_u64` output to stdout for
+//! (money in bani). `pc` runs Godley & Lavoie's model PC (bills and a central
+//! bank; the rate rises from 2.5% to 3.5% at `--rate-tick`, default 100) and
+//! prints tick,Y,T,YD,C,G,V,BH,HH,BS,BCB,IH,ICB,state_hash. `rng-raw` writes raw `fast_u64` output to stdout for
 //! external test batteries (PractRand: `econ-cli rng-raw | RNG_test stdin64`).
 //! `synth-population` is the data pipeline's `synth_population` stage
 //! (ADR-0012): census margins in, `households.arrow`, `persons.arrow` and
@@ -52,6 +55,7 @@ fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("sim") => run_sim(&args[1..]),
+        Some("pc") => run_pc(&args[1..]),
         Some("bench-scale") => bench_scale(&args[1..]),
         Some("bench-days") => bench_days(&args[1..]),
         Some("bench-save") => bench_save(&args[1..]),
@@ -897,6 +901,62 @@ fn rng_raw(args: &[String]) -> ExitCode {
         }
     }
     let _ = out.flush();
+    ExitCode::SUCCESS
+}
+
+/// Model PC (the follow-up of Spike 2) as CSV, for `python/reference/diff_sim.py`.
+fn run_pc(args: &[String]) -> ExitCode {
+    use econ_core::pc::{PcModel, PcMutation, PcParams};
+    let mut ticks: u32 = 200;
+    let mut rate_tick: u32 = 100;
+    let mut mutation = PcMutation::None;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--ticks" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(n) => ticks = n,
+                None => return usage(),
+            },
+            "--rate-tick" => match it.next().and_then(|v| v.parse().ok()) {
+                Some(n) => rate_tick = n,
+                None => return usage(),
+            },
+            "--mutate" => {
+                mutation = match it.next().map(String::as_str) {
+                    Some("interest-income") => PcMutation::InterestOutOfIncome,
+                    Some("portfolio-sign") => PcMutation::PortfolioSign,
+                    _ => return usage(),
+                }
+            }
+            _ => return usage(),
+        }
+    }
+    let mut model = PcModel::new(PcParams::default()).with_mutation(mutation);
+    let mut failures = 0usize;
+    println!("tick,Y,T,YD,C,G,V,BH,HH,BS,BCB,IH,ICB,state_hash");
+    for tick in 0..ticks {
+        if tick == rate_tick {
+            model.set_rate(0.035);
+        }
+        let r = model.step();
+        if !r.invariant_errors.is_empty() {
+            failures = failures.saturating_add(1);
+            eprintln!(
+                "tick {}: invariant failures: {:?}",
+                r.tick, r.invariant_errors
+            );
+        }
+        let vals: Vec<String> = r
+            .aggregates
+            .iter()
+            .map(|(_, v)| v.get().to_string())
+            .collect();
+        println!("{},{},{:016x}", r.tick, vals.join(","), r.state_hash);
+    }
+    if failures > 0 {
+        eprintln!("{failures} ticks had invariant failures");
+        return ExitCode::FAILURE;
+    }
     ExitCode::SUCCESS
 }
 

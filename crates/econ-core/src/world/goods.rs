@@ -10,7 +10,7 @@ use econ_mech_tax::vat::{VatCategory, VatRate};
 use econ_num::math::powf;
 use econ_types::Bani;
 
-use super::money::{Postings, bani, ratio, split, split2};
+use super::money::{Postings, bani, div_rem, ratio, split, split2};
 use super::{UnitState, World};
 
 const ONE: i128 = 1_000_000;
@@ -814,7 +814,7 @@ impl World {
         // disposable income is net of it (spec economy/households), so the
         // household keeps it aside for the month end (M3, with the banks).
         #[cfg(feature = "banking")]
-        let dues = self.hh_interest_due();
+        let dues = self.hh_interest_due(cohort);
         let h = &mut self.households;
         for k in 0..h.hh_weight.len() {
             if h.hh_stagger_day[k] != cohort {
@@ -994,7 +994,8 @@ impl World {
                 let buyer = usize::from(self.units.industry[u]);
                 if let Ok(k) = self.ii.essential[buyer].binary_search(&i) {
                     let share = if q > 0 {
-                        u32::try_from(i128::from(s) * ONE / i128::from(q)).expect("a share")
+                        u32::try_from(div_rem(i128::from(s) * ONE, i128::from(q)).0)
+                            .expect("a share")
                     } else {
                         1_000_000
                     };
@@ -1107,7 +1108,7 @@ impl World {
         let (mut by_cash, mut by_deposits, mut paid_total) = (0i128, 0i128, 0i128);
         for (b, &(k, spending)) in buyers.iter().enumerate() {
             let gross = if budget > 0 {
-                bani(i128::from(spending.get()) * served / budget)
+                bani(div_rem(i128::from(spending.get()) * served, budget).0)
             } else {
                 Bani::ZERO
             };

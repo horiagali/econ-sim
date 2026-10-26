@@ -4,7 +4,7 @@ title: "Spike results: 0–4 (repo setup, numerics, ledger + SIM, explanations, 
 status: draft
 owner: horia
 depends_on: [roadmap, adr/0006-determinism-contract, adr/0007-money-and-ledger, adr/0008-explainability-architecture, adr/0003-people-representation]
-updated: 2026-10-10
+updated: 2026-10-26
 ---
 
 # Spike results: 0–4
@@ -42,7 +42,7 @@ Built 2026-10-09 in an autonomous session. All code is in `crates/`,
 - `python/reference/sim_reference.py`: independent reference; `diff_sim.py` compares **every aggregate, every tick, exactly in bani for 200 ticks — exact match**. Two deliberate mutations (tax sign flipped; consumption on gross income) are both caught, so the test has teeth.
 - Golden run `tests/golden/sim_200.hashes` (`just golden-check`).
 
-**Exit criterion met.** Model PC (with bonds and a central bank) is the follow-up.
+**Exit criterion met.** Model PC (with bonds and a central bank) is the follow-up. **Done 2026-10-26 (roadmap M4):** `econ_core::pc` against `python/reference/pc_reference.py`, exact in bani for 200 ticks with the rate raised at tick 100; two mutants caught.
 
 ## Spike 3 — explanations ✅
 - `econ-rules::behaviour_rule!` macro: shapes `additive` and `log_linear`; generates `Inputs`, `Params`, `eval`, `eval_explained`, `explain_change → ContributionTree`, and `META` (terms, labels, provenance `FromData`/`Fitted`/`Tuned`).

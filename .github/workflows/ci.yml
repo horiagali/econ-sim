@@ -63,7 +63,7 @@ jobs:
         run: python -m unittest discover -s python/pipeline/tests
       - name: protect-paths hook tests
         run: python -m unittest discover -s scripts/tests
-      - name: differential SIM test (Rust vs Python reference)
+      - name: differential SIM and PC test (Rust vs Python reference)
         run: |
           cargo build -q -p econ-cli
           python python/reference/diff_sim.py
@@ -123,7 +123,8 @@ jobs:
         run: cargo check --manifest-path ui/src-tauri/Cargo.toml --locked
 
   scales:
-    # The World at three population scales in a release build (roadmap M2):
+    # The World at three population scales in a release build (roadmap M2)
+    # and the policy suite at two (roadmap M4):
     # its acceptance tests at 1:1000 and 1:100, the ignored 1:10 run and the
     # time budget of AC-WLD-10, one at a time so the timing is not shared.
     # `world::` also matches `transfers_world::`, whose ignored tests are
@@ -142,6 +143,11 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: the World at 1:1000, 1:100 and 1:10
         run: "cargo test --release -p econ-core --test acceptance -- --include-ignored --test-threads=1 --skip transfers_world:: world::"
+      # The policy-scenario suite (spec game/policy-scenarios): every
+      # scenario and AC-POL-10 at 1:1000 and 1:100; its 1:10 run and the
+      # mutation check are nightly (nightly.yml).
+      - name: the policy suite at 1:1000 and 1:100
+        run: "cargo test --release -p econ-core --test acceptance -- --test-threads=1 policy::"
 
   ui:
     # The thin UI's frontend type-checks and builds (the Tauri host is

@@ -15,6 +15,6 @@ pub mod glossary;
 mod ids;
 mod time;
 
-pub use bani::{Bani, split_largest_remainder};
+pub use bani::{Bani, div_i128, div_rem_i128, split_largest_remainder};
 pub use ids::{CountyId, FirmId, HouseholdId, IndustryId, PersonId};
 pub use time::{Calendar, Date, Day, Month};
