@@ -366,29 +366,82 @@ impl World {
     }
 
     /// Phase 5 for a public unit: today's part of its input and investment
-    /// money, as demand on the industries and as imports.
+    /// money, as demand on the industries and as imports. The imports, and
+    /// the product taxes and duties on its home purchases (paid at phase 8),
+    /// come out of the firm sector's free deposits (the government tops the
+    /// unit up at the day's end): when the sector holds less, the unit buys
+    /// what it can and keeps the rest of its money for later days (no lever
+    /// may overdraw the sector; in a normal run this never binds).
     pub(super) fn budget_buy(&mut self, u: usize, post: &mut Postings) {
         let date = self.calendar.date(self.today);
         let days_left = i128::from(date.days_in_month() + 1 - date.day);
         let b = &self.bud;
         let input_day = b.input_cash[u].max(0) / days_left;
         let invest_day = b.invest_cash[u].max(0) / days_left;
-        let (input_imp, invest_imp) = (
+        let (mut input_imp, mut invest_imp) = (
             ratio(input_day, b.input_import_ppm[u], ONE),
             ratio(invest_day, b.invest_import_ppm, ONE),
         );
         let input_dom = split(input_day - input_imp, &b.input_mix[u]);
         let invest_dom = split(invest_day - invest_imp, &b.invest_mix);
+        // Home orders: (industry, inputs, investment), in real units; and
+        // which of the two it orders at all.
+        let mut orders: Vec<(usize, i64, i64)> = Vec::new();
+        let mut wants: Vec<(bool, bool)> = Vec::new();
         for (i, (&m, &k)) in input_dom.iter().zip(&invest_dom).enumerate() {
             let price = i128::from(self.industries.price_ppm[i].max(1));
             let q = |money: i128| i64::try_from(money * ONE / price).expect("a quantity");
-            if m > 0 {
-                self.demand.units[i].push((u, q(m)));
-            }
-            if k > 0 {
-                self.demand.agents[i].push((u, q(k)));
+            if m > 0 || k > 0 {
+                orders.push((
+                    i,
+                    if m > 0 { q(m) } else { 0 },
+                    if k > 0 { q(k) } else { 0 },
+                ));
+                wants.push((m > 0, k > 0));
             }
         }
+        let rate = self.investment_tax_ppm();
+        let taxes = |w: &Self, orders: &[(usize, i64, i64)]| -> i128 {
+            orders
+                .iter()
+                .map(|&(i, m, k)| {
+                    let p = i128::from(w.industries.price_ppm[i]);
+                    let (vm, vk) = (ratio(i128::from(m), p, ONE), ratio(i128::from(k), p, ONE));
+                    w.input_tax(u, vm)
+                        + w.fuel_duty(u, i, m)
+                        + if vk > 0 { ratio(vk, rate, ONE) } else { 0 }
+                })
+                .sum()
+        };
+        let mut owed = taxes(self, &orders);
+        let free = self.uu.firm_free.max(0);
+        if input_imp + invest_imp + owed > free {
+            let (n, mut d) = (free, input_imp + invest_imp + owed);
+            let original = orders.clone();
+            let imp = (input_imp, invest_imp);
+            loop {
+                for (o, &(_, m, k)) in orders.iter_mut().zip(&original) {
+                    o.1 = i64::try_from(i128::from(m) * n / d).expect("a quantity");
+                    o.2 = i64::try_from(i128::from(k) * n / d).expect("a quantity");
+                }
+                (input_imp, invest_imp) = (imp.0 * n / d, imp.1 * n / d);
+                owed = taxes(self, &orders);
+                let total = input_imp + invest_imp + owed;
+                if total <= free || n == 0 {
+                    break;
+                }
+                d += total - free;
+            }
+        }
+        for (&(i, m, k), &(wm, wk)) in orders.iter().zip(&wants) {
+            if wm {
+                self.demand.units[i].push((u, m));
+            }
+            if wk {
+                self.demand.agents[i].push((u, k));
+            }
+        }
+        self.uu.firm_free -= input_imp + invest_imp + owed;
         let imported = input_imp + invest_imp;
         if imported > 0 {
             self.units.deposits[u] -= bani(imported);

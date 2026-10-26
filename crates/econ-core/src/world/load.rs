@@ -446,6 +446,7 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         .collect();
 
     let mut uu = UnitState {
+        firm_free: 0,
         plan_output: Vec::new(),
         plan_days,
         plan_done,

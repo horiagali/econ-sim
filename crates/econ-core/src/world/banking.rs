@@ -243,11 +243,22 @@ impl World {
         post.commit(&mut self.ledger);
     }
 
-    /// The units' shortfalls drawn on their credit lines, as far as each
-    /// line is open (step 1); before M2's credit inside the firm sector takes
-    /// the rest.
+    /// A cohort unit draws up to `amount` on its credit line now, as far as
+    /// the line is open; returns what it drew. For a payment the firm
+    /// sector's deposits cannot cover before the day's checks (an input bill
+    /// beyond what the sector holds); never for a public unit.
+    pub(super) fn bank_draw_now(&mut self, u: usize, amount: Bani) -> Bani {
+        if !self.bk.active || self.uu.public[u] || amount <= Bani::ZERO {
+            return Bani::ZERO;
+        }
+        let x = amount.min(self.bank_credit_room(u));
+        if x > Bani::ZERO {
+            self.draw(u, x);
+        }
+        x.max(Bani::ZERO)
+    }
+
     /// A unit's room on its credit line now; none when the banks do not act.
-    #[cfg_attr(not(feature = "investment"), allow(dead_code))]
     pub(super) fn bank_credit_room(&self, u: usize) -> Bani {
         if !self.bk.active {
             return Bani::ZERO;
@@ -260,6 +271,9 @@ impl World {
         )
     }
 
+    /// The units' shortfalls drawn on their credit lines, as far as each
+    /// line is open (step 1); before M2's credit inside the firm sector takes
+    /// the rest.
     pub(super) fn bank_credit_lines(&mut self) {
         if !self.bk.active {
             return;
