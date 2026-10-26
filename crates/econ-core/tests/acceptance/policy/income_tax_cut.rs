@@ -60,6 +60,10 @@ pub static S2: Scenario = Scenario {
 /// (the table's window; "over the first year" in the criterion). Watched:
 /// the deficit, the price level, unemployment.
 #[test]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "the policy suite runs in release builds only: cargo test --release -p econ-core --test acceptance -- --test-threads=1 policy::"
+)]
 fn ac_pol_02() {
     super::harness::assert_scenario(&S2, 1000);
 }

@@ -55,6 +55,10 @@ pub static S4: Scenario = Scenario {
 /// the baseline's nominal GDP; real GDP is `gdp_expenditure` over the CPI,
 /// flow kind. Watched: unemployment, the price level.
 #[test]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "the policy suite runs in release builds only: cargo test --release -p econ-core --test acceptance -- --test-threads=1 policy::"
+)]
 fn ac_pol_04() {
     super::harness::assert_scenario(&S4, 1000);
 }

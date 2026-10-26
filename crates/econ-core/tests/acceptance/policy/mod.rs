@@ -28,6 +28,14 @@
 //! (`lever_policy_rate` S1, `lever_monetary_financing` S5,
 //! `lever_fx_devaluation` S6, `lever_fuel_price` S9), and is part of AC-POL-10
 //! and 11 only when the feature is on ([`wired`]).
+//!
+//! Release builds only (2026-10-26): every test of the suite is ignored in a
+//! debug build (`cfg_attr(debug_assertions, ignore)`, the form of AC-WLD-10),
+//! because the debug `cargo test --workspace` of CI's `linux` and `windows`
+//! jobs and `just check` spent about 7 minutes on it. Nothing is skipped in
+//! release: CI's `scales` job runs `cargo test --release -p econ-core --test
+//! acceptance -- --test-threads=1 policy::` on every pull request, and the
+//! nightly run the ignored 1:10 run.
 
 pub mod harness;
 

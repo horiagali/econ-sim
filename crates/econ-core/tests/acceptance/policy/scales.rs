@@ -51,6 +51,10 @@ fn assert_scale(scale: u32) {
 /// exchange rate, credibility or prices): a placebo identical to the
 /// baseline would make every floor zero and the 2ν rule empty.
 #[test]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "the policy suite runs in release builds only: cargo test --release -p econ-core --test acceptance -- --test-threads=1 policy::"
+)]
 fn ac_pol_10() {
     let mut failed = failures_at(1000);
     failed.extend(failures_at(100));

@@ -73,5 +73,6 @@ mod support_lev;
 // M4: the policy-scenario suite (spec game/policy-scenarios, AC-POL-01 to
 // 11), behind the feature `policy`; the scenarios whose lever is not wired
 // yet are each behind their lever's feature as well (see `policy/mod.rs`).
+// Its tests run in release builds only (ignored under debug_assertions).
 #[cfg(feature = "policy")]
 mod policy;
