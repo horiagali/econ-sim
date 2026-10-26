@@ -1,7 +1,9 @@
 //! Acceptance test for AC-WLD-05 (spec: game/world-loop): the golden state
 //! hash of day 31. The value comes from the first implementation
-//! (2026-10-17) and was approved by the owner on 2026-10-20 (ADR-0010,
-//! CHANGELOG-sim.md); it lives in `tests/golden/world_ro_2021.hashes`.
+//! (2026-10-17), approved by the owner on 2026-10-20, and was re-goldened
+//! with the owner's approval on 2026-10-25 when households' VAT rate came to
+//! be kept to the millionth after the VAT gap (ADR-0010, CHANGELOG-sim.md);
+//! it lives in `tests/golden/world_ro_2021.hashes`.
 
 use econ_types::Day;
 
@@ -31,7 +33,7 @@ fn golden(scale: u32) -> u64 {
 /// at 1:1000, seed 42, equals the committed golden value.
 #[test]
 fn ac_wld_05() {
-    assert_eq!(golden(1000), 0x407f_56fb_8ccd_24ea, "the approved value");
+    assert_eq!(golden(1000), 0x2373_97d7_2f44_0b0c, "the approved value");
     let mut w = world(1000);
     // 31 days run (days 0 to 30): the world stands on day 31.
     while w.day() < Day(31) {

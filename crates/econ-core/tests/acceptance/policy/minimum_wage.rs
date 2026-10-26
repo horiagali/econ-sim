@@ -6,11 +6,11 @@ use super::harness::{Check, Ind, Kind, Scenario, checked, watched};
 
 const CHECKS: [Check; 4] = [
     checked(
-        "the mean wage rises",
+        "the mean wage of employees rises",
         Ind::MeanWage,
         Kind::LevelPct,
         (1, 6),
-        (150, 1200),
+        (100, 1200),
     ),
     checked(
         "prices are higher",
@@ -44,11 +44,18 @@ pub static S7: Scenario = Scenario {
 };
 
 /// **AC-POL-07** `[sim]` Minimum-wage rise (S7): with the minimum wage at
-/// 3,000 lei from T0, the mean gross wage is 1.5–12% higher in months 1–6
-/// and the price level 0.2–5% higher in months 6–18.
+/// 3,000 lei from T0, the mean gross wage of employees is 1–12% higher in
+/// months 1–6 and the price level 0.2–5% higher in months 6–18.
 ///
-/// Readings: those of `policy/mod.rs`. The mean gross wage is
-/// `MonthStats::wage_bill / employed`, level kind. Watched: employment
+/// Restated 2026-10-25 (owner decision): the mean gross wage is over
+/// employees only, not the wage bill over all the employed, which counts the
+/// self-employed (who earn no wage) and diluted the rise; and the band starts
+/// at +1%, not +1.5%, as 21% of employees earn below 3,000 lei in the
+/// starting data. It stays checked: a fall or no change fails.
+///
+/// Readings: those of `policy/mod.rs`. The mean gross wage of employees is
+/// the weighted mean of `PersonColumns::wage` over persons whose `wage` is
+/// above zero at the close (`Monthly::employee_wages`), level kind. Watched: employment
 /// (`MonthStats::employed`), households in hardship
 /// (`MonthStats::hardship_households`).
 #[test]
