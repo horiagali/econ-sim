@@ -20,7 +20,7 @@ Data and sources are in the [research note](../../01-research/notes/demographics
 - Romania had 19.05 million residents at the census of 1 December 2021, 16.2% under 15 and 19.5% aged 65 or more.
 - Before the pandemic about 200,000 children were born and 262,000 people died a year (2017–2019); the total fertility rate was 1.77 (2019) and life expectancy at birth 71.9 for men and 79.4 for women (2019), rising about 0.2 years a year.
 - The official projection (Eurostat EUROPOP2023) has the population falling to 15.0 million by 2070 (15.75 million with no migration) and the share aged 65+ rising to 29%.
-- Fertility falls with education and income, rises modestly with child benefits and childcare, dips in recessions and with high housing costs; mortality falls with income, health spending and education. None of these responses is in the first version (see Open questions).
+- Fertility falls with education and income across countries, rises modestly with child benefits (Quebec, Poland's 500+, Austria), and dips in recessions, most among the young. **The first version has the short-run responses to child benefits and to the parents' unemployment** (owner, 2026-10-26), with small elasticities from that literature. Mortality falls with income, health spending and education; that response is not in the first version.
 - The 2021 law sets the standard retirement age at 65 for men and about 61 years 9 months for women, rising to 63 by January 2030; pensions are points × the point value, a survivor receives half of the deceased spouse's pension, and employment contracts end at the standard age.
 
 **Owner decision, 2026-10-26: the simulation runs as if COVID never happened.** 2021 had 335,527 deaths, about 70,000 more than the pre-pandemic level.
@@ -32,7 +32,7 @@ Data and sources are in the [research note](../../01-research/notes/demographics
 
 **In [household life cycle](../society/households-lifecycle.md):** what happens to a household when a member is born, dies or leaves; young adults leaving home; couples forming and separating; children left without an adult; the operations on weighted records that every transition uses.
 
-**Not in the first version:** behavioural fertility and mortality (income, unemployment, housing cost, child benefit, health spending, education: Open questions 3 and 4); mortality by county or health; survivor pensions for children; disability as its own pension; working pensioners; old people moving in with their children or into care homes; migration (its own spec).
+**Not in the first version:** fertility responding to housing cost (M13) and to education; mortality responding to income, health spending or education (Open question 4); mortality by county or health; survivor pensions for children; disability as its own pension; working pensioners; old people moving in with their children or into care homes; migration (its own spec).
 
 ## State variables
 New per person (the World's persons table gains them; [population-groups](../society/population-groups.md) already lists `age`, `sex` and `role`, which the World has not loaded so far):
@@ -133,7 +133,37 @@ computed once a year by repeated integer multiplication, half away from zero (20
 > **Simplification:** one heir per estate; heirs inherit the dwelling but never the debt (debts are paid from the money or written off); no inheritance tax (Romania has none; notary fees are ignored). An heir with a much smaller weight than the deceased receives proportionally more per household.
 
 ### 4. Births
-**Eligible:** live women aged 15 to 49 in private households, except those who gave birth in the last 12 months (`months_since_birth` < 12). **Strata:** five-year bands of the mother's age (15–19, …, 45–49). **Target:** $T_s$ with $p_i$ = `fertility_rate[age]` ÷ 12 (parts per billion). **Ranking:** $p_i$ × `partner_fertility_ratio` (3) for a woman who is head or partner of a household with a partner of the other sex; this moves who gives birth, not how many.
+**Eligible:** live women aged 15 to 49 in private households, except those who gave birth in the last 12 months (`months_since_birth` < 12). **Strata:** five-year bands of the mother's age (15–19, …, 45–49). **Target:** $T_s$ with
+
+```math
+p_i = \frac{\texttt{fertility\_rate}[a_i]}{12} \cdot k_s \cdot M^{pol}_h \cdot M^{job}_i \cdot M^{cyc}
+```
+
+(parts per billion; the three multipliers are below, and $k_s$ normalises $M^{job}$). **Ranking:** $p_i$ × `partner_fertility_ratio` (3) for a woman who is head or partner of a household with a partner of the other sex; the partner ratio moves who gives birth, not how many. The multipliers move how many.
+
+**Fertility responds to policy and the economy** (owner, 2026-10-26). Evidence and confidence are in the [research note](../../01-research/notes/demographics-romania-2021.md#8-fertility-responses-to-policy-and-the-economy). Each multiplier is exactly 1 under the 2021 law and the reference state, and bounded:
+
+1. **Child benefits, relative to income** ($M^{pol}_h$, per household). The extra support a newborn would bring, a month averaged over its childhood, compared with the 2021 law:
+
+   ```math
+   \Delta B = \frac{2\,\Delta\texttt{child\_allowance\_under2} + 16\,\Delta\texttt{child\_allowance}}{18} + \Delta\texttt{child\_tax\_credit}
+   ```
+
+   where each Δ is the law in force `fertility_lag` (9) months earlier minus the 2021 law's amount (levers `transfer.child.under2`, `transfer.child.to18`, `tax.income.credit_per_child`; the credit is 0 in 2021). Then
+
+   ```math
+   M^{pol}_h = \text{clamp}\Big(1 + \beta_b \,\frac{\Delta B}{Y_h},\; 0.8,\; 1.3\Big)
+   ```
+
+   with $Y_h$ the household's money income per equivalised adult over the last 12 months, not below `fertility_income_floor` (25%) of the national median, and $\beta_b$ = `fertility_benefit_response` (0.1). A benefit worth 10% of a household's income per adult raises its birth probability by 1%; poorer households respond more for the same lei, as in Poland's 500+. Doubling both 2021 allowances (ΔB ≈ 238 lei a month) raises births by about 1%; adding a 500-lei child tax credit on top, by about 3–4%.
+
+2. **The potential parents' unemployment** ($M^{job}_i$, per woman): `unemployed_fertility_ratio` (0.85) if she or her partner is unemployed, else 1. At load, $k_s$ is set per stratum so that the starting population gives exactly the base-rate births: $k_s = \sum w f / \sum w f M^{job}$. A recession that adds 5 points of unemployment among people of 20 to 44 lowers births by about 0.5–1.5%, the size of the European estimates (Goldstein et al. 2013: 0.1–0.2% per point, more among the young).
+
+3. **The cycle of real income** ($M^{cyc}$, national): $\text{clamp}(1 + \beta_y (g - g^{ref}), 0.97, 1.03)$, with $g$ the growth over 12 months of real disposable income per equivalised adult (deflated by the CPI), measured `fertility_lag` months earlier, $g^{ref}$ = `normal_income_growth` (2% a year) and $\beta_y$ = `fertility_cycle_response` (0.2). A year with real income 5% below normal growth lowers births by 1%.
+
+> **Simplification:** the responses are short-run and proportional: they raise or lower the rate at every age alike and do not distinguish a birth brought forward (tempo) from an extra child (quantum), so a lasting benefit rise keeps births higher for as long as it lasts, while the literature finds part of the effect is timing (Lalive & Zweimüller 2009). The benefit term compares nominal amounts with the 2021 law's, so inflation does not erode a frozen benefit's effect. Individual unemployment is read without a lag (spells are long). Housing cost joins with the housing market (M13).
+
+All three can be switched off for calibration (`fertility_benefit_response` = 0, `unemployed_fertility_ratio` = 1, `fertility_cycle_response` = 0); then births are exactly the base-rate births (AC-DEM-20).
 
 **The newborn** is a new person record appended to the persons table, in the mother's household (so with its weight: each selected record stands for $w$ real births): `age` 0, `sex` M with probability `sex_ratio_at_birth` (0.514; `draw(Demography, day, mother's person_key, birth_sex)`), `role` child, `edu_level` lowest, `activity` child, no employer, no pension, contributions 0, a new `person_key`. The mother's `months_since_birth` = 0. The child allowance at the under-2 rate starts at the next pay day ([social transfers](social-transfers.md)); the household's equivalised size is recomputed ([households](households.md)).
 
@@ -165,14 +195,15 @@ A dead person's record stays as a tombstone (weight excluded from every sum, nev
 Emigration, return, immigration, moves between counties, the diaspora and remittances are specified in `economy/migration-remittances` (a separate spec, M5), which uses the record operations of [household life cycle](../society/households-lifecycle.md) and the alignment above. Its step runs seventh in the People phase. The earlier draft of this spec sketched them (Harris–Todaro expected-income gaps, networks, a diaspora stock with remittances, return migration, immigration capped by a quota); that text now belongs to that spec.
 
 ### Alignment to the official projection
-The rates above are the alignment targets; the official projection is a **check**, not a target, so that later behavioural rules (fertility responding to child benefits, for example) can move the result. A 50-year run with migration off is compared with EUROPOP2023's no-migration variant (AC-DEM-12). Calibration (M7) may scale fertility and mortality by `fertility_scale` and `mortality_scale` (default 1) if the run drifts.
+**Behaviour, not forcing** (owner, 2026-10-26): births, deaths and migration come from rates and decisions (the rates above, with fertility's responses); the official projection is a **check**, not a target, so that policy and the economy can move the result. A 50-year run with migration off is compared with EUROPOP2023's no-migration variant (AC-DEM-12). Calibration (M7) only may scale fertility and mortality by `fertility_scale` and `mortality_scale` (default 1) if the run drifts; they are tuning parameters, not levers, and nothing sets them during a game.
 
 ## Player levers
 | Lever | Effect | Lag |
 |---|---|---|
 | `transfer.pension.retirement_age` (`retirement_age[sex]`, months of age, 600 to 840; registered, wired here) | the standard age by sex; early retirement moves with it | phased in one month of age per month from the effective date; first effect the next month |
 | `transfer.pension.point_value`, `minimum_pension`, `pension_indexation` | amounts of new and old pensions ([social transfers](social-transfers.md)) | next pay day |
-| `child_allowance_under2`, `child_allowance` | income of families with newborns; no effect on fertility in the first version | next pay day |
+| `transfer.child.under2`, `transfer.child.to18`, `tax.income.credit_per_child` (`child_allowance_under2`, `child_allowance`, `child_tax_credit`) | income of families with children at the next pay day; **births**, through $M^{pol}$ | births respond after `fertility_lag` (9 months) |
+| any lever that moves unemployment or real income (minimum wage, taxes, spending, the policy rate…) | **births**, through $M^{job}$ and $M^{cyc}$ | 9 months and more |
 
 The lever's registry entry names `MonthlyClose` as its reader; it becomes `People` when wired.
 
@@ -184,11 +215,18 @@ The lever's registry entry names `MonthlyClose` as its reader; it becomes `Peopl
 | `sex_ratio_at_birth` | 0.514 | 0.50–0.53 | share of boys (2021) |
 | `career_density[activity]` | 0.9, 0.6, 0.2, 0.7, 0.3, 1 | 0–1 | contribution years at load (low confidence) |
 | `nonemployed_wage_share` | 0.8 | 0.5–1 | career wage of persons not employed at load (low confidence) |
-| `fertility_scale`, `mortality_scale` | 1 | 0.8–1.2 | calibration only |
+| `fertility_benefit_response` $\beta_b$ | 0.1 | 0–0.4 | births per unit of extra child support relative to income per adult (Milligan 2005, Poland's 500+; low confidence) |
+| `unemployed_fertility_ratio` | 0.85 | 0.6–1 | birth probability of a woman who or whose partner is unemployed, relative to others (Goldstein et al. 2013; low confidence) |
+| `fertility_cycle_response` $\beta_y$ | 0.2 | 0–0.5 | births per point of real income growth above or below normal (low confidence) |
+| `normal_income_growth` | 2% a year | 0–4% | the real income growth at which the cycle term is 1 |
+| `fertility_lag` | 9 months | 6–12 | from a change in policy or income to births |
+| `fertility_income_floor` | 25% of the median | 10–50% | the lowest income per adult the benefit term divides by |
+| `fertility_scale`, `mortality_scale` | 1 | 0.8–1.2 | calibration (M7) only |
 | `full_contribution_years`, `min_contribution_years`, `early_retirement_reduction`, `survivor_share` | 35, 15, 0.75% a month, 50% | law | the 2021 law (medium confidence) |
 
 ## Interactions
 - **[Social transfers](social-transfers.md):** pays the pensions of new retirees and survivors and the child allowance of newborns; nothing changes in its rules.
+- **Births respond** to the child allowance and the child tax credit ([taxation](taxation.md)) relative to household income, to unemployment ([labour market](labor-market.md)) and to real income growth (the monthly close), after `fertility_lag`.
 - **[Labour market](labor-market.md):** loses retirees and the dead (separations `retirement` and `death`); its tightness and wage round see the smaller labour force. Entry of school leavers is the [education flows](../society/education.md)'.
 - **[Households](households.md):** new, merged and ended households; equivalised sizes change; estates and moves keep money exact.
 - **[Money and banking](money-banking.md):** estates repay or write off debts.
@@ -204,6 +242,8 @@ The lever's registry entry names `MonthlyClose` as its reader; it becomes `Peopl
 - **The deceased was the only employee of a firm unit:** the unit's staff falls to 0; the labour market's rules for empty units apply.
 - **A retirement-age command below the current age of many people:** they all retire the month the value in force reaches their age; with the phase-in that is one cohort-month at a time.
 - **A person older than 110:** dies with probability 1.
+- **Fertility's history not yet there:** $M^{cyc}$ is 1 until 12 + `fertility_lag` months of income exist; $M^{pol}$ reads the 2021 law for months before the start. A household with no income has $Y_h$ at the floor, so its multiplier stays within the bounds.
+- **A benefit cut** makes ΔB negative: births fall, down to the floor of 0.8.
 - **Collective records:** members die and age; nobody is born there; an ended collective record is removed like a household.
 
 ## Acceptance tests
@@ -225,6 +265,10 @@ IDs are stable. Tests are written by the test-writer ([ADR-0014](../../03-archit
 - [ ] **AC-DEM-14** `[sim]` The retirement-age lever: of two worlds, one with both ages raised by 24 months from January 2023, after five years the raised world has fewer pensioners (by at least 3% of the pensioners), a lower pension bill, and more persons aged 60 to 67 employed or unemployed; the value in force rose one month of age a month.
 - [ ] **AC-DEM-15** `[sim]` Determinism and scale: two 10-year runs with the same seed have equal state hashes every month; a run compacted every month and one compacted yearly have equal statistics; yearly births and deaths at 1:1000 and 1:100 differ by less than 5% in each of the first 10 years.
 - [ ] **AC-DEM-16** `[sim]` Performance: at 1:100 the People phase adds at most 15% to the time of a simulated year (AC-WLD-10's budget), and the exit run at 1:100 stays within the 50-year time budget of Spike 4.
+- [ ] **AC-DEM-17** `[unit]` Fertility multipliers: each is exactly 1 under the 2021 law at the reference state (no benefit change, nobody unemployed in the stratum's normalisation, income growth at normal); $M^{pol}$ rises with ΔB and falls with income, and every multiplier stays within its bounds for any input (including zero income and negative ΔB); the normalisation $k_s$ gives the base-rate target on the starting population.
+- [ ] **AC-DEM-18** `[sim]` A large child-benefit rise: of two worlds at 1:100, one with both child allowances doubled and a 500-lei child tax credit from 1 January 2023, and the economic terms switched off in both (so only the benefit term differs), births before October 2023 are equal person for person (the lag), and births in 2024–2025 are 1% to 6% higher in the raised world; with every term on, they are still higher, by 0.5% to 7%.
+- [ ] **AC-DEM-19** `[sim]` A recession lowers births slightly: of two worlds at 1:100, one with a lasting layoff that raises the unemployment of persons aged 20–44 by at least 4 points from January 2023, births in 2024 are 0.2% to 3% lower in the recession world.
+- [ ] **AC-DEM-20** `[sim]` With the law at its 2021 values and the economic terms switched off (`unemployed_fertility_ratio` 1, `fertility_cycle_response` 0), the births of every month are those of the base rates exactly: the same targets and the same mothers as a run whose three multipliers are fixed at 1.
 
 AC-PG-02 (person conservation every day of 100 years) is owed to this spec and is covered by AC-DEM-03 at 20 years; its own test runs 100 years.
 
@@ -246,6 +290,13 @@ pub struct PensionLaw { pub full_years: u8, pub min_years: u8, pub early_reducti
 pub fn new_pension_points(career_points: u64, survivor_points: u64, months_early: u16,
                           contribution_months: u16, law: &PensionLaw) -> Option<u64>;            // AC-DEM-10
 pub fn early_hazards(share_retired_by_age: &[u32], standard_age_years: u8) -> Vec<u32>;          // ppm a year
+
+pub struct FertilityResponse { pub benefit_ppm: u32, pub unemployed_ratio_ppm: u32, pub cycle_ppm: u32,
+                               pub normal_growth_ppm: i32, pub lag_months: u8, pub income_floor_ppm: u32 }
+pub fn benefit_gap(law_then: &ChildSupport, law_2021: &ChildSupport) -> Bani;                    // ΔB a month
+pub fn m_pol(delta_b: Bani, income_per_adult: Bani, median: Bani, r: &FertilityResponse) -> u32; // ppm, 800_000..=1_300_000
+pub fn m_job(woman_or_partner_unemployed: bool, r: &FertilityResponse) -> u32;                   // ppm
+pub fn m_cyc(real_growth_ppm: Option<i32>, r: &FertilityResponse) -> u32;                        // ppm, 970_000..=1_030_000; AC-DEM-17
 
 pub struct Estate { pub cash: Bani, pub deposits: Bani, pub debts: Bani, pub dwelling: Bani, pub weight: u32 }
 pub struct EstateSplit { pub repaid: Bani, pub written_off: Bani,                                // totals over the weight
@@ -271,14 +322,14 @@ pub enum StartEdit { /* … */ RetirementAge { sex: Sex, months: u16, from: Date
 New flow code: 4109 `transfer.estate`. New random purposes on `Stream::Demography`: `death`, `birth`, `birth_sex`, `early_retirement`, `heir` (and the life cycle's).
 
 ## Open questions
-- [ ] **COVID.** Recorded as the owner's decision of 2026-10-26: pre-pandemic mortality (2017–2019 table improved from 2018), 2019 fertility, checks against EUROPOP2023 from 2025 and EUROPOP2019. *Proposed: as written.*
-- [ ] **Rates or hard alignment to the projection?** Aligning yearly births and deaths to EUROPOP2023's totals would reproduce it exactly but leave no room for policy to move fertility or mortality. *Proposed: rates as targets, the projection as a check (AC-DEM-12), scale factors for calibration in M7.*
-- [ ] **Behavioural fertility.** Should child benefits, income, unemployment and housing cost move fertility in M5? *Proposed: not in the first version; add multipliers `m_econ` and `m_pol` (default 1) with the society depth of M14, with a small elasticity from the literature (a 10% rise in child benefits raising fertility by about 0.5–1%, low confidence). The retirement age is the only demographic lever in M5.*
-- [ ] **Mortality by health, income, education or county.** *Proposed: not in v1's first version; the health index of [social outcomes](../society/social-outcomes.md) can multiply the probability when it exists (M14).*
-- [ ] **The law's schedule against the lever.** *Proposed: the 2021 law's dated schedule for women is data in `law.json`; a command replaces it for that sex and is phased in at one month of age per month. Check the schedule against Annex 5 of Law 263/2010 then.*
-- [ ] **Early retirement as one rule** for early, disability and special pensions, derived from the census profile. *Proposed: accept for M5; disability pensions get their own programme with M14's benefits.*
-- [ ] **Working pensioners.** *Proposed: none in the first version (retiring ends all work); revisit with M14 if the employment of people over 65 matters.*
-- [ ] **Survivor pensions for children** (under 16, or 26 in education). *Proposed: not in the first version (a small part of the 6.3 billion lei of survivors' pensions).*
-- [ ] **Estates: one heir, debts not inherited, dwelling to the heir with no change of tenure.** *Proposed: accept; housing (M13) decides what heirs do with a second dwelling.*
-- [ ] **The career proxy at load** (`career_density`, `nonemployed_wage_share`) is a guess. *Proposed: accept, calibrate in M7 against the average new pension and the share at the minimum.*
-- [ ] **Where the phase sits.** *Proposed: a new phase "People" at month end between Pay and the wage round; the registry's reader of `transfer.pension.retirement_age` changes from `MonthlyClose` to `People`.*
+- [x] **COVID.** Recorded as the owner's decision of 2026-10-26: pre-pandemic mortality (2017–2019 table improved from 2018), 2019 fertility, checks against EUROPOP2023 from 2025 and EUROPOP2019. *Proposed: as written.* Decided as proposed (owner's delegation, 2026-10-26).
+- [x] **Rates or hard alignment to the projection?** Aligning yearly births and deaths to EUROPOP2023's totals would reproduce it exactly but leave no room for policy to move fertility or mortality. *Proposed: rates as targets, the projection as a check (AC-DEM-12), scale factors for calibration in M7.* **Decided by the owner (2026-10-26):** behaviour, not forcing: births, deaths and migration come from rates and decisions; the projection is a check; the scale factors are for M7 only.
+- [x] **Behavioural fertility.** Should child benefits, income, unemployment and housing cost move fertility in M5? *Proposed: not before M14.* **Decided by the owner (2026-10-26): fertility responds now, in M5**, to child benefits relative to income, to the parents' unemployment and to the cycle of real income, with small, bounded, lagged elasticities from the literature, tunable for M7 (step 4, AC-DEM-17 to 20). Housing cost joins in M13.
+- [x] **Mortality by health, income, education or county.** *Proposed: not in v1's first version; the health index of [social outcomes](../society/social-outcomes.md) can multiply the probability when it exists (M14).* Decided as proposed (owner's delegation, 2026-10-26).
+- [x] **The law's schedule against the lever.** *Proposed: the 2021 law's dated schedule for women is data in `law.json`; a command replaces it for that sex and is phased in at one month of age per month. Check the schedule against Annex 5 of Law 263/2010 then.* Decided as proposed (owner's delegation, 2026-10-26).
+- [x] **Early retirement as one rule** for early, disability and special pensions, derived from the census profile. *Proposed: accept for M5; disability pensions get their own programme with M14's benefits.* Decided as proposed (owner's delegation, 2026-10-26).
+- [x] **Working pensioners.** *Proposed: none in the first version (retiring ends all work); revisit with M14 if the employment of people over 65 matters.* Decided as proposed (owner's delegation, 2026-10-26).
+- [x] **Survivor pensions for children** (under 16, or 26 in education). *Proposed: not in the first version (a small part of the 6.3 billion lei of survivors' pensions).* Decided as proposed (owner's delegation, 2026-10-26).
+- [x] **Estates: one heir, debts not inherited, dwelling to the heir with no change of tenure.** *Proposed: accept; housing (M13) decides what heirs do with a second dwelling.* Decided as proposed (owner's delegation, 2026-10-26).
+- [x] **The career proxy at load** (`career_density`, `nonemployed_wage_share`) is a guess. *Proposed: accept, calibrate in M7 against the average new pension and the share at the minimum.* Decided as proposed (owner's delegation, 2026-10-26).
+- [x] **Where the phase sits.** *Proposed: a new phase "People" at month end between Pay and the wage round; the registry's reader of `transfer.pension.retirement_age` changes from `MonthlyClose` to `People`.* Decided as proposed (owner's delegation, 2026-10-26).

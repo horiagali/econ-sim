@@ -161,9 +161,9 @@ pub struct LifeCycleReport { pub leavers: u64, pub unions: u64, pub separations:
 Random purposes on `Stream::Demography`: `leave_home`, `union`, `separation`; stagger days on `Stream::Schedule`.
 
 ## Open questions
-- [ ] **Only one-person households merge.** Real couples often form straight from two parental homes. *Proposed: accept; both partners pass through a one-person household, possibly in the same month (leaving home runs before unions). It keeps splits to one person.*
-- [ ] **Leaving home and unions do not respond to the economy** beyond who leaves first (people with jobs). *Proposed: accept for M5; housing costs and income join with M13 and M14.*
-- [ ] **Orphans become collective records.** *Proposed: accept; the number is tiny (children whose every adult household member dies).*
-- [ ] **Old people moving in with their children or into care homes.** *Proposed: not in the first version; revisit with M14 (health and care).*
-- [ ] **Same-sex couples.** Romania does not recognise them legally and the census does not count them. *Proposed: not modelled in the first version.*
-- [ ] **The rates are guesses** (leaving home, unions, separations). *Proposed: accept as low-confidence defaults, tuned in M7 to the shares of AC-HHL-06 and 07.*
+- [x] **Only one-person households merge.** Real couples often form straight from two parental homes. *Proposed: accept; both partners pass through a one-person household, possibly in the same month (leaving home runs before unions). It keeps splits to one person.* Decided as proposed (owner's delegation, 2026-10-26).
+- [x] **Leaving home and unions do not respond to the economy** beyond who leaves first (people with jobs). *Proposed: accept for M5; housing costs and income join with M13 and M14.* Decided as proposed (owner's delegation, 2026-10-26).
+- [x] **Orphans become collective records.** *Proposed: accept; the number is tiny (children whose every adult household member dies).* Decided as proposed (owner's delegation, 2026-10-26).
+- [x] **Old people moving in with their children or into care homes.** *Proposed: not in the first version; revisit with M14 (health and care).* Decided as proposed (owner's delegation, 2026-10-26).
+- [x] **Same-sex couples.** Romania does not recognise them legally and the census does not count them. *Proposed: not modelled in the first version.* Decided as proposed (owner's delegation, 2026-10-26).
+- [x] **The rates are guesses** (leaving home, unions, separations). *Proposed: accept as low-confidence defaults, tuned in M7 to the shares of AC-HHL-06 and 07.* Decided as proposed (owner's delegation, 2026-10-26).

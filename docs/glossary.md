@@ -225,6 +225,10 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `early_retirement_reduction` | Law: pension reduction per month of retirement before the standard age (0.75%) | ratio / month | parameter | economy/demographics |
 | — | `survivor_share` | Law: share of the deceased spouse's pension points a survivor may draw (50%) | ratio | parameter | economy/demographics |
 | — | `career_density[activity]` | Share of a person's adult years with contributions, by today's activity, for the career proxy at load | ratio | parameter | economy/demographics |
+| — | `fertility_benefit_response` | Semi-elasticity of the birth probability to the extra child support a newborn brings (vs the 2021 law) relative to household income per equivalised adult (default 0.1) | ratio | parameter | economy/demographics |
+| — | `unemployed_fertility_ratio` | Birth probability of a woman who, or whose partner, is unemployed, relative to others (default 0.85) | ratio | parameter | economy/demographics |
+| — | `fertility_cycle_response`, `normal_income_growth` | Response of births to real income growth above or below the normal growth (defaults 0.2 and 2% a year) | ratio, % / year | parameter | economy/demographics |
+| — | `fertility_lag` | Months from a change in policy or income to its effect on births (default 9) | months | parameter | economy/demographics |
 | — | `population`, `births`, `deaths` | Weighted live persons; births and deaths a month or year | persons | derived | economy/demographics |
 | — | `life_expectancy[sex]`, `total_fertility_rate` | Period life expectancy at birth and total fertility rate from the year's rates | years / births per woman | derived | economy/demographics |
 | — | `old_age_dependency_ratio`, `pensioners` | Persons 65+ over persons 15–64; weighted persons drawing a state pension | ratio / persons | derived | economy/demographics |

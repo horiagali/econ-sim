@@ -21,6 +21,7 @@ What does the first version of [demographics](../../02-design/economy/demographi
 - **Life expectancy at birth:** 2021 men 69.2, women 76.6 (total 72.8); 2019 men 71.9, women 79.4 (total 75.6). Pre-COVID trend 2010–2019: about +0.2 years a year. **The simulation uses 2019 (or the 2017–2019 average table).** Confidence high.
 - **Retirement ages (Law 263/2010, Annex 5):** men 65 since 2015; women about 61 years 9 months at the end of 2021 (61y10m in 2022), rising to 63 by January 2030. Full contribution period 35 years (women's rising to 35 by 2030), minimum 15. Early pension up to 5 years before the standard age, reduced by 0.75% a month early (partial early pension). Confidence medium.
 - **Projections:** EUROPOP2023 (baseline) has Romania falling from 19.04 million (2022) to 15.04 million (2070), with 65+ rising from 19.5% to 29.1% and the old-age dependency ratio from 31 to 51. With no migration: 15.75 million in 2070. Confidence high (that this is what the projection says).
+- **Fertility responses** (section 8): child benefits raise fertility modestly (Quebec about +12%, Poland's 500+ from 0 to +4.5%, mostly timing and among targeted groups); recessions lower it a little (about 0.1–0.2% per point of unemployment). The simulation's elasticities are small, bounded and lagged 9 months. Confidence low to medium.
 - **Leaving home and couples:** mean age of leaving the parental home 28.0 (men 30.3, women 25.6); 38.7% of 25–34-year-olds lived with their parents in 2021. Marriages 128,610 (2019), 114,207 (2021); divorces 30,197 (2019), about 27,000 (2021, 1.4 per 1,000). Confidence high for the rates, low for how the simulation turns them into hazards.
 
 ## Findings
@@ -144,6 +145,26 @@ Law 263/2010 on the public pension system, as in force on 1 December 2021 (from 
 - **Marriages** (`demo_nind`): 143,292 (2018), 128,610 (2019), 81,343 (2020), 114,207 (2021). **Divorces** (`demo_ndivind`): 30,857 (2018), 30,197 (2019), 22,785 (2020), about 27,000 in 2021 (1.4 per 1,000 inhabitants); 24 divorces per 100 marriages.
 - Cohabitation without marriage is common (a third of births are outside marriage), so marriages undercount unions formed. Educated guess for the simulation (low confidence): about 140,000 new co-resident unions and about 35,000 separations a year, pre-COVID.
 
+### 8. Fertility responses to policy and the economy
+The owner decided on 2026-10-26 that fertility responds to policy and the economy from M5. What the literature says, and the parameters the spec takes from it:
+
+| Study | Policy or shock | Finding | Confidence |
+|---|---|---|---|
+| Milligan (2005), *Review of Economics and Statistics* 87(3) | Quebec's Allowance for Newborn Children, 1988–1997, up to C$8,000 per birth (most for third children) | fertility up about 12% on average, about 25% for the largest (third-child) bonus; a large effect per dollar spent was not found: the cost per extra birth was high | medium (the 12% is from a summary of the paper) |
+| Lalive & Zweimüller (2009), *Quarterly Journal of Economics* 124(3) | Austria 1990: paid parental leave extended from 12 to 24 months | more higher-order births within 3 years and within 10 years; part of the effect is timing (births brought forward), part is more children | medium |
+| Bokun (2024), *Demographic Research* 51(28) | Poland's Family 500+ (2016: 500 zł a month per child from the second, and for poor families the first; about a fifth to a quarter of income per adult in poor households) | birth probability up 1.5 percentage points in the short run, mostly among women aged 31–40 and lower-income households; younger and higher-income women did not respond | medium |
+| Bartnicki & Alimowski (2022), *Studia Socjologiczne* | Family 500+ | births about 4.5% higher a month to the end of 2017, no detectable effect by mid-2019; another study (2022, Journal of Management and Finance) found none | low |
+| Gauthier (2007), *Population Research and Policy Review* (review) | cash benefits in rich countries | positive but small effects, often on timing more than on completed fertility | medium |
+| Goldstein, Kreyenfeld, Jasilioniene & Örsal (2013), *Demographic Research* 29(4) | the Great Recession in Europe | rising unemployment lowered birth rates: about 0.1–0.2% lower birth rates per percentage point of unemployment, strongest among women under 25 and for first births; little effect over 40 | medium |
+| Sobotka, Skirbekk & Philipov (2011), *Population and Development Review* 37(2) | economic recessions (review) | fertility is pro-cyclical in the short run: recessions delay births, mostly of the young | medium |
+| Romania, OUG 111/2010 | the child-raising allowance cut in 2011 (from 85% of earnings with a high cap to 75% with a lower cap, plus a one-year option), amid austerity | births fell from about 212,000 (2010) to 196,000 (2011); the cut cannot be separated from the recession and from the census correction | low (attribution); medium (the cut) |
+
+**What the spec takes (all low confidence, tunable in M7):**
+- **Benefits:** a semi-elasticity `fertility_benefit_response` = 0.1: a permanent rise in child support worth 10% of a household's income per equivalised adult raises its birth probability by 1%. Check against 500+: support of about 20–25% of a poor household's income per adult gives +2–2.5% here, inside the range of the studies (0 to 4.5%; Bokun's 1.5 points on a yearly birth probability of about 8–10% among women in the relevant ages is about +15–20% for them, but only for the targeted group, and partly timing). Bounded to 0.8–1.3.
+- **Unemployment:** `unemployed_fertility_ratio` = 0.85 for women who, or whose partner, are unemployed. With 20–44-year-olds' unemployment up 5 points, about 10% more women in couples are touched (her or him), and births fall by about 1%, which is 0.2% per point: the upper end of Goldstein et al.
+- **Cycle:** `fertility_cycle_response` = 0.2: real income growth 5 points below normal lowers births by 1%, bounded to ±3%.
+- **Lag:** 9 months from the change to the birth.
+
 ## Data gaps and educated guesses
 - **Union formation and separation hazards by age** are not published as such. The simulation uses hazards tuned so the share of adults living in a couple by age and the share of 25–34-year-olds living with parents stay near their 2021 values (low confidence).
 - **Contribution histories** are not in the population; the pension formula of new retirees uses a proxy (low confidence), calibrated so the average new pension and the pension bill's growth look right.
@@ -161,6 +182,13 @@ Law 263/2010 on the public pension system, as in force on 1 December 2021 (from 
 - Eurostat, pension expenditure (`spr_exp_pens`), as used by [population-pensions](../../02-design/society/population-pensions.md).
 - Law 263/2010 on the unitary public pension system, art. 53 and Annex 5: <https://legeaz.net/legea-pensiilor/art-53-lege-263-2010>
 - Women's retirement age in 2022: <https://www.bugetul.ro/a-crescut-varsta-de-pensionare-in-romania-pentru-femei/>
+- Milligan, K. (2005), "Subsidizing the Stork: New Evidence on Tax Incentives and Fertility", *Review of Economics and Statistics* 87(3): 539–555; working paper <https://www.nber.org/papers/w8845>; summary <https://www.theglobeandmail.com/news/national/paying-the-stork-worked-in-quebec/article25431151>
+- Lalive, R. and Zweimüller, J. (2009), "How Does Parental Leave Affect Fertility and Return to Work? Evidence from Two Natural Experiments", *Quarterly Journal of Economics* 124(3): 1363–1402.
+- Bokun, A. (2024), Poland's Family 500+ and fertility, *Demographic Research* 51(28): <https://demographic-research.org/articles/volume/51/28>; summary <https://www.niussp.org/fertility-and-reproduction/lessons-from-polands-pro-natalist-family-500-program/>
+- Bartnicki, S. and Alimowski, M. (2022), *Studia Socjologiczne* 2022(1): <https://journals.pan.pl/Content/122796/PDF/Studia_Socjologiczne_2022_nr1_s.193_219.pdf>; no-effect study: <https://journal.mostwiedzy.pl/reme/article/view/2689>
+- Gauthier, A. H. (2007), "The impact of family policies on fertility in industrialized countries: a review of the literature", *Population Research and Policy Review* 26: 323–346.
+- Goldstein, J., Kreyenfeld, M., Jasilioniene, A. and Karaman Örsal, D. (2013), "Fertility reactions to the 'Great Recession' in Europe", *Demographic Research* 29(4): <https://www.demographic-research.org/volumes/vol29/4/29-4.pdf>; press release <https://www.demogr.mpg.de/mediacms/2800_main_MPIDR-PR_Economic_crisis_lowers_birth_rates.pdf>
+- Sobotka, T., Skirbekk, V. and Philipov, D. (2011), "Economic Recession and Fertility in the Developed World", *Population and Development Review* 37(2): 267–306.
 - INS, regional natural movement 2021 (example of the INS series): <https://calarasi.insse.ro/wp-content/uploads/2023/08/reg_miscarea_naturala_a_populatiei_pe_medii_2021.pdf>
 
 All Eurostat figures were read through the Eurostat dissemination API on 2026-10-26.
