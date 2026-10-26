@@ -182,7 +182,8 @@ impl World {
             }
             self.units.last_staffing[u] = Some(today);
             let staff = self.units.staff[u];
-            let desired = self.units.desired_employment[u];
+            // A unit that could not pay its wage bill cuts its staff to it.
+            let desired = self.affordable_staff(u, staff, self.units.desired_employment[u]);
             if staff > desired {
                 let n = layoffs(staff, desired, &self.params.labour);
                 let mut members = self.uu.members[u].clone();
@@ -471,10 +472,23 @@ impl World {
         let mut unit_pays = vec![0i128; self.units.industry.len()];
         let mut withheld = super::fiscal::Withheld::default();
         let (mut gross_total, mut net_total) = (0i128, 0i128);
+        // The backstop: a unit the firm sector's money cannot carry pays
+        // every employee the same share of their pay (none in a normal run).
+        let shares = self.wage_shares(&payments);
+        let mut wages_unpaid = 0i128;
         for &(i, u, gross, declared) in &payments {
             let p = i as usize;
-            let tax = self.wage_tax(p, u, gross, declared);
             let w = i128::from(self.person_weight(i));
+            let (gross, declared) = match shares.as_ref().map(|s| s[usize::from(u)]) {
+                Some(s) if s < 1_000_000 => {
+                    let cut = |b: Bani| Bani(b.get() * i64::from(s) / 1_000_000);
+                    let paid = cut(gross);
+                    wages_unpaid += w * i128::from((gross - paid).get());
+                    (paid, cut(declared))
+                }
+                _ => (gross, declared),
+            };
+            let tax = self.wage_tax(p, u, gross, declared);
             let s = &mut self.slips;
             s.gross_wage[p] += gross;
             s.declared_wage[p] += declared;
@@ -498,6 +512,11 @@ impl World {
             withheld.income_tax += w * i128::from(tax.income_tax.get());
             withheld.cam += w * i128::from(tax.cam.get());
         }
+        self.note_unpaid(super::insolvency::Unpaid::Wages, wages_unpaid);
+        self.uu.pay_share_ppm = match shares {
+            Some(s) if s.iter().any(|&x| x < 1_000_000) => s,
+            _ => Vec::new(),
+        };
         for (u, &paid) in unit_pays.iter().enumerate() {
             self.units.deposits[u] -= bani(paid);
             let j = usize::from(self.units.industry[u]);
@@ -559,7 +578,8 @@ impl World {
             .iter()
             .map(|&w| i128::from(w))
             .collect();
-        let parts = Self::capped_split(want, &weights, &caps);
+        // Never more than the firm sector can pay after the wages.
+        let parts = Self::capped_split(self.firm_payable(&post, want), &weights, &caps);
         let placed: i128 = parts.iter().sum();
         // When not all of it can be paid, every household gets the same share.
         let mut paid_out = 0i128;

@@ -579,7 +579,7 @@ impl World {
         let p = self.invest_params();
         let reserve = self.wage_reserves();
         let n_u = self.units.industry.len();
-        let (mut to_gov, mut to_row, mut to_pf, mut to_hh) = (0i128, 0i128, 0i128, 0i128);
+        let mut due = vec![Bani::ZERO; n_u];
         for u in 0..n_u {
             if self.uu.public[u] {
                 continue;
@@ -600,6 +600,16 @@ impl World {
                 self.inv.controller[u],
                 &p,
             );
+            due[u] = d;
+        }
+        // The backstop: when the firm sector cannot pay them all, no
+        // dividend is paid today (never in a normal run).
+        let total: i128 = due.iter().map(|d| i128::from(d.get())).sum();
+        if total > self.firm_payable(&Postings::default(), total) {
+            return;
+        }
+        let (mut to_gov, mut to_row, mut to_pf, mut to_hh) = (0i128, 0i128, 0i128, 0i128);
+        for (u, &d) in due.iter().enumerate() {
             if d <= Bani::ZERO {
                 continue;
             }

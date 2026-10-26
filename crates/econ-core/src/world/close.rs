@@ -352,6 +352,7 @@ impl World {
             &mut self.ii.shortage_month,
             vec![0; self.industries.id.len()],
         );
+        let unpaid = self.take_unpaid_month();
         let stats = MonthStats {
             month: Month(u32::try_from(t).expect("a month")),
             cpi_ppm: cpi,
@@ -366,6 +367,8 @@ impl World {
             gdp_income: bani(income),
             shortages,
             hardship_households: hardship,
+            wages_unpaid: unpaid.wages,
+            taxes_unpaid: unpaid.taxes,
         };
         let mut failed = Vec::new();
         if stats.gdp_production != stats.gdp_expenditure || stats.gdp_production != stats.gdp_income
@@ -568,6 +571,14 @@ impl World {
             .iter()
             .flatten()
             .for_each(|&x| h.write_word(u64::from(x)));
+        // The backstop's pay shares, only once a unit could not pay (the
+        // hash of a normal run is the same as before the backstop).
+        if !self.uu.pay_share_ppm.is_empty() {
+            self.uu
+                .pay_share_ppm
+                .iter()
+                .for_each(|&x| h.write_word(u64::from(x)));
+        }
         let ind = &self.industries;
         ind.price_ppm
             .iter()

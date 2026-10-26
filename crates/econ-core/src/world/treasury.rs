@@ -411,7 +411,11 @@ impl World {
                 net += self.buy_bonds(s, bani(part));
             }
         } else if issue < Bani::ZERO {
-            let parts = split_by_holdings(Bani::ZERO - issue, &holdings);
+            // Never more than the holders hold (deposits far above the
+            // target, as when a collapsed leu swells the EU grants in lei;
+            // never in a normal run).
+            let held = holdings.iter().fold(Bani::ZERO, |a, &h| a + h);
+            let parts = split_by_holdings((Bani::ZERO - issue).min(held), &holdings);
             for (&s, &part) in holders.iter().zip(&parts) {
                 net -= self.redeem(s, part);
             }
@@ -536,12 +540,14 @@ impl World {
             Sector::Banks => pos(l.balance(s, Instrument::Reserves)),
             Sector::RestOfWorld | Sector::CentralBank => i128::MAX / 4,
             Sector::Households => pos(l.balance(s, Instrument::Deposits)) * 9 / 10,
+            // At most what the firm sector holds (the backstop).
             Sector::Firms => self
                 .units
                 .deposits
                 .iter()
                 .map(|d| i128::from(d.get()).max(0))
-                .sum(),
+                .sum::<i128>()
+                .min(self.firm_money_free().max(0)),
             _ => pos(l.balance(s, Instrument::Deposits)),
         }
     }
@@ -657,7 +663,9 @@ impl World {
                     .iter()
                     .map(|d| i128::from(d.get()).max(0))
                     .collect();
-                let total = total.min(base.iter().sum());
+                let total = total
+                    .min(base.iter().sum())
+                    .min(self.firm_money_free().max(0));
                 let parts = super::money::split(total, &base);
                 for (u, &p) in parts.iter().enumerate() {
                     self.units.deposits[u] -= bani(p);

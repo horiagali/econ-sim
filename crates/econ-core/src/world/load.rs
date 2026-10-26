@@ -447,6 +447,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
 
     let mut uu = UnitState {
         firm_free: 0,
+        pay_share_ppm: Vec::new(),
+        unpaid: super::insolvency::UnpaidBook::default(),
         plan_output: Vec::new(),
         plan_days,
         plan_done,

@@ -4,7 +4,7 @@ title: Glossary & Variable Registry
 status: draft
 owner: horia
 depends_on: []
-updated: 2026-10-22
+updated: 2026-10-26
 ---
 
 # Glossary & Variable Registry
@@ -153,6 +153,9 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `basket_share[g]` | Share of household spending that goes to good *g* (from the input-output table; fixed in M2) | ratio | parameter | economy/households |
 | — | `unit_stagger_day` | The firm unit's own day of the month (1 to 28) for its plan and staffing (ADR-0017) | day of month | state | economy/labor-market |
 | — | `months_unemployed` | Months since the person lost a job or started looking | months | state | economy/labor-market |
+| — | `pay_share[f]` | Share of its wage bill firm unit *f* paid on the last pay day (1 when it paid in full; below 1 only under the firm-payment backstop); millionths in code | ratio | state | economy/labor-market |
+| — | `wages_unpaid` | Gross wages firm units owed on pay day and could not pay (the firm-payment backstop); not a debt in v1 | LCU / month | flow | economy/labor-market |
+| — | `taxes_unpaid` | Taxes and other payments to the government that firm units owed and could not pay (the firm-payment backstop); not a debt in v1 | LCU / month | flow | economy/labor-market |
 | $N^*_f$ | `desired_employment[f]` | Staff a firm unit wants, from its production plan | persons | state | economy/production |
 | $D^e_f$ | `expected_demand[f]` | Sales a firm unit expects | units / month | state | economy/production |
 | $S_{l,k}$ | `budget_spending[l,k]` | Spending of budget line *l* on economic type *k* (wages, goods and services, social benefits, subsidies, interest, investment, other) in the starting budget; integer bani in code | LCU / year | parameter | economy/budget-2021 |

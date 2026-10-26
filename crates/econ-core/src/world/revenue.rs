@@ -690,7 +690,12 @@ impl World {
 
     /// Firm units pay `total` by `keys`, exactly (a unit short of money
     /// borrows at the day's checks).
-    fn units_pay(&mut self, total: i128, keys: &[i128]) -> i128 {
+    /// The firm units pay `total` by `keys`, as far as the firm sector can
+    /// with `post` pending; the rest is reported unpaid (the backstop).
+    fn units_pay(&mut self, post: &Postings, total: i128, keys: &[i128]) -> i128 {
+        let payable = self.firm_payable(post, total);
+        self.note_unpaid(super::insolvency::Unpaid::Taxes, total - payable);
+        let total = payable;
         let parts = super::money::split(total, keys);
         let paid: i128 = parts.iter().sum();
         for (u, &p) in parts.iter().enumerate() {
@@ -709,16 +714,39 @@ impl World {
         let lei = |year: i64| i128::from(eu_month(Bani(year), k, rate).get());
         let (current, capital) = (lei(EU_CURRENT), lei(EU_CAPITAL));
         let mut post = Postings::default();
-        post.pay_gov_any(
-            Sector::RestOfWorld,
-            bani(current),
-            FlowCode::TRANSFER_EU_GRANTS_CURRENT,
-        );
-        post.pay_gov_any(
-            Sector::RestOfWorld,
-            bani(capital),
-            FlowCode::TRANSFER_EU_GRANTS_CAPITAL,
-        );
+        // Through the banks' reserves as far as they hold them; beyond (the
+        // leu so weak that a month's grants exceed them, never in a normal
+        // run) the central bank takes the euros into its foreign assets and
+        // credits the treasury directly (no lever may crash the World).
+        let mut reserves = i128::from(
+            self.ledger
+                .balance(Sector::Banks, Instrument::Reserves)
+                .get(),
+        )
+        .max(0);
+        for (amount, code) in [
+            (current, FlowCode::TRANSFER_EU_GRANTS_CURRENT),
+            (capital, FlowCode::TRANSFER_EU_GRANTS_CAPITAL),
+        ] {
+            let via_banks = amount.min(reserves);
+            reserves -= via_banks;
+            post.pay_gov_any(Sector::RestOfWorld, bani(via_banks), code);
+            let direct = bani(amount - via_banks);
+            post.leg(
+                Sector::RestOfWorld,
+                Sector::CentralBank,
+                Instrument::ForeignAssets,
+                direct,
+                code,
+            );
+            post.leg(
+                Sector::CentralBank,
+                Sector::Government,
+                Instrument::GovDepositsAtCb,
+                direct,
+                code,
+            );
+        }
         let agri = lei(EU_AGRI);
         let parts = super::money::split(agri, &self.rev.farm_key);
         let mut paid = 0i128;
@@ -780,7 +808,7 @@ impl World {
         post.pays_gov(Sector::Households, bani(gambling), FlowCode::TAX_GAMBLING);
         held.push(line(FlowCode::TAX_GAMBLING, due, gambling));
         let due = Self::twelfth(ROYALTIES, k);
-        let royalties = self.units_pay(due, &royalty);
+        let royalties = self.units_pay(&post, due, &royalty);
         post.pays_gov(
             Sector::Firms,
             bani(royalties),
@@ -811,7 +839,7 @@ impl World {
             bani(other_hh),
             FlowCode::TRANSFER_OTHER_RECEIVED,
         );
-        let other_f = self.units_pay(due - due / 2, &va);
+        let other_f = self.units_pay(&post, due - due / 2, &va);
         post.pays_gov(
             Sector::Firms,
             bani(other_f),
@@ -823,7 +851,7 @@ impl World {
             other_hh + other_f,
         ));
         let due = Self::twelfth(OTHER_CAPITAL, k);
-        let capital = self.units_pay(due, &va);
+        let capital = self.units_pay(&post, due, &va);
         post.pays_gov(
             Sector::Firms,
             bani(capital),
@@ -1062,12 +1090,21 @@ impl World {
         let mut total = 0i128;
         let mut output_value = vec![Bani::ZERO; n_u];
         let mut production_tax = vec![Bani::ZERO; n_u];
+        let mut due = vec![0i128; n_u];
         for u in 0..n_u {
             let value = std::mem::take(&mut self.rev.output_month[u]);
             output_value[u] = bani(value);
             let j = usize::from(self.units.industry[u]);
             let rate = i128::from(self.rev.production_tax_ppm.get(j).copied().unwrap_or(0));
-            let tax = ratio(value.max(0), rate, 1_000_000);
+            due[u] = ratio(value.max(0), rate, 1_000_000).max(0);
+        }
+        // What the firm sector cannot pay is reported unpaid (the backstop).
+        self.firm_fit_parts(
+            &Postings::default(),
+            &mut due,
+            Some(super::insolvency::Unpaid::Taxes),
+        );
+        for (u, &tax) in due.iter().enumerate() {
             if tax > 0 {
                 self.units.deposits[u] -= bani(tax);
                 self.fs.add_inputs(u, tax);
@@ -1113,7 +1150,7 @@ impl World {
         let due = ratio(spent, IMPUTED_SHARE_PPM, 1_000_000);
         // Never more than the firm sector holds (no lever may overdraw it;
         // in a normal run this never binds).
-        let payable = due.min(self.firm_money_free().max(0));
+        let payable = self.firm_payable(&Postings::default(), due);
         let (parts, paid) = share_out(payable, &self.households.hh_weight, &self.rev.rent_key);
         for (h, &a) in parts.iter().enumerate() {
             if a == 0 {

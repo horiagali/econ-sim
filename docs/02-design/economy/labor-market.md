@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/production, society/population-groups, society/education, economy/demographics, society/population-employers, society/population-wages, adr/0016-firm-representation, adr/0017-time-base]
 research: []
-updated: 2026-10-22
+updated: 2026-10-26
 ---
 
 # Labour Market
@@ -130,6 +130,21 @@ q' = \min\big(1,\ q \cdot \rho^{\eta_f}\big)
 | `job_to_job_share` | 50% (low confidence) | share of underpaid quitters who move straight to another job |
 
 > **Simplification:** relative pay is against the tier's regional mean, not against each person's own outside offers. Pay is the only job attribute; working conditions and job security come later.
+
+## Backstop: firms that cannot pay (owner, 2026-10-26)
+*Amendment to the locked spec at the owner's request, 2026-10-26: a piece of [roadmap](../../roadmap.md) M10 ("a household or firm that cannot pay defaults") pulled forward to M4, so that the monetary-financing scenario S5 ([policy scenarios](../game/policy-scenarios.md), AC-POL-05) runs to its end instead of stopping the World. Code: `crates/econ-core/src/world/insolvency.rs`.*
+
+Firm units' deposits may go negative during a day (credit inside the firm sector and the banks' credit lines cover them at its end), but the firm sector's deposits in the ledger may not. Under an extreme policy the sector can run out: in S5 the leu collapses, imports and the credit lines drain the sector, and the wage payment of 30 September 2024 would overdraw it. The backstop makes every payment out of the firm sector pay what it can.
+
+1. **The sector's free money.** Before a payment out of the sector, the free money is the ledger's firm deposits, with the day's postings so far, less the product taxes and duties charged but not yet posted (`firm_free`, the S5 guard of M4). One helper (`World::firm_payable`) answers "how much of this payment can the sector pay now"; in a normal run it is always all of it.
+2. **Wages, pro rata.** On pay day, when the free money cannot carry every unit's wage bill (gross wages plus the employer's contribution; public units under the ministry budgets are left out, since the government pays their labour cost back the same day), each unit short of its own bill first draws on its credit line. Units whose own deposits then cover their bill pay in full; the others share what is left, and each pays **every employee the same share** `pay_share[f]` of the pay due (and the taxes withheld on what it pays). The rest is `wages_unpaid`.
+3. **Layoffs.** At its next staffing day a unit with `pay_share[f]` < 1 aims for the staff whose pay it met, $\min(\text{desired}, \text{staff}\cdot\text{pay\_share})$: it lays off, within `max_layoff_share` a month, and opens no vacancies. Its output falls with its staff (the staffing cap on output). The share returns to 1 at the first pay day it pays in full.
+4. **Other payments.** Profit and micro tax, the taxes on production, royalties and the firms' other transfers to the government are paid as far as the free money goes, each unit's part cut by the same share; the rest is `taxes_unpaid`. Interest on bank loans likewise (the banks' loss). Dividends are not paid on a day the sector cannot pay them all. Self-employment and informal income, loan repayments, bond purchases and imputed rent are capped at the free money. The imported inputs, home input orders and investment goods were already limited by what the units can pay (the S5 guard of M4).
+5. **Two more backstops S5 reached once firms could not crash it.** EU grants are paid through the banks' reserves as far as they hold them; beyond (a month's grants in lei above the banks' reserves, when the leu has collapsed) the central bank takes the euros into its foreign assets and credits the treasury directly. Bond redemptions when the treasury holds more than its cash target never exceed the bonds the holders hold.
+
+> **Simplification:** unpaid wages and taxes are not a debt: nobody claims them later, they are reported (`MonthStats::wages_unpaid`, `taxes_unpaid`, and `World::firm_unpaid` since the start). No bankruptcy, no firm exit; a unit that cannot pay shrinks. M10's full default rule ([accounting](accounting.md)) replaces this.
+
+None of it binds in a normal run: the 2021 golden (AC-WLD-05), the 200-tick golden and every acceptance test other than S5's runs are unchanged, checked with temporary hit counters across the suite with every lever feature on (one lever-end run of AC-LEV-14 reaches the cap on a firm payment, as intended).
 
 ## Player levers
 Minimum wage; unemployment benefit (via reservation wage and search intensity); public wages and headcount; education (skill supply); immigration quotas by skill; wage subsidies; social contributions; labour inspection funding (informality).

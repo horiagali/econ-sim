@@ -78,6 +78,9 @@ mod fiscal;
 mod foreign;
 #[allow(clippy::needless_range_loop)]
 mod goods;
+// Backstop: firms that cannot pay (owner, 2026-10-26).
+#[allow(clippy::needless_range_loop)]
+mod insolvency;
 #[cfg(feature = "investment")]
 #[allow(clippy::needless_range_loop)]
 mod investment;
@@ -118,6 +121,7 @@ pub use central_bank::{CentralBankState, MonetaryParams};
 pub use fiscal::{IncomeTaxLaw, TransferLaw};
 #[cfg(feature = "trade")]
 pub use foreign::{Foreign, TradeMonth, TradeParams};
+pub use insolvency::FirmUnpaid;
 #[cfg(feature = "investment")]
 pub use investment::InvestmentState;
 #[cfg(feature = "revenue")]
@@ -724,6 +728,12 @@ pub struct MonthStats {
     pub shortages: Vec<i64>,
     /// Households in hardship, weighted.
     pub hardship_households: u64,
+    /// Gross wages firm units owed and could not pay this month
+    /// (`wages_unpaid`; zero in a normal run).
+    pub wages_unpaid: Bani,
+    /// Taxes firm units owed and could not pay this month (`taxes_unpaid`;
+    /// zero in a normal run).
+    pub taxes_unpaid: Bani,
 }
 
 /// Why a world was not built or a day was refused. Nothing changes.
@@ -919,6 +929,12 @@ struct UnitState {
     /// 6 and 8. Purchases stop where it runs out (no lever may overdraw the
     /// sector); in a normal run it never binds.
     firm_free: i128,
+    /// The share of its wage bill each unit paid on the last pay day,
+    /// millionths; empty while every unit paid in full (the firm-payment
+    /// backstop).
+    pay_share_ppm: Vec<u32>,
+    /// What firm units could not pay, by kind (the backstop's report).
+    unpaid: insolvency::UnpaidBook,
 }
 
 /// Per industry, what the tables do not show.
