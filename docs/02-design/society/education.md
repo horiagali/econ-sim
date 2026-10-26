@@ -74,7 +74,7 @@ In every other month nobody's `enrolled`, `study_year` or `edu_level` changes. A
 
 | $\ell$ (`enrolled`) | Years | Typical starting age | Completion sets `edu_level` to at least | After completion |
 |---|---|---|---|---|
-| 1 pre-school | 3 | 3 | — | primary at 6 |
+| 1 pre-school | 3 | 3 | — | leaves at 6 for the primary intake |
 | 2 primary (with the preparatory grade) | 5 | 6 | — | lower secondary |
 | 3 lower secondary | 4 | 11 | — (0, ISCED 0–2) | upper secondary with `continue_rate[3→4]`, else leave |
 | 4 upper secondary | 4 | 15 | 1 (ISCED 3) | tertiary with `continue_rate[4→6]`, post-secondary with `continue_rate[4→5]`, else leave |
@@ -90,12 +90,12 @@ In every other month nobody's `enrolled`, `study_year` or `edu_level` changes. A
 
 **The June close.** For each enrolled person, in index order, with `draw(Education, tick = the day of the close, entity = person)`, first word in millionths $u_1$, second $u_2$:
 1. **Dropout.** If $u_1$ < `dropout_rate[ℓ]`, the person leaves the level: `enrolled` none, `study_year` 0, `edu_level` unchanged.
-2. **Progression.** Otherwise `study_year` + 1. If it reaches the level's years, the person **completes** it: `edu_level` ← max(`edu_level`, the level's completion value), and with $u_2$ against the continuation rates (in the table's order) they are given the next level at `study_year` 0, or leave. Pre-school completers go to primary and primary completers to lower secondary with no draw.
+2. **Progression.** Otherwise `study_year` + 1. If it reaches the level's years, the person **completes** it: `edu_level` ← max(`edu_level`, the level's completion value), and with $u_2$ against the continuation rates (in the table's order) they are given the next level at `study_year` 0, or leave. Primary completers go to lower secondary with no draw. Pre-school has no completion: a pre-school child who will be 6 on 1 September leaves it, whatever their `study_year`, and is among the 6-year-olds of the August intake (no leaver: they are under 16).
 3. **Leaving.** A person who left (step 1 or 2), and any person not enrolled whose `activity` is pupil or student, becomes a **leaver** if 16 or older (`min_leaving_age`); a younger one keeps the activity pupil until a June close at which they are 16. A leaver with no job becomes a job seeker (`activity` unemployed, looking for work, `months_unemployed` 0) with probability `leaver_seek_share[edu_level]` (the draw's third word), else other inactive (`inactive_kind` other). A leaver who already has a job keeps it (`activity` employed). With this rule the start's pupils not enrolled reach the labour market at 16, as [Stage K](population-inactivity-enrolment.md) foresaw (from 15 they may look for work).
 
 **The August close.** Intake for 1 September:
 1. **Pre-school:** each child not enrolled who is 3, 4 or 5 on 1 September is given pre-school with probability `preschool_intake[age]` (draw of the close).
-2. **Primary:** each child who is 6 on 1 September and not in primary is given primary with probability `primary_intake`.
+2. **Primary:** each child who is 6 on 1 September (from pre-school or not) is given primary with probability `primary_intake`.
 3. **Places.** For each level, the persons given it at this close (continuing from the level below in June, or starting now) are the **entrants**; those already in it (`study_year` > 0) the **continuing**. Continuing students keep their place even above `edu_capacity`. Entrants are admitted in ascending (keyed priority, index) while the level's enrolled weight stays within its places; the rest are refused: `enrolled` none. A refused entrant of 16 or more becomes a leaver at once (step 3 of June); a younger one stays a pupil not enrolled, as Stage K's pupils above the places.
 
 With the start's places, primary binds at first: a year of 6-year-olds (about 190,000) times `primary_intake` is above primary's places per grade (867,000 ÷ 5), so about one child in ten is left out, as at the start. As cohorts shrink (births of about 150,000 a year from 2023, [demographics](../economy/demographics.md)) the places stop binding. This is the shortage that school building fixes in M11.
