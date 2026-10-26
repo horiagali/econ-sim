@@ -54,6 +54,10 @@ pub static S3: Scenario = Scenario {
 /// revenue is the receipts under `tax.vat`, flow kind, months 1–12. Watched:
 /// real consumption (consumption over the CPI).
 #[test]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "the policy suite runs in release builds only: cargo test --release -p econ-core --test acceptance -- --test-threads=1 policy::"
+)]
 fn ac_pol_03() {
     super::harness::assert_scenario(&S3, 1000);
 }

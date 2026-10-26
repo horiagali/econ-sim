@@ -68,6 +68,10 @@ pub static S6: Scenario = Scenario {
 /// the commands file is rejected with `unknown_lever` until it is.
 #[cfg(feature = "lever_fx_devaluation")]
 #[test]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "the policy suite runs in release builds only: cargo test --release -p econ-core --test acceptance -- --test-threads=1 policy::"
+)]
 fn ac_pol_06() {
     super::harness::assert_scenario(&S6, 1000);
 }

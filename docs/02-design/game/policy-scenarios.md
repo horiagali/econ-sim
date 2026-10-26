@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [game/lever-system, game/levers, adr/0008-explainability-architecture, adr/0009-calibration-and-stability, adr/0010-verification-and-testing, adr/0018-scenario-and-commands, economy/monetary-policy, economy/money-banking, economy/investment-capital, economy/prices-inflation, economy/labor-market, economy/households, economy/taxation, economy/vat, economy/fiscal-policy, economy/trade-fx, economy/social-transfers, economy/energy]
 research: [research/budget-romania-2021, research/government-revenue-romania-2021, research/law-in-force-romania-2021]
-updated: 2026-10-25
+updated: 2026-10-26
 ---
 
 # Policy-Scenario Test Suite (M4)
@@ -234,7 +234,7 @@ The levers' values are the shape's integers: rates in basis points, money in ban
 | S9 | Oil shock | `world.fuel_price[oil]` +50% | CPI +0.2 to +4%; current account worse | wired (2026-10-25, oil only) |
 
 ## Three scales
-The scales are those of CI's `scales` job: **1:1000, 1:100 and 1:10**. Each scale runs the baseline, the placebo and the nine scenarios: eleven runs of 39 months. At 1:1000 and 1:100 they run in the `scales` job on every PR that touches `crates/`. That is about 0.5 minutes at 1:1000 and 2–4 at 1:100 with M3's speed, measured when the suite exists. The 1:10 runs are `#[ignore]`d and run nightly, like AC-WLD-10's 1:10 run. A run at any scale must also keep invariants I-1 to I-8 and person conservation every day, as every `[sim]` test does.
+The scales are those of CI's `scales` job: **1:1000, 1:100 and 1:10**. Each scale runs the baseline, the placebo and the nine scenarios: eleven runs of 39 months. At 1:1000 and 1:100 they run in the `scales` job on every PR that touches `crates/`. That is about 0.5 minutes at 1:1000 and 2–4 at 1:100 with M3's speed, measured when the suite exists. The 1:10 runs are `#[ignore]`d and run nightly, like AC-WLD-10's 1:10 run. A run at any scale must also keep invariants I-1 to I-8 and person conservation every day, as every `[sim]` test does. *Release builds only (2026-10-26, owner's approval):* the suite's tests are ignored in a debug build (`#[cfg_attr(debug_assertions, ignore = …)]`, the form of AC-WLD-10's time budget), because the debug `cargo test --workspace` of CI's `linux` and `windows` jobs and `just check` spent about 7 minutes on it (CI's Windows debug run of the acceptance suite took 1,436 s with it). Nothing is weakened: the `scales` job runs every test of the suite in release on every PR (`cargo test --release -p econ-core --test acceptance -- --test-threads=1 policy::`), and the nightly run adds 1:10.
 
 Per-capita and percentage measurements make the bands scale-free. Only the noise floor $\nu$ depends on the scale, and it is measured, not assumed.
 

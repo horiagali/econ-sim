@@ -52,6 +52,10 @@ pub static S8: Scenario = Scenario {
 /// flow kind, months 1–12; consumption is `MonthStats::consumption`, months
 /// 1–12. Watched: the deficit, the price level.
 #[test]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "the policy suite runs in release builds only: cargo test --release -p econ-core --test acceptance -- --test-threads=1 policy::"
+)]
 fn ac_pol_08() {
     super::harness::assert_scenario(&S8, 1000);
 }

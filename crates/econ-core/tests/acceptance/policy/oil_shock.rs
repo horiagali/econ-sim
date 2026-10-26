@@ -55,6 +55,10 @@ pub static S9: Scenario = Scenario {
 /// with `not_yet` until the lever is wired.
 #[cfg(feature = "lever_fuel_price")]
 #[test]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "the policy suite runs in release builds only: cargo test --release -p econ-core --test acceptance -- --test-threads=1 policy::"
+)]
 fn ac_pol_09() {
     super::harness::assert_scenario(&S9, 1000);
 }
