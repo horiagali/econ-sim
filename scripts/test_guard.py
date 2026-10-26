@@ -154,7 +154,7 @@ TEST_ATTR_RE = re.compile(r"^([\w:]*::)?test$")
 IGNORE_RE = re.compile(r"^ignore\b")
 RELEASE_ONLY_RE = re.compile(r"^cfg_attr\s*\(\s*debug_assertions\s*,\s*ignore\b")
 CFG_ATTR_IGNORE_RE = re.compile(r"^cfg_attr\s*\(.*,\s*ignore\b", re.S)
-EARLY_RETURN_RE = re.compile(r"^\{\s*return\s*(Ok\s*\(\s*\(\s*\)\s*\))?\s*;")
+EARLY_RETURN_RE = re.compile(r"\{\s*return\s*(Ok\s*\(\s*\(\s*\)\s*\))?\s*;")
 IF_FALSE_RE = re.compile(r"\bif\s+(false|!\s*true)\b")
 ASSERT_MACRO_RE = re.compile(r"\b(prop_)?assert(_[a-z_]+)?\s*!")
 ASSERT_HELPER_RE = re.compile(r"\bassert_\w+\s*\(")
@@ -415,14 +415,7 @@ def compare(base: Snapshot, head: Snapshot) -> tuple:
         else:
             failures.append(msg)
 
-    for g in GROUPS:
-        b, h = base.live(g), head.live(g)
-        if h < b:
-            gate(f"live {g} tests fell from {b} to {h}", approved(approvals, "live-tests", group=g, decrease=b - h))
-        b, h = base.assertions[g], head.assertions[g]
-        if h < b:
-            gate(f"{g} assertions fell from {b} to {h}", approved(approvals, "assertions", group=g, decrease=b - h))
-
+    approved_drop = Counter()
     base_by_name = {}
     for t in base.tests.values():
         base_by_name.setdefault(t.name, set()).add(t.status)
@@ -435,12 +428,24 @@ def compare(base: Snapshot, head: Snapshot) -> tuple:
             if old is None and t.status in base_by_name.get(t.name, set()):
                 continue  # moved to another file, already in that state
             was = f"was {old.status}" if old else "new"
-            gate(f"{t.status} test ({was}): {tid} (line {t.line})", approved(approvals, "ignored-test", target=tid))
+            a = approved(approvals, "ignored-test", target=tid)
+            gate(f"{t.status} test ({was}): {tid} (line {t.line})", a)
+            if a and old is not None and old.status in ("live", "release-only"):
+                approved_drop[group_of(t.path)] += 1  # the approval covers its live count too
         elif t.status == "release-only" and (old is None or old.status != "release-only"):
             was = f"was {old.status}" if old else "new"
             notes.append(f"release-only now ({was}; runs only in release builds): {tid}")
     for t in removed_live:
         notes.append(f"removed or renamed: {t.id}")
+
+    for g in GROUPS:
+        b, h = base.live(g), head.live(g)
+        if h + approved_drop[g] < b:
+            gate(f"live {g} tests fell from {b} to {h}",
+                 approved(approvals, "live-tests", group=g, decrease=b - h - approved_drop[g]))
+        b, h = base.assertions[g], head.assertions[g]
+        if h < b:
+            gate(f"{g} assertions fell from {b} to {h}", approved(approvals, "assertions", group=g, decrease=b - h))
 
     for path, n in sorted(head.skip_markers.items()):
         b = base.skip_markers.get(path, 0)
