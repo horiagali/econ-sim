@@ -254,6 +254,7 @@ Without this a long run is a frozen population.
 ### M6 — Indicators and explanations
 - [ ] **Statistics registry:** every indicator tagged `alpha` in D3 computed each tick from state and ledger (GDP three ways, CPI and components, employment and unemployment, wages, budget and debt, trade and current account, money and credit, distribution, by county and by group).
 - [ ] **Group queries:** any filter over person attributes returns counts, incomes, taxes paid, transfers received, approval.
+- [ ] **Standard of living by class** (owner, 2026-10-26; display only, behaviour stays on income fifths). Classes by fixed real lines anchored at 2021 and moved only with prices: at risk of poverty below 60% of 2021's median equivalised income, lower-middle 60–75%, middle 75–200%, affluent above 200% (OECD's middle-class band, Eurostat's anchored poverty rate). Unlike fifths, a class can shrink to nothing as people get richer, or grow in a crisis. Shown next to the relative fifths (how equal) and the hardship count (spending below the subsistence basket): shares over time, by county and by group, with the "why"; the panel itself in M8.
 - [ ] **History** stored in saves (open follow-up of Spike 6).
 - [ ] **"Why did this change":** explanation trees (ADR-0008) for the headline indicators; every rule added in M2–M5 already uses `behaviour_rule!`, here they are joined up and tested (parts sum to the change).
 - [ ] Core API for the UI: one typed query and command surface.
