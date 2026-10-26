@@ -1202,6 +1202,62 @@ pub(crate) struct LeverState {
     pub(crate) events: Vec<PolicyEvent>,
     /// The next order's sequence number (from 1).
     pub(crate) next_seq: u64,
+    /// The parts of every good's consumer price at load (entry 0) and at
+    /// the close of each month (entry `m + 1` for month `m`), for
+    /// [`World::price_why`]. An observation: not part of the state hash.
+    pub(crate) price_marks: Vec<PriceMark>,
+}
+
+/// The parts of every good's consumer price at one moment (spec, "How a
+/// lever change is explained"): `c = (p + d)(1 + v)·s`, with `p` the
+/// producer price, `d` the excise duty, `v` the effective VAT rate of the
+/// good's category and `s` the consumer prices' scale.
+#[derive(Debug, Clone)]
+pub(crate) struct PriceMark {
+    /// Each good's producer price, millionths of its starting price.
+    pub(crate) producer: Vec<u32>,
+    /// Each good's consumer price as the world holds it, millionths.
+    pub(crate) consumer: Vec<u32>,
+    /// Each good's excise duty in force (indexed), millionths.
+    pub(crate) duty: Vec<i128>,
+    /// Each good's `excise_duty[g]` of the law, millionths.
+    pub(crate) law_duty: Vec<u32>,
+    /// Each good's VAT category.
+    pub(crate) category: Vec<econ_mech_tax::vat::VatCategory>,
+    /// The VAT schedule of the law.
+    pub(crate) vat: econ_mech_tax::vat::VatSchedule,
+}
+
+/// The `MonthlyClose` phase's mark: the parts of every good's price at the
+/// close (a world without `law.json` keeps none).
+pub(crate) fn mark_prices(world: &mut World) {
+    if world.lever_state().is_none() {
+        return;
+    }
+    let mark = world.price_mark();
+    if let Some(st) = world.lever_state_mut() {
+        st.price_marks.push(mark);
+    }
+}
+
+/// The lever whose rate applies to a VAT category, if any.
+fn vat_rate_lever(cat: econ_mech_tax::vat::VatCategory) -> Option<LeverId> {
+    use econ_mech_tax::vat::VatCategory as C;
+    match cat {
+        C::Standard => Some(LeverId::TaxVatRateStandard),
+        C::Reduced => Some(LeverId::TaxVatRateReduced),
+        C::Reduced2 => Some(LeverId::TaxVatRateReduced2),
+        C::Zero | C::Exempt => None,
+    }
+}
+
+/// A VAT rate for a label: "19%", "8.5%", "exempt".
+fn vat_label(rate: Option<econ_mech_tax::vat::VatRate>) -> String {
+    match rate {
+        None => "exempt".to_string(),
+        Some(r) if r.0 % 100 == 0 => format!("{}%", r.0 / 100),
+        Some(r) => format!("{}.{:02}%", r.0 / 100, r.0 % 100),
+    }
 }
 
 /// The `Commands` phase: the commands due today take effect, in the order
@@ -1447,9 +1503,6 @@ pub(crate) fn law_of(f: &LawInForce, reg: &Registry, industries: &[String]) -> L
 // scenario's key tables, the L5 events, the ministry budgets of a month, the
 // price "why" terms and the L4 counterfactual of the lever groups.
 
-/// The message of every body the test writer added.
-const TEST_WRITER: &str = "test writer's addition (ADR-0014): the implementation fills it";
-
 /// An L5 event of the lever system (spec, "How a lever change is explained",
 /// and "Ministry budgets").
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1556,9 +1609,14 @@ impl World {
             log: Vec::new(),
             events: Vec::new(),
             next_seq: 1,
+            price_marks: Vec::new(),
         });
         world.start_budget(&budget);
         world.levers_refresh_params();
+        let mark = world.price_mark();
+        if let Some(st) = world.lever_state_mut() {
+            st.price_marks.push(mark);
+        }
         Ok(world)
     }
 
@@ -1586,10 +1644,91 @@ impl World {
 
     /// The terms of the "why" tree of a catalogue industry's consumer price
     /// over a closed month.
+    ///
+    /// The change of the good's consumer price from the close of the month
+    /// before (or the load, for month 0) to the close of `month`, millionths
+    /// of its starting price, in five terms whose contributions add up to it
+    /// exactly (ADR-0008): each part of `c = (p + d)(1 + v)·s` is moved from
+    /// its old value to its new one in turn, the others at the values
+    /// already moved, so the steps telescope:
+    /// 1. the producer price `p` (no lever: unit cost and markup);
+    /// 2. the excise duty `d` (`tax.excise.duty` when the law's duty of the
+    ///    good changed, else the January indexation, no lever);
+    /// 3. the VAT rate of the good's old category (`tax.vat.rate_standard`,
+    ///    `…rate_reduced` or `…rate_reduced_2`);
+    /// 4. a change of the good's category (`tax.vat.category`);
+    /// 5. other: the rest of the held price's change (rounding).
+    ///
+    /// Empty for a month not closed, a good out of range, or a world built
+    /// without `law.json`.
     #[must_use]
     pub fn price_why(&self, industry: usize, month: econ_types::Month) -> Vec<WhyTerm> {
-        let _ = (self, industry, month);
-        unimplemented!("{TEST_WRITER}")
+        let Some(st) = self.lever_state() else {
+            return Vec::new();
+        };
+        let m = usize::try_from(month.0).unwrap_or(usize::MAX);
+        let (Some(a), Some(b)) = (
+            st.price_marks.get(m),
+            st.price_marks.get(m.saturating_add(1)),
+        ) else {
+            return Vec::new();
+        };
+        let j = industry;
+        if j >= a.producer.len() || j >= b.producer.len() {
+            return Vec::new();
+        }
+        let price = |p: u32, d: i128, v: Option<econ_mech_tax::vat::VatRate>| -> i128 {
+            i128::from(self.consumer_price_parts(p, d, v))
+        };
+        let (cat0, cat1) = (a.category[j], b.category[j]);
+        let v0 = a.vat.rate_for(cat0);
+        let v_mid = b.vat.rate_for(cat0);
+        let v1 = b.vat.rate_for(cat1);
+        let c0 = price(a.producer[j], a.duty[j], v0);
+        let c_p = price(b.producer[j], a.duty[j], v0);
+        let c_d = price(b.producer[j], b.duty[j], v0);
+        let c_v = price(b.producer[j], b.duty[j], v_mid);
+        let c1 = price(b.producer[j], b.duty[j], v1);
+        let held = i128::from(b.consumer[j]) - i128::from(a.consumer[j]);
+        let excise_lever =
+            (a.law_duty.get(j) != b.law_duty.get(j)).then_some(LeverId::TaxExciseDuty);
+        // Millionths of a starting price: far inside f64's exact integers.
+        #[allow(clippy::cast_precision_loss)]
+        let f = |x: i128| x as f64;
+        vec![
+            WhyTerm {
+                label: format!(
+                    "producer price {} → {} (unit cost and markup)",
+                    a.producer[j], b.producer[j]
+                ),
+                lever: None,
+                contribution: f(c_p - c0),
+            },
+            WhyTerm {
+                label: if excise_lever.is_none() && a.duty[j] != b.duty[j] {
+                    format!("excise duty {} → {} (indexation)", a.duty[j], b.duty[j])
+                } else {
+                    format!("excise duty {} → {}", a.duty[j], b.duty[j])
+                },
+                lever: excise_lever,
+                contribution: f(c_d - c_p),
+            },
+            WhyTerm {
+                label: format!("VAT rate {} → {}", vat_label(v0), vat_label(v_mid)),
+                lever: vat_rate_lever(cat0),
+                contribution: f(c_v - c_d),
+            },
+            WhyTerm {
+                label: format!("VAT category {cat0:?} → {cat1:?}"),
+                lever: Some(LeverId::TaxVatCategory),
+                contribution: f(c1 - c_v),
+            },
+            WhyTerm {
+                label: "other (rounding)".to_string(),
+                lever: None,
+                contribution: f(held - (c1 - c0)),
+            },
+        ]
     }
 }
 

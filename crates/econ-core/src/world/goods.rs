@@ -6,7 +6,7 @@ use econ_ledger::{FlowCode, Instrument, Sector};
 use econ_mech_households::{Budget, decide};
 use econ_mech_prices::{markup_ppm, step_price_ppm, target_price_ppm, unit_cost_ppm};
 use econ_mech_production::{UnitState as PlanInput, plan, ration, share_sales};
-use econ_mech_tax::vat::VatCategory;
+use econ_mech_tax::vat::{VatCategory, VatRate};
 use econ_num::math::powf;
 use econ_types::Bani;
 
@@ -28,6 +28,12 @@ const INPUT_REFILL_DAYS: i64 = 30;
 /// legal rates less this share: the input-output table's taxes on household
 /// consumption (7.2% of it) are what is collected, not the legal 10.7%.
 const VAT_GAP_PPM: i128 = 367_000;
+
+/// The VAT households pay at legal rate `r`, millionths (the rate less the
+/// VAT gap).
+fn paid_vat_ppm(r: VatRate) -> u32 {
+    u32::try_from(ratio(i128::from(r.0) * 100, ONE - VAT_GAP_PPM, ONE)).expect("a rate")
+}
 
 /// Persons a unit needs for a month's output `y`: its starting staff per
 /// unit of starting output, times the labour-requirement factor, rounded up.
@@ -94,9 +100,38 @@ impl World {
     /// legal rate is never rounded away.
     pub(super) fn rate_ppm(&self, j: usize) -> Option<u32> {
         let cat: VatCategory = self.law.vat_category[j];
-        self.law.vat.rate_for(cat).map(|r| {
-            u32::try_from(ratio(i128::from(r.0) * 100, ONE - VAT_GAP_PPM, ONE)).expect("a rate")
-        })
+        self.law.vat.rate_for(cat).map(paid_vat_ppm)
+    }
+
+    /// A good's consumer price from its parts: producer price `p`, excise
+    /// duty `d` and legal VAT rate `vat` (the formula of the prices phase;
+    /// the producer price when the revenue of 2021 does not act).
+    #[cfg(feature = "levers")]
+    pub(crate) fn consumer_price_parts(&self, p: u32, d: i128, vat: Option<VatRate>) -> u32 {
+        #[cfg(feature = "revenue")]
+        {
+            self.rev_consumer_price_parts(p, d, vat.map_or(0, paid_vat_ppm))
+        }
+        #[cfg(not(feature = "revenue"))]
+        {
+            let _ = (d, vat);
+            p
+        }
+    }
+
+    /// The parts of every good's consumer price now (for the price "why"
+    /// terms of the lever system).
+    #[cfg(feature = "levers")]
+    pub(crate) fn price_mark(&self) -> crate::levers::PriceMark {
+        let n_i = self.industries.id.len();
+        crate::levers::PriceMark {
+            producer: self.industries.price_ppm.clone(),
+            consumer: self.industries.consumer_price_ppm.clone(),
+            duty: (0..n_i).map(|j| self.excise_of(j)).collect(),
+            law_duty: self.law.excise_duty_ppm.clone(),
+            category: self.law.vat_category.clone(),
+            vat: self.law.vat,
+        }
     }
 
     /// Phase 2: the plan of each unit whose day it is (production, step 1).
@@ -534,6 +569,8 @@ impl World {
                     // oil had its own price.
                     self.rev_imported_fuel(u, fuel);
                 }
+                #[cfg(not(feature = "revenue"))]
+                let _ = fuel;
                 self.mac.month.imports += i128::from(imported.get());
             }
             self.uu.inputs_served_ppm[u] = 1_000_000;

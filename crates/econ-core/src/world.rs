@@ -1169,7 +1169,11 @@ impl World {
                 PhaseId::Quits => self.quits(),
                 PhaseId::Pay => self.pay(),
                 PhaseId::WageRound => self.wage_round(),
-                PhaseId::MonthlyClose => failed.extend(self.monthly_close()),
+                PhaseId::MonthlyClose => {
+                    failed.extend(self.monthly_close());
+                    #[cfg(feature = "levers")]
+                    crate::levers::mark_prices(self);
+                }
                 PhaseId::Checks => failed.extend(self.checks()),
             }
         }
