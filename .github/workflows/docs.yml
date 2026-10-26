@@ -5,9 +5,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the test guard reads the base commit
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: python scripts/docs_index.py --check
       - name: acceptance-criteria traceability
         run: python scripts/traceability.py
+      # ADR-0014 layer 3: tests and assertions may not fall, nor tests be
+      # newly ignored or skipped, unless tests/golden/guard-approvals.toml
+      # records the owner's yes. Runs on every PR, docs-only ones included.
+      - name: test-count guard
+        run: python scripts/test_guard.py --base "${{ github.event.pull_request.base.sha || github.event.before }}"
