@@ -147,7 +147,7 @@ jobs:
       # scenario and AC-POL-10 at 1:1000 and 1:100; its 1:10 run and the
       # mutation check are nightly (nightly.yml).
       - name: the policy suite at 1:1000 and 1:100
-        run: cargo test --release -p econ-core --test acceptance -- --test-threads=1 policy::
+        run: "cargo test --release -p econ-core --test acceptance -- --test-threads=1 policy::"
 
   ui:
     # The thin UI's frontend type-checks and builds (the Tauri host is
