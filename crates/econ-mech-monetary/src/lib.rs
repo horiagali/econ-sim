@@ -20,9 +20,9 @@ fn div_round(num: i128, den: i128) -> i128 {
     debug_assert!(den > 0);
     let half = den / 2;
     if num >= 0 {
-        (num + half) / den
+        econ_types::div_i128(num + half, den)
     } else {
-        -((-num + half) / den)
+        -econ_types::div_i128(-num + half, den)
     }
 }
 

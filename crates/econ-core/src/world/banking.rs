@@ -194,15 +194,25 @@ impl World {
 
     /// Each household's interest due at the coming month end, at the
     /// month's rates; empty when the banks do not act.
-    pub(super) fn hh_interest_due(&self) -> Vec<Bani> {
+    /// Only the households of `cohort` (the stagger day deciding today)
+    /// are computed; the others' entries are zero.
+    pub(super) fn hh_interest_due(&self, cohort: u8) -> Vec<Bani> {
         if !self.bk.active {
             return Vec::new();
         }
         let (v, r) = (&self.bk.view, self.bk.view.rates);
+        let day = &self.households.hh_stagger_day;
         v.hh_mortgage
             .iter()
             .zip(&v.hh_consumer_debt)
-            .map(|(&m, &c)| month_interest(m, r.mortgage_ppm) + month_interest(c, r.consumer_ppm))
+            .zip(day)
+            .map(|((&m, &c), &d)| {
+                if d == cohort {
+                    month_interest(m, r.mortgage_ppm) + month_interest(c, r.consumer_ppm)
+                } else {
+                    Bani::ZERO
+                }
+            })
             .collect()
     }
 

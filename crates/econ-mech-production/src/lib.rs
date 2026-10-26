@@ -9,9 +9,21 @@
 /// One, in millionths.
 const ONE: i128 = 1_000_000;
 
+/// `n / d` and `n % d` (truncating, `d > 0`), in 64-bit arithmetic when
+/// both fit: the same result as i128 division, at a fraction of its cost.
+#[inline]
+fn div_rem(n: i128, d: i128) -> (i128, i128) {
+    if let (Ok(n), Ok(d)) = (i64::try_from(n), i64::try_from(d))
+        && d > 0
+    {
+        return (i128::from(n / d), i128::from(n % d));
+    }
+    (n / d, n % d)
+}
+
 /// `n / d` rounded half away from zero (`d > 0`).
 fn rdiv(n: i128, d: i128) -> i128 {
-    let (q, r) = (n / d, n % d);
+    let (q, r) = div_rem(n, d);
     if 2 * r.abs() >= d { q + n.signum() } else { q }
 }
 
@@ -33,9 +45,9 @@ fn apportion(total: i64, weights: &[i64]) -> Vec<i64> {
     let mut parts = Vec::with_capacity(w.len());
     let mut rems = Vec::with_capacity(w.len());
     for &x in &w {
-        let q = t * x / sum;
+        let (q, r) = div_rem(t * x, sum);
         parts.push(q);
-        rems.push(t * x - q * sum);
+        rems.push(r);
     }
     let missing = usize::try_from(t - parts.iter().sum::<i128>()).expect("fewer than the parts");
     if missing > 0 {

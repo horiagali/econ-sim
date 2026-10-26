@@ -112,6 +112,30 @@ impl Bani {
     }
 }
 
+/// `n / d` and `n % d`, truncating, exactly as `i128` division, computed in
+/// 64-bit arithmetic when both operands fit in `i64`: 128-bit division is
+/// several times slower, which shows in the per-record and per-order loops of
+/// the daily step. Panics on `d == 0` like `/`.
+#[inline]
+#[must_use]
+#[allow(clippy::arithmetic_side_effects)]
+pub fn div_rem_i128(n: i128, d: i128) -> (i128, i128) {
+    if let (Ok(n64), Ok(d64)) = (i64::try_from(n), i64::try_from(d))
+        && d64 != 0
+        && !(n64 == i64::MIN && d64 == -1)
+    {
+        return (i128::from(n64 / d64), i128::from(n64 % d64));
+    }
+    (n / d, n % d)
+}
+
+/// `n / d`, truncating, as [`div_rem_i128`].
+#[inline]
+#[must_use]
+pub fn div_i128(n: i128, d: i128) -> i128 {
+    div_rem_i128(n, d).0
+}
+
 /// Integer division of `p / d` rounded half away from zero.
 #[allow(clippy::arithmetic_side_effects)] // operands come from i64×i64; result conversion is checked
 fn round_div_i128(p: i128, d: i128) -> i64 {
@@ -307,6 +331,19 @@ mod tests {
             prop_assume!(i64::try_from(wide).is_ok());
             prop_assert_eq!(i128::from(Bani(a).mul_ratio(n, d).0), wide);
             prop_assert_eq!(i64::try_from(wide).unwrap(), round_div_i128(p, i128::from(d)));
+        }
+
+        #[test]
+        /// The 64-bit fast path of `div_rem_i128` is `i128` division exactly,
+        /// both signs, in and out of `i64` range.
+        fn div_rem_fast_path_matches_i128(
+            n in prop_oneof![any::<i64>().prop_map(i128::from), any::<i128>(), Just(i128::from(i64::MIN))],
+            d in prop_oneof![any::<i64>().prop_map(i128::from), any::<i128>(), Just(-1i128), 1i128..20_000],
+        ) {
+            prop_assume!(d != 0);
+            prop_assume!(!(n == i128::MIN && d == -1));
+            prop_assert_eq!(div_rem_i128(n, d), (n / d, n % d));
+            prop_assert_eq!(div_i128(n, d), n / d);
         }
 
         #[test]

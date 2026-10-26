@@ -325,6 +325,7 @@ name = "econ-mech-prices"
 version = "0.1.0"
 dependencies = [
  "econ-num",
+ "econ-types",
 ]
 
 [[package]]

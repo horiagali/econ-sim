@@ -9,6 +9,7 @@ publish.workspace = true
 
 [dependencies]
 econ-num.workspace = true
+econ-types.workspace = true
 
 [features]
 # Gates the acceptance tests, written before the code (ADR-0014); on by

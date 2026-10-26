@@ -233,11 +233,18 @@ impl Postings {
     }
 }
 
+pub(super) use econ_types::div_rem_i128 as div_rem;
+
 /// `a × b / d`, rounded half away from zero, in i128.
 pub(super) fn ratio(a: i128, b: i128, d: i128) -> i128 {
     assert!(d > 0, "a ratio over zero");
-    let n = a.saturating_mul(b);
-    let (q, r) = (n / d, n % d);
+    // Two factors that fit i64 cannot overflow i128: a plain widening
+    // multiply, not the slower checked 128-bit one.
+    let n = match (i64::try_from(a), i64::try_from(b)) {
+        (Ok(x), Ok(y)) => i128::from(x) * i128::from(y),
+        _ => a.saturating_mul(b),
+    };
+    let (q, r) = div_rem(n, d);
     if r.saturating_mul(2).abs() >= d {
         q + n.signum()
     } else {
@@ -262,9 +269,9 @@ pub(super) fn split(total: i128, weights: &[i128]) -> Vec<i128> {
     let mut given = 0i128;
     for &w in weights {
         let x = total * w.max(0);
-        let q = x / sum;
+        let (q, r) = div_rem(x, sum);
         parts.push(q);
-        rems.push(x - q * sum);
+        rems.push(r);
         given += q;
     }
     let left = usize::try_from(total - given).unwrap_or(0);
@@ -291,17 +298,12 @@ pub(super) fn split2(total: i128, a: i128, b: i128) -> (i128, i128) {
     if sum == 0 || total <= 0 {
         return (0, 0);
     }
-    let (xa, xb) = (total * a, total * b);
-    let (qa, qb) = (xa / sum, xb / sum);
+    let ((qa, ra), (qb, rb)) = (div_rem(total * a, sum), div_rem(total * b, sum));
     if total - qa - qb == 0 {
         return (qa, qb);
     }
     // One left over: to the larger remainder, a tie to the first.
-    if xa - qa * sum >= xb - qb * sum {
-        (qa + 1, qb)
-    } else {
-        (qa, qb + 1)
-    }
+    if ra >= rb { (qa + 1, qb) } else { (qa, qb + 1) }
 }
 
 #[cfg(test)]

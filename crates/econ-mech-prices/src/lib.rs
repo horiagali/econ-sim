@@ -34,7 +34,7 @@ pub struct PriceParams {
 
 /// `n / d` rounded half away from zero (`d > 0`).
 fn rdiv(n: i128, d: i128) -> i128 {
-    let (q, r) = (n / d, n % d);
+    let (q, r) = econ_types::div_rem_i128(n, d);
     if 2 * r.abs() >= d { q + n.signum() } else { q }
 }
 
