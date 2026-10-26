@@ -913,6 +913,12 @@ struct UnitState {
     vacancies_month: Vec<[u64; 3]>,
     /// Weight for paying self-employment and informal income.
     mixed_weight: Vec<u64>,
+    /// The firm sector's deposits still free today for payments out of the
+    /// sector (imports, and the product taxes and duties on purchases, which
+    /// are posted at the end of phase 8): set at phase 5, spent by phases 5,
+    /// 6 and 8. Purchases stop where it runs out (no lever may overdraw the
+    /// sector); in a normal run it never binds.
+    firm_free: i128,
 }
 
 /// Per industry, what the tables do not show.

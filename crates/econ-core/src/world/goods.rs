@@ -2,7 +2,7 @@
 //! output and input purchases, the fixed final demand, the households'
 //! decisions and the goods market.
 
-use econ_ledger::{FlowCode, Sector};
+use econ_ledger::{FlowCode, Instrument, Sector};
 use econ_mech_households::{Budget, decide};
 use econ_mech_prices::{markup_ppm, step_price_ppm, target_price_ppm, unit_cost_ppm};
 use econ_mech_production::{UnitState as PlanInput, plan, ration, share_sales};
@@ -226,11 +226,203 @@ impl World {
         }
     }
 
+    /// What unit `u` can still draw on its bank credit line (none without
+    /// the banks, or for a public unit).
+    fn credit_room_of(&self, u: usize) -> i128 {
+        #[cfg(feature = "banking")]
+        {
+            if self.uu.public[u] {
+                0
+            } else {
+                i128::from(self.bank_credit_room(u).get()).max(0)
+            }
+        }
+        #[cfg(not(feature = "banking"))]
+        {
+            let _ = u;
+            0
+        }
+    }
+
+    /// The firm sector's deposits free for payments out of it: the ledger's
+    /// balance less the product taxes and duties charged today but not yet
+    /// posted (phase 8 posts them).
+    pub(super) fn firm_money_free(&self) -> i128 {
+        let held = i128::from(
+            self.ledger
+                .balance(Sector::Firms, Instrument::Deposits)
+                .get(),
+        );
+        #[cfg(feature = "revenue")]
+        let pending = self.rev_pending_taxes();
+        #[cfg(not(feature = "revenue"))]
+        let pending = 0;
+        held - pending
+    }
+
+    /// The product tax unit `u` owes on inputs worth `value` (0 without the
+    /// revenue of 2021).
+    pub(super) fn input_tax(&self, u: usize, value: i128) -> i128 {
+        #[cfg(feature = "revenue")]
+        {
+            self.rev_input_tax(u, value)
+        }
+        #[cfg(not(feature = "revenue"))]
+        {
+            let _ = (u, value);
+            0
+        }
+    }
+
+    /// The fuel duty unit `u` owes on imported inputs worth `value` at the
+    /// import price index.
+    fn imported_fuel_duty(&self, u: usize, value: i128) -> i128 {
+        #[cfg(feature = "revenue")]
+        {
+            self.rev_imported_fuel_duty(u, value)
+        }
+        #[cfg(not(feature = "revenue"))]
+        {
+            let _ = (u, value);
+            0
+        }
+    }
+
+    /// The fuel duty unit `u` owes on `q` real units of good `i`.
+    pub(super) fn fuel_duty(&self, u: usize, i: usize, q: i64) -> i128 {
+        #[cfg(feature = "revenue")]
+        {
+            self.rev_fuel_duty(u, i, q)
+        }
+        #[cfg(not(feature = "revenue"))]
+        {
+            let _ = (u, i, q);
+            0
+        }
+    }
+
+    /// The product tax rate on investment goods, millionths.
+    pub(super) fn investment_tax_ppm(&self) -> i128 {
+        #[cfg(feature = "revenue")]
+        {
+            self.rev_investment_tax_ppm()
+        }
+        #[cfg(not(feature = "revenue"))]
+        {
+            0
+        }
+    }
+
+    /// Unit `u` needs `need` out of the firm sector today: when the sector's
+    /// free deposits are short, it draws the difference on its credit line
+    /// now, as far as the line is open (the draw `settle_credit` would make
+    /// at the day's end, made before the payment; AC-BANK-04).
+    pub(super) fn draw_for(&mut self, u: usize, need: i128) {
+        let short = need - self.uu.firm_free.max(0);
+        if short <= 0 {
+            return;
+        }
+        #[cfg(feature = "banking")]
+        {
+            self.uu.firm_free += i128::from(self.bank_draw_now(u, bani(short)).get());
+        }
+        #[cfg(not(feature = "banking"))]
+        let _ = u;
+    }
+
+    /// The part of unit `u`'s imported-input bill `bill` (its fuel worth
+    /// `fuel` at the import price index) that it can pay, with the product
+    /// tax and fuel duty on it, out of the firm sector's free deposits (its
+    /// own, and the others' through the credit inside the sector that
+    /// `settle_credit` books at the day's end) and its credit line. Returns
+    /// the bill paid and its fuel. In a normal run the sector's deposits
+    /// cover every bill and nothing here binds; once they and the credit
+    /// line are spent, the unit buys less and produces less instead of
+    /// overdrawing the sector (roadmap M10: no lever may crash the World).
+    fn payable_imports(&mut self, u: usize, bill: i128, fuel: i128) -> (i128, i128) {
+        let cost = |w: &Self, b: i128, f: i128| b + w.input_tax(u, b) + w.imported_fuel_duty(u, f);
+        let full = cost(self, bill, fuel);
+        if full <= self.uu.firm_free {
+            self.uu.firm_free -= full;
+            return (bill, fuel);
+        }
+        self.draw_for(u, full);
+        let free = self.uu.firm_free.max(0);
+        let (mut paid, mut fuel_paid) = if full <= free {
+            (bill, fuel)
+        } else {
+            let p = bill * free / full;
+            (p, fuel * p / bill)
+        };
+        loop {
+            let c = cost(self, paid, fuel_paid);
+            if c <= free || paid == 0 {
+                self.uu.firm_free -= c;
+                return (paid, fuel_paid);
+            }
+            paid = (paid - (c - free)).max(0);
+            fuel_paid = fuel * paid / bill;
+        }
+    }
+
+    /// Unit `u`'s home input orders, cut to what it can pay: the goods out
+    /// of the firm sector's free deposits and its credit line, the product
+    /// tax and fuel duty on them (paid out of the sector at phase 8) out of
+    /// the sector's free deposits, which keep them aside. Uncut in a normal
+    /// run.
+    fn payable_orders(&mut self, u: usize, orders: &mut [(usize, i64)]) {
+        let measure = |w: &Self, orders: &[(usize, i64)]| -> (i128, i128) {
+            let (mut v, mut t) = (0i128, 0i128);
+            for &(i, q) in orders {
+                let value = ratio(i128::from(q), i128::from(w.industries.price_ppm[i]), ONE);
+                v += value;
+                t += w.input_tax(u, value) + w.fuel_duty(u, i, q);
+            }
+            (v, t)
+        };
+        let (v, t) = measure(self, orders);
+        if v + t <= self.uu.firm_free {
+            self.uu.firm_free -= t;
+            return;
+        }
+        if t > self.uu.firm_free {
+            self.draw_for(u, t);
+        }
+        let free = self.uu.firm_free.max(0);
+        let room = self.credit_room_of(u);
+        // The share of the orders it can pay: the smaller of the taxes'
+        // share and the whole bill's.
+        let (mut n, mut d) = (1i128, 1i128);
+        if t > free {
+            (n, d) = (free, t);
+        }
+        if (free + room) * d < n * (v + t) {
+            (n, d) = (free + room, v + t);
+        }
+        let original: Vec<i64> = orders.iter().map(|&(_, q)| q).collect();
+        loop {
+            for (o, &q) in orders.iter_mut().zip(&original) {
+                o.1 = i64::try_from(i128::from(q) * n / d).expect("a quantity");
+            }
+            let (_, t2) = measure(self, orders);
+            if t2 <= free || n == 0 {
+                self.uu.firm_free -= t2;
+                return;
+            }
+            d += t2 - free;
+        }
+    }
+
     /// Phase 5: each unit's output of the day into inventory, and its input
     /// orders: home inputs as demand on the suppliers, imported inputs paid
-    /// to the rest of the world at the starting price.
+    /// to the rest of the world at the day's import price. A unit's
+    /// purchases are limited by what it can pay (deposits and credit): when
+    /// it cannot pay its imported inputs it produces less, and its home
+    /// orders are cut to what it can pay.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn output_and_inputs(&mut self) {
         let mut post = Postings::default();
+        self.uu.firm_free = self.firm_money_free();
         for u in 0..self.units.industry.len() {
             #[cfg(feature = "levers")]
             if self.budget_public(u) {
@@ -268,6 +460,20 @@ impl World {
                 ONE
             };
             let mut share = staff_ppm;
+            // The imported inputs of the day's plan, as far as it can pay
+            // them: output falls by the share it cannot.
+            let at_start = ratio(i128::from(part), i128::from(self.ii.import_ppm[j]), ONE);
+            let bill = self.inputs_import_value(j, at_start);
+            let (imported, fuel) = if bill > 0 {
+                let fuel = self.at_import_price(at_start);
+                let (paid, fuel) = self.payable_imports(u, bill, fuel);
+                if paid < bill {
+                    share = share.min(ratio(paid, ONE, bill));
+                }
+                (bani(paid), fuel)
+            } else {
+                (Bani::ZERO, 0)
+            };
             for (k, &a) in self.ii.essential_ppm[j].iter().enumerate() {
                 let need = i128::from(part) * i128::from(a) / ONE;
                 if need > 0 {
@@ -291,6 +497,7 @@ impl World {
             self.fs.add_value(u, value);
             #[cfg(feature = "revenue")]
             self.rev_output_value(u, value);
+            let mut orders: Vec<(usize, i64)> = Vec::with_capacity(self.ii.inputs[j].len());
             for (&(i, a), &slot) in self.ii.inputs[j].iter().zip(&self.ii.essential_slot[j]) {
                 // A day's part is far below 2^43 real units: the product fits i64.
                 let mut q = (part * i64::from(a) + 500_000) / 1_000_000;
@@ -301,11 +508,15 @@ impl World {
                     q = (q + (target - self.uu.input_stock[u][k]) / INPUT_REFILL_DAYS).max(0);
                 }
                 if q > 0 {
+                    orders.push((i, q));
+                }
+            }
+            self.payable_orders(u, &mut orders);
+            for (i, q) in orders {
+                if q > 0 {
                     self.demand.units[i].push((u, q));
                 }
             }
-            let at_start = ratio(i128::from(part), i128::from(self.ii.import_ppm[j]), ONE);
-            let imported = bani(self.inputs_import_value(j, at_start));
             if imported > Bani::ZERO {
                 self.units.deposits[u] -= imported;
                 post.deposits(
@@ -321,7 +532,7 @@ impl World {
                     self.rev_input_purchase(u, i128::from(imported.get()));
                     // Its fuel's quantity is read at the index, as before
                     // oil had its own price.
-                    self.rev_imported_fuel(u, self.at_import_price(at_start));
+                    self.rev_imported_fuel(u, fuel);
                 }
                 self.mac.month.imports += i128::from(imported.get());
             }
@@ -484,16 +695,23 @@ impl World {
         // Who pays: with the investment rule, the government its share
         // (step 3) and each unit by its budget; else M2's units by surplus,
         // out of what they can spare.
+        // The units pay at most what the firm sector's free deposits hold,
+        // with the product tax on it: beyond it, the imported investment
+        // goods are not bought (no lever may overdraw the sector; in a
+        // normal run this never binds).
+        let rate = self.investment_tax_ppm();
+        let n_u = i128::try_from(self.units.industry.len()).expect("units");
+        let firm_money = ((self.uu.firm_free - n_u).max(0) * ONE) / (ONE + rate);
         let (gov_part, parts) = match self.investment_payers() {
             Some((gov_ppm, weights)) => {
                 let g = ratio(inv, gov_ppm, ONE);
-                (g, split(inv - g, &weights))
+                (g, split((inv - g).min(firm_money), &weights))
             }
             None => {
                 let caps = self.spare_money();
                 (
                     0,
-                    Self::capped_split(inv, &self.investment_weights(), &caps),
+                    Self::capped_split(inv.min(firm_money), &self.investment_weights(), &caps),
                 )
             }
         };
@@ -503,13 +721,18 @@ impl World {
         self.mac.month.investment += gov_part;
         self.mac.month.imports += gov_part;
         let paid: i128 = parts.iter().sum();
+        let mut tax = 0i128;
         for (u, &p) in parts.iter().enumerate() {
             self.units.deposits[u] -= bani(p);
+            if p > 0 {
+                tax += ratio(p, rate, ONE);
+            }
             #[cfg(feature = "investment")]
             self.invest_spent(u, p);
             #[cfg(feature = "revenue")]
             self.rev_investment_purchase(u, p);
         }
+        self.uu.firm_free -= paid + tax;
         post.deposits(
             Sector::Firms,
             Sector::RestOfWorld,
@@ -640,13 +863,33 @@ impl World {
         }
         let mut worst = vec![1_000_000u32; self.units.industry.len()];
         let mut investment_value = 0i128;
+        // What the units can still buy of investment goods: they pay the
+        // product tax on their part out of the sector's free deposits, so
+        // the goods stop where that would overdraw it (never in a normal
+        // run; `None` is no limit).
+        let mut invest_room: Option<i128> = {
+            let rate = self.investment_tax_ppm();
+            let units_ppm = ONE - self.investment_payers().map_or(0, |(g, _)| g);
+            let n_u = i128::try_from(self.units.industry.len()).expect("units");
+            if rate > 0 && units_ppm > 0 {
+                let free = (self.uu.firm_free - n_u).max(0);
+                Some(free * ONE / rate * ONE / units_ppm)
+            } else {
+                None
+            }
+        };
         for i in 0..n_i {
             let price = i128::from(self.industries.price_ppm[i]);
             let unit_buyers = std::mem::take(&mut self.demand.units[i]);
             let agents = std::mem::take(&mut self.demand.agents[i]);
             let na = agents.len();
             let hh_want = i128::from(hh_want_q[i]);
-            let (g, inv, x) = (self.ii.gov_q[i], self.ii.inv_q[i], self.ii.exp_q[i]);
+            let (g, mut inv, x) = (self.ii.gov_q[i], self.ii.inv_q[i], self.ii.exp_q[i]);
+            if let Some(room) = invest_room
+                && room < i128::from(inv) * price / ONE + 1
+            {
+                inv = i64::try_from(room.max(0) * ONE / price.max(1)).expect("a quantity");
+            }
             let mut demands: Vec<i64> = unit_buyers.iter().map(|&(_, q)| q).collect();
             demands.extend(agents.iter().map(|&(_, q)| q));
             demands.push(i64::try_from(hh_want).expect("a demand"));
@@ -739,6 +982,9 @@ impl World {
             post.gov_pays(Sector::Firms, bani(gv), FlowCode::GOV_PURCHASES);
             self.mac.month.government += gv;
             let iv = value(i_s);
+            if let Some(room) = invest_room.as_mut() {
+                *room -= iv;
+            }
             investment_value += iv;
             let xv = value(x_s);
             post.deposits(

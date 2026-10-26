@@ -949,6 +949,72 @@ impl World {
         post.commit(&mut self.ledger);
     }
 
+    /// The product tax and fuel duty taxes not yet posted today (phase 8
+    /// posts them).
+    pub(super) fn rev_pending_taxes(&self) -> i128 {
+        if self.rev.active {
+            self.rev.products_today + self.rev.excise_today
+        } else {
+            0
+        }
+    }
+
+    /// The product tax unit `u` would owe on inputs worth `value`, as
+    /// [`World::rev_input_purchase`] charges it.
+    pub(super) fn rev_input_tax(&self, u: usize, value: i128) -> i128 {
+        if !self.rev.active || value <= 0 {
+            return 0;
+        }
+        let j = usize::from(self.units.industry[u]);
+        let rate = self.rev.product_tax_ppm.get(j).copied().unwrap_or(0);
+        ratio(value, i128::from(rate), 1_000_000).max(0)
+    }
+
+    /// The fuel duty unit `u` would owe on imported inputs whose value at
+    /// the index is `value`, as [`World::rev_imported_fuel`] charges it.
+    pub(super) fn rev_imported_fuel_duty(&self, u: usize, value: i128) -> i128 {
+        if !self.rev.active || value <= 0 {
+            return 0;
+        }
+        let Some(f) = self.rev.fuel else {
+            return 0;
+        };
+        let j = usize::from(self.units.industry[u]);
+        if self.rev.fuel_exempt[j] {
+            return 0;
+        }
+        let fuel_value = ratio(
+            value,
+            i128::from(self.rev.fuel_import_ppm.get(j).copied().unwrap_or(0)),
+            1_000_000,
+        );
+        let quantity = ratio(fuel_value, 1_000_000, self.import_index().max(1));
+        ratio(quantity, self.excise_duty_ppm(f), 1_000_000).max(0)
+    }
+
+    /// The fuel duty unit `u` would owe on `quantity` real units of good
+    /// `i`, as [`World::rev_fuel_purchase`] charges it.
+    pub(super) fn rev_fuel_duty(&self, u: usize, i: usize, quantity: i64) -> i128 {
+        if !self.rev.active || self.rev.fuel != Some(i) || quantity <= 0 {
+            return 0;
+        }
+        let j = usize::from(self.units.industry[u]);
+        if self.rev.fuel_exempt[j] {
+            return 0;
+        }
+        ratio(i128::from(quantity), self.excise_duty_ppm(i), 1_000_000).max(0)
+    }
+
+    /// The rate of product tax on investment goods, millionths, as
+    /// [`World::rev_investment_purchase`] charges it.
+    pub(super) fn rev_investment_tax_ppm(&self) -> i128 {
+        if self.rev.active {
+            i128::from(self.rev.investment_tax_ppm)
+        } else {
+            0
+        }
+    }
+
     /// A unit's value of output today.
     pub(super) fn rev_output_value(&mut self, u: usize, value: i128) {
         if self.rev.active {
@@ -1045,7 +1111,10 @@ impl World {
     fn pay_imputed_rent(&mut self) {
         let spent: i128 = self.rev.rent_last.iter().sum();
         let due = ratio(spent, IMPUTED_SHARE_PPM, 1_000_000);
-        let (parts, paid) = share_out(due, &self.households.hh_weight, &self.rev.rent_key);
+        // Never more than the firm sector holds (no lever may overdraw it;
+        // in a normal run this never binds).
+        let payable = due.min(self.firm_money_free().max(0));
+        let (parts, paid) = share_out(payable, &self.households.hh_weight, &self.rev.rent_key);
         for (h, &a) in parts.iter().enumerate() {
             if a == 0 {
                 continue;

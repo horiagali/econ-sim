@@ -4,7 +4,7 @@ title: Roadmap
 status: draft
 owner: horia
 depends_on: [vision/scope]
-updated: 2026-10-25
+updated: 2026-10-26
 ---
 
 # Roadmap
@@ -267,6 +267,8 @@ Without this a long run is a frozen population.
   - With it off, units pay out what they would have reinvested: dividends paid abroad are 38.6 billion lei in the first year against 18.6 (AC-INV-10; Romania's 2021 FDI income was about twice its dividends, the rest reinvested earnings). AC-INV-06 also waits for the rule.
 - [ ] **Real estate's mixed income and surplus** (2026-10-21). Mixed income is paid by the domestic cohort units by value added less wages, which for `real_estate` includes owner-occupiers' imputed rent; the payback already gives that surplus to owner households, so real estate pays mixed income out of the same surplus twice and its profit before tax is negative (AC-IMP-03 reads -30.6 billion against the spec's 13.1, which is gross of depreciation, about 28 billion a year). Take the imputed part out of real estate's mixed-income weight, and restate the spec's target net of depreciation.
 - [ ] **If needed: randomness in firms' decisions** (owner, 2026-10-22). Pull the after-v1 item "Randomness in firms' decisions" forward only if the runs move in lockstep (whole industries reacting alike and swinging together) or are too smooth against Romania's volatility.
+- [ ] **Minimum pension in the starting data** (owner, 2026-10-25): pensioners at the 800-lei minimum get their own (lower) entitlement from their pension points, so the minimum pension tops them up and cutting it lowers their income; today stage G puts 21% of pensioners at exactly 800 on their points (AC-POPP-01), so the lever's bottom cannot bind. Also check `economy/social-transfers.md`'s 2026-10-20 note that "the 800-lei minimum lifts many of stage G's pensions".
+- [ ] **Calibration note: the baseline's inflation and the leu** (owner, 2026-10-25): with no lever changes, the 2021-law World runs 8–9% inflation and the leu drifts from 4.95 to 6.2 lei per euro over three years (found by the policy suite's baseline, 2026-10-25).
 - [ ] Sensitivity screening and history matching with the loop of Spike 5 ([ADR-0009](03-architecture/decisions/0009-calibration-and-stability.md)).
 - [ ] **Government bond yields from investor confidence** (owner, 2026-10-22; research when implementing). Today a new bond's yield is the policy rate + a term premium + a risk premium that only starts above 60% debt-to-GDP ([fiscal policy](02-design/economy/fiscal-policy.md), step 4), so at Romania's 49% small deficits and growth lower nothing. Make the risk premium an investor-confidence term built from, for example: expected inflation, expected growth, the deficit, debt-to-GDP (below 60% too), the past record (deficits and inflation of the last years, missed targets), the central bank's credibility, and the share of debt held abroad. A credible path of small deficits in a growing economy should lower yields; Romania's 2021 spread came mostly from its deficit (about 7% of GDP), not its debt. **Keep the lag:** the yield applies to new issues only, so the average coupon of the stock moves as debt is refinanced (7-year bonds: over years). Research the weights against published estimates of sovereign spreads (EU countries, rating agencies' factors). The fiscal-policy spec (locked) is amended when this is built.
 - [ ] Response checks against published estimates: fiscal multipliers, pass-through of the policy rate and of the exchange rate to inflation.
