@@ -8,10 +8,16 @@
 
 // Money arithmetic is checked by `Bani` itself; index maths here is not linted for side effects.
 
+// Approval's first version (spec society/opinion-approval, roadmap M5).
+#[cfg(feature = "approval")]
+pub mod approval;
 mod hash;
 #[cfg(feature = "levers")]
 pub mod levers;
 pub mod pc;
+// Poverty and inequality indicators (spec society/poverty-inequality, M5).
+#[cfg(feature = "poverty")]
+pub mod poverty;
 pub mod scale_spike;
 pub mod schedule;
 pub mod sim;
