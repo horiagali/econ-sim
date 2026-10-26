@@ -453,15 +453,15 @@ impl World {
         );
         // Firm units: interest on their bank loans and on their deposits; a
         // unit short of deposits draws the rest at the day's checks.
-        let (mut u_paid, mut u_got) = (0i128, 0i128);
-        for u in 0..self.units.industry.len() {
-            let v = &mut self.bk.view;
-            let due = month_interest(v.unit_loans[u], r.firms_ppm);
+        let n_u = self.units.industry.len();
+        let mut due: Vec<i128> = (0..n_u)
+            .map(|u| i128::from(month_interest(self.bk.view.unit_loans[u], r.firms_ppm).get()))
+            .collect();
+        let mut u_got = 0i128;
+        for u in 0..n_u {
             let got = month_interest(self.units.deposits[u].max(Bani::ZERO), r.deposit_ppm);
-            v.unit_interest_paid[u] = due;
-            v.unit_interest_received[u] = got;
-            self.units.deposits[u] += got - due;
-            u_paid += i128::from(due.get());
+            self.bk.view.unit_interest_received[u] = got;
+            self.units.deposits[u] += got;
             u_got += i128::from(got.get());
         }
         post.leg(
@@ -471,6 +471,15 @@ impl World {
             bani(u_got),
             FlowCode::INTEREST_DEPOSIT,
         );
+        // The backstop: interest the firm sector cannot pay is not paid
+        // (the banks' loss; never in a normal run).
+        self.firm_fit_parts(&post, &mut due, Some(super::insolvency::Unpaid::Interest));
+        let mut u_paid = 0i128;
+        for u in 0..n_u {
+            self.bk.view.unit_interest_paid[u] = bani(due[u]);
+            self.units.deposits[u] -= bani(due[u]);
+            u_paid += due[u];
+        }
         post.leg(
             Sector::Firms,
             Sector::Banks,
@@ -498,6 +507,7 @@ impl World {
         // wages.
         let reserve = self.wage_reserves();
         let mut repaid = 0i128;
+        let mut parts = vec![0i128; self.units.industry.len()];
         for u in 0..self.units.industry.len() {
             if self.uu.public[u] {
                 continue;
@@ -508,7 +518,12 @@ impl World {
                     / 1_000_000,
             );
             let spare = bani((i128::from(self.units.deposits[u].get()) - reserve[u]).max(0));
-            let x = share.min(spare).min(loans);
+            parts[u] = i128::from(share.min(spare).min(loans).get()).max(0);
+        }
+        // Never more than the firm sector holds (the backstop).
+        self.firm_fit_parts(&Postings::default(), &mut parts, None);
+        for u in 0..self.units.industry.len() {
+            let x = bani(parts[u]);
             if x > Bani::ZERO {
                 self.units.deposits[u] -= x;
                 let v = &mut self.bk.view;

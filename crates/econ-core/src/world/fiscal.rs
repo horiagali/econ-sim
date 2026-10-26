@@ -545,8 +545,10 @@ impl World {
         let Some(law) = self.law.income.clone() else {
             return;
         };
-        let (mut profit_tax, mut micro_tax) = (0i128, 0i128);
-        for u in 0..self.units.industry.len() {
+        let n_u = self.units.industry.len();
+        let mut due = vec![0i128; n_u];
+        let mut is_micro = vec![false; n_u];
+        for u in 0..n_u {
             // Public units paid by the ministry budgets pay no profit tax.
             #[cfg(feature = "levers")]
             let exempt = self.budget_public(u);
@@ -568,12 +570,8 @@ impl World {
                 tax_quarter(profit, &mut fs.losses[u], micro, &law.profit)
             };
             if tax > Bani::ZERO {
-                self.units.deposits[u] -= tax;
-                if micro.is_some() {
-                    micro_tax += i128::from(tax.get());
-                } else {
-                    profit_tax += i128::from(tax.get());
-                }
+                due[u] = i128::from(tax.get());
+                is_micro[u] = micro.is_some();
             }
             fs.q_value[u] = 0;
             fs.q_inputs[u] = 0;
@@ -581,6 +579,19 @@ impl World {
             fs.q_sales[u] = 0;
             fs.q_mixed[u] = 0;
             fs.q_dep[u] = 0;
+        }
+        // What the firm sector cannot pay is reported unpaid (the backstop).
+        self.firm_fit_parts(post, &mut due, Some(super::insolvency::Unpaid::Taxes));
+        let (mut profit_tax, mut micro_tax) = (0i128, 0i128);
+        for u in 0..n_u {
+            if due[u] > 0 {
+                self.units.deposits[u] -= bani(due[u]);
+                if is_micro[u] {
+                    micro_tax += due[u];
+                } else {
+                    profit_tax += due[u];
+                }
+            }
         }
         post.pays_gov(Sector::Firms, bani(profit_tax), FlowCode::TAX_PROFIT);
         post.pays_gov(Sector::Firms, bani(micro_tax), FlowCode::TAX_MICRO);

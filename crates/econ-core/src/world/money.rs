@@ -50,6 +50,9 @@ pub(super) fn post_opening(ledger: &mut Ledger, balances: &[[Bani; 8]]) -> Resul
 #[derive(Debug, Default)]
 pub(super) struct Postings {
     txn: Option<Txn>,
+    /// The firm sector's deposits in and out of this batch so far (the
+    /// firm-payment backstop reads it).
+    firms_net: i128,
 }
 
 impl Postings {
@@ -64,8 +67,21 @@ impl Postings {
         if amount <= Bani::ZERO {
             return;
         }
+        if instrument == Instrument::Deposits {
+            if payer == Sector::Firms {
+                self.firms_net -= i128::from(amount.get());
+            } else if payee == Sector::Firms {
+                self.firms_net += i128::from(amount.get());
+            }
+        }
         let txn = self.txn.take().unwrap_or_default();
         self.txn = Some(txn.leg(payer, payee, instrument, amount, code));
+    }
+
+    /// What this batch so far moves into the firm sector's deposits (less
+    /// what it moves out).
+    pub(super) fn firms_net(&self) -> i128 {
+        self.firms_net
     }
 
     /// `payer` pays `payee` in bank deposits.
