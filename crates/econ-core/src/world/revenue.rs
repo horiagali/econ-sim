@@ -453,6 +453,17 @@ impl World {
         u32::try_from(c).unwrap_or(u32::MAX)
     }
 
+    /// A consumer price from its parts: producer price `p`, duty `d` and
+    /// VAT paid `vat_ppm` (the formula of [`Self::rev_consumer_price`]).
+    #[cfg(feature = "levers")]
+    pub(super) fn rev_consumer_price_parts(&self, p: u32, d: i128, vat_ppm: u32) -> u32 {
+        if !self.rev.active {
+            return p;
+        }
+        let raw = (i128::from(p) + d) * (1_000_000 + i128::from(vat_ppm)) / 1_000_000;
+        u32::try_from(raw * self.rev.cpi_scale_ppm / 1_000_000).unwrap_or(u32::MAX)
+    }
+
     /// Good `j`'s excise duty per unit now, millionths of the starting price
     /// (0 when the revenue does not act).
     pub(super) fn excise_duty_ppm(&self, j: usize) -> i128 {
