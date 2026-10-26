@@ -250,7 +250,7 @@ Without this a long run is a frozen population.
 - [ ] **Population pipeline stage for linked emigrants** (owed; owner's delegation 2026-10-26): add one `abroad` person to about 1.2 million households (15%), skewed to rural Moldavia and older heads, and the diaspora stock table ([migration and remittances](02-design/economy/migration-remittances.md), "Starting state").
 - [ ] **Education flows:** enrolment, graduation, entry to the labour market (simple version; depth in M14).
 - [ ] **Approval, first version:** the per-person number of [opinion-approval](02-design/society/opinion-approval.md), driven by own finances. Display only. Depth in M14.
-- [ ] Poverty and inequality indicators from incomes.
+- [ ] Poverty and inequality indicators from incomes: [poverty and inequality](02-design/society/poverty-inequality.md) (with the standard-of-living classes of M6).
 
 **Exit:** a 50-year run reproduces the direction of the official population projection (shrinking, ageing); pension spending responds to it.
 
