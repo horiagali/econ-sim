@@ -12,8 +12,15 @@ use super::World;
 
 /// The age bands of the month's emigrants, `[from, to)` in years, the last
 /// open: those of the research note's table (Eurostat `migr_emi2`).
-pub const MIGRATION_AGE_BANDS: [(u16, u16); 7] =
-    [(0, 15), (15, 25), (25, 35), (35, 45), (45, 55), (55, 65), (65, u16::MAX)];
+pub const MIGRATION_AGE_BANDS: [(u16, u16); 7] = [
+    (0, 15),
+    (15, 25),
+    (25, 35),
+    (35, 45),
+    (45, 55),
+    (55, 65),
+    (65, u16::MAX),
+];
 
 /// A month of migration, written at the monthly close. Persons are weighted
 /// (real persons); money is national (weighted) bani.

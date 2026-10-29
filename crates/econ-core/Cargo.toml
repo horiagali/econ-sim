@@ -135,7 +135,7 @@ lever_fuel_price = ["policy"]
 migration = ["levers", "trade", "dep:econ-mech-migration"]
 # Education's first version (spec society/education, AC-EDU-01 to 09): the
 # June and August closes, `enrolled` and `study_year`, the yearly report.
-education = ["world"]
+education = ["levers"]
 # Approval's first version (spec society/opinion-approval, AC-APP-01 to 08):
 # the pure rule and the per-person approval on the `World`. It reads the
 # households' recent real income of poverty and inequality.

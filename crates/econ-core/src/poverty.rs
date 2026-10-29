@@ -142,4 +142,11 @@ impl World {
     pub fn hh_real_income_recent(&self) -> &[Bani] {
         unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
     }
+
+    /// `hh_income_year`: each household's income received in the calendar
+    /// year so far (zero after a December close), aligned with
+    /// [`crate::world::HouseholdColumns`].
+    pub fn hh_income_year(&self) -> &[Bani] {
+        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    }
 }

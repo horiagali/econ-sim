@@ -62,7 +62,11 @@ fn ac_mig_01() {
     // The pull.
     assert_eq!(pull_ppm(START_BP, ONE), ONE, "1 at the start");
     near(pull_ppm(11_000, ONE), 1_100_000, "wages abroad +10%");
-    near(pull_ppm(START_BP, 1_100_000), 909_091, "home net wages +10% in lei");
+    near(
+        pull_ppm(START_BP, 1_100_000),
+        909_091,
+        "home net wages +10% in lei",
+    );
     let h_depreciated = 909_091; // (W / 1.1 e0) / (W / e0), millionths
     near(
         pull_ppm(START_BP, h_depreciated),
@@ -198,7 +202,11 @@ fn align_checked(target: i64, carry: &mut i64, c: &[Pick], what: &str) -> (Vec<u
         "{what}: the records taken are the first in priority order"
     );
     let w = weight_of(c, &taken);
-    assert_eq!(*carry, goal - w, "{what}: the carry is the target less the weight taken");
+    assert_eq!(
+        *carry,
+        goal - w,
+        "{what}: the carry is the target less the weight taken"
+    );
     let max_w = i64::from(c.iter().map(|x| x.weight).max().unwrap_or(0));
     assert!(
         carry.abs() < max_w,
@@ -284,7 +292,11 @@ fn ac_mig_02() {
         "moved {moved} against {expected} expected"
     );
     let (moved2, records2) = run();
-    assert_eq!((moved, &records), (moved2, &records2), "a rerun takes the same records");
+    assert_eq!(
+        (moved, &records),
+        (moved2, &records2),
+        "a rerun takes the same records"
+    );
 }
 
 /// **AC-MIG-03** `[unit]` The remittance amount is the formula of step 3: in
@@ -310,11 +322,26 @@ fn ac_mig_03() {
         23_141,
         "wages abroad +20%",
     );
-    assert!(remittance_eur_cents(base, 8_000, 0, &p) < base, "wages abroad −20%");
+    assert!(
+        remittance_eur_cents(base, 8_000, 0, &p) < base,
+        "wages abroad −20%"
+    );
     // (1 − δ)^(months / 12).
-    near_i(remittance_eur_cents(base, START_BP, 12, &p), 19_000, "a year abroad");
-    near_i(remittance_eur_cents(base, START_BP, 24, &p), 18_050, "two years abroad");
-    near_i(remittance_eur_cents(base, START_BP, 6, &p), 19_494, "six months abroad");
+    near_i(
+        remittance_eur_cents(base, START_BP, 12, &p),
+        19_000,
+        "a year abroad",
+    );
+    near_i(
+        remittance_eur_cents(base, START_BP, 24, &p),
+        18_050,
+        "two years abroad",
+    );
+    near_i(
+        remittance_eur_cents(base, START_BP, 6, &p),
+        19_494,
+        "six months abroad",
+    );
     // The formula, for a grid.
     for (bp, months) in [(5_000, 3), (13_000, 40), (40_000, 300), (2_500, 0)] {
         let omega = f64::from(bp) / 10_000.0;
@@ -372,7 +399,10 @@ fn ac_mig_04() {
     near(shares[2], 387_456, "utility 0.5");
     near(shares[3], 142_537, "utility −0.5");
     near(shares[4], 235_004, "utility 0");
-    assert!(shares[1] >= shares[4] && shares[1] - shares[4] <= 1, "a tie");
+    assert!(
+        shares[1] >= shares[4] && shares[1] - shares[4] <= 1,
+        "a tie"
+    );
 
     // V_cd = α_d + β_w ln(W_d / W_c) − β_u (u_d − u_c) − β_t t_cd, millionths.
     let utility = |w_d: f64, w_c: f64, u_d: f64, u_c: f64, hours: f64| -> i64 {
@@ -397,26 +427,43 @@ fn ac_mig_04() {
     let base = destination_ppm(0, &alike(0));
     assert_eq!(base.iter().map(|&s| u64::from(s)).sum::<u64>(), 1_000_000);
     for d in 1..4 {
-        assert!(base[d] >= base[d + 1] && base[d] - base[d + 1] <= 1, "ties by county order: {base:?}");
+        assert!(
+            base[d] >= base[d + 1] && base[d] - base[d + 1] <= 1,
+            "ties by county order: {base:?}"
+        );
     }
     for (what, v) in [
         ("higher wages", utility(4_400.0, 4_000.0, 0.06, 0.06, 3.0)),
-        ("lower unemployment", utility(4_000.0, 4_000.0, 0.04, 0.06, 3.0)),
+        (
+            "lower unemployment",
+            utility(4_000.0, 4_000.0, 0.04, 0.06, 3.0),
+        ),
         ("a shorter trip", utility(4_000.0, 4_000.0, 0.06, 0.06, 1.0)),
     ] {
         let mut u = alike(0);
         u[3] = v;
         let s = destination_ppm(0, &u);
-        assert_eq!(s.iter().map(|&x| u64::from(x)).sum::<u64>(), 1_000_000, "{what}");
+        assert_eq!(
+            s.iter().map(|&x| u64::from(x)).sum::<u64>(),
+            1_000_000,
+            "{what}"
+        );
         assert_eq!(s[0], 0, "{what}: the origin");
         assert!(s[3] > base[3], "{what}: {} against {}", s[3], base[3]);
-        assert!(s[3] > s[1] && s[3] > s[4], "{what}: larger than the others {s:?}");
+        assert!(
+            s[3] > s[1] && s[3] > s[4],
+            "{what}: larger than the others {s:?}"
+        );
     }
     // Any origin; large and negative utilities.
     let u = [-3_000_000, 2_000_000, 0, 7_000_000, -1];
     for origin in 0..5u8 {
         let s = destination_ppm(origin, &u);
-        assert_eq!(s.iter().map(|&x| u64::from(x)).sum::<u64>(), 1_000_000, "origin {origin}");
+        assert_eq!(
+            s.iter().map(|&x| u64::from(x)).sum::<u64>(),
+            1_000_000,
+            "origin {origin}"
+        );
         assert_eq!(s[usize::from(origin)], 0, "origin {origin}");
     }
 }

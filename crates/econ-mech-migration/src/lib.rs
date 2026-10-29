@@ -84,7 +84,9 @@ pub fn emigration_ppm(
     job_seeker: bool,
     p: &MigrationParams,
 ) -> u32 {
-    let _ = (base_ppm, pull_ppm, unemp_ppm, unemp0_ppm, linked, job_seeker, p);
+    let _ = (
+        base_ppm, pull_ppm, unemp_ppm, unemp0_ppm, linked, job_seeker, p,
+    );
     unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
 }
 

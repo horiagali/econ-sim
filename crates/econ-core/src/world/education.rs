@@ -131,7 +131,9 @@ pub fn june_step(
     draws: [u32; 3],
     p: &EducationParams,
 ) -> JuneOutcome {
-    let _ = (enrolled, study_year, edu_level, age_months, has_job, draws, p);
+    let _ = (
+        enrolled, study_year, edu_level, age_months, has_job, draws, p,
+    );
     unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
 }
 

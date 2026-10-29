@@ -137,6 +137,8 @@ pub use foreign::{Foreign, TradeMonth, TradeParams};
 pub use insolvency::FirmUnpaid;
 #[cfg(feature = "investment")]
 pub use investment::InvestmentState;
+#[cfg(feature = "migration")]
+pub use migration::{DiasporaView, MIGRATION_AGE_BANDS, MigrationMonth, StockCell};
 #[cfg(feature = "revenue")]
 pub use observe::{
     HeldBenefit, HeldPayment, ImputedRentPayment, RevenueDay, RevenueMonth, eu_month,
@@ -146,8 +148,6 @@ pub use observe::{InvestmentMonth, InvestmentPlans};
 pub use pay_day::PaySlips;
 #[cfg(feature = "fiscal")]
 pub use treasury::{FiscalMonth, FiscalParams, Treasury};
-#[cfg(feature = "migration")]
-pub use migration::{DiasporaView, MIGRATION_AGE_BANDS, MigrationMonth, StockCell};
 
 /// What a `World` starts from: the population and stage columns, the firm-unit
 /// table, the opening balances, the input coefficients, the basket shares and
