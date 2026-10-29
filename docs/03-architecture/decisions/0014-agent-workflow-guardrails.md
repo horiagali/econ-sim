@@ -4,7 +4,7 @@ title: "ADR-0014: AI-agent workflow and repo guardrails"
 status: accepted
 owner: horia
 depends_on: [adr/0001-docs-first-ai-driven, research/tech-stack-deep-research]
-updated: 2026-10-22
+updated: 2026-10-26
 ---
 
 # ADR-0014: AI-agent workflow and repo guardrails
@@ -70,6 +70,7 @@ On Free a red check is only a signal: the owner refuses to merge it.
 - [x] Owner decision: GitHub Free with hooks + CI checks (2026-10-09).
 - [x] How "test-authoring mode" is signalled to the hook: by the `test-writer` subagent's `agent_type`, or the environment variable for a whole session (amendment 2).
 - [ ] Spike 0 exit criterion: an agent session on Windows runs `just check` green and is blocked from editing `tests/golden/`.
+- [x] Layer 3, the test-count check, is built (amendment 3, 2026-10-26).
 - [ ] Spike 9 exit criterion: one real mechanic (e.g. VAT) goes spec → tests → implementation with no hand edits to protected paths.
 
 ## Amendment 1 (2026-10-10): a spec may be locked before its tests
@@ -87,3 +88,20 @@ Owner decision:
 - **Two PRs stay two.** The implementation PR still may not touch the tests, and the hook still blocks the working session from changing them.
 
 Trade-off: the session that will implement the code writes the test writer's brief, so the separation is weaker than a session the owner starts. The brief names criteria, not answers; the tests are reviewed against the spec before the merge; the owner may still run a test session of their own at any time.
+
+## Amendment 3 (2026-10-26): layer 3 built
+Owner decision: build layer 3 now, as the automatic net behind the rule that weakening a test needs the owner's explicit yes (AGENTS.md, `.claude/agents/test-writer.md`).
+
+`scripts/test_guard.py` compares the Rust tests of a change (`crates/**`, `ui/src-tauri/**`) and the files in `tests/golden/` with a base commit: the PR base in CI (`docs.yml`, which runs on every PR, docs-only ones included), the merge base with `origin/main` in `just test-guard` (part of `just check`). It reads Rust with regexes after blanking comments and string contents, and counts, per group (`acceptance` = `crates/*/tests/acceptance/**`, `unit` = every other test):
+- **live tests**: `#[test]` functions that run in `cargo test` or `cargo test --release`;
+- **assertions**: `assert!`, `assert_eq!`, `assert_ne!`, `prop_assert*!` and calls to the project's `assert_*` helpers, in test code only (files under a `tests/` directory and `#[cfg(test)]` modules);
+- **ignore and skip markers**: `#[ignore]`, `#[ignore = "..."]`, any other `cfg_attr(..., ignore)`, a never-true `#[cfg(...)]` (`any()`, `not(all())`, `FALSE`), a body that starts with `return;`, and `if false` in test code.
+
+It fails when live tests or assertions fall in either group, when a test is newly ignored or skipped (a new test born ignored included; one that keeps its state while moving file does not count), when a never-true `cfg` or an `if false` appears, or when a golden file disappears. `#[cfg_attr(debug_assertions, ignore = "...")]` is the accepted release-only form: such a test still counts as live, because CI's release jobs run it, and each move to release-only is printed.
+
+**Overrides.** The only override is an `[[approval]]` entry in `tests/golden/guard-approvals.toml`, a protected path, so only the test-writer subagent or an owner's test session can write it. Each entry names the `check` (`live-tests`, `assertions`, `ignored-test`, `skip-marker`, `golden-file`), the `group` and largest approved `decrease` or the `target` test or file, and `approved_by`, `approved_on` and `reason`. An entry counts only in the change that adds it, so the file is also the audit log, and a stale approval cannot cover a later fall. The failure message says all this and prints the format.
+
+On 2026-10-26 main counted 272 live acceptance tests with 1,817 assertions and 132 live unit tests with 461 assertions; 12 tests were release-only and 14 ignored, all left as they are.
+
+> **Simplification:** the guard counts, it does not judge. A weaker tolerance or a wider band keeps the counts unchanged and still relies on the owner's rule and review; deleting an assertion and adding a trivial one elsewhere in the same group also passes.
+

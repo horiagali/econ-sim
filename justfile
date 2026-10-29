@@ -10,7 +10,7 @@ default:
     @just --list
 
 # Everything CI runs on every PR. Must be green before a PR is opened.
-check: fmt-check lint test lint-canary docs codegen-check trace pipeline-test hook-test diff-sim
+check: fmt-check lint test lint-canary docs codegen-check trace pipeline-test hook-test test-guard diff-sim
 
 # Format all Rust code
 fmt:
@@ -128,6 +128,10 @@ policy-mutants *which:
 pipeline-test:
     {{python}} -m unittest discover -s python/pipeline/tests
 
-# Unit tests for the protect-paths hook (ADR-0014)
+# Unit tests for the protect-paths hook and the test guard (ADR-0014)
 hook-test:
     {{python}} -m unittest discover -s scripts/tests
+
+# Tests and assertions may not fall, nor tests be newly ignored, against the merge base with origin/main (ADR-0014 layer 3)
+test-guard:
+    {{python}} scripts/test_guard.py

@@ -250,6 +250,34 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `fuel_price[fuel]` | World setting: world price of oil (a barrel), gas (a MWh) and coal (a tonne) | LCU / unit | lever | economy/energy |
 | — | `foreign_rate` | World setting: interest rate abroad (the ECB's); basis points in code | % / year | lever | economy/trade-fx |
 | — | `wages_abroad` | World setting: wages abroad relative to Romania's at the start; basis points in code | ratio | lever | economy/migration-remittances |
+| — | `age`, `sex`, `role` | Person's age (months), sex (F, M) and role in the household (head, partner, child, other) | months / category | state | society/population-groups |
+| — | `person_key` | Stable identity of a person, never reused; the entity of keyed draws about the person (indices change at compaction) | id | state | economy/demographics |
+| — | `hh_key` | Stable identity of a household, never reused; the entity of keyed draws about the household | id | state | society/households-lifecycle |
+| — | `origin_household` | `hh_key` of the household a person left when leaving home; the kinship link estates use | id | state | society/households-lifecycle |
+| — | `hh_moved_to_date` | Money moved into a household by demographic operations (leaving home, unions, separations, estates) since day 0, net, per household | LCU | state | society/households-lifecycle |
+| — | `mortality_rate[sex, a]` | Probability of dying within a year at age *a* (pre-pandemic 2017–2019 table); monthly parts per billion in code | ratio / year | parameter | economy/demographics |
+| — | `mortality_improvement` | Yearly fall of every death probability from the base year (default 1.5%) | % / year | parameter | economy/demographics |
+| — | `fertility_rate[a]` | Births per woman aged *a* a year (2019 rates) | births / woman / year | parameter | economy/demographics |
+| — | `sex_ratio_at_birth` | Share of boys among births (default 0.514) | ratio | parameter | economy/demographics |
+| — | `partner_fertility_ratio` | How much more likely a woman living with a partner is to give birth than one who is not (default 3) | ratio | parameter | economy/demographics |
+| — | `contribution_months` | Months of pension contributions of a person | months | state | economy/demographics |
+| — | `career_points` | Sum of a person's yearly pension points (declared wage over `wage_nominal`); millionths of a point in code | points | state | economy/demographics |
+| — | `survivor_points` | Pension points a widowed person may draw as a survivor (`survivor_share` of the deceased spouse's) | points | state | economy/demographics |
+| — | `retirement_age_schedule[sex]` | The law's dated schedule of the standard retirement age (women 61y9m in December 2021 rising to 63 in January 2030; men 65) | months | parameter | economy/demographics |
+| — | `full_contribution_years`, `min_contribution_years` | Law: the full contribution period that divides career points (35) and the minimum for any pension (15) | years | parameter | economy/demographics |
+| — | `early_retirement_rate[sex, y]` | Yearly hazard of retiring *y* whole years before the standard age, derived from the starting population | ratio / year | parameter | economy/demographics |
+| — | `early_retirement_reduction` | Law: pension reduction per month of retirement before the standard age (0.75%) | ratio / month | parameter | economy/demographics |
+| — | `survivor_share` | Law: share of the deceased spouse's pension points a survivor may draw (50%) | ratio | parameter | economy/demographics |
+| — | `career_density[activity]` | Share of a person's adult years with contributions, by today's activity, for the career proxy at load | ratio | parameter | economy/demographics |
+| — | `fertility_benefit_response` | Semi-elasticity of the birth probability to the extra child support a newborn brings (vs the 2021 law) relative to household income per equivalised adult (default 0.1) | ratio | parameter | economy/demographics |
+| — | `unemployed_fertility_ratio` | Birth probability of a woman who, or whose partner, is unemployed, relative to others (default 0.85) | ratio | parameter | economy/demographics |
+| — | `fertility_cycle_response`, `normal_income_growth` | Response of births to real income growth above or below the normal growth (defaults 0.2 and 2% a year) | ratio, % / year | parameter | economy/demographics |
+| — | `fertility_lag` | Months from a change in policy or income to its effect on births (default 9) | months | parameter | economy/demographics |
+| — | `population`, `births`, `deaths` | Weighted live persons; births and deaths a month or year | persons | derived | economy/demographics |
+| — | `life_expectancy[sex]`, `total_fertility_rate` | Period life expectancy at birth and total fertility rate from the year's rates | years / births per woman | derived | economy/demographics |
+| — | `old_age_dependency_ratio`, `pensioners` | Persons 65+ over persons 15–64; weighted persons drawing a state pension | ratio / persons | derived | economy/demographics |
+| — | `leave_home_rate[sex, band]`, `union_rate[band]`, `separation_rate` | Yearly rates of leaving the parental home, forming a couple (women living alone) and separating | ratio / year | parameter | society/households-lifecycle |
+| — | `leave_home_share`, `separation_share` | Share of the household's money a leaver (of an adult's part) or a separating partner takes | ratio | parameter | society/households-lifecycle |
 
 Indices: $g$ good, $j$ industry (same set as goods, except that the eight electricity generation industries share the good `wholesale_electricity` and `power_supply` sells `electricity`), $f$ firm unit (belongs to one industry; per-industry variables such as `output[j]` are also kept per unit as `output[f]`, and the industry value is the `firm_count`-weighted sum), $o$ occupation, $s$ skill tier, $r$ region, $c$ county, $h$ household, $i$ person, $p$ power plant, $\ell$ education level, $l$ budget line, $k$ economic type of spending. LCU = leu (RON).
 
