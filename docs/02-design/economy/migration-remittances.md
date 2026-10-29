@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [economy/demographics, economy/households, economy/labor-market, economy/trade-fx, economy/eu-membership, economy/social-transfers, economy/transport-network, society/population-groups, adr/0003-people-representation, adr/0006-determinism-contract, adr/0007-money-and-ledger, adr/0008-explainability-architecture, adr/0017-time-base]
 research: [research/migration-remittances-romania-2021]
-updated: 2026-10-26
+updated: 2026-10-29
 ---
 
 # Migration, Diaspora & Remittances
@@ -135,7 +135,11 @@ with $H_t$ the all-tier home wage index in euro of step 1 (Romania richer, more 
 > **Simplification:** no quota until M14. The yearly quota of non-EU work permits (25,000 in 2021, 100,000 in 2022) becomes a lever there, capping the non-EU part.
 
 ### 6. Moves between counties (monthly close)
-Only moves that cross a county border are modelled (a move inside a county changes nothing in the `World`). Each resident household moves with a monthly probability $m^0_{a(h)}$ by the age band of its oldest working-age member, fitted at load to `between_county_share` of 2021's changes of domicile (educated guess 0.4: about 150,000 persons a year). Cells are (county, age band), aligned as in step 2. A moving household picks a destination $d \neq c$ with logit shares
+Only moves that cross a county border are modelled (a move inside a county changes nothing in the `World`). Each resident household in county $c$ moves with a monthly probability
+```math
+m_h = m^0_{a(h)} \cdot \frac{1 + \beta^{move}_u u_{r(c)}}{1 + \beta^{move}_u u_{r(c),0}}
+```
+by the age band $a(h)$ of its oldest working-age member: unemployment in the household's region pushes it out, as in step 2. $m^0_a$ is fitted at load so that, at the starting unemployment, the moves equal `between_county_share` of 2021's changes of domicile (educated guess 0.4: about 150,000 persons a year). Cells are (county, age band), aligned as in step 2. A moving household picks a destination $d \neq c$ with logit shares
 ```math
 P(d \mid c) = \frac{\exp V_{cd}}{\sum_{d' \neq c} \exp V_{cd'}}, \qquad V_{cd} = \alpha_d + \beta_w \ln\frac{\bar W_d}{\bar W_c} - \beta_u (u_d - u_c) - \beta_t \, t_{cd}
 ```
@@ -177,6 +181,7 @@ Emigration, return, the destination choice and the remittance amount are `behavi
 | `return_savings` | 3,000 euro per adult | 0–20,000 | savings a returnee brings (educated guess) |
 | `between_county_share` | 0.4 | 0.3–0.6 | share of changes of domicile that cross a county border (educated guess) |
 | $\beta_w$, $\beta_u$, $\beta_t$ (moves) | 1.0, 5, 0.1 per hour | — | destination choice: wages, unemployment, travel time |
+| $\beta^{move}_u$ `move_unemployment` | 5 | 0–20 | +1 point of the origin region's unemployment raises moves out by about 5% (step 6) |
 | `exit_barrier` | 0.4 | 0–1 | emigration multiple outside the EU (M18) |
 
 ## Starting state
@@ -212,7 +217,7 @@ IDs are stable. Tests go in `crates/econ-core/tests/acceptance/` (protected) and
 - [ ] **AC-MIG-11** `[sim]` Lowering `world.wages_abroad` by 20%: over the next 24 months returns are higher and emigrants lower than in the baseline.
 - [ ] **AC-MIG-12** `[sim]` A cut of the employee's pension contribution by 5 points (higher net wages): over the next 24 months, emigrants of working age are fewer than in the baseline.
 - [ ] **AC-MIG-13** `[sim]` Emigration takes jobs and contributors: after 5 years with `world.wages_abroad` at 130%, the labour force, the employed and the pension contributions (`contrib.pension`) are lower than in the baseline, and pension spending is not.
-- [ ] **AC-MIG-14** `[sim]` Remittances support the leu: in the counterfactual without the diaspora tables, the exchange rate after 24 months is higher (the leu weaker) than with them, and the current account lower every month by at least the month's remittances less 5%.
+- [ ] **AC-MIG-14** `[sim]` Remittances support the leu: in the counterfactual without the diaspora tables, the exchange rate after 24 months is higher (the leu weaker) than with them, and the current account lower: in the first month (remittances arrive on its last day, before they are spent) by at least 95% of the month's remittances, and in every later month by more than zero and at most the month's remittances (spending on imports and the weaker leu narrow the gap; owner, 2026-10-29).
 - [ ] **AC-MIG-15** `[sim]` Moves between counties: in the first year Ilfov, Cluj and Timiș gain residents and Teleorman, Vaslui and Bacău lose them; a county whose region's unemployment rises 5 points (a scripted shock) gains fewer movers and sends more over the next 24 months.
 - [ ] **AC-MIG-16** `[sim]` Determinism and scale: two runs with the same seed give identical persons, weights and ledger; at 1:1000 and 1:100 the first year's emigration rate per resident differs by less than 10% of its value.
 - [ ] **AC-MIG-17** `[sim]` 50-year quiet run: the diaspora stays between 2 and 7 million, the resident population shrinks with net emigration (the direction of the official projection, M5's exit), and no table outgrows its starting size by more than half (free slots reused).
