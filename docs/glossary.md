@@ -256,6 +256,8 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `hh_key` | Stable identity of a household, never reused; the entity of keyed draws about the household | id | state | society/households-lifecycle |
 | — | `origin_household` | `hh_key` of the household a person left when leaving home; the kinship link estates use | id | state | society/households-lifecycle |
 | — | `hh_moved_to_date` | Money moved into a household by demographic operations (leaving home, unions, separations, estates) since day 0, net, per household | LCU | state | society/households-lifecycle |
+| — | `alive`, `hh_alive` | The person's or household's record counts (false for a tombstone, kept until the yearly compaction) | bool | state | economy/demographics |
+| — | `months_since_birth` | Months since a woman last gave birth in the run (none if she has not) | months | state | economy/demographics |
 | — | `mortality_rate[sex, a]` | Probability of dying within a year at age *a* (pre-pandemic 2017–2019 table); monthly parts per billion in code | ratio / year | parameter | economy/demographics |
 | — | `mortality_improvement` | Yearly fall of every death probability from the base year (default 1.5%) | % / year | parameter | economy/demographics |
 | — | `fertility_rate[a]` | Births per woman aged *a* a year (2019 rates) | births / woman / year | parameter | economy/demographics |

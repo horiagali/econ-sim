@@ -139,6 +139,8 @@ IDs are stable. `[unit]` tests in `crates/econ-mech-demography` (the operations 
 - [ ] **AC-HHL-09** `[sim]` Records do not explode: in the 50-year exit run of [demographics](../economy/demographics.md) at 1:1000, after each yearly compaction, synthetic persons per real person and synthetic households per real household stay within 25% of their start values.
 - [ ] **AC-HHL-10** `[sim]` A household formed in a month has a stagger day from 1 to 28 and makes its first spending decision within the following 28 days; two runs with the same seed form the same households (state hashes equal).
 
+The tests were written on 2026-10-29 by the test writer (ADR-0014), before the code: AC-HHL-01 to 04 in `crates/econ-mech-demography/tests/acceptance/lifecycle.rs` behind that crate's feature `lifecycle` (on `records`: `move_out`, `split`, `merge_singles`, `unite`, `make_collective`, `leave_home_amount`); AC-HHL-05 to 10 in `crates/econ-core/tests/acceptance/households_lifecycle.rs` behind econ-core's feature `lifecycle` (off by default; release-only).
+
 ## API sketch
 **A proposal.** The operations are pure functions over the column tables, in `crates/econ-mech-demography` (shared with [demographics](../economy/demographics.md)); the World's People phase calls them.
 

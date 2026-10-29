@@ -29,6 +29,7 @@ pub const ONE: i64 = 1_000_000;
 pub const IO_TABLE: &str = "io_table2021_ro.json";
 
 /// The phases of a day and their periods: the spec's table.
+#[cfg(not(feature = "demography"))]
 pub const PHASES: [(PhaseId, Period); 13] = [
     (PhaseId::Commands, Period::Daily),
     (PhaseId::Plan, Period::Staggered),
@@ -40,6 +41,27 @@ pub const PHASES: [(PhaseId, Period); 13] = [
     (PhaseId::GoodsMarket, Period::Daily),
     (PhaseId::Quits, Period::MonthEnd),
     (PhaseId::Pay, Period::MonthEnd),
+    (PhaseId::WageRound, Period::Yearly { month: 1, day: 1 }),
+    (PhaseId::MonthlyClose, Period::MonthEnd),
+    (PhaseId::Checks, Period::Daily),
+];
+
+/// The same with demographics' People phase, at month end after Pay and
+/// before the wage round and the monthly close (spec economy/demographics,
+/// "Periods").
+#[cfg(feature = "demography")]
+pub const PHASES: [(PhaseId, Period); 14] = [
+    (PhaseId::Commands, Period::Daily),
+    (PhaseId::Plan, Period::Staggered),
+    (PhaseId::Staffing, Period::Staggered),
+    (PhaseId::Prices, Period::Daily),
+    (PhaseId::OutputAndInputs, Period::Daily),
+    (PhaseId::FixedDemand, Period::Daily),
+    (PhaseId::Households, Period::Staggered),
+    (PhaseId::GoodsMarket, Period::Daily),
+    (PhaseId::Quits, Period::MonthEnd),
+    (PhaseId::Pay, Period::MonthEnd),
+    (PhaseId::People, Period::MonthEnd),
     (PhaseId::WageRound, Period::Yearly { month: 1, day: 1 }),
     (PhaseId::MonthlyClose, Period::MonthEnd),
     (PhaseId::Checks, Period::Daily),

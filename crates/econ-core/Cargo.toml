@@ -98,6 +98,18 @@ investment = ["fiscal", "dep:econ-mech-investment"]
 # the owner's decision (2026-10-21); on by default since M3 closed
 # (2026-10-22).
 revenue = ["fiscal"]
+# Demographics and the household life cycle (specs economy/demographics and
+# society/households-lifecycle, roadmap M5): the People phase's parameters,
+# read-only state and monthly report, the retirement age in force, the
+# year's mortality table and the start edit of AC-DEM-19, as API skeletons
+# written with their acceptance tests before the code (ADR-0014); every body
+# is `unimplemented!` until the code exists. Off by default; the
+# implementation adds them to `default` once their tests pass. The criteria
+# run under the 2021 law of `law.json` with every M3 and M4 feature, so it
+# needs the lever system, trade and the central bank. `lifecycle` turns on
+# the household life cycle's `[sim]` criteria (AC-HHL-05 to 10).
+demography = ["levers", "trade", "monetary"]
+lifecycle = ["demography"]
 # The lever system (spec game/lever-system, roadmap M4): the registry
 # (`levers.toml`), commands, validation, the law in force and the command log,
 # as an API skeleton written before its acceptance tests (ADR-0014); every body

@@ -11,6 +11,12 @@
 
 use econ_types::{Bani, Date};
 
+// The People phase's rules and the household life cycle's record operations:
+// the test writer's API skeletons (ADR-0014), filled by the implementation.
+pub mod records;
+mod rules;
+pub use rules::*;
+
 /// Parts per billion.
 pub type Ppb = u32;
 
