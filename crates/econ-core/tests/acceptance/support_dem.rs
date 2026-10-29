@@ -142,11 +142,57 @@ pub fn run_until(w: &mut World, day: Date) {
 
 // --- who counts --------------------------------------------------------------
 
+/// The person columns the criteria read, side by side: the loaded people
+/// data (`World::people`: keys, sex, role, careers), the ages
+/// (`World::person_ages`) and the People phase's own columns
+/// (`World::people_life`), all aligned with `World::persons`.
+#[derive(Debug, Clone, Copy)]
+pub struct PeopleView<'a> {
+    /// `person_key`.
+    pub person_key: &'a [u64],
+    /// `sex`.
+    pub sex: &'a [Sex],
+    /// `role`.
+    pub role: &'a [Role],
+    /// `contribution_months`.
+    pub contribution_months: &'a [u16],
+    /// `age`, months.
+    pub age: &'a [u16],
+    /// `alive`.
+    pub alive: &'a [bool],
+    /// Main activity.
+    pub activity: &'a [Activity],
+    /// `pension_points`.
+    pub pension_points: &'a [u64],
+    /// `months_since_birth`.
+    pub months_since_birth: &'a [Option<u16>],
+    /// `origin_household`.
+    pub origin_household: &'a [Option<u64>],
+}
+
+/// The person columns of a world.
+pub fn people(w: &World) -> PeopleView<'_> {
+    let loaded = w.people();
+    let life = w.people_life();
+    PeopleView {
+        person_key: &loaded.person_key,
+        sex: &loaded.sex,
+        role: &loaded.role,
+        contribution_months: &loaded.contribution_months,
+        age: w.person_ages(),
+        alive: &life.alive,
+        activity: &life.activity,
+        pension_points: &life.pension_points,
+        months_since_birth: &life.months_since_birth,
+        origin_household: &life.origin_household,
+    }
+}
+
 /// Each person's weight if the person and the household are live, else 0.
 pub fn live_weights(w: &World) -> Vec<u32> {
     let h = w.households();
     let life = w.household_life();
-    let people = w.people();
+    let people = people(w);
     w.persons()
         .household_id
         .iter()
@@ -171,7 +217,7 @@ pub fn population(w: &World) -> u64 {
 /// (0 to 110, the last including older).
 pub fn by_sex_age(w: &World) -> [Vec<u64>; 2] {
     let mut out = [vec![0u64; 111], vec![0u64; 111]];
-    let people = w.people();
+    let people = people(w);
     for (p, &wt) in live_weights(w).iter().enumerate() {
         if wt > 0 {
             let a = usize::from(people.age[p] / YEAR).min(110);
@@ -210,7 +256,7 @@ pub fn person_index(w: &World) -> BTreeMap<u64, usize> {
 
 /// Household key → index.
 pub fn household_index(w: &World) -> BTreeMap<u64, usize> {
-    w.household_life()
+    w.people()
         .hh_key
         .iter()
         .enumerate()
@@ -221,7 +267,7 @@ pub fn household_index(w: &World) -> BTreeMap<u64, usize> {
 /// Each household's live members.
 pub fn members(w: &World) -> Vec<Vec<usize>> {
     let mut m = vec![Vec::new(); w.households().hh_weight.len()];
-    let people = w.people();
+    let people = people(w);
     for (p, &hh) in w.persons().household_id.iter().enumerate() {
         if people.alive[p] {
             m[hh as usize].push(p);
@@ -233,7 +279,7 @@ pub fn members(w: &World) -> Vec<Vec<usize>> {
 /// Whether each live person lives in a couple: head or partner of a live
 /// private household whose live head and live partner are of the two sexes.
 pub fn in_couple(w: &World) -> Vec<bool> {
-    let people = w.people();
+    let people = people(w);
     let life = w.household_life();
     let mut out = vec![false; people.alive.len()];
     for (hh, list) in members(w).iter().enumerate() {
@@ -276,7 +322,7 @@ pub fn budgets(w: &World) -> BTreeMap<u64, (Bani, Bani, Bani, Bani)> {
         .filter(|&i| life.hh_alive[i])
         .map(|i| {
             (
-                life.hh_key[i],
+                w.people().hh_key[i],
                 (
                     m[i],
                     h.income_to_date[i],
@@ -428,7 +474,7 @@ pub struct Snapshot {
 /// The shape of the population now.
 pub fn snapshot(w: &World) -> Snapshot {
     let weights = live_weights(w);
-    let people = w.people();
+    let people = people(w);
     let (mut under15, mut aged15_64, mut over65) = (0u64, 0u64, 0u64);
     let mut ages: Vec<(u16, u64)> = Vec::new();
     let (mut pensioners, mut points) = (0u64, 0u128);

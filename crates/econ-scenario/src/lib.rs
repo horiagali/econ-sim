@@ -12,14 +12,28 @@
 //! | `tables/firm_units.arrow` | [`FirmUnitTable`] |
 //! | `balances.arrow` | `instrument` (u8), `sector` (u8), `balance` (i64, bani), one row per pair in matrix order |
 //! | `report.json` | `checks`: one object per check with `name`, `ok`, `known_gap` and its figures; `consistent` |
+//!
+//! Roadmap M5's starting data, which no mechanic reads yet (specs
+//! `economy/demographics`, `society/households-lifecycle`,
+//! `economy/migration-remittances`, `society/education`), adds to the folder
+//! without changing any of the above but the two new columns of each table:
+//!
+//! | File | Content |
+//! |---|---|
+//! | `tables/households.arrow` | also `hh_key` (u64) |
+//! | `tables/persons.arrow` | also `person_key` (u64) and stage K's `inactive_kind`, `enrolled` (u8) |
+//! | `tables/linked_emigrants.arrow`, `tables/diaspora_stock.arrow` | stage L (`econ_io::people`) |
+//! | `demography.json` | the demographic tables, as the input file is |
+//! | `scenario.json` | also `people_hashes`: `{inactivity_enrolment, linked_emigrants}`, and `next_person_key`, `next_hh_key` |
 
 use std::collections::BTreeMap;
 use std::path::Path;
 
 use econ_ledger::{InvariantError, Ledger};
 use econ_popgen::{
-    HouseholdHousing, HouseholdWealth, OtherIncomes, PersonAttributes, PersonEmployers, PersonJobs,
-    PersonPensions, PersonWages, Population,
+    HouseholdHousing, HouseholdWealth, LinkedEmigrants, OtherIncomes, PersonAttributes,
+    PersonEmployers, PersonInactivityEnrolment, PersonJobs, PersonPensions, PersonWages,
+    Population,
 };
 use serde_json::Value;
 
@@ -80,7 +94,7 @@ pub fn read_inputs(dir: &Path) -> Result<Inputs, BuildError> {
     build::read_inputs(dir)
 }
 
-/// The columns of stages C to J.
+/// The columns of stages C to L.
 #[derive(Debug, Clone)]
 pub struct StageColumns {
     /// Stage C.
@@ -99,6 +113,10 @@ pub struct StageColumns {
     pub incomes: OtherIncomes,
     /// Stage J.
     pub employers: PersonEmployers,
+    /// Stage K: kinds of inactivity and enrolment (roadmap M5's starting data).
+    pub inactivity: PersonInactivityEnrolment,
+    /// Stage L: the linked emigrants and the diaspora stock (roadmap M5).
+    pub emigrants: LinkedEmigrants,
 }
 
 /// `tables/firm_units.arrow`: one row per firm unit, in the order of
@@ -195,7 +213,18 @@ pub struct Scenario {
 }
 
 impl Scenario {
-    /// The hash of every stage, under its name in `scenario.json`, in stage order.
+    /// The hashes of stages K and L (roadmap M5's starting data), under their
+    /// names in `scenario.json`'s `people_hashes`.
+    #[must_use]
+    pub fn people_hashes(&self) -> Vec<(&'static str, u64)> {
+        vec![
+            ("inactivity_enrolment", self.stages.inactivity.state_hash()),
+            ("linked_emigrants", self.stages.emigrants.state_hash()),
+        ]
+    }
+
+    /// The hash of every stage, under its name in `scenario.json`, in stage
+    /// order (stages A to J; K and L are in [`Scenario::people_hashes`]).
     #[must_use]
     pub fn stage_hashes(&self) -> Vec<(&'static str, u64)> {
         let s = &self.stages;

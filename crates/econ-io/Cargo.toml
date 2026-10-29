@@ -11,6 +11,7 @@ publish.workspace = true
 econ-core.workspace = true
 econ-ledger.workspace = true
 econ-popgen.workspace = true
+econ-mech-demography.workspace = true
 econ-types.workspace = true
 arrow-array.workspace = true
 arrow-schema.workspace = true

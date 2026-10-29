@@ -22,7 +22,7 @@ econ-mech-production = { workspace = true, optional = true }
 econ-mech-prices = { workspace = true, optional = true }
 econ-mech-transfers = { workspace = true, optional = true }
 econ-popgen = { workspace = true, optional = true }
-# Demographics and the household life cycle (feature `demography`, M5).
+# Roadmap M5's demographic tables and the career proxy (feature `world`).
 econ-mech-demography = { workspace = true, optional = true }
 # The M3 mechanics (features `banking`, `monetary`, `fiscal`, `trade`).
 econ-mech-banking = { workspace = true, optional = true }
@@ -68,6 +68,7 @@ world = [
     "dep:econ-mech-prices",
     "dep:econ-mech-transfers",
     "dep:econ-popgen",
+    "dep:econ-mech-demography",
     # `econ_io::read_start_state`, for the tests only.
     "econ-io/world",
 ]
@@ -105,7 +106,7 @@ revenue = ["fiscal"]
 # run under the 2021 law of `law.json` with every M3 and M4 feature, so it
 # needs the lever system, trade and the central bank. `lifecycle` turns on
 # the household life cycle's `[sim]` criteria (AC-HHL-05 to 10).
-demography = ["levers", "trade", "monetary", "dep:econ-mech-demography"]
+demography = ["levers", "trade", "monetary"]
 lifecycle = ["demography"]
 # The lever system (spec game/lever-system, roadmap M4): the registry
 # (`levers.toml`), commands, validation, the law in force and the command log,

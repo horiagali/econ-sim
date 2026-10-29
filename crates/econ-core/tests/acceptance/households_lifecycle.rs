@@ -19,13 +19,13 @@ use econ_types::{Bani, Day};
 use super::support::step;
 use super::support_dem::{
     ADULT, YEAR, assert_moved_identity, budgets, dem_params, exit_run, household_index, in_couple,
-    live_weights, members, person_index, ratio, real_households, report, step_checked, to_close,
-    world_dem_default,
+    live_weights, members, people, person_index, ratio, real_households, report, step_checked,
+    to_close, world_dem_default,
 };
 
 /// Weighted live persons by sex (F 0, M 1).
 fn by_sex(w: &World) -> [u64; 2] {
-    let people = w.people();
+    let people = people(w);
     let mut out = [0u64; 2];
     for (p, &wt) in live_weights(w).iter().enumerate() {
         out[people.sex[p] as usize] += u64::from(wt);
@@ -124,7 +124,7 @@ fn ac_hhl_05() {
         let k = debts(&w);
         assert_eq!(k - debt, -estates_debt, "{when}: Σ weight × debts");
         debt = k;
-        let people = w.people();
+        let people = people(&w);
         let life = w.household_life();
         for (hh, list) in members(&w).iter().enumerate() {
             if !life.hh_alive[hh] || life.hh_collective[hh] {
@@ -135,14 +135,15 @@ fn ac_hhl_05() {
                 .filter(|&&p| people.role[p] == Role::Head)
                 .count();
             assert_eq!(
-                heads, 1,
+                heads,
+                1,
                 "{when}: household {} has {heads} heads",
-                life.hh_key[hh]
+                w.people().hh_key[hh]
             );
             assert!(
                 list.iter().any(|&p| people.age[p] >= ADULT),
                 "{when}: household {} has no member aged 18 or more",
-                life.hh_key[hh]
+                w.people().hh_key[hh]
             );
         }
         let after = budgets(&w);
@@ -154,7 +155,7 @@ fn ac_hhl_05() {
 /// The weighted share of live persons aged 25–34 living with a head or
 /// partner at least 15 years older (the parent proxy).
 fn with_parents_25_34(w: &World) -> f64 {
-    let people = w.people();
+    let people = people(w);
     let life = w.household_life();
     let weights = live_weights(w);
     let list = members(w);
@@ -226,7 +227,7 @@ fn ac_hhl_06() {
 /// The share of live persons aged 30–49 living with a partner, and the
 /// average size of live private households.
 fn couples_and_size(w: &World) -> (f64, f64) {
-    let people = w.people();
+    let people = people(w);
     let life = w.household_life();
     let weights = live_weights(w);
     let couple = in_couple(w);
@@ -284,7 +285,7 @@ fn ac_hhl_07() {
 /// The weight of the households eligible to separate (a head and a partner
 /// of the two sexes, the woman under 60), and each one's children by key.
 fn eligible_couples(w: &World) -> (u64, BTreeMap<u64, BTreeSet<u64>>) {
-    let people = w.people();
+    let people = people(w);
     let life = w.household_life();
     let mut weight = 0;
     let mut children = BTreeMap::new();
@@ -306,7 +307,7 @@ fn eligible_couples(w: &World) -> (u64, BTreeMap<u64, BTreeSet<u64>>) {
         }
         weight += u64::from(w.households().hh_weight[hh]);
         children.insert(
-            life.hh_key[hh],
+            w.people().hh_key[hh],
             list.iter()
                 .filter(|&&p| people.role[p] == Role::Child)
                 .map(|&p| people.person_key[p])
@@ -354,7 +355,7 @@ fn ac_hhl_08() {
             let when = r.date;
             let hidx = household_index(&w);
             let pidx = person_index(&w);
-            let people = w.people();
+            let people = people(&w);
             let life = w.household_life();
             let list = members(&w);
             for s in &report(&w).life.separations {

@@ -99,6 +99,9 @@ mod policy;
 #[cfg(any(feature = "investment", feature = "revenue"))]
 mod observe;
 mod pay_day;
+// Roadmap M5's starting data, read by no phase yet.
+#[allow(clippy::needless_range_loop)]
+mod people;
 #[cfg(feature = "revenue")]
 #[allow(clippy::needless_range_loop)]
 mod revenue;
@@ -125,7 +128,7 @@ pub use central_bank::{CentralBankState, MonetaryParams};
 #[cfg(feature = "demography")]
 pub use demography::{
     Birth, Death, DemographyParams, EstateRecord, HouseholdLifeColumns, Leaver, LifeCycleReport,
-    PeopleColumns, PeopleReport, Retirement, Separation, Union,
+    PeopleLifeColumns, PeopleReport, Retirement, Separation, Union,
 };
 pub use fiscal::{IncomeTaxLaw, TransferLaw};
 #[cfg(feature = "trade")]
@@ -140,6 +143,7 @@ pub use observe::{
 #[cfg(feature = "investment")]
 pub use observe::{InvestmentMonth, InvestmentPlans};
 pub use pay_day::PaySlips;
+pub use people::{ENROLMENT, LinkedEmigrantColumns, People, PeopleStart};
 #[cfg(feature = "fiscal")]
 pub use treasury::{FiscalMonth, FiscalParams, Treasury};
 
@@ -274,6 +278,10 @@ pub struct StartState {
     /// Each industry's imported oil (crude and refined petroleum) over its
     /// imported inputs, millionths (`world.fuel_price[oil]`).
     pub oil_import_ppm: Vec<u32>,
+    /// Roadmap M5's starting data (sex, role, stable identities, enrolment,
+    /// linked emigrants, the diaspora stock, the demographic tables), read by
+    /// no phase yet ([`World::people`]).
+    pub people: PeopleStart,
     edits: Vec<StartEdit>,
 }
 
@@ -1097,6 +1105,9 @@ pub struct World {
     slips: PaySlips,
     demand: DayDemand,
     months: Vec<MonthStats>,
+    /// Roadmap M5's people data: loaded, not yet read by a phase, not in the
+    /// state hash.
+    people: people::People,
     /// The lever system's state: the registry, the law in force, pending
     /// commands, the log and the events (`None` for a world built without
     /// `law.json`).

@@ -33,8 +33,8 @@ use econ_types::{Bani, Date};
 use super::support::step;
 use super::support_dem::{
     YEAR, assert_moved_identity, budgets, dem_params, e0_of_table, exit_run, household_index,
-    in_couple, in_labour_force, live_weights, members, person_index, population, ratio, report,
-    run_until, snapshot, step_checked, to_close, without_economic_terms, world_dem,
+    in_couple, in_labour_force, live_weights, members, people, person_index, population, ratio,
+    report, run_until, snapshot, step_checked, to_close, without_economic_terms, world_dem,
     world_dem_default,
 };
 use super::support_lev::{date, give, key_of, set};
@@ -88,7 +88,7 @@ fn ac_dem_03() {
     let mut w = world_dem_default(1000);
     let mut pop = population(&w);
     let ages = |w: &World| -> BTreeMap<u64, u16> {
-        let people = w.people();
+        let people = people(w);
         live_weights(w)
             .iter()
             .enumerate()
@@ -109,7 +109,7 @@ fn ac_dem_03() {
             "{:?}: population {pop} + births {births} − deaths {deaths}",
             r.date
         );
-        let people = w.people();
+        let people = people(&w);
         let life = w.household_life();
         for (p, &hh) in w.persons().household_id.iter().enumerate() {
             if people.alive[p] {
@@ -292,7 +292,7 @@ fn ac_dem_06() {
             }
             age_sum += f64::from(b.weight) * (f64::from(b.mother_age) + 0.5) / 12.0;
         }
-        let people = w.people();
+        let people = people(&w);
         let couple = in_couple(&w);
         for (p, &wt) in live_weights(&w).iter().enumerate() {
             let a = usize::from(people.age[p] / YEAR);
@@ -467,7 +467,7 @@ fn ac_dem_08() {
     for _ in 0..48 {
         let r = to_close(&mut w);
         let idx = person_index(&w);
-        let people = w.people();
+        let people = people(&w);
         let pv = law_money(&w, LeverId::TransferPensionPointValue);
         let min = law_money(&w, LeverId::TransferPensionMinimum);
         let rule = PensionRule {
@@ -566,7 +566,7 @@ fn ac_dem_09() {
             assert_eq!(f, 756, "women's age in force in January 2030");
             saw_jan_2030 = true;
         }
-        let people = w.people();
+        let people = people(&w);
         for (p, &wt) in live_weights(&w).iter().enumerate() {
             if wt == 0 || people.activity[p] == Activity::Retired {
                 continue;
@@ -653,7 +653,7 @@ fn ac_dem_11() {
         let when = r.date;
         let hidx = household_index(&w);
         let pidx = person_index(&w);
-        let people = w.people();
+        let people = people(&w);
         let list = members(&w);
         let under2 = law_money(&w, LeverId::TransferChildUnder2);
         // Last month's births, at this pay day.
@@ -690,7 +690,7 @@ fn ac_dem_11() {
                 w.persons().household_id[mo] as usize,
                 "{when:?}: in the mother's household"
             );
-            assert_eq!(w.household_life().hh_key[h], b.hh_key);
+            assert_eq!(w.people().hh_key[h], b.hh_key);
             assert_eq!(people.age[c], 0, "{when:?}: age 0");
             assert_eq!(people.role[c], Role::Child, "{when:?}: role child");
             assert_eq!(
@@ -832,7 +832,7 @@ fn ac_dem_13() {
 
 /// Weighted live persons aged 60 to 67 in the labour force.
 fn aged_60_67_active(w: &World) -> u64 {
-    let people = w.people();
+    let people = people(w);
     live_weights(w)
         .iter()
         .enumerate()
@@ -1163,7 +1163,7 @@ fn ac_dem_18() {
 
 /// The unemployment rate of live persons aged 20 to 44.
 fn unemployment_20_44(w: &World) -> f64 {
-    let people = w.people();
+    let people = people(w);
     let (mut unemployed, mut force) = (0u64, 0u64);
     for (p, &wt) in live_weights(w).iter().enumerate() {
         if wt > 0

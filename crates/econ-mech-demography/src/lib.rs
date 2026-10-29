@@ -1,240 +1,361 @@
-//! Demographics and the household life cycle (specs `economy/demographics`
-//! and `society/households-lifecycle`, roadmap M5): the mortality table of a
-//! year, the alignment of a transition over weighted records, the points of
-//! a new pension, fertility's responses to policy and the economy, and the
-//! operations on weighted records ([`records`]). Pure functions, no I/O;
-//! the `World`'s People phase walks its tables and posts the ledger legs.
+//! Demographics (spec `economy/demographics`), roadmap M5.
 //!
-//! Probabilities are parts per billion ([`Ppb`]); multipliers, shares and
-//! rates are millionths (ppm); pension points are millionths of a point;
-//! alignment targets and carries are millionths of a person.
-//!
-//! API skeleton from the specs' API sketches, written with the acceptance
-//! tests before the code (ADR-0014): the bodies come with the implementation
-//! change.
+//! So far the **starting data** only, loaded into the `World` and read by no
+//! mechanic yet: the demographic tables of the scenario's `demography.json`
+//! (pre-pandemic mortality, 2019 fertility, the sex ratio at birth, the law's
+//! dated retirement ages) and the career proxy that sets each person's
+//! `contribution_months` and `career_points` at load ("2. Contributions",
+//! "At load"). The People phase (ageing, deaths, births, retirement) comes
+//! with its acceptance tests (AC-DEM-*). Pure functions, integer arithmetic,
+//! no I/O.
 
+use econ_types::{Bani, Date};
+
+// The People phase's rules and the household life cycle's record operations:
+// the test writer's API skeletons (ADR-0014), filled by the implementation.
 pub mod records;
-
-use econ_rng::KeyedRng;
-use econ_types::{Bani, Day};
+mod rules;
+pub use rules::*;
 
 /// Parts per billion.
 pub type Ppb = u32;
 
-/// A probability of one, in parts per billion.
-pub const PPB_ONE: Ppb = 1_000_000_000;
+/// One, in parts per billion.
+pub const PPB: Ppb = 1_000_000_000;
 
-/// The oldest age of the mortality table, in years: at this age or more the
-/// monthly probability of dying is one.
-pub const MAX_AGE: usize = 110;
+/// Ages of the mortality table, 0 to 110 years: at 110 the monthly
+/// probability is one.
+pub const MORTALITY_AGES: usize = 111;
 
-/// Monthly probabilities of dying by sex (`econ_popgen::Sex as usize`: F 0,
-/// M 1) and age in whole years, 0 to [`MAX_AGE`].
+/// Sexes in the order of the tables: F 0, M 1 (`econ_popgen::Sex`).
+pub const SEXES: usize = 2;
+
+/// `mortality_rate[sex, a]`: the probability of dying within a year and the
+/// monthly probability of the pipeline's rule, $m = 1 - (1 - q)^{1/12}$, by
+/// sex and single year of age, parts per billion. Pre-pandemic on purpose
+/// (owner, 2026-10-26): the average of 2017, 2018 and 2019, whose centre is
+/// `base_year`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MortalityTable {
-    /// The calendar year the probabilities are for (2018 for the base table,
-    /// the centre of 2017–2019).
-    pub year: u16,
-    /// `[sex][age in years]`, parts per billion a month.
-    pub monthly: [[Ppb; MAX_AGE + 1]; 2],
+    /// The year the table stands for (2018, the centre of 2017–2019).
+    pub base_year: u16,
+    /// `[sex][age]`, a year.
+    pub yearly: [[Ppb; MORTALITY_AGES]; SEXES],
+    /// `[sex][age]`, a month.
+    pub monthly: [[Ppb; MORTALITY_AGES]; SEXES],
 }
 
-/// The pipeline's rule (AC-DEM-01): the monthly probability of a yearly one,
-/// `m = 1 − (1 − q)^(1/12)`, in parts per billion.
-#[must_use]
-pub fn monthly_from_yearly(q_ppb: Ppb) -> Ppb {
-    let _ = q_ppb;
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
-}
-
-/// The table of calendar year `year` (AC-DEM-01): `round(m_base · (1 −
-/// improvement)^(year − base year))`, half away from zero, by repeated
-/// integer multiplication; one at [`MAX_AGE`]. `improvement_ppm` is
-/// `mortality_improvement` a year.
-#[must_use]
-pub fn table_for_year(base: &MortalityTable, year: u16, improvement_ppm: u32) -> MortalityTable {
-    let _ = (base, year, improvement_ppm);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
-}
-
-/// One eligible person of a transition's stratum.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Candidate {
-    /// The person's stable key: the entity of the keyed draw and the
-    /// tiebreak of the ranking.
-    pub person_key: u64,
-    /// The household's weight.
-    pub weight: u32,
-    /// The monthly probability that sets the target.
-    pub p: Ppb,
-    /// The probability that ranks (the partner ratio of births moves who,
-    /// not how many); `p` for the other transitions.
-    pub rank_p: Ppb,
-}
-
-/// The persons a stratum selects this month.
+/// `fertility_rate[a]`: births per woman a year by single year of the
+/// mother's age, from `first_age`, millionths (the 2019 rates).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Selection {
-    /// The selected persons' keys, in ranking order.
-    pub chosen: Vec<u64>,
-    /// The carry to next month: target − selected weight, millionths of a
-    /// person.
-    pub carry_micro: i64,
+pub struct FertilityTable {
+    /// The year of the rates.
+    pub year: u16,
+    /// The age of the first rate, in years.
+    pub first_age: u16,
+    /// Births per woman a year, millionths, one per single year from `first_age`.
+    pub rates_ppm: Vec<u32>,
 }
 
-/// Alignment of one stratum for one month (spec `economy/demographics`,
-/// "Alignment"; AC-DEM-02): target `T = Σ w·p + carry` in millionths of a
-/// person; persons ranked by `⌊u / rank_p⌋` ascending (ties by key), `u`
-/// the first `u64` of `draw(Demography, day, person_key)` for `purpose`;
-/// a person is taken while `S + w/2 ≤ T`.
-#[must_use]
-pub fn align(
-    candidates: &[Candidate],
-    carry_micro: i64,
-    rng: &KeyedRng,
-    day: Day,
-    purpose: u32,
-) -> Selection {
-    let _ = (candidates, carry_micro, rng, day, purpose);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
-}
-
-/// The pension law a new pension reads.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PensionLaw {
-    /// `full_contribution_years` (35).
-    pub full_years: u8,
-    /// `min_contribution_years` (15).
-    pub min_years: u8,
-    /// `early_retirement_reduction`, millionths per month early (7,500).
-    pub early_reduction_ppm_per_month: u32,
-    /// `survivor_share`, millionths (500,000).
-    pub survivor_share_ppm: u32,
-    /// `pension_point_value`, a month.
-    pub point_value: Bani,
-    /// `minimum_pension`, a month.
-    pub minimum: Bani,
-}
-
-/// The pension points of a new retiree (AC-DEM-10): `max(career_points ÷
-/// full_years × (1 − ρ), survivor_points)`, with `ρ` the reduction per month
-/// early × `months_early` (at most 60), only for fewer than `full_years` +
-/// 8 years of contribution; `None` below `min_years` of contribution.
-/// Points in millionths.
-#[must_use]
-pub fn new_pension_points(
-    career_points: u64,
-    survivor_points: u64,
-    months_early: u16,
-    contribution_months: u16,
-    law: &PensionLaw,
-) -> Option<u64> {
-    let _ = (
-        career_points,
-        survivor_points,
-        months_early,
-        contribution_months,
-        law,
-    );
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
-}
-
-/// Fertility's responses to policy and the economy (spec
-/// `economy/demographics`, step 4), millionths.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct FertilityResponse {
-    /// β_b, `fertility_benefit_response`.
-    pub benefit_ppm: u32,
-    /// `unemployed_fertility_ratio`.
-    pub unemployed_ratio_ppm: u32,
-    /// β_y, `fertility_cycle_response`.
-    pub cycle_ppm: u32,
-    /// g^ref, `normal_income_growth`, a year.
-    pub normal_growth_ppm: i32,
-    /// `fertility_lag`, months.
-    pub lag_months: u8,
-    /// `fertility_income_floor`, millionths of the national median.
-    pub income_floor_ppm: u32,
-}
-
-impl FertilityResponse {
-    /// The spec's defaults: β_b 0.1, unemployed ratio 0.85, β_y 0.2, normal
-    /// growth 2% a year, lag 9 months, income floor 25% of the median.
+impl FertilityTable {
+    /// The rate at an age in whole years; 0 outside the table.
     #[must_use]
-    pub fn spec_defaults() -> FertilityResponse {
-        FertilityResponse {
-            benefit_ppm: 100_000,
-            unemployed_ratio_ppm: 850_000,
-            cycle_ppm: 200_000,
-            normal_growth_ppm: 20_000,
-            lag_months: 9,
-            income_floor_ppm: 250_000,
-        }
+    pub fn rate_ppm(&self, age_years: u16) -> u32 {
+        age_years
+            .checked_sub(self.first_age)
+            .and_then(|k| self.rates_ppm.get(usize::from(k)))
+            .copied()
+            .unwrap_or(0)
+    }
+
+    /// The total fertility rate, millionths of a birth per woman.
+    #[must_use]
+    pub fn total_ppm(&self) -> u64 {
+        self.rates_ppm.iter().map(|&r| u64::from(r)).sum()
     }
 }
 
-/// The child support of a law, a month.
+/// `retirement_age_schedule[sex]`: the law's dated standard retirement age,
+/// months of age, each value in force from its date until the next.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct RetirementSchedule {
+    /// `[sex]`: (from, months of age), dates ascending.
+    pub dated: [Vec<(Date, u16)>; SEXES],
+}
+
+impl RetirementSchedule {
+    /// The age in force for a sex on a date: the last value dated on or
+    /// before it; `None` before the first.
+    #[must_use]
+    pub fn age_in_force(&self, sex: usize, on: Date) -> Option<u16> {
+        self.dated
+            .get(sex)?
+            .iter()
+            .take_while(|(from, _)| *from <= on)
+            .last()
+            .map(|&(_, months)| months)
+    }
+}
+
+/// The demographic tables of a scenario (`demography.json`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Demography {
+    /// Deaths.
+    pub mortality: MortalityTable,
+    /// Births.
+    pub fertility: FertilityTable,
+    /// `sex_ratio_at_birth`: the share of boys among births, millionths.
+    pub sex_ratio_at_birth_ppm: u32,
+    /// The law's dated retirement ages.
+    pub retirement_age_schedule: RetirementSchedule,
+}
+
+/// Why a table was refused.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TableError {
+    /// A probability above one.
+    NotAProbability,
+    /// A table of the wrong length.
+    Shape,
+    /// A schedule whose dates are not ascending, or that is empty.
+    Schedule,
+}
+
+impl Demography {
+    /// Check the tables: probabilities at most one, the monthly at most the
+    /// yearly, one at 110; a non-empty fertility table; schedules ascending.
+    ///
+    /// # Errors
+    /// See [`TableError`].
+    pub fn check(&self) -> Result<(), TableError> {
+        let m = &self.mortality;
+        for sex in 0..SEXES {
+            for a in 0..MORTALITY_AGES {
+                if m.yearly[sex][a] > PPB || m.monthly[sex][a] > m.yearly[sex][a] {
+                    return Err(TableError::NotAProbability);
+                }
+            }
+            if m.monthly[sex][MORTALITY_AGES - 1] != PPB {
+                return Err(TableError::NotAProbability);
+            }
+            let s = &self.retirement_age_schedule.dated[sex];
+            if s.is_empty() || s.windows(2).any(|w| w[0].0 >= w[1].0) {
+                return Err(TableError::Schedule);
+            }
+        }
+        if self.fertility.rates_ppm.is_empty() || self.sex_ratio_at_birth_ppm > 1_000_000 {
+            return Err(TableError::Shape);
+        }
+        Ok(())
+    }
+}
+
+/// What a person did, for the career proxy (`career_density[activity]`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CareerKind {
+    /// Employee.
+    Employee,
+    /// Employer or own-account worker.
+    SelfEmployed,
+    /// Contributing family worker.
+    FamilyWorker,
+    /// Unemployed.
+    Unemployed,
+    /// Other inactive.
+    OtherInactive,
+    /// Pupil or student.
+    PupilStudent,
+    /// Retired (the spec gives no density; see [`CareerParams::spec_defaults`]).
+    Retired,
+    /// Below school age.
+    Child,
+}
+
+/// The tuning parameters of the career proxy (spec, "Tuning parameters";
+/// low confidence, calibrated in M7).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ChildSupport {
-    /// `child_allowance_under2`.
-    pub under2: Bani,
-    /// `child_allowance` (2 to 18).
-    pub to18: Bani,
-    /// `child_tax_credit`.
-    pub tax_credit: Bani,
+pub struct CareerParams {
+    /// `career_density` of an employee, employer or own-account worker,
+    /// family worker, unemployed, other inactive, pupil or student, retired,
+    /// child: millionths.
+    pub career_density_ppm: [u32; 8],
+    /// `nonemployed_wage_share`: the career wage of a person who is not an
+    /// employee, over the mean wage of employees of the same sex and
+    /// education, millionths.
+    pub nonemployed_wage_share_ppm: u32,
 }
 
-/// ΔB, the extra support a newborn brings a month averaged over its
-/// childhood, against the 2021 law: `(2 Δunder2 + 16 Δto18) / 18 + Δcredit`.
-pub fn benefit_gap(law_then: &ChildSupport, law_2021: &ChildSupport) -> Bani {
-    let _ = (law_then, law_2021);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+impl CareerParams {
+    /// The spec's defaults: 0.9, 0.6, 0.2, 0.7, 0.3, 1, and 0.8. The spec
+    /// lists no density for the retired, whose pension points are already set
+    /// (Stage G) and whose career no rule reads: they take the employee's 0.9.
+    #[must_use]
+    pub fn spec_defaults() -> Self {
+        CareerParams {
+            career_density_ppm: [
+                900_000, 600_000, 200_000, 700_000, 300_000, 1_000_000, 900_000, 0,
+            ],
+            nonemployed_wage_share_ppm: 800_000,
+        }
+    }
+
+    /// The density of a kind, millionths.
+    #[must_use]
+    pub fn density_ppm(&self, kind: CareerKind) -> u32 {
+        self.career_density_ppm[kind as usize]
+    }
 }
 
-/// M^pol, the household's benefit multiplier: `clamp(1 + β_b ΔB / Y, 0.8,
-/// 1.3)`, with `Y` the income per equivalised adult, not below the floor
-/// share of the national `median`. Millionths, 800,000 to 1,300,000.
+/// A person's guessed work history at the start.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Career {
+    /// `contribution_months`.
+    pub contribution_months: u16,
+    /// `career_points`, millionths of a point.
+    pub career_points: u64,
+}
+
+/// Years of schooling above upper secondary of an education level (codes of
+/// `econ_popgen::EduLevel`: post-secondary 2, bachelor 4, master or
+/// doctorate 6), as in social transfers' proxy.
 #[must_use]
-pub fn m_pol(delta_b: Bani, income_per_adult: Bani, median: Bani, r: &FertilityResponse) -> u32 {
-    let _ = (delta_b, income_per_adult, median, r);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+pub fn extra_school_years(edu_code: u8) -> u16 {
+    match edu_code {
+        2 => 2,
+        3 => 4,
+        4 => 6,
+        _ => 0,
+    }
 }
 
-/// M^job, the woman's multiplier: the unemployed ratio if she or her partner
-/// is unemployed, else one. Millionths.
+/// `n / d` rounded half up (`n >= 0`, `d > 0`).
+fn round_div(n: u128, d: u128) -> u128 {
+    (n + d / 2) / d
+}
+
+/// The career proxy at load (spec, "2. Contributions", "At load"):
+///
+/// years = clamp(age − 18 − extra_school, 0, age − 15) × `career_density`,
+///
+/// in months, `contribution_months` = 12 × years and `career_points` =
+/// years × career wage ÷ `wage_nominal`. `career_wage` is the person's own
+/// gross wage for an employee, else the mean wage of employees of the
+/// person's sex and education × `nonemployed_wage_share` (the caller's).
+/// Rounded half up; no points when `wage_nominal` is not positive.
 #[must_use]
-pub fn m_job(woman_or_partner_unemployed: bool, r: &FertilityResponse) -> u32 {
-    let _ = (woman_or_partner_unemployed, r);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+pub fn career_proxy(
+    age_months: u16,
+    extra_school: u16,
+    density_ppm: u32,
+    career_wage: Bani,
+    wage_nominal: Bani,
+) -> Career {
+    let age = u32::from(age_months);
+    let upper = age.saturating_sub(15 * 12);
+    let base = age
+        .saturating_sub(18 * 12)
+        .saturating_sub(u32::from(extra_school) * 12)
+        .min(upper);
+    let months = round_div(u128::from(base) * u128::from(density_ppm), 1_000_000);
+    let contribution_months = u16::try_from(months).unwrap_or(u16::MAX);
+    let wage = u128::try_from(career_wage.get().max(0)).unwrap_or(0);
+    let nominal = u128::try_from(wage_nominal.get().max(0)).unwrap_or(0);
+    let career_points = if nominal == 0 {
+        0
+    } else {
+        let points = round_div(
+            u128::from(contribution_months) * wage * 1_000_000,
+            12 * nominal,
+        );
+        u64::try_from(points).unwrap_or(u64::MAX)
+    };
+    Career {
+        contribution_months,
+        career_points,
+    }
 }
 
-/// M^cyc, the national multiplier: `clamp(1 + β_y (g − g^ref), 0.97, 1.03)`,
-/// one while `g` (real income growth over 12 months, millionths, measured
-/// `fertility_lag` months earlier) is not known. Millionths, 970,000 to
-/// 1,030,000.
-#[must_use]
-pub fn m_cyc(real_growth_ppm: Option<i32>, r: &FertilityResponse) -> u32 {
-    let _ = (real_growth_ppm, r);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-/// An eligible woman of a birth stratum at load, for the normalisation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct FertileWoman {
-    /// Her household's weight.
-    pub weight: u32,
-    /// `fertility_rate` at her age, births per woman a year, parts per
-    /// billion.
-    pub fertility_ppb: Ppb,
-    /// Her M^job, millionths.
-    pub m_job_ppm: u32,
-}
+    fn date(year: i32, month: u8) -> Date {
+        Date {
+            year,
+            month,
+            day: 1,
+        }
+    }
 
-/// `k_s = Σ w f / Σ w f M^job` over a stratum's women at load, millionths:
-/// the starting population then gives exactly the base-rate births
-/// (AC-DEM-17). One for an empty stratum.
-#[must_use]
-pub fn job_normalisation(women: &[FertileWoman]) -> u32 {
-    let _ = women;
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    #[test]
+    fn retirement_age_follows_the_dated_schedule() {
+        let s = RetirementSchedule {
+            dated: [
+                vec![(date(2021, 12), 741), (date(2022, 7), 742)],
+                vec![(date(2021, 12), 780)],
+            ],
+        };
+        assert_eq!(s.age_in_force(0, date(2021, 11)), None);
+        assert_eq!(s.age_in_force(0, date(2021, 12)), Some(741));
+        assert_eq!(s.age_in_force(0, date(2022, 6)), Some(741));
+        assert_eq!(s.age_in_force(0, date(2022, 7)), Some(742));
+        assert_eq!(s.age_in_force(1, date(2040, 1)), Some(780));
+        assert_eq!(s.age_in_force(2, date(2040, 1)), None);
+    }
+
+    #[test]
+    fn fertility_rates_by_single_year() {
+        let f = FertilityTable {
+            year: 2019,
+            first_age: 15,
+            rates_ppm: vec![10, 20, 30],
+        };
+        assert_eq!(f.rate_ppm(14), 0);
+        assert_eq!(f.rate_ppm(16), 20);
+        assert_eq!(f.rate_ppm(18), 0);
+        assert_eq!(f.total_ppm(), 60);
+    }
+
+    #[test]
+    fn career_proxy_counts_adult_years_at_the_density() {
+        let wage = Bani::from_lei(5_000);
+        let mean = Bani::from_lei(5_000);
+        // 40 years old, upper secondary, employee: 22 years at 0.9 = 19.8 years.
+        let c = career_proxy(40 * 12, 0, 900_000, wage, mean);
+        assert_eq!(c.contribution_months, 238); // 264 × 0.9 = 237.6
+        // At the mean wage, a point a year: 238 / 12 points.
+        assert_eq!(c.career_points, 19_833_333);
+        // Twice the mean wage, twice the points.
+        let rich = career_proxy(40 * 12, 0, 900_000, wage.times(2), mean);
+        assert_eq!(rich.career_points, 39_666_667);
+        // A bachelor's degree: four years less.
+        assert_eq!(
+            career_proxy(40 * 12, 4, 1_000_000, wage, mean).contribution_months,
+            216
+        );
+        // Under 18, nothing; a pupil of 17 has none.
+        assert_eq!(
+            career_proxy(17 * 12, 0, 1_000_000, wage, mean),
+            Career::default()
+        );
+        // No wage_nominal, no points.
+        assert_eq!(
+            career_proxy(40 * 12, 0, 900_000, wage, Bani::ZERO).career_points,
+            0
+        );
+    }
+
+    #[test]
+    fn spec_defaults_and_extra_school() {
+        let p = CareerParams::spec_defaults();
+        assert_eq!(p.density_ppm(CareerKind::Employee), 900_000);
+        assert_eq!(p.density_ppm(CareerKind::FamilyWorker), 200_000);
+        assert_eq!(p.density_ppm(CareerKind::PupilStudent), 1_000_000);
+        assert_eq!(p.density_ppm(CareerKind::Child), 0);
+        assert_eq!(p.nonemployed_wage_share_ppm, 800_000);
+        assert_eq!(
+            (0..5).map(extra_school_years).collect::<Vec<_>>(),
+            [0, 0, 2, 4, 6]
+        );
+    }
 }

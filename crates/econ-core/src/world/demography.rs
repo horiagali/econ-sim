@@ -1,7 +1,8 @@
 //! Demographics and the household life cycle on the `World` (feature
 //! `demography`; specs `economy/demographics` and
 //! `society/households-lifecycle`, roadmap M5): the People phase's
-//! parameters, the person and household columns it adds, the report of its
+//! parameters, the person and household columns it adds to the loaded
+//! people data ([`World::people`]), the report of its
 //! latest run, the retirement age in force and the year's mortality table.
 //!
 //! Test writer's addition (ADR-0014), written with the `[sim]` acceptance
@@ -17,7 +18,7 @@
 
 use econ_mech_demography::records::LifeCycleParams;
 use econ_mech_demography::{FertilityResponse, MortalityTable};
-use econ_popgen::{Activity, Role, Sex};
+use econ_popgen::{Activity, Sex};
 use econ_types::{Bani, Month};
 
 use super::World;
@@ -72,26 +73,16 @@ impl DemographyParams {
     }
 }
 
-/// The person columns of the People phase, aligned with
+/// The person columns the People phase adds to the loaded people data
+/// ([`World::people`]: `sex`, `role`, `person_key`, `contribution_months`,
+/// `career_points`; ages in [`World::person_ages`]), aligned with
 /// [`super::PersonColumns`].
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct PeopleColumns {
-    /// `person_key`: stable identity, never reused.
-    pub person_key: Vec<u64>,
+pub struct PeopleLifeColumns {
     /// `alive`: the record counts (false for a tombstone).
     pub alive: Vec<bool>,
-    /// `age`, months.
-    pub age: Vec<u16>,
-    /// `sex`.
-    pub sex: Vec<Sex>,
-    /// `role`.
-    pub role: Vec<Role>,
     /// Main activity (a job seeker is `Unemployed`, a pensioner `Retired`).
     pub activity: Vec<Activity>,
-    /// `contribution_months`.
-    pub contribution_months: Vec<u16>,
-    /// `career_points`.
-    pub career_points: Vec<u64>,
     /// `pension_points` (0 for a person who draws no pension).
     pub pension_points: Vec<u64>,
     /// `survivor_points`.
@@ -103,12 +94,10 @@ pub struct PeopleColumns {
     pub origin_household: Vec<Option<u64>>,
 }
 
-/// The household columns of the People phase, aligned with
-/// [`super::HouseholdColumns`].
+/// The household columns of the People phase (`hh_key` is in
+/// [`World::people`]), aligned with [`super::HouseholdColumns`].
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct HouseholdLifeColumns {
-    /// `hh_key`: stable identity, never reused.
-    pub hh_key: Vec<u64>,
     /// `hh_alive`: the record counts (false for an ended household).
     pub hh_alive: Vec<bool>,
     /// `hh_county`.
@@ -316,9 +305,9 @@ pub struct PeopleReport {
 }
 
 impl World {
-    /// The person columns of the People phase.
+    /// The person columns the People phase adds.
     #[must_use]
-    pub fn people(&self) -> &PeopleColumns {
+    pub fn people_life(&self) -> &PeopleLifeColumns {
         unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
     }
 

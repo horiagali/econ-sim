@@ -1,6 +1,6 @@
 [package]
 name = "econ-mech-demography"
-description = "Demographics and the household life cycle: mortality tables, alignment of weighted records, new pensions, fertility's responses and the operations on weighted records (specs: economy/demographics, society/households-lifecycle)."
+description = "Demographics: the starting tables (pre-pandemic mortality, 2019 fertility, retirement ages) and the career proxy at load; the API skeletons of the People phase and the record operations of the household life cycle, with their acceptance tests (specs: economy/demographics, society/households-lifecycle)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

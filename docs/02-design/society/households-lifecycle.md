@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [society/population-groups, society/population-generator, economy/households, economy/accounting, game/world-loop, adr/0003-people-representation, adr/0006-determinism-contract, adr/0007-money-and-ledger, adr/0017-time-base]
 research: [research/demographics-romania-2021]
-updated: 2026-10-26
+updated: 2026-10-29
 ---
 
 # Household Life Cycle — Leaving Home, Couples, Separation, Weighted Records
@@ -31,6 +31,8 @@ Weights at the start are close to `sample_scale` but not equal (the generator ra
 | `hh_moved_to_date` | money moved into the household by these operations since day 0, net, per household | LCU | keeps AC-HH-03's identity: balance = start + income − spending + moved |
 | `hh_alive` | the record counts | bool | an ended household is a tombstone until the yearly compaction |
 | `role` | head, partner, child, other | category | exists in the scenario |
+
+`hh_key` is loaded since 2026-10-29: a column of the scenario's `tables/households.arrow` (the start's index), kept by the `World` in `World::people()` with the next free key; the other columns here wait for the life cycle.
 
 Per transition and stratum: the alignment carry ([demographics](../economy/demographics.md#alignment)).
 
@@ -136,6 +138,8 @@ IDs are stable. `[unit]` tests in `crates/econ-mech-demography` (the operations 
 - [ ] **AC-HHL-08** `[sim]` Separations: each year's weighted separations are within 10% of the target; in each, the man's new household holds `separation_share` of the original per-household cash and deposits (rounded down) and the children stay with the woman.
 - [ ] **AC-HHL-09** `[sim]` Records do not explode: in the 50-year exit run of [demographics](../economy/demographics.md) at 1:1000, after each yearly compaction, synthetic persons per real person and synthetic households per real household stay within 25% of their start values.
 - [ ] **AC-HHL-10** `[sim]` A household formed in a month has a stagger day from 1 to 28 and makes its first spending decision within the following 28 days; two runs with the same seed form the same households (state hashes equal).
+
+The tests were written on 2026-10-29 by the test writer (ADR-0014), before the code: AC-HHL-01 to 04 in `crates/econ-mech-demography/tests/acceptance/lifecycle.rs` behind that crate's feature `lifecycle` (on `records`: `move_out`, `split`, `merge_singles`, `unite`, `make_collective`, `leave_home_amount`); AC-HHL-05 to 10 in `crates/econ-core/tests/acceptance/households_lifecycle.rs` behind econ-core's feature `lifecycle` (off by default; release-only).
 
 ## API sketch
 **A proposal.** The operations are pure functions over the column tables, in `crates/econ-mech-demography` (shared with [demographics](../economy/demographics.md)); the World's People phase calls them.

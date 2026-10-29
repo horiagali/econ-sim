@@ -12,6 +12,9 @@
 mod arith;
 mod assign;
 mod attributes;
+// Stage L: linked emigrants and the diaspora stock.
+#[cfg(feature = "linked_emigrants")]
+mod emigrants;
 mod employers;
 mod fit;
 mod housing;
@@ -25,6 +28,11 @@ mod seed;
 mod wages;
 mod wealth;
 
+#[cfg(feature = "linked_emigrants")]
+pub use emigrants::{
+    DiasporaCell, EmigrantError, LinkedEmigrantMargins, LinkedEmigrantParams, LinkedEmigrants,
+    assign_linked_emigrants,
+};
 pub use employers::{
     EmployerError, EmployerParams, FirmUnit, FirmUnits, NO_EMPLOYER, NO_INDUSTRY, PersonEmployers,
     UnitSize, assign_employers,

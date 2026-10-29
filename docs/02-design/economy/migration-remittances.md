@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [economy/demographics, economy/households, economy/labor-market, economy/trade-fx, economy/eu-membership, economy/social-transfers, economy/transport-network, society/population-groups, adr/0003-people-representation, adr/0006-determinism-contract, adr/0007-money-and-ledger, adr/0008-explainability-architecture, adr/0017-time-base]
 research: [research/migration-remittances-romania-2021]
-updated: 2026-10-26
+updated: 2026-10-29
 ---
 
 # Migration, Diaspora & Remittances
@@ -184,6 +184,12 @@ Emigration, return, the destination choice and the remittance amount are `behavi
 - **The diaspora stock:** about 4 million less the linked emigrants, about 2.8 million, by origin region, sex, year of birth and tier, from the research note's destination and age data; a scenario table.
 - $\bar r$, $p^0$, $q^0$, $m^0$ fitted at load from the scenario's population and 2021 targets (in the scenario's `migration.json`), so the starting month gives 2021's rates at any scale.
 - A scenario without these tables runs with no diaspora: no remittances, emigration and moves still on.
+
+**Built 2026-10-29 (stage L of the population generator, `econ-popgen`; data only, read by no mechanic yet).** The margin file is the pipeline's `linked_emigrants2021_ro.json` (`normalise_linked_emigrants.py`: 2021's emigrants by sex and single year of age from Eurostat `migr_emi2` as the age at departure; every other number is the guess above). The scenario builder runs it after stage J and writes two tables:
+- `tables/linked_emigrants.arrow`: one row per linked emigrant (household, `person_key` after the residents', age, sex, role, education, `months_abroad`). **The linked emigrants are a table of their own, not rows of `persons.arrow` with `abroad` set**, so that no stage and no phase sees them until migration reads them; the migration PR may fold them into the persons table.
+- `tables/diaspora_stock.arrow`: `diaspora_stock[k]` by origin region, sex, year of birth and tier (high, mid, low), the diaspora total less the linked emigrants (2.8 million).
+
+> **Simplification (choices of the stage, where the spec leaves room):** a private household's chance is the product of its region's factor (Moldavia 1.5, the south and Maramureș's region 1.1–1.2, Bucharest-Ilfov 0.4), the rural factor (1.5) and its head's age factor (under 30: 0.3, 30–44: 0.8, 45–69: 1.6, 70 and over: 1.0); households are taken by keyed priority until 1.2 million real households, exact to half a record. The emigrant's sex and age at departure follow 2021's emigrants of 18 to 69; the departure year a guessed profile (2002–2006 low, 2007–2014 high, 2015–2021 steady); education 30% ISCED 0–2, 43% 3, 7% 4, 16% 5–6, 4% 7–8. Its role is child when the head is at least 15 years older, else other. The stock is split by the same profiles, by region with its residents times its factor; deaths abroad since departure are not taken out. At 1:1000, seed 42: 1,203 records standing for 1,200,306 households.
 
 ## Edge cases & failure modes
 - **A cell's target exceeds its candidates:** all candidates move, the rest of the target is dropped (not carried), so a small county cannot be emptied by a debt of carries.

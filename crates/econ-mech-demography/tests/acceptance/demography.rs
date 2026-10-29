@@ -8,7 +8,7 @@
 //! person.
 
 use econ_mech_demography::{
-    Candidate, ChildSupport, FertileWoman, FertilityResponse, MAX_AGE, MortalityTable, PPB_ONE,
+    Candidate, ChildSupport, FertileWoman, FertilityResponse, MORTALITY_AGES, MortalityTable, PPB,
     PensionLaw, align, benefit_gap, job_normalisation, m_cyc, m_job, m_pol, monthly_from_yearly,
     new_pension_points, table_for_year,
 };
@@ -16,6 +16,9 @@ use econ_mech_transfers::{PensionRule, pension};
 use econ_num::math;
 use econ_rng::{KeyedRng, Stream};
 use econ_types::{Bani, Day};
+
+/// The oldest age of the mortality table, years.
+const MAX_AGE: usize = MORTALITY_AGES - 1;
 
 fn lei(x: i64) -> Bani {
     Bani::from_lei(x)
@@ -36,7 +39,8 @@ fn reference_monthly(q_ppb: u32) -> u32 {
     v
 }
 
-/// A base table (2018) whose values differ by sex and age, one at 110.
+/// A base table (2018) whose values differ by sex and age, one at 110 (its
+/// yearly column, which `table_for_year` does not read, is a copy).
 fn base_table() -> MortalityTable {
     let mut monthly = [[0u32; MAX_AGE + 1]; 2];
     for (s, row) in monthly.iter_mut().enumerate() {
@@ -46,12 +50,13 @@ fn base_table() -> MortalityTable {
             // From about 300 ppb a month in childhood to 30 million at 100.
             *v = 100 + 37 * a + (1 + s) * a * a * a * 29;
         }
-        row[MAX_AGE] = PPB_ONE;
+        row[MAX_AGE] = PPB;
     }
     // A tie for the half-away rule: 100 × 0.985 = 98.5 → 99.
     monthly[0][10] = 100;
     MortalityTable {
-        year: 2018,
+        base_year: 2018,
+        yearly: monthly,
         monthly,
     }
 }
@@ -92,7 +97,7 @@ fn ac_dem_01() {
         500_000_000,
         900_000_000,
         999_999_999,
-        PPB_ONE,
+        PPB,
     ] {
         assert_eq!(
             monthly_from_yearly(q),
@@ -100,21 +105,17 @@ fn ac_dem_01() {
             "the monthly probability of a yearly {q} ppb"
         );
     }
-    assert_eq!(
-        monthly_from_yearly(PPB_ONE),
-        PPB_ONE,
-        "certain death stays certain"
-    );
+    assert_eq!(monthly_from_yearly(PPB), PPB, "certain death stays certain");
 
     let base = base_table();
     let imp = 15_000; // 1.5% a year, the default
     // The base year is the base.
     let t2018 = table_for_year(&base, 2018, imp);
-    assert_eq!(t2018.year, 2018);
+    assert_eq!(t2018.base_year, 2018);
     assert_eq!(t2018.monthly, base.monthly, "the table of 2018 is the base");
     // One year on: exactly round(base × 0.985), half away from zero.
     let t2019 = table_for_year(&base, 2019, imp);
-    assert_eq!(t2019.year, 2019);
+    assert_eq!(t2019.base_year, 2019);
     for s in 0..2 {
         for a in 0..MAX_AGE {
             let b = u128::from(base.monthly[s][a]);
@@ -126,7 +127,7 @@ fn ac_dem_01() {
     // Later years: the base × 0.985^n, within n/2 ppb of rounding.
     for n in 2..=60u16 {
         let t = table_for_year(&base, 2018 + n, imp);
-        assert_eq!(t.year, 2018 + n);
+        assert_eq!(t.base_year, 2018 + n);
         let factor = math::powi(0.985, i32::from(n));
         let tol = f64::from(n) / 2.0;
         for s in 0..2 {
@@ -139,7 +140,7 @@ fn ac_dem_01() {
                     2018 + n
                 );
             }
-            assert_eq!(t.monthly[s][MAX_AGE], PPB_ONE, "at 110, year {}", 2018 + n);
+            assert_eq!(t.monthly[s][MAX_AGE], PPB, "at 110, year {}", 2018 + n);
         }
     }
     // Known answers, exact under any reading.
@@ -155,7 +156,7 @@ fn ac_dem_01() {
             for a in 0..MAX_AGE {
                 assert_eq!(t.monthly[s][a], 1_024 >> n, "halved {n} times");
             }
-            assert_eq!(t.monthly[s][MAX_AGE], PPB_ONE);
+            assert_eq!(t.monthly[s][MAX_AGE], PPB);
         }
     }
     let flat = table_for_year(&base, 2070, 0);
@@ -166,8 +167,8 @@ fn ac_dem_01() {
     low.monthly[1][MAX_AGE] = 0;
     for y in [2018u16, 2022, 2050] {
         let t = table_for_year(&low, y, imp);
-        assert_eq!(t.monthly[0][MAX_AGE], PPB_ONE, "women at 110 in {y}");
-        assert_eq!(t.monthly[1][MAX_AGE], PPB_ONE, "men at 110 in {y}");
+        assert_eq!(t.monthly[0][MAX_AGE], PPB, "women at 110 in {y}");
+        assert_eq!(t.monthly[1][MAX_AGE], PPB, "men at 110 in {y}");
     }
     // A pure function of its inputs.
     assert_eq!(

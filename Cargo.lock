@@ -262,6 +262,7 @@ dependencies = [
  "arrow-schema",
  "econ-core",
  "econ-ledger",
+ "econ-mech-demography",
  "econ-popgen",
  "econ-scenario",
  "econ-types",
