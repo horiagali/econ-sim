@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [society/population-groups, society/households-lifecycle, society/population-generator, society/population-pensions, economy/social-transfers, economy/labor-market, economy/households, economy/money-banking, game/world-loop, game/lever-system, adr/0003-people-representation, adr/0006-determinism-contract, adr/0007-money-and-ledger, adr/0017-time-base]
 research: [research/demographics-romania-2021, research/law-in-force-romania-2021]
-updated: 2026-10-26
+updated: 2026-10-29
 ---
 
 # Demographics — Ageing, Births, Deaths, Retirement
@@ -190,6 +190,15 @@ with $\rho$ = `early_retirement_reduction` (0.75%) × months before the standard
 
 ### 6. Records
 A dead person's record stays as a tombstone (weight excluded from every sum, never selected, skipped by every phase) until the **yearly compaction** at the close of December: tombstones and ended households are removed, the tables are rewritten in their order, and every stored index (households' members, firm units' `members`, `origin_household`) is remapped. Keyed draws use `person_key`, never the index, so compaction changes no result. New persons and households are appended at the end of their tables.
+
+### Starting data (loaded 2026-10-29)
+The data this spec starts from is in the scenario and on the `World` before any of its steps is built; no phase reads it yet, and it is outside the state hash, so loading it changed no result and no golden value:
+- **Per person:** `sex` and `role` (the generator's), `person_key` (the start's index, written as a column of `tables/persons.arrow`), and the career proxy of step 2 (`contribution_months`, `career_points`), computed at load with `wage_nominal` = the weighted mean gross wage of employees at the start. **Per household:** `hh_key` (the start's index, a column of `tables/households.arrow`). The next free keys are in `scenario.json` (`next_person_key`, `next_hh_key`); the age is the `World`'s own column.
+- **`demography.json`**, the pipeline's `demography2019_ro.json` as it is: `mortality_rate[sex, a]` (yearly and monthly ppb, 0 to 109, the 2017–2019 average from Eurostat `demo_mlifetable`, 95 to 109 extended in log-odds; life expectancy 71.7 and 79.1), `fertility_rate[a]` (2019, `demo_frate`, 15 to 49 with the tails folded in; TFR 1.77), `sex_ratio_at_birth` (0.514) and `retirement_age_schedule[sex]` (women 741 months in December 2021 rising one month of age at a time to 756 in January 2030, men 780). The schedule is in this file, not in `law.json`, until the law file holds dated values; `law.json`'s `transfer.pension.retirement_age` has the same starting values.
+- Applied to the starting population at 1:1000, the table gives about 253,000 deaths and 187,000 births a year (AC-DEM-04's bands).
+- Code: the types and the proxy are in the new crate `econ-mech-demography`; the `World` holds them in `World::people()`.
+
+> **Simplification (choices of the loading, where the spec leaves room):** the retired, for whom the career proxy lists no density, take the employee's 0.9 (no rule reads their career: their pension points are set); a non-employee whose sex and education have no employee takes `nonemployed_wage_share` of the overall mean wage.
 
 ### Migration
 Emigration, return, immigration, moves between counties, the diaspora and remittances are specified in `economy/migration-remittances` (a separate spec, M5), which uses the record operations of [household life cycle](../society/households-lifecycle.md) and the alignment above. Its step runs seventh in the People phase. The earlier draft of this spec sketched them (Harris–Todaro expected-income gaps, networks, a diaspora stock with remittances, return migration, immigration capped by a quota); that text now belongs to that spec.

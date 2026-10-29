@@ -179,6 +179,7 @@ macro_rules! col {
 pub mod budget;
 #[cfg(feature = "levers")]
 pub mod commands;
+pub mod people;
 pub mod popgen;
 pub mod table;
 

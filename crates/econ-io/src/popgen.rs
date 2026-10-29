@@ -4,8 +4,8 @@
 //!
 //! | File | Content |
 //! |---|---|
-//! | `households.arrow` | `hh_weight` (u32), `hh_county` (u8, index into `counties`), `hh_collective` (bool) |
-//! | `persons.arrow` | `household_id` (u32), `age` (u16, months), `sex` (u8: F 0, M 1), `role` (u8: head 0, partner 1, child 2, other 3) |
+//! | `households.arrow` | `hh_weight` (u32), `hh_county` (u8, index into `counties`), `hh_collective` (bool), `hh_key` (u64, the index) |
+//! | `persons.arrow` | `household_id` (u32), `age` (u16, months), `sex` (u8: F 0, M 1), `role` (u8: head 0, partner 1, child 2, other 3), `person_key` (u64, the index) |
 //! | `fit_report.json` | parameters, table sizes, weighted totals, state hash, fit report, county codes, provenance of the margins |
 //!
 //! The stages after the fit each read one more margin file and add columns
@@ -22,6 +22,9 @@
 //! | H | `society/population-wealth` | households: `hh_cash`, `hh_deposits`, `hh_dwelling_value`, `hh_mortgage`, `hh_consumer_debt` (u64, bani) |
 //! | I | `society/population-incomes` | persons: `wage_declared`, `self_employment_income`, `self_employment_declared`, `informal_income` (u64, bani a month); households: `hh_subsistence_income` (u64) |
 //! | J | `society/population-employers` | persons: `industry` (u8, catalogue index or 255), `employer` (u16, firm unit or 65535) |
+//! | K | `society/population-inactivity-enrolment` | persons: `inactive_kind`, `enrolled` (u8) |
+//!
+//! Stage L (linked emigrants and the diaspora stock) writes tables of its own: [`crate::people`].
 
 use std::path::Path;
 use std::sync::Arc;
@@ -33,8 +36,9 @@ use econ_popgen::{
     AttributeMargins, BorrowerRule, Curve, EDU_GROUPS, EDU_LEVELS, FirmUnit, FirmUnits, GenParams,
     HouseholdHousing, HouseholdWealth, HousingMargins, INDUSTRY_GROUPS, IncomeMargins,
     InformalPropensity, JobMargins, KINDS, MARGIN_ACTIVITIES, Margins, OCCUPATIONS, OPEN,
-    OtherIncomes, PensionMargins, PersonAttributes, PersonEmployers, PersonJobs, PersonPensions,
-    PersonWages, Population, SIZE_GROUPS, STATUSES, TENURES, UnitSize, WageMargins, WealthMargins,
+    OtherIncomes, PensionMargins, PersonAttributes, PersonEmployers, PersonInactivityEnrolment,
+    PersonJobs, PersonPensions, PersonWages, Population, SIZE_GROUPS, STATUSES, TENURES, UnitSize,
+    WageMargins, WealthMargins,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -144,18 +148,25 @@ pub struct Stages<'a> {
     pub incomes: Option<(&'a OtherIncomes, &'a Value)>,
     /// Stage J: industry and employer.
     pub employers: Option<(&'a PersonEmployers, &'a Value)>,
+    /// Stage K: kinds of inactivity and enrolment.
+    pub inactivity: Option<(&'a PersonInactivityEnrolment, &'a Value)>,
     /// The region of each county (stage C's margins): with it, the
     /// households table has `hh_region`.
     pub region_of_county: Option<&'a [u8]>,
 }
 
-fn stage_err(file: &str, what: &str) -> SaveError {
+pub(crate) fn stage_err(file: &str, what: &str) -> SaveError {
     SaveError::Parse(format!("{file} margin file: {what}"))
 }
 
 /// A nested table of counts as one row-major vector. Ragged tables and tables
 /// of another shape are rejected.
-fn flat_table(v: &Value, file: &str, name: &str, dims: &[usize]) -> Result<Vec<u64>, SaveError> {
+pub(crate) fn flat_table(
+    v: &Value,
+    file: &str,
+    name: &str,
+    dims: &[usize],
+) -> Result<Vec<u64>, SaveError> {
     fn flatten(v: &Value, dims: &[usize], out: &mut Vec<u64>) -> bool {
         match dims.split_first() {
             None => v.as_u64().map(|n| out.push(n)).is_some(),
@@ -176,13 +187,18 @@ fn flat_table(v: &Value, file: &str, name: &str, dims: &[usize]) -> Result<Vec<u
 }
 
 /// A list of codes or labels.
-fn names(v: &Value, file: &str, name: &str) -> Result<Vec<String>, SaveError> {
+pub(crate) fn names(v: &Value, file: &str, name: &str) -> Result<Vec<String>, SaveError> {
     serde_json::from_value(v[name].clone())
         .map_err(|_| stage_err(file, &format!("{name} is not a list of names")))
 }
 
 /// A list of labels that the stage fixes, in its order.
-fn fixed_names(v: &Value, file: &str, name: &str, want: &[&str]) -> Result<(), SaveError> {
+pub(crate) fn fixed_names(
+    v: &Value,
+    file: &str,
+    name: &str,
+    want: &[&str],
+) -> Result<(), SaveError> {
     if names(v, file, name)? == want {
         Ok(())
     } else {
@@ -208,7 +224,7 @@ fn age_bands(v: &Value, file: &str) -> Result<Vec<(u16, u16)>, SaveError> {
         .collect())
 }
 
-fn parse(json: &str, file: &str) -> Result<Value, SaveError> {
+pub(crate) fn parse(json: &str, file: &str) -> Result<Value, SaveError> {
     serde_json::from_str(json).map_err(|e| stage_err(file, &e.to_string()))
 }
 
@@ -710,6 +726,13 @@ pub fn households_table(pop: &Population, stages: &Stages<'_>) -> Result<Vec<u8>
             DataType::Boolean,
             Arc::new(BooleanArray::from(hh.hh_collective.clone())),
         ),
+        // `hh_key`: the stable identity, the start's index (spec
+        // society/households-lifecycle).
+        (
+            "hh_key",
+            DataType::UInt64,
+            Arc::new(UInt64Array::from_iter_values(0..hh.hh_weight.len() as u64)),
+        ),
     ];
     if let Some(regions) = stages.region_of_county {
         columns.push((
@@ -794,6 +817,15 @@ pub fn persons_table(pop: &Population, stages: &Stages<'_>) -> Result<Vec<u8>, S
             DataType::UInt8,
             codes(p.role.iter().map(|&r| r as u8)),
         ),
+        // `person_key`: the stable identity, the start's index (spec
+        // economy/demographics); linked emigrants continue the count.
+        (
+            "person_key",
+            DataType::UInt64,
+            Arc::new(UInt64Array::from_iter_values(
+                0..p.household_id.len() as u64,
+            )),
+        ),
     ];
     if let Some((attrs, _)) = stages.attributes {
         columns.extend([
@@ -873,6 +905,20 @@ pub fn persons_table(pop: &Population, stages: &Stages<'_>) -> Result<Vec<u8>, S
             ),
         ]);
     }
+    if let Some((k, _)) = stages.inactivity {
+        columns.extend([
+            (
+                "inactive_kind",
+                DataType::UInt8,
+                codes(k.inactive_kind.iter().map(|&x| x as u8)),
+            ),
+            (
+                "enrolled",
+                DataType::UInt8,
+                codes(k.enrolled.iter().map(|&x| x as u8)),
+            ),
+        ]);
+    }
     ipc_bytes(&batch(columns)?)
 }
 
@@ -935,6 +981,10 @@ pub fn fit_report(
         (
             "employers",
             stages.employers.map(|(e, p)| (e.state_hash(), p)),
+        ),
+        (
+            "inactivity_enrolment",
+            stages.inactivity.map(|(k, p)| (k.state_hash(), p)),
         ),
     ];
     for (stage, result) in ran {
@@ -1111,6 +1161,7 @@ mod tests {
             wealth: Some((&wealth, &wealth_file.provenance)),
             incomes: Some((&incomes, &income_file.provenance)),
             employers: Some((&employers, &firm_file.provenance)),
+            inactivity: None,
             region_of_county: None,
         };
 
@@ -1131,7 +1182,7 @@ mod tests {
 
         let h = read_batch(households_table(&pop, &stages).unwrap()).unwrap();
         let p = read_batch(persons_table(&pop, &stages).unwrap()).unwrap();
-        assert_eq!((h.num_columns(), p.num_columns()), (12, 17));
+        assert_eq!((h.num_columns(), p.num_columns()), (13, 18));
         assert_eq!(col!(p, "employer", UInt16Array), employers.employer);
         assert_eq!(
             col!(p, "informal_income", UInt64Array),
@@ -1235,7 +1286,7 @@ mod tests {
         let none = Stages::default();
         let h = read_batch(households_table(&pop, &none).unwrap()).unwrap();
         let p = read_batch(persons_table(&pop, &none).unwrap()).unwrap();
-        assert_eq!((h.num_columns(), p.num_columns()), (3, 4));
+        assert_eq!((h.num_columns(), p.num_columns()), (4, 5));
         assert_eq!(col!(h, "hh_weight", UInt32Array), pop.households.hh_weight);
         assert_eq!(col!(h, "hh_county", UInt8Array), pop.households.hh_county);
         let collective = h.column_by_name("hh_collective").unwrap();

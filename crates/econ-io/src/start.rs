@@ -16,8 +16,8 @@ use arrow_array::{
     Array, BooleanArray, Int64Array, RecordBatch, StringArray, UInt8Array, UInt16Array,
     UInt32Array, UInt64Array,
 };
-use econ_core::world::StartState;
-use econ_popgen::EduLevel;
+use econ_core::world::{LinkedEmigrantColumns, PeopleStart, StartState};
+use econ_popgen::{DiasporaCell, EduLevel, Enrolled, Role, Sex};
 use econ_types::Bani;
 use serde_json::Value;
 
@@ -545,7 +545,134 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     s.gov_transfers_year = budget_transfers(scenario_dir)?;
     s.budget_wage_shares = budget_wage_shares(scenario_dir)?;
     s.gov_investment_year = budget_investment(scenario_dir)?;
+    s.people = people_start(scenario_dir, &scenario, &hb, &pb)?;
     Ok(s)
+}
+
+fn sex_of(code: u8, file: &str) -> Result<Sex, SaveError> {
+    match code {
+        0 => Ok(Sex::F),
+        1 => Ok(Sex::M),
+        _ => Err(parse(format!("{file}: sex {code}"))),
+    }
+}
+
+fn role_of(code: u8, file: &str) -> Result<Role, SaveError> {
+    Ok(match code {
+        0 => Role::Head,
+        1 => Role::Partner,
+        2 => Role::Child,
+        3 => Role::Other,
+        _ => return Err(parse(format!("{file}: role {code}"))),
+    })
+}
+
+fn enrolled_of(code: u8) -> Result<Enrolled, SaveError> {
+    Ok(match code {
+        0 => Enrolled::None,
+        1 => Enrolled::PreSchool,
+        2 => Enrolled::Primary,
+        3 => Enrolled::LowerSecondary,
+        4 => Enrolled::UpperSecondary,
+        5 => Enrolled::PostSecondary,
+        6 => Enrolled::Tertiary,
+        7 => Enrolled::MasterDoctorate,
+        _ => return Err(parse(format!("persons: enrolment level {code}"))),
+    })
+}
+
+fn u64s(b: &RecordBatch, f: &str, n: &str) -> Result<Vec<u64>, SaveError> {
+    Ok(column::<UInt64Array>(b, f, n)?.values().to_vec())
+}
+
+/// Roadmap M5's starting data (spec economy/demographics and its
+/// neighbours): sex, role and the stable identities of the tables, stage K's
+/// enrolment, stage L's tables and `demography.json`. Every part is optional,
+/// so a scenario written before them still loads (with no emigrants, no
+/// tables, keys equal to the indices).
+fn people_start(
+    dir: &Path,
+    scenario: &Value,
+    hb: &RecordBatch,
+    pb: &RecordBatch,
+) -> Result<PeopleStart, SaveError> {
+    let (hf, pf) = ("tables/households.arrow", "tables/persons.arrow");
+    let has = |b: &RecordBatch, n: &str| b.column_by_name(n).is_some();
+    let mut p = PeopleStart {
+        sex: u8s(pb, pf, "sex")?
+            .into_iter()
+            .map(|c| sex_of(c, pf))
+            .collect::<Result<_, _>>()?,
+        role: u8s(pb, pf, "role")?
+            .into_iter()
+            .map(|c| role_of(c, pf))
+            .collect::<Result<_, _>>()?,
+        ..PeopleStart::default()
+    };
+    if has(pb, "person_key") {
+        p.person_key = u64s(pb, pf, "person_key")?;
+    }
+    if has(hb, "hh_key") {
+        p.hh_key = u64s(hb, hf, "hh_key")?;
+    }
+    if has(pb, "enrolled") {
+        p.enrolled = u8s(pb, pf, "enrolled")?
+            .into_iter()
+            .map(enrolled_of)
+            .collect::<Result<_, _>>()?;
+    }
+    let lf = "tables/linked_emigrants.arrow";
+    if dir.join(lf).exists() {
+        let b = read(dir, lf)?;
+        p.linked_emigrants = LinkedEmigrantColumns {
+            household_id: u32s(&b, lf, "household_id")?,
+            person_key: u64s(&b, lf, "person_key")?,
+            age: u16s(&b, lf, "age")?,
+            sex: u8s(&b, lf, "sex")?
+                .into_iter()
+                .map(|c| sex_of(c, lf))
+                .collect::<Result<_, _>>()?,
+            role: u8s(&b, lf, "role")?
+                .into_iter()
+                .map(|c| role_of(c, lf))
+                .collect::<Result<_, _>>()?,
+            edu_level: u8s(&b, lf, "edu_level")?
+                .into_iter()
+                .map(edu)
+                .collect::<Result<_, _>>()?,
+            months_abroad: u16s(&b, lf, "months_abroad")?,
+        };
+    }
+    let df = "tables/diaspora_stock.arrow";
+    if dir.join(df).exists() {
+        let b = read(dir, df)?;
+        let (region, sex, tier) = (
+            u8s(&b, df, "region")?,
+            u8s(&b, df, "sex")?,
+            u8s(&b, df, "tier")?,
+        );
+        let (birth_year, persons) = (u16s(&b, df, "birth_year")?, u64s(&b, df, "persons")?);
+        p.diaspora_stock = (0..region.len())
+            .map(|k| {
+                Ok(DiasporaCell {
+                    region: region[k],
+                    sex: sex_of(sex[k], df)?,
+                    birth_year: birth_year[k],
+                    tier: tier[k],
+                    persons: persons[k],
+                })
+            })
+            .collect::<Result<_, SaveError>>()?;
+    }
+    let demography = dir.join("demography.json");
+    if demography.exists() {
+        let text = std::fs::read_to_string(&demography)
+            .map_err(|e| SaveError::Io(format!("demography.json: {e}")))?;
+        p.demography = Some(crate::people::read_demography(&text)?);
+    }
+    p.next_person_key = scenario["next_person_key"].as_u64().unwrap_or(0);
+    p.next_hh_key = scenario["next_hh_key"].as_u64().unwrap_or(0);
+    Ok(p)
 }
 
 /// The excise spec's starting duty on refined petroleum, millionths of a ban

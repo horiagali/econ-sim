@@ -10,7 +10,7 @@ publish.workspace = true
 [features]
 # Each feature gates the acceptance tests of one stage: they were written
 # before the stage (ADR-0014), and its implementation switched the feature on.
-default = ["generator", "attributes", "jobs", "housing", "wages", "pensions", "wealth", "incomes", "employers", "inactivity_enrolment"]
+default = ["generator", "attributes", "jobs", "housing", "wages", "pensions", "wealth", "incomes", "employers", "inactivity_enrolment", "linked_emigrants"]
 generator = []
 # Stage C: education and activity (spec society/population-attributes).
 attributes = []
@@ -30,6 +30,8 @@ incomes = []
 employers = []
 # Stage K: kinds of inactivity and enrolment (spec society/population-inactivity-enrolment).
 inactivity_enrolment = []
+# Stage L: linked emigrants and the diaspora stock (spec economy/migration-remittances, "Starting state").
+linked_emigrants = []
 
 [dependencies]
 econ-rng.workspace = true

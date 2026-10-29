@@ -4,7 +4,7 @@ title: Roadmap
 status: draft
 owner: horia
 depends_on: [vision/scope]
-updated: 2026-10-26
+updated: 2026-10-29
 ---
 
 # Roadmap
@@ -246,8 +246,8 @@ Spec: [lever system](02-design/game/lever-system.md).
 
 ### M5 — People over time
 Without this a long run is a frozen population.
-- [ ] **Demographics:** ageing, deaths, births, retirement, household formation and dissolution, moves between counties, emigration and return, the diaspora and remittances, with alignment to official projections. **2026-10-26:** first version drafted for ageing, deaths, births, retirement and inheritance ([demographics](02-design/economy/demographics.md), AC-DEM-01 to 20) and household formation and dissolution ([household life cycle](02-design/society/households-lifecycle.md), AC-HHL-01 to 10), with the data in a [research note](01-research/notes/demographics-romania-2021.md). Owner decisions: the simulation runs as if COVID never happened (pre-pandemic mortality); fertility responds to child benefits, unemployment and real income from M5; births, deaths and migration come from rates and decisions, the official projection being a check. Migration, the diaspora and remittances are their own spec.
-- [ ] **Population pipeline stage for linked emigrants** (owed; owner's delegation 2026-10-26): add one `abroad` person to about 1.2 million households (15%), skewed to rural Moldavia and older heads, and the diaspora stock table ([migration and remittances](02-design/economy/migration-remittances.md), "Starting state").
+- [ ] **Demographics:** ageing, deaths, births, retirement, household formation and dissolution, moves between counties, emigration and return, the diaspora and remittances, with alignment to official projections. **2026-10-26:** first version drafted for ageing, deaths, births, retirement and inheritance ([demographics](02-design/economy/demographics.md), AC-DEM-01 to 20) and household formation and dissolution ([household life cycle](02-design/society/households-lifecycle.md), AC-HHL-01 to 10), with the data in a [research note](01-research/notes/demographics-romania-2021.md). Owner decisions: the simulation runs as if COVID never happened (pre-pandemic mortality); fertility responds to child benefits, unemployment and real income from M5; births, deaths and migration come from rates and decisions, the official projection being a check. Migration, the diaspora and remittances are their own spec. **2026-10-29, the starting data loaded** (read by no phase yet, no golden changed): per person `sex`, `role`, `person_key` and a guessed career (`contribution_months`, `career_points`), per household `hh_key`; the pre-pandemic mortality table (2017–2019), the 2019 fertility rates, the sex ratio at birth and the dated retirement ages (`demography.json`); stage K's enrolment and the school places (`edu_capacity`) for the education flows.
+- [x] **Population pipeline stage for linked emigrants** (owed; owner's delegation 2026-10-26): add one `abroad` person to about 1.2 million households (15%), skewed to rural Moldavia and older heads, and the diaspora stock table ([migration and remittances](02-design/economy/migration-remittances.md), "Starting state"). **2026-10-29:** built as stage L of `econ-popgen` (no Python twin yet), written by the scenario builder as `tables/linked_emigrants.arrow` and `tables/diaspora_stock.arrow`, loaded by the `World` and read by no mechanic yet.
 - [ ] **Education flows:** enrolment, graduation, entry to the labour market (simple version; depth in M14).
 - [ ] **Approval, first version:** the per-person number of [opinion-approval](02-design/society/opinion-approval.md), driven by own finances. Display only. Depth in M14.
 - [ ] Poverty and inequality indicators from incomes: [poverty and inequality](02-design/society/poverty-inequality.md) (with the standard-of-living classes of M6).

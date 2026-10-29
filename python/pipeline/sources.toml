@@ -326,3 +326,27 @@ source = "eurostat"
 code = "educ_uoe_enra02"           # pupils and students enrolled by education level, sex and age
 filters = { geo = ["RO"], time = ["2022"], unit = ["NR"], sex = ["F", "M"] }
 licence = "eurostat-reuse"
+
+# Demography before the pandemic (owner, 2026-10-26: the simulation runs as if COVID never happened).
+# Inputs of normalise_demography.py (spec economy/demographics).
+[[dataset]]
+id = "ro_mortality_2017_2019"
+source = "eurostat"
+code = "demo_mlifetable"           # life tables by age and sex; PROBDEATH = probability of dying within the year
+filters = { geo = ["RO"], time = ["2017", "2018", "2019"], indic_de = ["PROBDEATH"], sex = ["F", "M"] }
+licence = "eurostat-reuse"
+
+[[dataset]]
+id = "ro_fertility_2019"
+source = "eurostat"
+code = "demo_frate"                # fertility rates by age of the mother (age in completed years)
+filters = { geo = ["RO"], time = ["2019"], unit = ["NR"] }
+licence = "eurostat-reuse"
+
+# Emigrants of 2021 by age and sex. Input of normalise_linked_emigrants.py (spec economy/migration-remittances).
+[[dataset]]
+id = "ro_emigrants_age_2021"
+source = "eurostat"
+code = "migr_emi2"                 # emigration by age and sex
+filters = { geo = ["RO"], time = ["2021"], unit = ["NR"], agedef = ["COMPLET"], sex = ["F", "M"] }
+licence = "eurostat-reuse"

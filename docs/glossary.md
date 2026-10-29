@@ -4,7 +4,7 @@ title: Glossary & Variable Registry
 status: draft
 owner: horia
 depends_on: []
-updated: 2026-10-26
+updated: 2026-10-29
 ---
 
 # Glossary & Variable Registry
@@ -127,6 +127,7 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `abroad` | Person is a linked emigrant: lives abroad, belongs to a resident household, counted in the diaspora and not in the resident population | bool | state | economy/migration-remittances |
 | — | `months_abroad` | Months since a linked emigrant left | months | state | economy/migration-remittances |
 | — | `diaspora_stock[k]` | Emigrants not linked to a resident household, by cell *k* (origin region, sex, year of birth, skill tier) | persons | state | economy/migration-remittances |
+| — | `linked_households`, `diaspora_total` | Starting-state targets of stage L: real private households with a linked emigrant (about 1.2 million) and people born in Romania living abroad (about 4 million: the linked emigrants plus the stock) | households, persons | parameter | economy/migration-remittances |
 | — | `migration_carry[cell]` | Real persons owed to a migration cell's next month by whole-record alignment (signed) | persons | state | economy/migration-remittances |
 | $\bar r$ | `remittance_base` | Euro a month one linked emigrant sends at the start, before decay; fitted at load to the 2021 flow | EUR / month | parameter | economy/migration-remittances |
 | $\alpha_c$ | `county_appeal[c]` | Fixed attractiveness of county *c* in the choice of destination of internal moves, fitted to 2021's net balances | utility | parameter | economy/migration-remittances |
@@ -269,6 +270,7 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `early_retirement_reduction` | Law: pension reduction per month of retirement before the standard age (0.75%) | ratio / month | parameter | economy/demographics |
 | — | `survivor_share` | Law: share of the deceased spouse's pension points a survivor may draw (50%) | ratio | parameter | economy/demographics |
 | — | `career_density[activity]` | Share of a person's adult years with contributions, by today's activity, for the career proxy at load | ratio | parameter | economy/demographics |
+| — | `nonemployed_wage_share` | Career wage of a person who is not an employee at load, over the mean wage of employees of the same sex and education, for the career proxy (default 0.8) | ratio | parameter | economy/demographics |
 | — | `fertility_benefit_response` | Semi-elasticity of the birth probability to the extra child support a newborn brings (vs the 2021 law) relative to household income per equivalised adult (default 0.1) | ratio | parameter | economy/demographics |
 | — | `unemployed_fertility_ratio` | Birth probability of a woman who, or whose partner, is unemployed, relative to others (default 0.85) | ratio | parameter | economy/demographics |
 | — | `fertility_cycle_response`, `normal_income_growth` | Response of births to real income growth above or below the normal growth (defaults 0.2 and 2% a year) | ratio, % / year | parameter | economy/demographics |

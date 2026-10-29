@@ -826,6 +826,7 @@ version = "0.1.0"
 dependencies = [
  "econ-ledger",
  "econ-mech-banking",
+ "econ-mech-demography",
  "econ-mech-fiscal",
  "econ-mech-households",
  "econ-mech-investment",
@@ -853,6 +854,7 @@ dependencies = [
  "arrow-schema",
  "econ-core",
  "econ-ledger",
+ "econ-mech-demography",
  "econ-popgen",
  "econ-types",
  "serde",
@@ -869,6 +871,13 @@ dependencies = [
 
 [[package]]
 name = "econ-mech-banking"
+version = "0.1.0"
+dependencies = [
+ "econ-types",
+]
+
+[[package]]
+name = "econ-mech-demography"
 version = "0.1.0"
 dependencies = [
  "econ-types",
