@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/accounting, economy/taxation, economy/social-transfers, economy/money-banking, economy/monetary-policy, economy/budget-2021, economy/opening-balance-sheet, game/world-loop, adr/0017-time-base]
 research: [research/budget-romania-2021]
-updated: 2026-10-21
+updated: 2026-10-29
 ---
 
 # Fiscal Policy — Budget, Spending, Subsidies & Public Debt
@@ -104,7 +104,7 @@ r^B = i + \text{term} + \text{risk}, \qquad \text{risk} = \text{risk}_0 \cdot \m
 ## Tuning parameters
 | Parameter | Default | Effect |
 |---|---|---|
-| `starting_coupon` | 4.5% a year | the stock's average coupon at the start (medium confidence; to be checked against the Ministry of Finance's debt bulletin) |
+| `starting_coupon` | 3.6% a year | the stock's average coupon at the start: 2021's interest (D4, 17.3 billion lei) over the opening bonds (478.6 billion); it was 4.5% (medium confidence) until the owner set it from D4 (owner, 2026-10-29) |
 | `new_issue_years` | 7 | maturity of new bonds |
 | `term_premium` | 1.5 points | 7-year yield over the policy rate |
 | `risk_premium` $\text{risk}_0$ | 20 points per unit of debt-to-GDP squared | how steeply yields rise with debt |
