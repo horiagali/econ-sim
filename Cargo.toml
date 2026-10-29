@@ -20,6 +20,7 @@ econ-rules = { path = "crates/econ-rules" }
 econ-io = { path = "crates/econ-io" }
 econ-mech-tax = { path = "crates/econ-mech-tax" }
 econ-mech-transfers = { path = "crates/econ-mech-transfers" }
+econ-mech-demography = { path = "crates/econ-mech-demography" }
 econ-mech-households = { path = "crates/econ-mech-households" }
 econ-mech-labour = { path = "crates/econ-mech-labour" }
 econ-mech-production = { path = "crates/econ-mech-production" }

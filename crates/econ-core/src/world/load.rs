@@ -539,6 +539,10 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             StartEdit::ScaleLabourRequirement { factor_ppm } => {
                 uu.labour_factor_ppm = *factor_ppm;
             }
+            #[cfg(feature = "demography")]
+            StartEdit::ScaleLabourRequirementFrom { .. } => {
+                unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+            }
             StartEdit::BasketShares(v) => {
                 shape(v.len() == n_i, "basket shares of another number of goods")?;
                 shape(
