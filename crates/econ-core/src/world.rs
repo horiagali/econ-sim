@@ -71,6 +71,10 @@ mod central_bank;
 mod budget;
 #[allow(clippy::needless_range_loop)]
 mod close;
+// The People phase's state and report (specs economy/demographics and
+// society/households-lifecycle, M5): the test writer's additions (ADR-0014).
+#[cfg(feature = "demography")]
+mod demography;
 #[allow(clippy::needless_range_loop)]
 mod fiscal;
 #[cfg(feature = "trade")]
@@ -134,6 +138,11 @@ use crate::schedule::{Due, Period};
 pub use banking::BankState;
 #[cfg(feature = "monetary")]
 pub use central_bank::{CentralBankState, MonetaryParams};
+#[cfg(feature = "demography")]
+pub use demography::{
+    Birth, Death, DemographyParams, EstateRecord, HouseholdLifeColumns, Leaver, LifeCycleReport,
+    PeopleLifeColumns, PeopleReport, Retirement, Separation, Union,
+};
 pub use fiscal::{IncomeTaxLaw, TransferLaw};
 #[cfg(feature = "trade")]
 pub use foreign::{Foreign, TradeMonth, TradeParams};
@@ -323,6 +332,18 @@ pub enum StartEdit {
     /// `factor_ppm` / 1,000,000, for the whole run: its desired employment
     /// rises in that proportion (AC-LM-06).
     ScaleLabourRequirement {
+        /// Millionths.
+        factor_ppm: u32,
+    },
+    /// From the day given, every unit's labour requirement per unit of
+    /// output times `factor_ppm` / 1,000,000, for the rest of the run: a
+    /// lasting fall of desired employment, which the labour market carries
+    /// out by its layoffs (AC-DEM-19's recession). A test writer's addition
+    /// (ADR-0014).
+    #[cfg(feature = "demography")]
+    ScaleLabourRequirementFrom {
+        /// The first day of the new requirement.
+        from: Date,
         /// Millionths.
         factor_ppm: u32,
     },
@@ -642,6 +663,10 @@ pub struct WorldParams {
     /// The central bank.
     #[cfg(feature = "monetary")]
     pub monetary: MonetaryParams,
+    /// Demographics and the household life cycle (the People phase). A test
+    /// writer's addition (ADR-0014).
+    #[cfg(feature = "demography")]
+    pub demography: DemographyParams,
     /// The government's debt.
     #[cfg(feature = "fiscal")]
     pub fiscal: FiscalParams,
@@ -694,6 +719,8 @@ impl WorldParams {
             policy_rate_ppm: 17_500,
             #[cfg(feature = "monetary")]
             monetary: MonetaryParams::spec_defaults(),
+            #[cfg(feature = "demography")]
+            demography: DemographyParams::spec_defaults(),
             #[cfg(feature = "fiscal")]
             fiscal: FiscalParams::spec_defaults(),
             #[cfg(feature = "trade")]
@@ -720,6 +747,12 @@ pub enum PhaseId {
     GoodsMarket,
     Quits,
     Pay,
+    /// Ageing, deaths, births, retirement and the household life cycle, at
+    /// month end after Pay (specs economy/demographics and
+    /// society/households-lifecycle). A test writer's addition (ADR-0014):
+    /// the implementation puts it in [`PHASES`].
+    #[cfg(feature = "demography")]
+    People,
     WageRound,
     MonthlyClose,
     Checks,
@@ -1232,6 +1265,10 @@ impl World {
                 PhaseId::GoodsMarket => self.goods_market(),
                 PhaseId::Quits => self.quits(),
                 PhaseId::Pay => self.pay(),
+                #[cfg(feature = "demography")]
+                PhaseId::People => {
+                    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+                }
                 PhaseId::WageRound => self.wage_round(),
                 PhaseId::MonthlyClose => {
                     failed.extend(self.monthly_close());

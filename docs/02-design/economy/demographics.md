@@ -281,6 +281,8 @@ IDs are stable. Tests are written by the test-writer ([ADR-0014](../../03-archit
 
 AC-PG-02 (person conservation every day of 100 years) is owed to this spec and is covered by AC-DEM-03 at 20 years; its own test runs 100 years.
 
+The tests were written on 2026-10-29 by the test writer (ADR-0014), before the code: AC-DEM-01, 02, 10 and 17 in `crates/econ-mech-demography/tests/acceptance/` behind that crate's feature `demography`; the `[sim]` criteria in `crates/econ-core/tests/acceptance/demography.rs` behind econ-core's feature `demography` (off by default; runs of years are release-only). They read the test writer's additions: `World::people_life`, `household_life`, `people_report`, `retirement_age_in_force`, `mortality_table`, `WorldParams::demography`, `PhaseId::People` and `StartEdit::ScaleLabourRequirementFrom` (AC-DEM-19's lasting layoff), with the starting data of `World::people`. Readings chosen where the criteria leave room are stated in each test's comment.
+
 ## API sketch
 **A proposal.** A new crate `crates/econ-mech-demography` (pure functions, no I/O); the People phase walks the World's tables and posts the ledger legs.
 

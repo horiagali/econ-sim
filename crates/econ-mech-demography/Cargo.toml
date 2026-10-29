@@ -1,6 +1,6 @@
 [package]
 name = "econ-mech-demography"
-description = "Demographics: the starting tables (pre-pandemic mortality, 2019 fertility, retirement ages) and the career proxy at load (spec: economy/demographics)."
+description = "Demographics: the starting tables (pre-pandemic mortality, 2019 fertility, retirement ages) and the career proxy at load; the API skeletons of the People phase and the record operations of the household life cycle, with their acceptance tests (specs: economy/demographics, society/households-lifecycle)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,6 +9,26 @@ publish.workspace = true
 
 [dependencies]
 econ-types.workspace = true
+econ-num.workspace = true
+econ-rng.workspace = true
+econ-popgen.workspace = true
+
+[dev-dependencies]
+# AC-DEM-10: a new pension is paid by social transfers' rule.
+econ-mech-transfers.workspace = true
+
+[features]
+# Gate the acceptance tests: they were written before the code (ADR-0014), and
+# the implementation adds each to `default` once its tests pass.
+default = []
+# AC-DEM-01, 02, 10 and 17 (spec economy/demographics).
+demography = []
+# AC-HHL-01 to 04 (spec society/households-lifecycle).
+lifecycle = []
+
+[[test]]
+name = "acceptance"
+path = "tests/acceptance/main.rs"
 
 [lints]
 workspace = true

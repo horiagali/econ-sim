@@ -291,6 +291,10 @@ dependencies = [
 name = "econ-mech-demography"
 version = "0.1.0"
 dependencies = [
+ "econ-mech-transfers",
+ "econ-num",
+ "econ-popgen",
+ "econ-rng",
  "econ-types",
 ]
 

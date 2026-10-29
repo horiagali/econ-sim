@@ -70,6 +70,18 @@ mod levers_sim;
 #[cfg(feature = "levers")]
 mod support_lev;
 
+// M5: demographics and the household life cycle (specs economy/demographics,
+// society/households-lifecycle), written before the code against the test
+// writer's additions, behind the features `demography` and `lifecycle`,
+// which the implementation adds to `default`. Runs of years are
+// release-only (ignored under debug_assertions, the form of AC-WLD-10).
+#[cfg(feature = "demography")]
+mod demography;
+#[cfg(feature = "lifecycle")]
+mod households_lifecycle;
+#[cfg(feature = "demography")]
+mod support_dem;
+
 // M4: the policy-scenario suite (spec game/policy-scenarios, AC-POL-01 to
 // 11), behind the feature `policy`; the scenarios whose lever is not wired
 // yet are each behind their lever's feature as well (see `policy/mod.rs`).
