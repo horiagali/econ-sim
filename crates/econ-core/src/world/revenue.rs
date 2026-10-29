@@ -869,6 +869,7 @@ impl World {
             FlowCode::TRANSFER_CAPITAL_RECEIVED,
         );
         held.push(line(FlowCode::TRANSFER_CAPITAL_RECEIVED, due, capital));
+        self.bank_intraday_advance(&mut post);
         post.commit(&mut self.ledger);
         (held, by_hh.into_iter().map(bani).collect())
     }
@@ -940,6 +941,7 @@ impl World {
         }
         let mut post = Postings::default();
         post.pays_gov(Sector::Households, bani(paid), FlowCode::TAX_WEALTH);
+        self.bank_intraday_advance(&mut post);
         post.commit(&mut self.ledger);
     }
 
@@ -985,6 +987,7 @@ impl World {
         let mut post = Postings::default();
         post.pays_gov(Sector::Firms, bani(x), FlowCode::TAX_PRODUCTS);
         post.pays_gov(Sector::Firms, bani(e), FlowCode::TAX_EXCISE);
+        self.bank_intraday_advance(&mut post);
         post.commit(&mut self.ledger);
     }
 
@@ -1125,6 +1128,7 @@ impl World {
         }
         let mut post = Postings::default();
         post.pays_gov(Sector::Firms, bani(total), FlowCode::TAX_PRODUCTION);
+        self.bank_intraday_advance(&mut post);
         post.commit(&mut self.ledger);
         let (held, property) = self.pay_held_revenue(k);
         self.pay_wealth_tax();

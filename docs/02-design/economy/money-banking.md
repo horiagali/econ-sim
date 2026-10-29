@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/accounting, economy/monetary-policy, economy/opening-balance-sheet, game/world-loop, adr/0016-firm-representation, adr/0017-time-base]
 research: []
-updated: 2026-10-22
+updated: 2026-10-29
 ---
 
 # Money & Banking
@@ -79,6 +79,8 @@ What is built first, on the `World` of [game/world-loop](../game/world-loop.md).
 6. **Bank capital, at the monthly close.** Banks' equity moves with interest margins, write-offs and the payments of the banking industry's units (already in production); capital adequacy is equity over risk-weighted loans (firms and consumer loans 100%, mortgages 35%, government bonds and reserves 0%).
 
 > **Simplification (M3):** one bank; no bank runs, deposit insurance or bailouts (crisis dynamics are not modelled in v1, roadmap D10); no household borrowing or repayment; no rate differences by size class; foreign-currency loans and deposits are in lei.
+
+> **Simplification (intraday advance, owner-approved 2026-10-29):** reserves are checked at the end of the day only, so a batch of payments the banks make out of reserves during the day (taxes, interest withheld, bonds) could exceed their whole stock in an economy gone bad. When a batch would take the banks' reserves below zero, the central bank advances the shortfall in the same batch (`finance.cb_advance`), and the day's check of step 5 repays it out of any excess. A batch that leaves reserves at or above zero is untouched, so a normal run is unchanged: a bad economy ends in large advances, not a crash.
 
 **Not in M3:** the bank run, macroprudential limits (LTV, DSTI) as levers (M4), several banks, mortgages tied to house prices (M13), firm exit (M9).
 

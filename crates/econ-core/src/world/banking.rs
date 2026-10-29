@@ -375,6 +375,42 @@ impl World {
         post.commit(&mut self.ledger);
     }
 
+    /// An intraday advance (step 5): when a batch would take the banks'
+    /// reserves below zero (a day's taxes above their whole stock, only in
+    /// an economy gone bad), the central bank advances the shortfall in the
+    /// same batch, with the legs of [`World::bank_rebalance_reserves`]; the
+    /// day's check repays it out of any excess. A batch that leaves the
+    /// reserves at or above zero is untouched.
+    pub(super) fn bank_intraday_advance(&self, post: &mut Postings) {
+        if !self.bk.active {
+            return;
+        }
+        let reserves = i128::from(
+            self.ledger
+                .balance(Sector::Banks, Instrument::Reserves)
+                .get(),
+        );
+        let after = reserves + post.banks_reserves_net();
+        if after >= 0 {
+            return;
+        }
+        let x = bani(-after);
+        post.leg(
+            Sector::CentralBank,
+            Sector::Banks,
+            Instrument::Reserves,
+            x,
+            FlowCode::CB_ADVANCE,
+        );
+        post.leg(
+            Sector::Banks,
+            Sector::CentralBank,
+            Instrument::CbAdvances,
+            x,
+            FlowCode::CB_ADVANCE,
+        );
+    }
+
     /// Month end: interest on loans and deposits, per record (step 2), then
     /// repayments (step 3).
     #[allow(clippy::too_many_lines)]
@@ -512,6 +548,7 @@ impl World {
                 FlowCode::INTEREST_DEPOSIT,
             );
         }
+        self.bank_intraday_advance(&mut post);
         post.commit(&mut self.ledger);
         // Repayments: a share of the loans, out of deposits beyond a month of
         // wages.

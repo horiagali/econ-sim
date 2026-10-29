@@ -642,6 +642,7 @@ impl World {
                 self.hh.income_this_month[h] += g;
             }
         }
+        self.bank_intraday_advance(&mut post);
         post.commit(&mut self.ledger);
     }
 

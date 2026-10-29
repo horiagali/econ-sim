@@ -667,6 +667,7 @@ impl World {
         post.deposits(Sector::Firms, Sector::PensionFunds, bani(to_pf), code);
         post.deposits(Sector::Firms, Sector::Households, bani(hh_net), code);
         post.pays_gov(Sector::Firms, bani(tax), FlowCode::TAX_DIVIDEND);
+        self.bank_intraday_advance(&mut post);
         post.commit(&mut self.ledger);
         let v = &mut self.inv.view;
         v.dividends_by_sector[Sector::Government as usize] = bani(to_gov);

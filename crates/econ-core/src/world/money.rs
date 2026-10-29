@@ -53,6 +53,9 @@ pub(super) struct Postings {
     /// The firm sector's deposits in and out of this batch so far (the
     /// firm-payment backstop reads it).
     firms_net: i128,
+    /// The banks' reserves in and out of this batch so far (the intraday
+    /// advance reads it).
+    banks_reserves_net: i128,
 }
 
 impl Postings {
@@ -73,6 +76,12 @@ impl Postings {
             } else if payee == Sector::Firms {
                 self.firms_net += i128::from(amount.get());
             }
+        } else if instrument == Instrument::Reserves {
+            if payer == Sector::Banks {
+                self.banks_reserves_net -= i128::from(amount.get());
+            } else if payee == Sector::Banks {
+                self.banks_reserves_net += i128::from(amount.get());
+            }
         }
         let txn = self.txn.take().unwrap_or_default();
         self.txn = Some(txn.leg(payer, payee, instrument, amount, code));
@@ -82,6 +91,12 @@ impl Postings {
     /// what it moves out).
     pub(super) fn firms_net(&self) -> i128 {
         self.firms_net
+    }
+
+    /// What this batch so far moves into the banks' reserves (less what it
+    /// moves out).
+    pub(super) fn banks_reserves_net(&self) -> i128 {
+        self.banks_reserves_net
     }
 
     /// `payer` pays `payee` in bank deposits.
