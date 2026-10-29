@@ -327,11 +327,14 @@ impl World {
         self.cb.active && self.cb.follows_rule && !self.cb.overridden
     }
 
-    /// A `money.policy_rate` command took effect: the rule no longer sets
-    /// the rate.
+    /// A `money.policy_rate` command took effect: unless it leaves the rate
+    /// in force as it is (it changes nothing, AC-LEV-09), the rule no longer
+    /// sets the rate.
     #[cfg(feature = "levers")]
-    pub(crate) fn cb_override_rule(&mut self) {
-        self.cb.overridden = true;
+    pub(crate) fn cb_override_rule(&mut self, rate_ppm: i32) {
+        if rate_ppm != self.bank_policy_rate() {
+            self.cb.overridden = true;
+        }
     }
 
     /// The central bank's state for the state hash.

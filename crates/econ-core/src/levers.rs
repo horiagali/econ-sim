@@ -1296,9 +1296,13 @@ pub(crate) fn apply_due(world: &mut World, today: Date) {
     // A `money.policy_rate` command ends the advisory rule's setting of the
     // rate (spec economy/monetary-policy, "Control").
     #[cfg_attr(not(feature = "monetary"), allow(unused_variables))]
-    let overrides_rate = due
+    let new_rate = due
         .iter()
-        .any(|p| p.command.lever == LeverId::MoneyPolicyRate);
+        .filter(|p| p.command.lever == LeverId::MoneyPolicyRate)
+        .find_map(|p| match p.command.value {
+            LeverValue::Rate(bp) => Some(bp),
+            _ => None,
+        });
     for p in due {
         let c = &p.command;
         let old = st.law.get(c.lever, c.key).cloned();
@@ -1326,8 +1330,8 @@ pub(crate) fn apply_due(world: &mut World, today: Date) {
     }
     let law = law_of(&st.law, &st.registry, &industries);
     #[cfg(feature = "monetary")]
-    if overrides_rate {
-        world.cb_override_rule();
+    if let Some(bp) = new_rate {
+        world.cb_override_rule(bp * 100);
     }
     world.set_law(law);
     world.budget_refresh_pay();
