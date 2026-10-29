@@ -200,6 +200,7 @@ impl World {
             month_interest(foreign, p.foreign_yield_ppm),
             FlowCode::INTEREST_CB_FOREIGN,
         );
+        self.bank_intraday_advance(&mut post);
         post.commit(&mut self.ledger);
         self.cb.view.excess_reserves_basis = excess;
         self.cb.view.advances_basis = advances;

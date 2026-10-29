@@ -1198,6 +1198,7 @@ impl World {
         );
         post.pays_gov(Sector::Firms, bani(firms_vat), FlowCode::TAX_VAT);
         post.cash_into_bank(bani(by_cash));
+        self.bank_intraday_advance(&mut post);
         post.commit(&mut self.ledger);
         #[cfg(feature = "revenue")]
         self.rev_post_products();

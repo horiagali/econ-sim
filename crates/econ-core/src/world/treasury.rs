@@ -572,6 +572,7 @@ impl World {
         let mut post = Postings::default();
         post.pay_gov_any(sector, paid, FlowCode::BONDS);
         post.bonds(Sector::Government, sector, paid);
+        self.bank_intraday_advance(&mut post);
         post.commit(&mut self.ledger);
         paid
     }
