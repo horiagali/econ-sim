@@ -201,7 +201,10 @@ pub fn scale_money_lever(w: &mut World, lever: LeverId, num: i64, den: i64) {
     for k in keys {
         let key = key_of(w, lever, &k);
         let now = money_in_force(w, lever, Some(key));
-        give(w, set(lever, Some(key), LeverValue::Money(now.mul_ratio(num, den))));
+        give(
+            w,
+            set(lever, Some(key), LeverValue::Money(now.mul_ratio(num, den))),
+        );
     }
 }
 

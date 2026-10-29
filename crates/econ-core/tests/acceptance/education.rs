@@ -97,6 +97,13 @@ fn in_school(a: Activity) -> bool {
     matches!(a, Activity::Pupil | Activity::Student)
 }
 
+/// Whether a person row holds the same person at two snapshots: its age did
+/// not fall (a row freed by a death or a departure and reused by a newborn or
+/// an arrival starts younger).
+fn same_person(before: &[u16], after: &[u16], p: usize) -> bool {
+    matches!((before.get(p), after.get(p)), (Some(a), Some(b)) if b >= a)
+}
+
 /// The weighted enrolled persons of each level now.
 fn enrolled_by_level(w: &World) -> [u64; 7] {
     let weights = weights_of_persons(w);
@@ -175,7 +182,11 @@ fn ac_edu_01() {
         outside.iter().map(Vec::len).sum::<usize>() > 0,
         "the start has repeating, late or adult students"
     );
-    assert_eq!(w.edu_capacity(), enrolled_by_level(&w), "places = enrolled at load");
+    assert_eq!(
+        w.edu_capacity(),
+        enrolled_by_level(&w),
+        "places = enrolled at load"
+    );
 
     let again = world_2021_default(1000);
     assert_eq!(again.enrolled(), w.enrolled());
@@ -185,14 +196,20 @@ fn ac_edu_01() {
 
 fn p() -> EducationParams {
     let p = EducationParams::spec_defaults();
-    assert_eq!(p.dropout_ppm, [0, 5_000, 10_000, 20_000, 80_000, 120_000, 80_000]);
+    assert_eq!(
+        p.dropout_ppm,
+        [0, 5_000, 10_000, 20_000, 80_000, 120_000, 80_000]
+    );
     assert_eq!(p.continue_lower_to_upper_ppm, 980_000);
     assert_eq!(p.continue_upper_to_tertiary_ppm, 650_000);
     assert_eq!(p.continue_upper_to_post_ppm, 200_000);
     assert_eq!(p.continue_bachelor_to_master_ppm, 700_000);
     assert_eq!(p.primary_intake_ppm, 970_000);
     assert_eq!(p.preschool_intake_ppm, [660_000, 350_000, 200_000]);
-    assert_eq!(p.leaver_seek_ppm, [400_000, 700_000, 800_000, 850_000, 900_000]);
+    assert_eq!(
+        p.leaver_seek_ppm,
+        [400_000, 700_000, 800_000, 850_000, 900_000]
+    );
     assert_eq!(p.min_leaving_age, 16);
     p
 }
@@ -229,86 +246,274 @@ fn outcome(
 fn ac_edu_02() {
     let adult = years(17);
     // Dropout from upper secondary: leaves, keeps ISCED 0–2, a seeker or not.
-    let o = outcome(Enrolled::UpperSecondary, 1, EduLevel::Isced0To2, adult, false, [0, STAY, 0]);
+    let o = outcome(
+        Enrolled::UpperSecondary,
+        1,
+        EduLevel::Isced0To2,
+        adult,
+        false,
+        [0, STAY, 0],
+    );
     assert!(o.dropped_out && !o.completed);
-    assert_eq!((o.enrolled, o.study_year, o.edu_level), (Enrolled::None, 0, EduLevel::Isced0To2));
+    assert_eq!(
+        (o.enrolled, o.study_year, o.edu_level),
+        (Enrolled::None, 0, EduLevel::Isced0To2)
+    );
     assert_eq!(o.leaver, Some(LeaverFate::Seeking), "u3 0 < 400,000");
-    let o = outcome(Enrolled::UpperSecondary, 1, EduLevel::Isced0To2, adult, false, [19_999, STAY, 399_999]);
+    let o = outcome(
+        Enrolled::UpperSecondary,
+        1,
+        EduLevel::Isced0To2,
+        adult,
+        false,
+        [19_999, STAY, 399_999],
+    );
     assert!(o.dropped_out);
     assert_eq!(o.leaver, Some(LeaverFate::Seeking));
-    let o = outcome(Enrolled::UpperSecondary, 1, EduLevel::Isced0To2, adult, false, [0, STAY, 400_000]);
-    assert_eq!(o.leaver, Some(LeaverFate::Inactive), "u3 at the share: inactive");
+    let o = outcome(
+        Enrolled::UpperSecondary,
+        1,
+        EduLevel::Isced0To2,
+        adult,
+        false,
+        [0, STAY, 400_000],
+    );
+    assert_eq!(
+        o.leaver,
+        Some(LeaverFate::Inactive),
+        "u3 at the share: inactive"
+    );
     // A dropout with a job keeps it.
-    let o = outcome(Enrolled::Tertiary, 0, EduLevel::Isced3, years(25), true, [0, 0, 0]);
+    let o = outcome(
+        Enrolled::Tertiary,
+        0,
+        EduLevel::Isced3,
+        years(25),
+        true,
+        [0, 0, 0],
+    );
     assert_eq!(o.leaver, Some(LeaverFate::KeepsJob));
     assert_eq!(o.edu_level, EduLevel::Isced3);
     // No dropout at u1 = the rate.
-    let o = outcome(Enrolled::UpperSecondary, 1, EduLevel::Isced0To2, adult, false, [20_000, STAY, 0]);
+    let o = outcome(
+        Enrolled::UpperSecondary,
+        1,
+        EduLevel::Isced0To2,
+        adult,
+        false,
+        [20_000, STAY, 0],
+    );
     assert!(!o.dropped_out);
-    assert_eq!((o.enrolled, o.study_year, o.leaver), (Enrolled::UpperSecondary, 2, None), "progression");
+    assert_eq!(
+        (o.enrolled, o.study_year, o.leaver),
+        (Enrolled::UpperSecondary, 2, None),
+        "progression"
+    );
 
     // Completing upper secondary: ISCED 3, then continuation in table order.
-    let done = |u2| outcome(Enrolled::UpperSecondary, 3, EduLevel::Isced0To2, years(19), false, [STAY, u2, 0]);
+    let done = |u2| {
+        outcome(
+            Enrolled::UpperSecondary,
+            3,
+            EduLevel::Isced0To2,
+            years(19),
+            false,
+            [STAY, u2, 0],
+        )
+    };
     let o = done(0);
     assert!(o.completed && !o.dropped_out);
     assert_eq!(o.edu_level, EduLevel::Isced3);
-    assert_eq!((o.enrolled, o.study_year, o.leaver), (Enrolled::Tertiary, 0, None));
+    assert_eq!(
+        (o.enrolled, o.study_year, o.leaver),
+        (Enrolled::Tertiary, 0, None)
+    );
     assert_eq!(done(649_999).enrolled, Enrolled::Tertiary);
     assert_eq!(done(650_000).enrolled, Enrolled::PostSecondary);
     assert_eq!(done(849_999).enrolled, Enrolled::PostSecondary);
     let o = done(850_000);
     assert_eq!((o.enrolled, o.study_year), (Enrolled::None, 0));
     assert_eq!(o.edu_level, EduLevel::Isced3);
-    assert_eq!(o.leaver, Some(LeaverFate::Seeking), "u3 0 < 700,000 for ISCED 3");
+    assert_eq!(
+        o.leaver,
+        Some(LeaverFate::Seeking),
+        "u3 0 < 700,000 for ISCED 3"
+    );
     // The completion value never lowers `edu_level`.
-    let o = outcome(Enrolled::UpperSecondary, 3, EduLevel::Isced5To6, years(30), false, [STAY, STAY, STAY]);
+    let o = outcome(
+        Enrolled::UpperSecondary,
+        3,
+        EduLevel::Isced5To6,
+        years(30),
+        false,
+        [STAY, STAY, STAY],
+    );
     assert!(o.completed);
     assert_eq!(o.edu_level, EduLevel::Isced5To6);
     assert_eq!(o.leaver, Some(LeaverFate::Inactive));
 
     // Primary to lower secondary with no draw.
-    let o = outcome(Enrolled::Primary, 4, EduLevel::Isced0To2, years(11), false, [STAY, STAY, STAY]);
+    let o = outcome(
+        Enrolled::Primary,
+        4,
+        EduLevel::Isced0To2,
+        years(11),
+        false,
+        [STAY, STAY, STAY],
+    );
     assert!(o.completed);
-    assert_eq!((o.enrolled, o.study_year, o.leaver), (Enrolled::LowerSecondary, 0, None));
+    assert_eq!(
+        (o.enrolled, o.study_year, o.leaver),
+        (Enrolled::LowerSecondary, 0, None)
+    );
     // Lower secondary to upper secondary with 0.98.
-    let o = outcome(Enrolled::LowerSecondary, 3, EduLevel::Isced0To2, years(15), false, [STAY, 979_999, 0]);
-    assert_eq!((o.enrolled, o.edu_level), (Enrolled::UpperSecondary, EduLevel::Isced0To2));
-    let o = outcome(Enrolled::LowerSecondary, 3, EduLevel::Isced0To2, years(15), false, [STAY, 980_000, 0]);
+    let o = outcome(
+        Enrolled::LowerSecondary,
+        3,
+        EduLevel::Isced0To2,
+        years(15),
+        false,
+        [STAY, 979_999, 0],
+    );
+    assert_eq!(
+        (o.enrolled, o.edu_level),
+        (Enrolled::UpperSecondary, EduLevel::Isced0To2)
+    );
+    let o = outcome(
+        Enrolled::LowerSecondary,
+        3,
+        EduLevel::Isced0To2,
+        years(15),
+        false,
+        [STAY, 980_000, 0],
+    );
     assert_eq!(o.enrolled, Enrolled::None);
-    assert_eq!(o.leaver, None, "a leaver under 16 stays a pupil not enrolled");
-    let o = outcome(Enrolled::LowerSecondary, 3, EduLevel::Isced0To2, years(16), false, [STAY, 980_000, 0]);
+    assert_eq!(
+        o.leaver, None,
+        "a leaver under 16 stays a pupil not enrolled"
+    );
+    let o = outcome(
+        Enrolled::LowerSecondary,
+        3,
+        EduLevel::Isced0To2,
+        years(16),
+        false,
+        [STAY, 980_000, 0],
+    );
     assert_eq!(o.leaver, Some(LeaverFate::Seeking), "16: a leaver");
     // Post-secondary: ISCED 4, leave.
-    let o = outcome(Enrolled::PostSecondary, 1, EduLevel::Isced3, years(21), false, [STAY, 0, STAY]);
-    assert_eq!((o.enrolled, o.edu_level), (Enrolled::None, EduLevel::Isced4));
+    let o = outcome(
+        Enrolled::PostSecondary,
+        1,
+        EduLevel::Isced3,
+        years(21),
+        false,
+        [STAY, 0, STAY],
+    );
+    assert_eq!(
+        (o.enrolled, o.edu_level),
+        (Enrolled::None, EduLevel::Isced4)
+    );
     assert_eq!(o.leaver, Some(LeaverFate::Inactive));
     // Bachelor: ISCED 5–6, master with 0.70.
-    let o = outcome(Enrolled::Tertiary, 2, EduLevel::Isced3, years(22), false, [STAY, 699_999, 0]);
-    assert_eq!((o.enrolled, o.study_year, o.edu_level), (Enrolled::MasterDoctorate, 0, EduLevel::Isced5To6));
-    let o = outcome(Enrolled::Tertiary, 2, EduLevel::Isced3, years(22), false, [STAY, 700_000, 849_999]);
-    assert_eq!((o.enrolled, o.edu_level), (Enrolled::None, EduLevel::Isced5To6));
-    assert_eq!(o.leaver, Some(LeaverFate::Seeking), "u3 < 850,000 for ISCED 5–6");
+    let o = outcome(
+        Enrolled::Tertiary,
+        2,
+        EduLevel::Isced3,
+        years(22),
+        false,
+        [STAY, 699_999, 0],
+    );
+    assert_eq!(
+        (o.enrolled, o.study_year, o.edu_level),
+        (Enrolled::MasterDoctorate, 0, EduLevel::Isced5To6)
+    );
+    let o = outcome(
+        Enrolled::Tertiary,
+        2,
+        EduLevel::Isced3,
+        years(22),
+        false,
+        [STAY, 700_000, 849_999],
+    );
+    assert_eq!(
+        (o.enrolled, o.edu_level),
+        (Enrolled::None, EduLevel::Isced5To6)
+    );
+    assert_eq!(
+        o.leaver,
+        Some(LeaverFate::Seeking),
+        "u3 < 850,000 for ISCED 5–6"
+    );
     // Master: ISCED 7–8, leave.
-    let o = outcome(Enrolled::MasterDoctorate, 1, EduLevel::Isced5To6, years(24), true, [STAY, 0, 0]);
-    assert_eq!((o.enrolled, o.edu_level), (Enrolled::None, EduLevel::Isced7To8));
+    let o = outcome(
+        Enrolled::MasterDoctorate,
+        1,
+        EduLevel::Isced5To6,
+        years(24),
+        true,
+        [STAY, 0, 0],
+    );
+    assert_eq!(
+        (o.enrolled, o.edu_level),
+        (Enrolled::None, EduLevel::Isced7To8)
+    );
     assert_eq!(o.leaver, Some(LeaverFate::KeepsJob));
 
     // A dropout under 16 stays a pupil not enrolled.
-    let o = outcome(Enrolled::LowerSecondary, 1, EduLevel::Isced0To2, years(13), false, [0, 0, 0]);
+    let o = outcome(
+        Enrolled::LowerSecondary,
+        1,
+        EduLevel::Isced0To2,
+        years(13),
+        false,
+        [0, 0, 0],
+    );
     assert!(o.dropped_out);
     assert_eq!((o.enrolled, o.leaver), (Enrolled::None, None));
 
     // Pre-school: leaves at 6 on 1 September whatever the year; no leaver.
-    let o = outcome(Enrolled::PreSchool, 0, EduLevel::Isced0To2, 71, false, [STAY, STAY, STAY]);
+    let o = outcome(
+        Enrolled::PreSchool,
+        0,
+        EduLevel::Isced0To2,
+        71,
+        false,
+        [STAY, STAY, STAY],
+    );
     assert_eq!((o.enrolled, o.leaver), (Enrolled::None, None));
-    let o = outcome(Enrolled::PreSchool, 1, EduLevel::Isced0To2, years(5), false, [0, 0, 0]);
+    let o = outcome(
+        Enrolled::PreSchool,
+        1,
+        EduLevel::Isced0To2,
+        years(5),
+        false,
+        [0, 0, 0],
+    );
     assert!(!o.dropped_out, "no dropout from pre-school (rate 0)");
     assert_eq!((o.enrolled, o.study_year), (Enrolled::PreSchool, 2));
 
     // A pupil not enrolled: a leaver from 16.
-    let o = outcome(Enrolled::None, 0, EduLevel::Isced0To2, years(16), false, [STAY, STAY, 0]);
-    assert_eq!((o.enrolled, o.leaver), (Enrolled::None, Some(LeaverFate::Seeking)));
-    let o = outcome(Enrolled::None, 0, EduLevel::Isced0To2, years(16) - 1, false, [STAY, STAY, 0]);
+    let o = outcome(
+        Enrolled::None,
+        0,
+        EduLevel::Isced0To2,
+        years(16),
+        false,
+        [STAY, STAY, 0],
+    );
+    assert_eq!(
+        (o.enrolled, o.leaver),
+        (Enrolled::None, Some(LeaverFate::Seeking))
+    );
+    let o = outcome(
+        Enrolled::None,
+        0,
+        EduLevel::Isced0To2,
+        years(16) - 1,
+        false,
+        [STAY, STAY, 0],
+    );
     assert_eq!(o.leaver, None);
 }
 
@@ -326,21 +531,42 @@ fn ac_edu_02() {
 #[test]
 fn ac_edu_03() {
     // Ten entrants of 100, priorities out of order.
-    let entrants: Vec<(u64, u32, u32)> = [(50, 0), (10, 1), (90, 2), (30, 3), (70, 4), (20, 5), (60, 6), (40, 7), (80, 8), (0, 9)]
-        .iter()
-        .map(|&(prio, i)| (prio, i, 100))
-        .collect();
+    let entrants: Vec<(u64, u32, u32)> = [
+        (50, 0),
+        (10, 1),
+        (90, 2),
+        (30, 3),
+        (70, 4),
+        (20, 5),
+        (60, 6),
+        (40, 7),
+        (80, 8),
+        (0, 9),
+    ]
+    .iter()
+    .map(|&(prio, i)| (prio, i, 100))
+    .collect();
     let a = admit(1_000, 400, &entrants);
     assert_eq!(a.len(), 10);
     // Priorities 0, 10, 20, 30, 40, 50 fit: 400 + 600 = 1,000.
-    let admitted: Vec<u32> = entrants.iter().zip(&a).filter(|(_, &x)| x).map(|(e, _)| e.1).collect();
+    let admitted: Vec<u32> = entrants
+        .iter()
+        .zip(&a)
+        .filter(|(_, x)| **x)
+        .map(|(e, _)| e.1)
+        .collect();
     let mut admitted_sorted = admitted.clone();
     admitted_sorted.sort_unstable();
     assert_eq!(admitted_sorted, vec![0, 1, 3, 5, 7, 9]);
     // Ties broken by index.
     let tied: Vec<(u64, u32, u32)> = (0..5).map(|i| (7, 4 - i, 100)).collect();
     let a = admit(300, 100, &tied);
-    let got: Vec<u32> = tied.iter().zip(&a).filter(|(_, &x)| x).map(|(e, _)| e.1).collect();
+    let got: Vec<u32> = tied
+        .iter()
+        .zip(&a)
+        .filter(|(_, x)| **x)
+        .map(|(e, _)| e.1)
+        .collect();
     let mut got = got;
     got.sort_unstable();
     assert_eq!(got, vec![0, 1], "equal priorities: the lower indices");
@@ -348,18 +574,35 @@ fn ac_edu_03() {
     assert!(admit(1_000, 1_200, &entrants).iter().all(|&x| !x));
     // Places to spare.
     assert!(admit(10_000, 400, &entrants).iter().all(|&x| x));
-    assert!(admit(1_400, 400, &entrants).iter().all(|&x| x), "exactly enough");
+    assert!(
+        admit(1_400, 400, &entrants).iter().all(|&x| x),
+        "exactly enough"
+    );
     // A cohort of 6-year-olds of weight 1,000 each above the free places:
     // the surplus refused to within one weight.
     let cohort: Vec<(u64, u32, u32)> = (0..190u32)
-        .map(|i| (u64::from(i.wrapping_mul(2_654_435_761) % 1_000_003), i, 1_000))
+        .map(|i| {
+            (
+                u64::from(i.wrapping_mul(2_654_435_761) % 1_000_003),
+                i,
+                1_000,
+            )
+        })
         .collect();
     let free = 173_400;
     let a = admit(867_000, 867_000 - free, &cohort);
-    let admitted: u64 = cohort.iter().zip(&a).filter(|(_, &x)| x).map(|(e, _)| u64::from(e.2)).sum();
+    let admitted: u64 = cohort
+        .iter()
+        .zip(&a)
+        .filter(|(_, x)| **x)
+        .map(|(e, _)| u64::from(e.2))
+        .sum();
     let refused = 190_000 - admitted;
     assert!(admitted <= free, "within the places");
-    assert!(refused - (190_000 - free) < 1_000, "the surplus refused to within one weight: {refused}");
+    assert!(
+        refused - (190_000 - free) < 1_000,
+        "the surplus refused to within one weight: {refused}"
+    );
 }
 
 /// The weighted completers of a June report by level.
@@ -380,7 +623,12 @@ fn june_report(w: &mut World, year: i32) -> EducationYear {
 /// AC-EDU-04's check on a world at 1:100.
 fn assert_graduates(w: &mut World, what: &str) {
     // 2021's graduates: upper secondary, post-secondary, bachelor, master.
-    let targets = [(3, 175_934u64, 25), (4, 31_705, 30), (5, 76_593, 25), (6, 54_941, 30)];
+    let targets = [
+        (3, 175_934u64, 25),
+        (4, 31_705, 30),
+        (5, 76_593, 25),
+        (6, 54_941, 30),
+    ];
     for year in [2022, 2023, 2024] {
         let c = completers(&june_report(w, year));
         for (l, target, pct) in targets {
@@ -432,7 +680,11 @@ fn seekers_by_tier(w: &World) -> [u64; 3] {
 
 /// The columns education may change.
 fn edu_columns(w: &World) -> (Vec<Enrolled>, Vec<u8>, Vec<EduLevel>) {
-    (w.enrolled().to_vec(), w.study_year().to_vec(), w.persons().edu_level.clone())
+    (
+        w.enrolled().to_vec(),
+        w.study_year().to_vec(),
+        w.persons().edu_level.clone(),
+    )
 }
 
 /// Whether a day falls in July 2022.
@@ -457,13 +709,15 @@ fn in_july(d: Day, w: &World) -> bool {
 /// are the persons hired in July who qualify for the tier (each such hire
 /// leaves the tier's pool). The third part compares the three columns at
 /// every monthly close of 14 months with the close before, for the persons
-/// present at both.
+/// present at both (a resident row whose age did not fall: a row reused by a
+/// newborn or an arrival is another person).
 #[test]
 fn ac_edu_05() {
     let mut w = world_2021_default(1000);
     assert_eq!(w.date(), date(2021, 12, 1));
     assert_eq!(date(2022, 7, 1), Date::new(2022, 7, 1).expect("a date"));
     let mut cols = edu_columns(&w);
+    let mut ages = w.person_age_months().to_vec();
     let mut pre_june: Option<Vec<Activity>> = None;
     let mut after_june: Option<([u64; 3], [u64; 3], Vec<bool>)> = None;
     while w.months().len() < 14 {
@@ -478,9 +732,10 @@ fn ac_edu_05() {
         let t = closes; // the month just closed
         let now = edu_columns(&w);
         let res = residents_mask(&w);
+        let ages_now = w.person_age_months().to_vec();
         if t != 6 && t != 8 {
-            for p in 0..cols.0.len().min(now.0.len()) {
-                if !res[p] {
+            for (p, &resident) in res.iter().enumerate().take(cols.0.len().min(now.0.len())) {
+                if !resident || !same_person(&ages, &ages_now, p) {
                     continue;
                 }
                 assert_eq!(
@@ -543,9 +798,13 @@ fn ac_edu_05() {
                     hired[tier]
                 );
             }
-            assert!(leavers_seek[0] > 0, "the June close sent leavers to the labour market");
+            assert!(
+                leavers_seek[0] > 0,
+                "the June close sent leavers to the labour market"
+            );
         }
         cols = now;
+        ages = ages_now;
     }
 }
 
@@ -566,8 +825,14 @@ fn ac_edu_06() {
         step_until(&mut w, date(year, 7, 1));
         let early = w.early_leavers_rate_ppm();
         let tertiary = w.tertiary_attainment_ppm();
-        assert!((100_000..=220_000).contains(&early), "June {year}: early leavers {early}");
-        assert!((180_000..=320_000).contains(&tertiary), "June {year}: tertiary attainment {tertiary}");
+        assert!(
+            (100_000..=220_000).contains(&early),
+            "June {year}: early leavers {early}"
+        );
+        assert!(
+            (180_000..=320_000).contains(&tertiary),
+            "June {year}: tertiary attainment {tertiary}"
+        );
     }
 }
 
@@ -579,15 +844,22 @@ fn ac_edu_06() {
 /// student and who is not enrolled at load. The run covers three June closes
 /// (to July 2024). At every close such a person is not enrolled; at each
 /// June close, one still pupil or student before it who is 16 or older at
-/// the close is not pupil nor student after it; one younger still is.
+/// the close is not pupil nor student after it; one younger still is. A
+/// person who dies or emigrates (no longer a resident, or their row reused:
+/// its age falls) is followed no further.
 #[test]
 fn ac_edu_07() {
     let mut w = world_2021_default(1000);
     let start: Vec<usize> = (0..w.enrolled().len())
         .filter(|&p| w.enrolled()[p] == Enrolled::None && in_school(w.activity()[p]))
         .collect();
-    assert!(!start.is_empty(), "the start has pupils not enrolled (Stage K)");
+    assert!(
+        !start.is_empty(),
+        "the start has pupils not enrolled (Stage K)"
+    );
     let mut became_16 = 0;
+    let mut gone = vec![false; w.enrolled().len()];
+    let mut ages_before = w.person_age_months().to_vec();
     while w.date() < date(2024, 7, 1) {
         let before = w.activity().to_vec();
         let closes = w.months().len();
@@ -599,35 +871,53 @@ fn ac_edu_07() {
         let res = residents_mask(&w);
         let ages = w.person_age_months();
         for &p in &start {
-            if !res[p] {
+            gone[p] |= !res[p] || !same_person(&ages_before, ages, p);
+            if gone[p] {
                 continue;
             }
-            assert_eq!(w.enrolled()[p], Enrolled::None, "{:?}: person {p} enrolled", w.date());
+            assert_eq!(
+                w.enrolled()[p],
+                Enrolled::None,
+                "{:?}: person {p} enrolled",
+                w.date()
+            );
             if !in_school(before[p]) {
                 continue;
             }
             let still = in_school(w.activity()[p]);
             if june && ages[p] >= years(16) {
-                assert!(!still, "{:?}: person {p}, {} months, still a pupil", w.date(), ages[p]);
+                assert!(
+                    !still,
+                    "{:?}: person {p}, {} months, still a pupil",
+                    w.date(),
+                    ages[p]
+                );
                 became_16 += 1;
             } else {
-                assert!(still, "{:?}: person {p}, {} months, left school outside a June close at 16", w.date(), ages[p]);
+                assert!(
+                    still,
+                    "{:?}: person {p}, {} months, left school outside a June close at 16",
+                    w.date(),
+                    ages[p]
+                );
             }
         }
+        ages_before = ages.to_vec();
     }
     assert!(became_16 > 0, "some reached 16 and left");
 }
 
 /// What a close changed, by snapshot: the weighted leavers by fate.
 fn leavers_by_snapshot(
-    before: &(Vec<Enrolled>, Vec<Activity>),
+    before: &(Vec<Enrolled>, Vec<Activity>, Vec<u16>),
     w: &World,
 ) -> (u64, u64, u64) {
     let weights = weights_of_persons(w);
     let res = residents_mask(w);
+    let ages = w.person_age_months();
     let (mut seek, mut inactive, mut employed) = (0, 0, 0);
     for p in 0..before.0.len() {
-        if !res[p] {
+        if !res[p] || !same_person(&before.2, ages, p) {
             continue;
         }
         let was = before.0[p] != Enrolled::None || in_school(before.1[p]);
@@ -660,14 +950,21 @@ fn leavers_by_snapshot(
 /// older (a dropout from lower secondary at 14 stays a pupil): the test
 /// checks the leavers of the report against the persons who left school at
 /// the close (by snapshots of the day before and after), by fate: seeking,
-/// other inactive, keeping their job. The run covers the closes of June and
-/// August 2022, 2023 and 2024.
+/// other inactive, keeping their job, and checks that they are at most the
+/// sum of the identity's sources (dropouts, completers who do not continue,
+/// refused entrants, pupils and students not enrolled before the close and
+/// 16 or older at it). The run covers the closes of June and August 2022,
+/// 2023 and 2024.
 #[test]
 fn ac_edu_08() {
     let mut w = world_2021_default(1000);
     let mut checked = 0;
     while w.months().len() < 33 {
-        let snap = (w.enrolled().to_vec(), w.activity().to_vec());
+        let snap = (
+            w.enrolled().to_vec(),
+            w.activity().to_vec(),
+            w.person_age_months().to_vec(),
+        );
         let closes = w.months().len();
         step_checked(&mut w);
         if w.months().len() == closes {
@@ -677,10 +974,16 @@ fn ac_edu_08() {
         if t % 12 != 6 && t % 12 != 8 {
             continue;
         }
-        let y = w.education_year().expect("a report at a June or August close").clone();
+        let y = w
+            .education_year()
+            .expect("a report at a June or August close")
+            .clone();
         let counted = enrolled_by_level(&w);
         for (l, x) in y.levels.iter().enumerate() {
-            assert!(x.refused <= x.entrants, "month {t}, level {l}: refused above entrants");
+            assert!(
+                x.refused <= x.entrants,
+                "month {t}, level {l}: refused above entrants"
+            );
             assert_eq!(
                 i128::from(x.after),
                 i128::from(x.before) - i128::from(x.dropouts) - i128::from(x.completers)
@@ -694,13 +997,55 @@ fn ac_edu_08() {
                 "month {t}, level {l}: more continuing than completers"
             );
             if t % 12 == 8 {
-                assert_eq!((x.dropouts, x.completers), (0, 0), "month {t}: August has no dropouts or completers");
+                assert_eq!(
+                    (x.dropouts, x.completers),
+                    (0, 0),
+                    "month {t}: August has no dropouts or completers"
+                );
             }
         }
         let (seek, inactive, employed) = leavers_by_snapshot(&snap, &w);
-        assert_eq!(y.leavers_seeking.iter().sum::<u64>(), seek, "month {t}: leavers seeking");
-        assert_eq!(y.leavers_inactive.iter().sum::<u64>(), inactive, "month {t}: leavers inactive");
-        assert_eq!(y.leavers_employed.iter().sum::<u64>(), employed, "month {t}: leavers employed");
+        assert_eq!(
+            y.leavers_seeking.iter().sum::<u64>(),
+            seek,
+            "month {t}: leavers seeking"
+        );
+        assert_eq!(
+            y.leavers_inactive.iter().sum::<u64>(),
+            inactive,
+            "month {t}: leavers inactive"
+        );
+        assert_eq!(
+            y.leavers_employed.iter().sum::<u64>(),
+            employed,
+            "month {t}: leavers employed"
+        );
+        // The leavers come only from the identity's sources: dropouts,
+        // completers who do not continue, refused entrants, and pupils and
+        // students not enrolled before the close who are 16 or older at it.
+        let weights = weights_of_persons(&w);
+        let res = residents_mask(&w);
+        let ages = w.person_age_months();
+        let not_enrolled_16: u64 = (0..snap.0.len())
+            .filter(|&p| {
+                res[p]
+                    && snap.0[p] == Enrolled::None
+                    && in_school(snap.1[p])
+                    && ages[p] >= years(16)
+            })
+            .map(|p| u64::from(weights[p]))
+            .sum();
+        let sources: u64 = y
+            .levels
+            .iter()
+            .map(|x| x.dropouts + x.completers - x.continuing_to.iter().sum::<u64>() + x.refused)
+            .sum::<u64>()
+            + not_enrolled_16;
+        assert!(
+            seek + inactive + employed <= sources,
+            "month {t}: {} leavers from {sources} dropouts, completers leaving, refused and pupils not enrolled of 16 or more",
+            seek + inactive + employed
+        );
         checked += 1;
     }
     assert_eq!(checked, 6, "three June and three August closes");

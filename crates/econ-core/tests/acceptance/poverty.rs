@@ -20,11 +20,11 @@
 //!   rounded half away from zero (the spec says "bani × 1,000, integer" and
 //!   does not fix the rounding).
 
+use econ_core::levers::LeverId;
 use econ_core::poverty::{
     Distribution, IncomeMeasures, class_of, eq_adults_milli, measures, recent_income,
 };
 use econ_core::world::World;
-use econ_core::levers::LeverId;
 use econ_types::Bani;
 
 use super::support::params;
@@ -62,7 +62,10 @@ fn distribution_of(w: &World, scale: u32, income: &[Bani]) -> (Vec<i128>, Vec<u6
         }
         let member_ages: Vec<u16> = m.iter().map(|&p| ages[p]).collect();
         let e = eq_adults_milli(&member_ages);
-        x.push(round_div(i128::from(income[h].get()) * 1_000_000, i128::from(e)));
+        x.push(round_div(
+            i128::from(income[h].get()) * 1_000_000,
+            i128::from(e),
+        ));
         v.push(m.len() as u64 * u64::from(wt));
     }
     (x, v)
@@ -87,8 +90,16 @@ fn ac_pov_01() {
         eq_adults_milli(&[years(40), years(38), years(15), years(13), years(2)]),
         2_600
     );
-    assert_eq!(eq_adults_milli(&[years(40), years(14)]), 1_500, "14 counts 0.5");
-    assert_eq!(eq_adults_milli(&[years(40), years(14) - 1]), 1_300, "13 and 11 months");
+    assert_eq!(
+        eq_adults_milli(&[years(40), years(14)]),
+        1_500,
+        "14 counts 0.5"
+    );
+    assert_eq!(
+        eq_adults_milli(&[years(40), years(14) - 1]),
+        1_300,
+        "13 and 11 months"
+    );
     assert_eq!(eq_adults_milli(&[years(70), years(68), years(45)]), 2_000);
     // The order of the members does not matter.
     assert_eq!(
@@ -119,7 +130,10 @@ fn ac_pov_01() {
     }
     assert!(in_collective > 0, "the fixture has collective households");
     let s = &w.poverty_stats()[0];
-    assert_eq!(s.national.population, all, "members of private households × weights");
+    assert_eq!(
+        s.national.population, all,
+        "members of private households × weights"
+    );
     assert_eq!(
         [
             s.by_age[0].population,
@@ -132,7 +146,14 @@ fn ac_pov_01() {
 }
 
 /// The measures, checked field by field.
-fn assert_measures(m: &IncomeMeasures, median: i128, rate: u32, gini: u32, s80: Option<u32>, what: &str) {
+fn assert_measures(
+    m: &IncomeMeasures,
+    median: i128,
+    rate: u32,
+    gini: u32,
+    s80: Option<u32>,
+    what: &str,
+) {
     assert_eq!(m.median_milli, median, "{what}: median");
     assert_eq!(m.poverty_rate_ppm, rate, "{what}: poverty rate");
     assert_eq!(m.gini_ppm, gini, "{what}: Gini");
@@ -182,7 +203,11 @@ fn ac_pov_02() {
     for order in [[3, 2, 1, 0], [2, 0, 3, 1], [1, 3, 0, 2]] {
         let xp: Vec<i128> = order.iter().map(|&i| x[i]).collect();
         let vp: Vec<u64> = order.iter().map(|&i| v[i]).collect();
-        assert_eq!(measures(&dist(&xp, &vp), LINE), m_c(), "C permuted {order:?}");
+        assert_eq!(
+            measures(&dist(&xp, &vp), LINE),
+            m_c(),
+            "C permuted {order:?}"
+        );
     }
 }
 
@@ -219,13 +244,23 @@ fn ac_pov_03() {
     for (num, den, what) in [(6, 5, "×1.2"), (4, 5, "×0.8")] {
         let xs: Vec<i128> = x.iter().map(|&xi| xi * num / den).collect();
         let m = measures(&dist(&xs, &v), LINE);
-        assert_eq!(m.poverty_rate_ppm, base.poverty_rate_ppm, "{what}: poverty rate");
+        assert_eq!(
+            m.poverty_rate_ppm, base.poverty_rate_ppm,
+            "{what}: poverty rate"
+        );
         assert_eq!(m.gini_ppm, base.gini_ppm, "{what}: Gini");
         assert_eq!(m.s80_s20_ppm, base.s80_s20_ppm, "{what}: S80/S20");
-        assert_eq!(m.median_milli, base.median_milli * num / den, "{what}: median");
+        assert_eq!(
+            m.median_milli,
+            base.median_milli * num / den,
+            "{what}: median"
+        );
         let risk = at_risk(&xs);
         if num > den {
-            assert!(risk < base_risk, "{what}: the class at risk shrinks ({risk})");
+            assert!(
+                risk < base_risk,
+                "{what}: the class at risk shrinks ({risk})"
+            );
         } else {
             assert!(risk > base_risk, "{what}: the class at risk grows ({risk})");
         }
@@ -233,7 +268,10 @@ fn ac_pov_03() {
     // Example C scaled.
     let c = m_c();
     for (num, den) in [(6, 5), (4, 5)] {
-        let xs: Vec<i128> = [100i128, 200, 600, 900].iter().map(|&xi| xi * num / den).collect();
+        let xs: Vec<i128> = [100i128, 200, 600, 900]
+            .iter()
+            .map(|&xi| xi * num / den)
+            .collect();
         let m = measures(&dist(&xs, &[2, 3, 3, 2]), LINE);
         assert_eq!(
             (m.poverty_rate_ppm, m.gini_ppm, m.s80_s20_ppm),
@@ -275,7 +313,11 @@ fn ac_pov_04() {
     for (t, s) in stats.iter().enumerate() {
         let v = s.national.population;
         assert!(v > 0);
-        assert_eq!(s.class_persons.iter().sum::<u64>(), v, "month {t}: the classes sum to the population");
+        assert_eq!(
+            s.class_persons.iter().sum::<u64>(),
+            v,
+            "month {t}: the classes sum to the population"
+        );
         for k in 0..4 {
             let exact = s.class_persons[k] * 1_000_000 / v;
             assert!(
@@ -323,7 +365,11 @@ fn ac_pov_05() {
         "poverty rate {}",
         a.poverty_rate_ppm
     );
-    assert!((290_000..=380_000).contains(&a.gini_ppm), "Gini {}", a.gini_ppm);
+    assert!(
+        (290_000..=380_000).contains(&a.gini_ppm),
+        "Gini {}",
+        a.gini_ppm
+    );
     let s80 = a.s80_s20_ppm.expect("the poorest fifth has income");
     assert!((5_000_000..=8_500_000).contains(&s80), "S80/S20 {s80}");
     let median = a.median_milli;
@@ -372,7 +418,13 @@ fn ac_pov_06() {
     let d = [down.0, down.1, down.2];
     for k in 0..3 {
         assert!(u[k] < b[k], "+50%: {} {} against {}", names[k], u[k], b[k]);
-        assert!(d[k] > b[k], "to zero: {} {} against {}", names[k], d[k], b[k]);
+        assert!(
+            d[k] > b[k],
+            "to zero: {} {} against {}",
+            names[k],
+            d[k],
+            b[k]
+        );
     }
 }
 
@@ -399,7 +451,11 @@ fn ac_pov_07() {
     while a.months().len() < 24 {
         let ra = super::support_m5::step_checked(&mut a);
         let rb = super::support_m5::step_checked(&mut b);
-        assert_eq!(ra.state_hash, rb.state_hash, "{:?}: the state hashes differ", ra.date);
+        assert_eq!(
+            ra.state_hash, rb.state_hash,
+            "{:?}: the state hashes differ",
+            ra.date
+        );
     }
     assert_eq!(b.months().len(), 24);
     assert_eq!(a.state_hash(), b.state_hash(), "after 24 months");
@@ -413,8 +469,10 @@ fn ac_pov_07() {
 /// Readings: checked at the December closes of 2021 (month 0), 2022 (month
 /// 12) and 2023 (month 24) at 1:1000. The calendar year's income of a
 /// household is the growth of its `income_to_date` over the year's months;
-/// for month 0, which has one month, it is 12 times month 0's income (the
-/// spec's "month 0's × 12"). The distribution is the private households
+/// for month 0, which has one month, the annual indicators are month 0's ×
+/// 12 (the spec's words): the measures on 12 times each household's income
+/// of month 0, or those on month 0's income with the median times 12 (the
+/// two differ only by rounding, and the spec does not choose). The distribution is the private households
 /// with members, `x_h` the year's income over the equivalised size at the
 /// close (see the module's readings), `v_h` members times weight, the line
 /// 0.6. Other closes have no annual indicators. Between Decembers,
@@ -437,10 +495,17 @@ fn next_close_and_check(w: &mut World, at_december: &mut Vec<Bani>) {
     let s = &w.poverty_stats()[t];
     let december = t.is_multiple_of(12);
     if !december {
-        assert!(s.annual.is_none(), "month {t}: annual indicators outside December");
+        assert!(
+            s.annual.is_none(),
+            "month {t}: annual indicators outside December"
+        );
         for (h, &y) in w.hh_income_year().iter().enumerate() {
             let since = at_december.get(h).copied().unwrap_or(Bani::ZERO);
-            assert_eq!(y, to_date[h] - since, "month {t}: household {h}'s income of the year so far");
+            assert_eq!(
+                y,
+                to_date[h] - since,
+                "month {t}: household {h}'s income of the year so far"
+            );
         }
         return;
     }
@@ -455,8 +520,26 @@ fn next_close_and_check(w: &mut World, at_december: &mut Vec<Bani>) {
     };
     let (x, v) = distribution_of(w, 1000, &year);
     let want = measures(&dist(&x, &v), LINE);
-    let got = s.annual.unwrap_or_else(|| panic!("month {t}: December has annual indicators"));
-    assert_eq!(got, want, "month {t}: the annual indicators");
+    let got = s
+        .annual
+        .unwrap_or_else(|| panic!("month {t}: December has annual indicators"));
+    if t == 0 {
+        // "Month 0's × 12": the measures on 12 times the month's income, or
+        // the month's measures with the median times 12 (the spec does not
+        // say which; they differ only by the rounding of `x_h`).
+        let (x1, v1) = distribution_of(w, 1000, &to_date);
+        let month = measures(&dist(&x1, &v1), LINE);
+        let scaled = IncomeMeasures {
+            median_milli: month.median_milli * 12,
+            ..month
+        };
+        assert!(
+            got == want || got == scaled,
+            "month 0: the annual indicators {got:?}, against {want:?} or {scaled:?}"
+        );
+    } else {
+        assert_eq!(got, want, "month {t}: the annual indicators");
+    }
     assert!(
         w.hh_income_year().iter().all(|&y| y == Bani::ZERO),
         "month {t}: hh_income_year is zero after the December close"
@@ -477,17 +560,35 @@ fn ac_pov_09() {
     let third = 333_333;
     let one = 1_000_000;
     // 100,000 + (130,000 − 100,000) / 3 = 109,999.99 → 110,000.
-    assert_eq!(recent_income(Bani(100_000), Bani(130_000), one, third), Bani(110_000));
+    assert_eq!(
+        recent_income(Bani(100_000), Bani(130_000), one, third),
+        Bani(110_000)
+    );
     // Falling income: 100,000 − 30,000 / 3.
-    assert_eq!(recent_income(Bani(100_000), Bani(70_000), one, third), Bani(90_000));
+    assert_eq!(
+        recent_income(Bani(100_000), Bani(70_000), one, third),
+        Bani(90_000)
+    );
     // Prices 10% up: 130,000 / 1.1 = 118,181.8; 100,000 + 18,181.8 / 3 = 106,060.6.
-    assert_eq!(recent_income(Bani(100_000), Bani(130_000), 1_100_000, third), Bani(106_061));
+    assert_eq!(
+        recent_income(Bani(100_000), Bani(130_000), 1_100_000, third),
+        Bani(106_061)
+    );
     // Speed 1: last month's real income only.
-    assert_eq!(recent_income(Bani(55_555), Bani(110_000), 1_100_000, one), Bani(100_000));
+    assert_eq!(
+        recent_income(Bani(55_555), Bani(110_000), 1_100_000, one),
+        Bani(100_000)
+    );
     // No change: no move.
-    assert_eq!(recent_income(Bani(80_000), Bani(80_000), one, third), Bani(80_000));
+    assert_eq!(
+        recent_income(Bani(80_000), Bani(80_000), one, third),
+        Bani(80_000)
+    );
     // Zero income: falls by a third.
-    assert_eq!(recent_income(Bani(90_000), Bani::ZERO, one, third), Bani(60_000));
+    assert_eq!(
+        recent_income(Bani(90_000), Bani::ZERO, one, third),
+        Bani(60_000)
+    );
 
     let mut w = world_2021_default(1000);
     run_closes(&mut w, 1);

@@ -28,8 +28,8 @@ use econ_types::Bani;
 use super::support::params;
 use super::support_lev::{date, give, set_on};
 use super::support_m5::{
-    adults_mask, feb_15_2022, members, next_close, run_closes, step_checked,
-    step_until, weights_of_persons, world_2021, world_2021_default,
+    adults_mask, feb_15_2022, members, next_close, run_closes, step_checked, step_until,
+    weights_of_persons, world_2021, world_2021_default,
 };
 
 const INCOME: usize = 0;
@@ -79,40 +79,91 @@ fn ac_app_01() {
     let p = defaults();
     assert_eq!(targets(&calm(), &p), [0, 0, 0, 0], "nothing changed");
 
-    let gain = PersonInputs { recent: Bani(105_000), ..calm() };
-    let loss = PersonInputs { recent: Bani(95_000), ..calm() };
+    let gain = PersonInputs {
+        recent: Bani(105_000),
+        ..calm()
+    };
+    let loss = PersonInputs {
+        recent: Bani(95_000),
+        ..calm()
+    };
     let g = targets(&gain, &p)[INCOME];
     let l = targets(&loss, &p)[INCOME];
     assert_eq!(g, 3_000, "a 5% gain");
     assert_eq!(l, -6_000, "a 5% loss");
-    assert_eq!(i64::from(l), -2 * i64::from(g), "κ times the gain's magnitude");
+    assert_eq!(
+        i64::from(l),
+        -2 * i64::from(g),
+        "κ times the gain's magnitude"
+    );
     // Another κ.
-    let p3 = ApprovalParams { loss_aversion_ppm: 3_000_000, ..p };
+    let p3 = ApprovalParams {
+        loss_aversion_ppm: 3_000_000,
+        ..p
+    };
     assert_eq!(targets(&loss, &p3)[INCOME], -9_000);
     assert_eq!(targets(&gain, &p3)[INCOME], 3_000);
 
     // The cap: ±25 points.
-    let big_gain = PersonInputs { recent: Bani(150_000), ..calm() };
-    let big_loss = PersonInputs { recent: Bani(50_000), ..calm() };
+    let big_gain = PersonInputs {
+        recent: Bani(150_000),
+        ..calm()
+    };
+    let big_loss = PersonInputs {
+        recent: Bani(50_000),
+        ..calm()
+    };
     assert_eq!(targets(&big_gain, &p)[INCOME], 25_000);
     assert_eq!(targets(&big_loss, &p)[INCOME], -25_000);
     // A loss capped even though κ · gain would not be: 30% loss → −36 → −25.
     assert_eq!(
-        targets(&PersonInputs { recent: Bani(70_000), ..calm() }, &p)[INCOME],
+        targets(
+            &PersonInputs {
+                recent: Bani(70_000),
+                ..calm()
+            },
+            &p
+        )[INCOME],
         -25_000
     );
 
     // Zero incomes.
-    let zero = PersonInputs { recent: Bani::ZERO, reference: Bani::ZERO, ..calm() };
+    let zero = PersonInputs {
+        recent: Bani::ZERO,
+        reference: Bani::ZERO,
+        ..calm()
+    };
     assert_eq!(targets(&zero, &p)[INCOME], 0, "both incomes zero");
-    let from_zero = PersonInputs { recent: Bani(1), reference: Bani::ZERO, ..calm() };
-    assert_eq!(targets(&from_zero, &p)[INCOME], 25_000, "only the reference zero");
-    let to_zero = PersonInputs { recent: Bani::ZERO, ..calm() };
-    assert_eq!(targets(&to_zero, &p)[INCOME], -25_000, "income lost entirely");
+    let from_zero = PersonInputs {
+        recent: Bani(1),
+        reference: Bani::ZERO,
+        ..calm()
+    };
+    assert_eq!(
+        targets(&from_zero, &p)[INCOME],
+        25_000,
+        "only the reference zero"
+    );
+    let to_zero = PersonInputs {
+        recent: Bani::ZERO,
+        ..calm()
+    };
+    assert_eq!(
+        targets(&to_zero, &p)[INCOME],
+        -25_000,
+        "income lost entirely"
+    );
 
     // Unemployment: −u_self, −u_hh per other member, at most two counted.
     let u = |seeking, others| {
-        targets(&PersonInputs { seeking, others_seeking: others, ..calm() }, &p)[UNEMPLOYMENT]
+        targets(
+            &PersonInputs {
+                seeking,
+                others_seeking: others,
+                ..calm()
+            },
+            &p,
+        )[UNEMPLOYMENT]
     };
     assert_eq!(u(true, 0), -10_000);
     assert_eq!(u(true, 1), -14_000);
@@ -122,7 +173,15 @@ fn ac_app_01() {
     assert_eq!(u(false, 3), -8_000);
 
     // Inflation above π0 = 3%, one point a point; deflation gives nothing.
-    let i = |ppm| targets(&PersonInputs { inflation_ppm: ppm, ..calm() }, &p)[INFLATION];
+    let i = |ppm| {
+        targets(
+            &PersonInputs {
+                inflation_ppm: ppm,
+                ..calm()
+            },
+            &p,
+        )[INFLATION]
+    };
     assert_eq!(i(50_000), -2_000, "5% a year");
     assert_eq!(i(30_000), 0, "at π0");
     assert_eq!(i(0), 0);
@@ -130,14 +189,29 @@ fn ac_app_01() {
     assert_eq!(i(1_030_000), -100_000, "hyperinflation is not capped");
 
     // Hardship.
-    let h = targets(&PersonInputs { hardship: true, ..calm() }, &p);
+    let h = targets(
+        &PersonInputs {
+            hardship: true,
+            ..calm()
+        },
+        &p,
+    );
     assert_eq!(h, [0, 0, 0, -8_000]);
     assert_eq!(h[HARDSHIP], -8_000);
 
     // The reference: r + λ_r (ỹ − r).
-    assert_eq!(next_reference(Bani(100_000), Bani(124_000), &p), Bani(101_000));
-    assert_eq!(next_reference(Bani(100_000), Bani(76_000), &p), Bani(99_000));
-    assert_eq!(next_reference(Bani(100_000), Bani(100_000), &p), Bani(100_000));
+    assert_eq!(
+        next_reference(Bani(100_000), Bani(124_000), &p),
+        Bani(101_000)
+    );
+    assert_eq!(
+        next_reference(Bani(100_000), Bani(76_000), &p),
+        Bani(99_000)
+    );
+    assert_eq!(
+        next_reference(Bani(100_000), Bani(100_000), &p),
+        Bani(100_000)
+    );
     assert_eq!(next_reference(Bani::ZERO, Bani(240_000), &p), Bani(10_000));
 }
 
@@ -159,11 +233,22 @@ fn ac_app_02() {
     let (parts, a) = step(Some([0, 0, 0, 0]), [3_000, -10_000, -2_000, -8_000], &p);
     assert_eq!(parts, [1_500, -5_000, -1_000, -4_000, 0]);
     assert_eq!(a, 41_500);
-    let (parts, _) = step(Some([1_500, -5_000, -1_000, -4_000]), [3_000, -10_000, -2_000, -8_000], &p);
+    let (parts, _) = step(
+        Some([1_500, -5_000, -1_000, -4_000]),
+        [3_000, -10_000, -2_000, -8_000],
+        &p,
+    );
     assert_eq!(&parts[..4], &[2_250, -7_500, -1_500, -6_000]);
     // Smoothing 1: the targets at once.
-    let p1 = ApprovalParams { smoothing_ppm: 1_000_000, ..p };
-    let (parts, _) = step(Some([7_000, -3_000, 0, 0]), [1_000, -1_000, -2_000, -8_000], &p1);
+    let p1 = ApprovalParams {
+        smoothing_ppm: 1_000_000,
+        ..p
+    };
+    let (parts, _) = step(
+        Some([7_000, -3_000, 0, 0]),
+        [1_000, -1_000, -2_000, -8_000],
+        &p1,
+    );
     assert_eq!(&parts[..4], &[1_000, -1_000, -2_000, -8_000]);
 
     // Extreme inflation: held at 0 by the bounds part.
@@ -175,8 +260,15 @@ fn ac_app_02() {
     assert_eq!(a, 100_000);
     assert_eq!(parts[BOUNDS], -10_000);
 
-    let values = [-1_000_000, -60_000, -25_000, -8_000, -1, 0, 1, 3_000, 25_000, 60_000];
-    for &prev in &[None, Some([0, 0, 0, 0]), Some([25_000, -18_000, -50_000, -8_000]), Some([-25_000, 0, 0, 0])] {
+    let values = [
+        -1_000_000, -60_000, -25_000, -8_000, -1, 0, 1, 3_000, 25_000, 60_000,
+    ];
+    for &prev in &[
+        None,
+        Some([0, 0, 0, 0]),
+        Some([25_000, -18_000, -50_000, -8_000]),
+        Some([-25_000, 0, 0, 0]),
+    ] {
         for &t0 in &values {
             for &t2 in &values {
                 for t13 in [(0, 0), (-18_000, -8_000), (-10_000, 0)] {
@@ -184,7 +276,11 @@ fn ac_app_02() {
                     let (parts, a) = step(prev, t, &p);
                     assert!((0..=100_000).contains(&a), "A {a} for {prev:?} {t:?}");
                     let sum: i64 = parts.iter().map(|&x| i64::from(x)).sum();
-                    assert_eq!(i64::from(a), 50_000 + sum, "A = 50 + the parts for {prev:?} {t:?}");
+                    assert_eq!(
+                        i64::from(a),
+                        50_000 + sum,
+                        "A = 50 + the parts for {prev:?} {t:?}"
+                    );
                     if let Some(s) = prev {
                         for k in 0..4 {
                             let gap = i64::from(t[k]) - i64::from(s[k]);
@@ -246,10 +342,19 @@ fn ends(high: bool) -> ApprovalParams {
 fn hashes_with(approval: Option<ApprovalParams>) -> Vec<u64> {
     let mut p = params();
     p.approval = approval;
+    let computed = approval.is_some();
     let mut w = world_2021(1000, p, Vec::new());
     let mut h = Vec::new();
     while w.months().len() < 24 {
         h.push(step_checked(&mut w).state_hash);
+    }
+    if computed {
+        let stats = w.approval_stats();
+        assert_eq!(stats.len(), 24, "approval was computed at every close");
+        assert!(
+            stats[23].national.is_some(),
+            "the nation has an approval after 24 months"
+        );
     }
     h
 }
@@ -263,7 +368,8 @@ fn hashes_with(approval: Option<ApprovalParams>) -> Vec<u64> {
 /// 0–200, κ 1–4, c^max 5–50, λ_r 1/60–1/3, u_self 0–30, u_hh 0–15, α_π 0–5,
 /// π0 0–10%, h 0–30, λ_A 0.1–1), all low in one run and all high in
 /// another. The test compares every day's hash, which includes the one after
-/// 24 months. Four runs of two years: release builds only.
+/// 24 months, and checks that the runs with parameters did compute approval
+/// at every close. Four runs of two years: release builds only.
 #[test]
 #[cfg_attr(
     debug_assertions,
@@ -271,7 +377,11 @@ fn hashes_with(approval: Option<ApprovalParams>) -> Vec<u64> {
 )]
 fn ac_app_03() {
     let on = hashes_with(Some(defaults()));
-    for (what, a) in [("not computed", None), ("lowest", Some(ends(false))), ("highest", Some(ends(true)))] {
+    for (what, a) in [
+        ("not computed", None),
+        ("lowest", Some(ends(false))),
+        ("highest", Some(ends(true))),
+    ] {
         let other = hashes_with(a);
         assert_eq!(other.len(), on.len());
         if let Some(d) = on.iter().zip(&other).position(|(x, y)| x != y) {
@@ -310,7 +420,8 @@ fn ac_app_04() {
     let rise = run_with(
         6,
         Some(|w: &mut World| {
-            let now = super::support_m5::money_in_force(w, LeverId::TransferPensionPointValue, None);
+            let now =
+                super::support_m5::money_in_force(w, LeverId::TransferPensionPointValue, None);
             give(
                 w,
                 super::support_lev::set(
@@ -323,10 +434,18 @@ fn ac_app_04() {
     );
     let b = &base.approval_stats()[5];
     let r = &rise.approval_stats()[5];
-    let d_ret = i64::from(group(r, Activity::Retired).mean_milli) - i64::from(group(b, Activity::Retired).mean_milli);
-    let d_emp = i64::from(group(r, Activity::Employed).mean_milli) - i64::from(group(b, Activity::Employed).mean_milli);
-    assert!(d_ret > 0, "the retired's approval rises: {d_ret} millipoints");
-    assert!(d_ret > d_emp, "more than the employed's: {d_ret} against {d_emp}");
+    let d_ret = i64::from(group(r, Activity::Retired).mean_milli)
+        - i64::from(group(b, Activity::Retired).mean_milli);
+    let d_emp = i64::from(group(r, Activity::Employed).mean_milli)
+        - i64::from(group(b, Activity::Employed).mean_milli);
+    assert!(
+        d_ret > 0,
+        "the retired's approval rises: {d_ret} millipoints"
+    );
+    assert!(
+        d_ret > d_emp,
+        "more than the employed's: {d_ret} against {d_emp}"
+    );
 }
 
 /// **AC-APP-05** `[sim]` At 1:1000, a 30% `fx.devaluation` on month 3 lowers
@@ -347,7 +466,12 @@ fn ac_app_05() {
         Some(|w: &mut World| {
             give(
                 w,
-                set_on(LeverId::FxDevaluation, None, LeverValue::Rate(3_000), date(2022, 3, 1)),
+                set_on(
+                    LeverId::FxDevaluation,
+                    None,
+                    LeverValue::Rate(3_000),
+                    date(2022, 3, 1),
+                ),
             );
         }),
     );
@@ -373,7 +497,10 @@ fn ac_app_05() {
         );
         checked += 1;
     }
-    assert!(checked >= 3, "at least the employed, the unemployed and the retired");
+    assert!(
+        checked >= 3,
+        "at least the employed, the unemployed and the retired"
+    );
     let fall = |a: Activity| i64::from(group(b, a).mean_milli) - i64::from(group(d, a).mean_milli);
     assert!(
         fall(Activity::Retired) > fall(Activity::Employed),
@@ -413,7 +540,9 @@ fn ac_app_06() {
         let n = w.persons().household_id.len();
         (
             w.persons().employer.clone(),
-            (0..n).map(|i| w.approval(u32::try_from(i).expect("fits"))).collect(),
+            (0..n)
+                .map(|i| w.approval(u32::try_from(i).expect("fits")))
+                .collect(),
         )
     };
     let mark = |w: &World, ep: &mut Vec<bool>, eh: &mut Vec<bool>| {
@@ -481,7 +610,10 @@ fn groups(s: &ApprovalStats) -> Vec<(String, Option<GroupApproval>)> {
 fn adult_set(w: &World) -> Vec<(usize, u32)> {
     let adults = adults_mask(w);
     let weights = weights_of_persons(w);
-    (0..adults.len()).filter(|&p| adults[p]).map(|p| (p, weights[p])).collect()
+    (0..adults.len())
+        .filter(|&p| adults[p])
+        .map(|p| (p, weights[p]))
+        .collect()
 }
 
 /// **AC-APP-07** `[sim]` Explanation: at every close of a 24-month run at
@@ -522,7 +654,10 @@ fn ac_app_07() {
         let adults_now = adult_set(&w);
         if adults_now == adults_before {
             let n = now.national.expect("adults have approval");
-            assert_eq!(n.composition_milli, 0, "month {t}: no adult entered or left the nation");
+            assert_eq!(
+                n.composition_milli, 0,
+                "month {t}: no adult entered or left the nation"
+            );
         }
         adults_before = adults_now;
     }
@@ -558,8 +693,13 @@ fn ac_app_08() {
         let s = &w.approval_stats()[t];
         let n = s.national.expect("the nation has adults");
         assert_eq!(n.adults, weighted, "month {t}: the nation's adults");
-        let total = |v: &[Option<GroupApproval>]| -> u64 { v.iter().flatten().map(|g| g.adults).sum() };
-        assert_eq!(total(&s.by_activity), weighted, "month {t}: activity groups");
+        let total =
+            |v: &[Option<GroupApproval>]| -> u64 { v.iter().flatten().map(|g| g.adults).sum() };
+        assert_eq!(
+            total(&s.by_activity),
+            weighted,
+            "month {t}: activity groups"
+        );
         assert_eq!(total(&s.by_sex), weighted, "month {t}: sex groups");
         assert_eq!(total(&s.by_fifth), weighted, "month {t}: fifths");
         assert!(
