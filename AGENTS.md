@@ -50,6 +50,21 @@ See `docs/00-vision/pillars.md`. The short version:
 - **Plausible over precise** — qualitatively right behaviour beats calibrated decimals.
 - **Systems over scripts** — outcomes emerge from mechanisms, not hard-coded events.
 
+## Owner working agreements (Horia, 2026-10-10 to 2026-10-29)
+Agreed in working sessions; they apply to every agent and tool.
+- **Flow:** one PR per unit of work. Run `just check` to a log and check its exit code before pushing (never pipe it into `tail` in front of `&& git push`). When the owner has asked for the work, merge on green CI, meaning every job, then move to the next roadmap item. Merge only after the `ci` workflow's `changes` job has reported: the docs checks report first.
+- **Progress:** after each big unit, report what merged and the % toward the alpha (end of M8) and toward v1, with milestones weighted by size (S=1, M=2, L=3).
+- **Data:** don't block on exact Romanian data. Make an educated guess, mark its confidence and keep totals exact.
+- **No-COVID world:** the simulation runs as if COVID never happened. Whenever you calibrate to 2020–2022 figures (deaths, employment, consumption, GDP, savings, budget), check them for COVID distortion and prefer pre-pandemic or normalised values, saying so in the spec. Pandemics come after v1.
+- **Decisions:** technical open questions may be decided "as proposed (owner's delegation, date)" and recorded in the spec. Design choices go to the owner. A change that weakens a test needs the owner's explicit yes (see "Don't").
+- **Parallel work:** several agents and sessions share this repo. Work in your own git worktree; never switch branches or merge in a shared checkout. Never use `git stash`, because the stash is shared between worktrees: use a WIP commit instead. Sessions end abruptly, so make WIP commits, push early, and run long checks in the foreground. An agent that backgrounds `just check` often stops and sits idle. Never force-push.
+- **Gotchas:**
+  - Quote any GitHub workflow `run:` value that ends in `::` (e.g. `policy::`). Otherwise the workflow fails to parse and CI shows a failed run with zero jobs.
+  - Write LaTeX from Python with raw strings (`r"..."`), since `\rho`, `\big` and `\text` silently become control characters.
+  - When crate dependencies change, refresh `ui/src-tauri/Cargo.lock` (`cargo metadata --manifest-path ui/src-tauri/Cargo.toml`), or the Windows job's `--locked` check fails.
+  - Docs and data files use CRLF line endings: keep them when editing.
+  - `cargo fmt` rewraps code, so re-anchor exact-match edits after formatting.
+
 ## Don't
 
 - Don't write mechanic code before its spec is at least `draft` and has acceptance tests.
