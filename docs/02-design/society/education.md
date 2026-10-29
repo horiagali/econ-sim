@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [society/population-groups, economy/fiscal-policy, society/population-inactivity-enrolment, society/population-attributes, economy/labor-market, economy/demographics, game/world-loop, adr/0006-determinism-contract, adr/0017-time-base]
 research: [research/education-flows-romania, research/inactivity-enrolment-romania]
-updated: 2026-10-26
+updated: 2026-10-29
 ---
 
 # Education
@@ -167,7 +167,7 @@ IDs are stable. The M5 criteria (first version) go in `crates/econ-core/tests/ac
 - [ ] **AC-EDU-05** `[sim]` At 1:1000: in the month after a June close, the weighted job seekers of each tier rise by at least the leavers who seek and qualify for it, less those hired that month; every leaver hired in a tier qualifies for it with their new `edu_level`; in the months other than June and August no person's `enrolled`, `study_year` or `edu_level` changes.
 - [ ] **AC-EDU-06** `[sim]` Over a 10-year run at 1:100, at each June close the early leavers rate of 18 to 24 is between 10% and 22% (2021: 15.3%) and the tertiary attainment of 25 to 34 between 18% and 32% (2021: 23.3%).
 - [ ] **AC-EDU-07** `[sim]` At 1:1000, no person who is a pupil not enrolled at the start is ever enrolled; each becomes a leaver at the first June close at which they are 16 or older.
-- [ ] **AC-EDU-08** `[unit]` The `EducationYear` report balances at every June and August close of a 3-year run at 1:1000: for each level, enrolled after = enrolled before − dropouts − completers + entrants admitted; leavers = dropouts + completers who do not continue + refused entrants of 16 or more + the not-enrolled pupils and students who turned 16; all weighted, exact.
+- [ ] **AC-EDU-08** `[unit]` The `EducationYear` report balances at every June and August close of a 3-year run at 1:1000: for each level, enrolled after = enrolled before − dropouts − completers + entrants admitted; leavers = the persons aged 16 or more at the close among the dropouts, the completers who do not continue, the refused entrants, and, at a June close, the persons not enrolled whose activity was pupil or student before it (younger ones stay pupils, step 3); all weighted, exact.
 - [ ] **AC-EDU-09** `[unit]` Determinism: two runs with the same seed give the same education hash (FNV-1a 64 over the person count, then each person's `enrolled`, `study_year`, `edu_level` and `activity`, one byte each) after three school years; at 1:1000 a different seed changes it, and AC-EDU-04 still holds at 1:100 with seed 7.
 
 **Later versions (M14):**
