@@ -401,9 +401,10 @@ pub enum StartEdit {
     #[cfg(feature = "migration")]
     NoDiaspora,
     /// A scripted shock (AC-MIG-15): for the whole run, the unemployment
-    /// rate the migration rules read for a development region (emigration
-    /// and the destination choice of moves between counties) is its measured
-    /// rate plus `points_ppm`. A test writer's addition (ADR-0014).
+    /// rate the migration rules read for a development region (emigration,
+    /// and for moves between counties both the origin's push factor and the
+    /// destination choice) is its measured rate plus `points_ppm`. A test
+    /// writer's addition (ADR-0014).
     #[cfg(feature = "migration")]
     MigrationUnemploymentShock {
         /// The development region.

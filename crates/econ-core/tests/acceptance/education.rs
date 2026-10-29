@@ -907,10 +907,20 @@ fn ac_edu_07() {
     assert!(became_16 > 0, "some reached 16 and left");
 }
 
-/// What a close changed, by snapshot: the weighted leavers by fate.
+/// The leavers of a close by the criterion, against the persons table.
+///
+/// The criterion's leavers are the resident persons aged 16 or more at the
+/// close among the dropouts, the completers who do not continue and the
+/// refused entrants (in the persons table: enrolled before the close and not
+/// enrolled after it) and, at a June close, the persons not enrolled whose
+/// activity was pupil or student before it. Asserts that each of them has
+/// left school (neither enrolled nor pupil or student) and that nobody else
+/// has; returns their weights by fate: seeking, other inactive, keeping a
+/// job.
 fn leavers_by_snapshot(
     before: &(Vec<Enrolled>, Vec<Activity>, Vec<u16>),
     w: &World,
+    june: bool,
 ) -> (u64, u64, u64) {
     let weights = weights_of_persons(w);
     let res = residents_mask(w);
@@ -920,11 +930,29 @@ fn leavers_by_snapshot(
         if !res[p] || !same_person(&before.2, ages, p) {
             continue;
         }
-        let was = before.0[p] != Enrolled::None || in_school(before.1[p]);
+        let was_enrolled = before.0[p] != Enrolled::None;
+        let left_level = was_enrolled && w.enrolled()[p] == Enrolled::None;
+        let pupil_not_enrolled = !was_enrolled && in_school(before.1[p]);
+        let leaver = ages[p] >= years(16) && (left_level || (june && pupil_not_enrolled));
+        let was = was_enrolled || in_school(before.1[p]);
         let is = w.enrolled()[p] != Enrolled::None || in_school(w.activity()[p]);
-        if !was || is {
+        if !leaver {
+            assert!(
+                !was || is,
+                "{:?}: person {p} ({} months) left school without being a leaver",
+                w.date(),
+                ages[p]
+            );
             continue;
         }
+        assert!(
+            !is,
+            "{:?}: leaver {p} ({} months) is still {:?}, {:?}",
+            w.date(),
+            ages[p],
+            w.enrolled()[p],
+            w.activity()[p]
+        );
         let wt = u64::from(weights[p]);
         match w.activity()[p] {
             Activity::Unemployed => seek += wt,
@@ -939,22 +967,21 @@ fn leavers_by_snapshot(
 /// **AC-EDU-08** `[unit]` The `EducationYear` report balances at every June
 /// and August close of a 3-year run at 1:1000: for each level, enrolled
 /// after = enrolled before − dropouts − completers + entrants admitted;
-/// leavers = dropouts + completers who do not continue + refused entrants of
-/// 16 or more + the not-enrolled pupils and students who turned 16; all
-/// weighted, exact.
+/// leavers = the persons aged 16 or more at the close among the dropouts,
+/// the completers who do not continue, the refused entrants, and the persons
+/// not enrolled whose activity was pupil or student before the close
+/// (younger ones stay pupils, step 3); all weighted, exact. (Restated in the
+/// spec 2026-10-29.)
 ///
 /// Readings: "entrants admitted" is `entrants − refused`; "enrolled after"
 /// is also the weighted enrolled count of the persons table after the
-/// close. The leavers' identity as written counts every dropout and every
-/// non-continuing completer, while step 3 makes a leaver only of those 16 or
-/// older (a dropout from lower secondary at 14 stays a pupil): the test
-/// checks the leavers of the report against the persons who left school at
-/// the close (by snapshots of the day before and after), by fate: seeking,
-/// other inactive, keeping their job, and checks that they are at most the
-/// sum of the identity's sources (dropouts, completers who do not continue,
-/// refused entrants, pupils and students not enrolled before the close and
-/// 16 or older at it). The run covers the closes of June and August 2022,
-/// 2023 and 2024.
+/// close. The leavers are found in the persons table by snapshots of the day
+/// before and after the close (see `leavers_by_snapshot`); the report's
+/// leavers, by fate (seeking, other inactive, keeping their job), equal
+/// them exactly. The not-enrolled pupils and students are a source at the
+/// June closes only: step 3 runs at the June close, and the August close
+/// makes leavers of refused entrants only. The run covers the closes of
+/// June and August 2022, 2023 and 2024.
 #[test]
 fn ac_edu_08() {
     let mut w = world_2021_default(1000);
@@ -974,6 +1001,7 @@ fn ac_edu_08() {
         if t % 12 != 6 && t % 12 != 8 {
             continue;
         }
+        let june = t % 12 == 6;
         let y = w
             .education_year()
             .expect("a report at a June or August close")
@@ -996,7 +1024,7 @@ fn ac_edu_08() {
                 x.continuing_to.iter().sum::<u64>() <= x.completers,
                 "month {t}, level {l}: more continuing than completers"
             );
-            if t % 12 == 8 {
+            if !june {
                 assert_eq!(
                     (x.dropouts, x.completers),
                     (0, 0),
@@ -1004,7 +1032,7 @@ fn ac_edu_08() {
                 );
             }
         }
-        let (seek, inactive, employed) = leavers_by_snapshot(&snap, &w);
+        let (seek, inactive, employed) = leavers_by_snapshot(&snap, &w, june);
         assert_eq!(
             y.leavers_seeking.iter().sum::<u64>(),
             seek,
@@ -1020,32 +1048,17 @@ fn ac_edu_08() {
             employed,
             "month {t}: leavers employed"
         );
-        // The leavers come only from the identity's sources: dropouts,
-        // completers who do not continue, refused entrants, and pupils and
-        // students not enrolled before the close who are 16 or older at it.
-        let weights = weights_of_persons(&w);
-        let res = residents_mask(&w);
-        let ages = w.person_age_months();
-        let not_enrolled_16: u64 = (0..snap.0.len())
-            .filter(|&p| {
-                res[p]
-                    && snap.0[p] == Enrolled::None
-                    && in_school(snap.1[p])
-                    && ages[p] >= years(16)
-            })
-            .map(|p| u64::from(weights[p]))
-            .sum();
-        let sources: u64 = y
-            .levels
-            .iter()
-            .map(|x| x.dropouts + x.completers - x.continuing_to.iter().sum::<u64>() + x.refused)
-            .sum::<u64>()
-            + not_enrolled_16;
-        assert!(
-            seek + inactive + employed <= sources,
-            "month {t}: {} leavers from {sources} dropouts, completers leaving, refused and pupils not enrolled of 16 or more",
-            seek + inactive + employed
+        let reported: u64 = y.leavers_seeking.iter().sum::<u64>()
+            + y.leavers_inactive.iter().sum::<u64>()
+            + y.leavers_employed.iter().sum::<u64>();
+        assert_eq!(
+            reported,
+            seek + inactive + employed,
+            "month {t}: the leavers are exactly the persons of 16 or more who left"
         );
+        if june {
+            assert!(reported > 0, "month {t}: the June close has leavers");
+        }
         checked += 1;
     }
     assert_eq!(checked, 6, "three June and three August closes");

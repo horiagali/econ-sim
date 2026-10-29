@@ -665,14 +665,21 @@ fn ac_mig_13() {
 
 /// **AC-MIG-14** `[sim]` Remittances support the leu: in the counterfactual
 /// without the diaspora tables, the exchange rate after 24 months is higher
-/// (the leu weaker) than with them, and the current account lower every
-/// month by at least the month's remittances less 5%.
+/// (the leu weaker) than with them, and the current account lower: in the
+/// first month (remittances arrive on its last day, before they are spent)
+/// by at least 95% of the month's remittances, and in every later month by
+/// more than zero and at most the month's remittances (spending on imports
+/// and the weaker leu narrow the gap; owner, 2026-10-29).
+///
+/// Restated with the spec on 2026-10-29 (owner's yes, recorded in the
+/// spec): the 95% floor held in every month before; it now holds in the
+/// first month, and later months are bounded on both sides.
 ///
 /// Readings: at 1:1000, the counterfactual is `StartEdit::NoDiaspora`. The
-/// exchange rate is `Foreign::exchange_rate_ppm` after the 24th close; at
-/// every one of the 24 closes, the current account with the diaspora less
-/// that of the counterfactual is at least 95% of the month's remittances
-/// with the diaspora.
+/// exchange rate is `Foreign::exchange_rate_ppm` after the 24th close. The
+/// gap of a month is the current account with the diaspora less that of the
+/// counterfactual, at each of the 24 closes; "the month's remittances" are
+/// those of the run with the diaspora.
 #[test]
 fn ac_mig_14() {
     let mut with = world(1000, Vec::new());
@@ -691,10 +698,21 @@ fn ac_mig_14() {
             - i128::from(without.trade_months()[t].current_account.get());
         let r = i128::from(m.remittances.get());
         assert!(r > 0, "month {t}: remittances are paid");
-        assert!(
-            gap * 100 >= r * 95,
-            "month {t}: the current account is {gap} bani lower without the diaspora, less than 95% of {r}"
-        );
+        if t == 0 {
+            assert!(
+                gap * 100 >= r * 95,
+                "month 0: the current account is {gap} bani lower without the diaspora, less than 95% of {r}"
+            );
+        } else {
+            assert!(
+                gap > 0,
+                "month {t}: the current account is not lower without the diaspora (gap {gap} bani)"
+            );
+            assert!(
+                gap <= r,
+                "month {t}: the current account is {gap} bani lower without the diaspora, more than the month's remittances {r}"
+            );
+        }
     }
 }
 
@@ -717,7 +735,10 @@ fn county_moves(months: &[MigrationMonth], c: usize) -> (u64, u64) {
 /// "lose" a negative one. The shock is `StartEdit::MigrationUnemploymentShock`
 /// for Cluj's development region (Nord-Vest), 50,000 millionths (5 points)
 /// for the whole run; Cluj's moves in over the first 24 closes are fewer, and
-/// its moves out more, than in the baseline.
+/// its moves out more, than in the baseline. Step 6's origin push factor
+/// (`move_unemployment`, added to the spec 2026-10-29) is what makes a
+/// county send more movers when its region's unemployment rises; the shock
+/// is read by it as by the destination choice.
 #[test]
 #[cfg_attr(
     debug_assertions,
