@@ -254,6 +254,10 @@ pub struct StartState {
     /// `game/lever-system`, "How the `World` carries it"); empty when the
     /// scenario has no budget.
     pub budget_wage_shares: Vec<(String, String, Bani)>,
+    /// The budget's social benefits by programme: (programme id, cash a
+    /// year, in kind a year), in the budget's order (spec
+    /// `economy/budget-2021`); empty when the scenario has no budget.
+    pub budget_benefits_year: Vec<(String, Bani, Bani)>,
     /// Each firm unit's loans in the firm-unit table (all lenders).
     pub unit_loans: Vec<Bani>,
     /// Each household's mortgage (stage H).

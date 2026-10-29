@@ -544,6 +544,7 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     s.gov_debt_profile = debt_profile(&scenario)?;
     s.gov_transfers_year = budget_transfers(scenario_dir)?;
     s.budget_wage_shares = budget_wage_shares(scenario_dir)?;
+    s.budget_benefits_year = budget_benefits(scenario_dir)?;
     s.gov_investment_year = budget_investment(scenario_dir)?;
     s.people = people_start(scenario_dir, &scenario, &hb, &pb)?;
     Ok(s)
@@ -733,6 +734,21 @@ fn budget_investment(scenario_dir: &Path) -> Result<Bani, SaveError> {
 /// belong to, by the units' own D11 totals (the last unit takes the
 /// remainder, so a line's parts add up exactly); a line none of whose
 /// subgroups belongs to a unit is left out.
+/// The budget's social benefits by programme: (id, cash, in kind) a year.
+fn budget_benefits(scenario_dir: &Path) -> Result<Vec<(String, Bani, Bani)>, SaveError> {
+    use crate::budget::Budget;
+    let path = scenario_dir.join("budget.json");
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let bytes = std::fs::read(&path).map_err(|e| SaveError::Io(format!("budget.json: {e}")))?;
+    let b = Budget::from_json(&bytes).map_err(|e| parse(format!("budget.json: {e:?}")))?;
+    Ok(b.programmes
+        .iter()
+        .map(|p| (p.id.clone(), p.cash, p.in_kind))
+        .collect())
+}
+
 fn budget_wage_shares(scenario_dir: &Path) -> Result<Vec<(String, String, Bani)>, SaveError> {
     use crate::budget::{Budget, EconType};
     let path = scenario_dir.join("budget.json");

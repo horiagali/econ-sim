@@ -1600,6 +1600,7 @@ impl World {
             investment_domestic: start.investment_domestic.clone(),
             investment_imported: start.investment_imported.clone(),
             gov_investment_year: start.gov_investment_year,
+            benefits: start.budget_benefits_year.clone(),
         };
         let mut world = World::new(start, law_of(&law, &registry, &industries), params)?;
         world.set_lever_state(LeverState {
