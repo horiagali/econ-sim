@@ -29,7 +29,16 @@ impl World {
         // Basis points to millionths.
         #[cfg(feature = "banking")]
         {
-            if let Some(v) = policy {
+            // The law's rate is the rate of the start date and of a command
+            // in force; while the advisory rule sets the rate, a change of
+            // another lever leaves it (owner, 2026-10-29).
+            #[cfg(feature = "monetary")]
+            let rule = self.cb_follows_rule();
+            #[cfg(not(feature = "monetary"))]
+            let rule = false;
+            if let Some(v) = policy
+                && !rule
+            {
                 self.bank_set_policy_rate(v * 100);
             }
             if let Some(v) = reserves {
