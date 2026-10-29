@@ -57,6 +57,7 @@ Agreed in working sessions; they apply to every agent and tool.
 - **Data:** don't block on exact Romanian data. Make an educated guess, mark its confidence and keep totals exact.
 - **No-COVID world:** the simulation runs as if COVID never happened. Whenever you calibrate to 2020–2022 figures (deaths, employment, consumption, GDP, savings, budget), check them for COVID distortion and prefer pre-pandemic or normalised values, saying so in the spec. Pandemics come after v1.
 - **Decisions:** technical open questions may be decided "as proposed (owner's delegation, date)" and recorded in the spec. Design choices go to the owner. A change that weakens a test needs the owner's explicit yes (see "Don't").
+- **Subagents:** don't spawn subagents, workflows or other agent threads unless the owner asks for one, or it is genuinely needed and the owner confirms first; this includes the `test-writer` (say why it is needed and ask). Do the work yourself, one task at a time: agents burn through the shared token quota very quickly (owner, 2026-10-29).
 - **Parallel work:** several agents and sessions share this repo. Work in your own git worktree; never switch branches or merge in a shared checkout. Never use `git stash`, because the stash is shared between worktrees: use a WIP commit instead. Sessions end abruptly, so make WIP commits, push early, and run long checks in the foreground. An agent that backgrounds `just check` often stops and sits idle. Never force-push.
 - **Gotchas:**
   - Quote any GitHub workflow `run:` value that ends in `::` (e.g. `policy::`). Otherwise the workflow fails to parse and CI shows a failed run with zero jobs.
@@ -68,6 +69,6 @@ Agreed in working sessions; they apply to every agent and tool.
 ## Don't
 
 - Don't write mechanic code before its spec is at least `draft` and has acceptance tests.
-- Don't edit protected test paths (`tests/golden/**`, `crates/*/tests/acceptance/**`, `schema/**`); a hook blocks it (ADR-0014). Tests are written by the `test-writer` subagent (`.claude/agents/test-writer.md`, ADR-0014 amendment 2): spawn it with the spec and criterion IDs, read its report, merge its PR on green CI. A restatement that weakens a test (wider band, removed check, checked → watched, lower tolerance) needs the owner's explicit yes, not a delegated decision (owner, 2026-10-26).
+- Don't edit protected test paths (`tests/golden/**`, `crates/*/tests/acceptance/**`, `schema/**`); a hook blocks it (ADR-0014). Tests are written by the `test-writer` subagent (`.claude/agents/test-writer.md`, ADR-0014 amendment 2): after the owner confirms (see "Subagents"), spawn it with the spec and criterion IDs, read its report, merge its PR on green CI. A restatement that weakens a test (wider band, removed check, checked → watched, lower tolerance) needs the owner's explicit yes, not a delegated decision (owner, 2026-10-26).
 - Don't edit `locked` specs without being asked.
 - Don't create new top-level folders without an ADR (`crates/`, `python/`, `tests/`, `scripts/`, `ui/` are sanctioned by ADR-0005/0010/0013/0014).
