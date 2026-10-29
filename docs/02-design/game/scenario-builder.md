@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [adr/0018-scenario-and-commands, economy/opening-balance-sheet, economy/accounting, society/population-generator, society/population-employers, adr/0016-firm-representation, adr/0012-data-pipeline-and-licensing, adr/0006-determinism-contract, adr/0003-people-representation]
 research: [research/opening-balance-sheet-romania]
-updated: 2026-10-22
+updated: 2026-10-29
 ---
 
 # Scenario Builder
@@ -44,6 +44,9 @@ All from one fixtures directory (default `python/pipeline/fixtures`), plus `--sa
 | `balance_sheets2021q4_ro.json`, `sector_details2021_ro.json` | the opening balance sheet |
 | `io_table2021_ro.json` | checks only |
 | `law2021_ro.json` | `law.json` and `world.json` (amendment of 2026-10-22) |
+| `inactivity_enrolment2021_ro.json` | stage K, now run by the builder (amendment of 2026-10-29, M5) |
+| `linked_emigrants2021_ro.json` | stage L, the linked emigrants and the diaspora stock (amendment of 2026-10-29) |
+| `demography2019_ro.json` | `demography.json`: pre-pandemic mortality, 2019 fertility, sex ratio at birth, retirement schedule (amendment of 2026-10-29) |
 
 ## Outputs
 A folder `DIR`:
@@ -56,6 +59,10 @@ A folder `DIR`:
 | `balances.arrow` | the opening balance sheet: one row per (instrument, sector) with `instrument` (u8), `sector` (u8), `balance` (i64, bani), in matrix order |
 | `report.json` | the consistency report (below) |
 | `law.json`, `world.json` | the law in force and the world settings on the start date: one JSON line per lever, and per key of a keyed lever, from `law2021_ro.json`, with `given` and `effective` the start date and no `seq` ([lever system](lever-system.md), "Logging and deterministic replay"); ids under `world.` go to `world.json` |
+| `tables/linked_emigrants.arrow`, `tables/diaspora_stock.arrow` | stage L ([migration and remittances](../economy/migration-remittances.md), "Starting state"; amendment of 2026-10-29) |
+| `demography.json` | the demographic tables, as `demography2019_ro.json` is (amendment of 2026-10-29) |
+
+**Amendment of 2026-10-29 (M5 starting data, owner's request).** `tables/households.arrow` also has `hh_key` (u64) and `tables/persons.arrow` `person_key` (u64), stable identifiers equal to the start's index (linked emigrants' keys continue after the residents'), plus stage K's `inactive_kind` and `enrolled` (u8). `scenario.json` also has `people_hashes`: `{inactivity_enrolment, linked_emigrants}` (16 hex digits each), and `next_person_key`, `next_hh_key`; `stage_hashes` keeps exactly the nine stages A to J. The `World` loads these but no phase reads them yet, and they are outside the state hash.
 
 **`firm_units.arrow`**, in the order of `firm_units2021_ro.json`:
 - Identity and size: `unit_id` (string), `industry` (u8, catalogue index), `industry_group` (u8), `size` (u8: micro 0, small 1, large 2, public 3), `kind` (u8: cohort 0, public 1), `controller` (u8: domestic 0, foreign 1, state 2).
@@ -91,7 +98,7 @@ These are the checks of the interim builder, with the same tolerances, plus the 
 ## Update rule
 There is no per-day rule. `build-scenario` is a pure function of the input files, `sample_scale` and `rng_seed`:
 1. Read and check every input; any rejection is a named error and nothing is written.
-2. Run stages A to J ([population generator](../society/population-generator.md) and its stage specs) with `rng_seed`.
+2. Run stages A to J ([population generator](../society/population-generator.md) and its stage specs) with `rng_seed`, then stages K and L (amendment of 2026-10-29).
 3. Build the firm-unit table: join `firm_units2021_ro.json` and `firm_balance_sheets2021_ro.json` by unit id. A balance sheet whose id is not a unit is an error. Count `employees` from stage J.
 4. Compute the opening balances ([opening balance sheet](../economy/opening-balance-sheet.md)), reconcile the household column with the weighted household totals (its rule 8), and post them into a new `Ledger` with flow code `opening`. If `check_invariants` fails, stop with an error and write nothing.
 5. Run the checks and write `report.json`. The other files are written to a temporary folder next to `DIR`, then renamed, so a failed build leaves no partial scenario.
