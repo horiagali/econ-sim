@@ -1,9 +1,14 @@
 //! Steps 1 to 4 of the spec: read the inputs, run stages A to J, build the
-//! firm-unit table and the opening balances, and post them.
+//! firm-unit table and the opening balances, and post them. Roadmap M5's
+//! starting data rides along: stages K (kinds of inactivity and enrolment)
+//! and L (linked emigrants and the diaspora stock) run after J, and the
+//! demographic tables are read and checked; none of them changes stages A to
+//! J or the opening balances.
 
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use econ_io::people::{read_demography, read_inactivity_margins, read_linked_emigrant_margins};
 use econ_io::popgen::{
     MarginFile, StageFile, read_attribute_margins, read_firm_units, read_housing_margins,
     read_income_margins, read_job_margins, read_margins, read_pension_margins, read_wage_margins,
@@ -12,10 +17,12 @@ use econ_io::popgen::{
 use econ_ledger::{Instrument, InvariantError, Ledger};
 use econ_popgen::{
     AttrParams, AttributeMargins, EmployerParams, FirmUnits, GenParams, HousingMargins,
-    HousingParams, IncomeMargins, IncomeParams, JobMargins, JobParams, PensionMargins,
+    HousingParams, InactivityEnrolmentMargins, InactivityParams, IncomeMargins, IncomeParams,
+    JobMargins, JobParams, LinkedEmigrantMargins, LinkedEmigrantParams, PensionMargins,
     PensionParams, WageMargins, WageParams, WealthMargins, WealthParams, assign_attributes,
-    assign_employers, assign_housing, assign_jobs, assign_other_incomes, assign_pensions,
-    assign_wages, assign_wealth, generate,
+    assign_employers, assign_housing, assign_inactivity_enrolment, assign_jobs,
+    assign_linked_emigrants, assign_other_incomes, assign_pensions, assign_wages, assign_wealth,
+    generate,
 };
 use econ_types::Bani;
 use serde_json::Value;
@@ -27,7 +34,7 @@ use crate::{
 };
 
 /// The input files of the spec's table, in its order.
-pub(crate) const INPUT_FILES: [&str; 15] = [
+pub(crate) const INPUT_FILES: [&str; 18] = [
     MARGINS,
     ATTRIBUTES,
     JOBS,
@@ -43,6 +50,9 @@ pub(crate) const INPUT_FILES: [&str; 15] = [
     IO,
     BUDGET,
     LAW,
+    INACTIVITY,
+    EMIGRANTS,
+    DEMOGRAPHY,
 ];
 const MARGINS: &str = "census2021_margins_ro.json";
 const ATTRIBUTES: &str = "census2021_edu_activity_ro.json";
@@ -64,6 +74,13 @@ pub(crate) const BUDGET: &str = "budget2021_ro.json";
 /// `game/lever-system`, "Default"), written to the scenario as `law.json`
 /// and `world.json`.
 pub(crate) const LAW: &str = "law2021_ro.json";
+/// Stage K (spec `society/population-inactivity-enrolment`).
+const INACTIVITY: &str = "inactivity_enrolment2021_ro.json";
+/// Stage L (spec `economy/migration-remittances`, "Starting state").
+const EMIGRANTS: &str = "linked_emigrants2021_ro.json";
+/// The demographic tables (spec `economy/demographics`), written to the
+/// scenario as `demography.json` as they are.
+pub(crate) const DEMOGRAPHY: &str = "demography2019_ro.json";
 
 /// The margin files of the stages, parsed.
 #[derive(Debug, Clone)]
@@ -86,6 +103,10 @@ pub struct StageInputs {
     pub incomes: StageFile<IncomeMargins>,
     /// Stage J: the firm units.
     pub firms: StageFile<FirmUnits>,
+    /// Stage K.
+    pub inactivity: StageFile<InactivityEnrolmentMargins>,
+    /// Stage L.
+    pub emigrants: StageFile<LinkedEmigrantMargins>,
 }
 
 fn input_err(file: &str, why: impl std::fmt::Display) -> BuildError {
@@ -116,7 +137,12 @@ pub(crate) fn read_inputs(dir: &Path) -> Result<Inputs, BuildError> {
         .map_err(|e| input_err(ATTRIBUTES, format!("{e:?}")))?;
     let jobs = read_job_margins(text(JOBS), &attributes.margins)
         .map_err(|e| input_err(JOBS, format!("{e:?}")))?;
+    read_demography(text(DEMOGRAPHY)).map_err(|e| input_err(DEMOGRAPHY, format!("{e:?}")))?;
     let stages = StageInputs {
+        inactivity: read_inactivity_margins(text(INACTIVITY))
+            .map_err(|e| input_err(INACTIVITY, format!("{e:?}")))?,
+        emigrants: read_linked_emigrant_margins(text(EMIGRANTS), &attributes.margins.regions)
+            .map_err(|e| input_err(EMIGRANTS, format!("{e:?}")))?,
         housing: read_housing_margins(text(HOUSING))
             .map_err(|e| input_err(HOUSING, format!("{e:?}")))?,
         wages: read_wage_margins(text(EARNINGS))
@@ -373,6 +399,23 @@ pub(crate) fn build_with_hook(
         &EmployerParams::new(seed),
     )
     .map_err(|e| stage_err("employers", e))?;
+    // Roadmap M5's starting data, read by no mechanic yet.
+    let inactivity = assign_inactivity_enrolment(
+        pop,
+        &attributes,
+        &s.inactivity.margins,
+        &InactivityParams::new(seed),
+    )
+    .map_err(|e| stage_err("inactivity_enrolment", e))?;
+    let emigrants = assign_linked_emigrants(
+        pop,
+        &s.attributes.margins.region_of_county,
+        s.attributes.margins.regions.len(),
+        &housing,
+        &s.emigrants.margins,
+        &LinkedEmigrantParams::new(seed),
+    )
+    .map_err(|e| stage_err("linked_emigrants", e))?;
 
     // Step 3: the firm units' employees.
     let mut firm_units = inputs.firm_units.clone();
@@ -419,6 +462,8 @@ pub(crate) fn build_with_hook(
         wealth,
         incomes,
         employers,
+        inactivity,
+        emigrants,
     };
     let mut scenario = Scenario {
         params: *params,

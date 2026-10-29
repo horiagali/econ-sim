@@ -4,6 +4,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use econ_io::people::{diaspora_stock_table, linked_emigrants_table};
 use econ_io::popgen::{Stages, households_table, persons_table};
 use econ_io::table::{Column, NamedColumn, ipc_table};
 use econ_ledger::{Instrument, Sector};
@@ -152,6 +153,7 @@ fn files(scenario: &Scenario, inputs: &Inputs) -> Result<BTreeMap<String, Vec<u8
         wealth: Some((&s.wealth, &st.wealth.provenance)),
         incomes: Some((&s.incomes, &st.incomes.provenance)),
         employers: Some((&s.employers, &st.firms.provenance)),
+        inactivity: Some((&s.inactivity, &st.inactivity.provenance)),
         region_of_county: Some(&st.attributes.margins.region_of_county),
     };
     let arrow = |r: Result<Vec<u8>, econ_io::SaveError>| r.map_err(|e| io_err(format!("{e:?}")));
@@ -168,10 +170,31 @@ fn files(scenario: &Scenario, inputs: &Inputs) -> Result<BTreeMap<String, Vec<u8
         "tables/firm_units.arrow".to_string(),
         firm_units_table(&scenario.firm_units)?,
     );
+    // Stage L (roadmap M5): the linked emigrants, whose person keys follow
+    // the residents', and the diaspora stock.
+    out.insert(
+        "tables/linked_emigrants.arrow".to_string(),
+        arrow(linked_emigrants_table(
+            &s.emigrants,
+            scenario.population.persons.household_id.len() as u64,
+        ))?,
+    );
+    out.insert(
+        "tables/diaspora_stock.arrow".to_string(),
+        arrow(diaspora_stock_table(&s.emigrants))?,
+    );
     out.insert("balances.arrow".to_string(), balances_table(scenario)?);
     // The starting budget, as the fixture is.
     if let Some((_, bytes)) = inputs.files.iter().find(|(n, _)| n == crate::build::BUDGET) {
         out.insert("budget.json".to_string(), bytes.clone());
+    }
+    // The demographic tables (spec economy/demographics), as the fixture is.
+    if let Some((_, bytes)) = inputs
+        .files
+        .iter()
+        .find(|(n, _)| n == crate::build::DEMOGRAPHY)
+    {
+        out.insert("demography.json".to_string(), bytes.clone());
     }
     out.insert("report.json".to_string(), pretty(&report_json(scenario))?);
     let (law, world) = law_files(inputs)?;
@@ -262,6 +285,17 @@ fn scenario_json(scenario: &Scenario, inputs: &Inputs, files: &BTreeMap<String, 
         "engine_version": env!("CARGO_PKG_VERSION"),
         "stage_hashes": stage_hashes,
         "opening_hash": hex(scenario.opening.state_hash()),
+        // Roadmap M5's starting data: the hashes of stages K and L, and the
+        // next stable identities (spec economy/demographics: the start's
+        // index, then a counter; linked emigrants follow the residents).
+        "people_hashes": scenario
+            .people_hashes()
+            .into_iter()
+            .map(|(name, h)| (name.to_string(), json!(hex(h))))
+            .collect::<Map<String, Value>>(),
+        "next_person_key": scenario.population.persons.household_id.len()
+            + scenario.stages.emigrants.household_id.len(),
+        "next_hh_key": scenario.population.households.hh_weight.len(),
         // Government bonds by residual maturity (up to 1 year, 1–3, 3–5,
         // 5–10, over 10), bani: the shape of the opening debt (spec
         // economy/fiscal-policy, "Starting state").
