@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/money-banking, economy/prices-inflation, economy/fiscal-policy, economy/opening-balance-sheet, game/world-loop, adr/0017-time-base]
 research: []
-updated: 2026-10-21
+updated: 2026-10-29
 ---
 
 # Monetary Policy & Central Bank
@@ -21,12 +21,12 @@ The central bank (modelled on the National Bank of Romania, BNR) sets the policy
 - **The BNR at the end of 2021** (from memory, medium confidence): policy rate 1.75%, a corridor of ±1 point (lending facility 2.75%, deposit facility 0.75%), inflation target 2.5% ± 1 point, inflation 8.2% in December 2021 and rising. In the opening balance sheet it holds 228.5 billion lei of foreign assets (reserves, gold and SDR) against 109.2 billion of currency, 46.7 billion of bank reserves and 41.7 billion of government deposits.
 
 ## Control
-- **v1: player-controlled.** The player sets every tool directly and announces an inflation target. Credibility still exists: it drifts down when the player uses the tools for short-term goals (e.g. cutting rates while inflation is above target) and up with a track record of hitting the target.
-- **Advisory rule:** the UI shows what a Taylor-type rule would recommend, as guidance only:
+- **v1: the rule by default, the player on command** (owner, 2026-10-29; it was "player-controlled" with the rule as guidance only). The central bank sets the policy rate by the advisory rule below, computed at each monthly close and in force from the next day, clamped to the floor (0%) and the lever's ceiling (50%). A `money.policy_rate` command overrides it from its effective date: the player's rate then holds, and the rule is still computed and shown, for the rest of the run (handing control back: open question). The law's starting value (1.75%) is the rate on the start date until the first close. The player sets every other tool directly and announces an inflation target. Credibility still exists: it drifts down when the player uses the tools for short-term goals (e.g. cutting rates while inflation is above target) and up with a track record of hitting the target.
+- **Advisory rule:** what the central bank does by default, and what the UI shows as guidance once the player has taken over:
 ```math
 i^{rule}_t = \rho\, i_{t-1} + (1-\rho)\big[r^* + \pi^e + \phi_\pi (\pi - \pi^{target}) + \phi_y \, \text{gap}\big]
 ```
-- **Later:** an independence option where the central bank follows this rule on its own (higher credibility, less control).
+- **Later:** an independence option where the central bank follows this rule on its own and the player cannot override it (higher credibility, less control).
 
 ## Tools
 | Tool | Effect |
@@ -47,7 +47,7 @@ A tick is one day ([ADR-0017](../../03-architecture/decisions/0017-time-base.md)
 
 | What | When |
 |---|---|
-| The policy rate and the corridor | set by a command (lever system, M4), effective on the day given; the advisory rule is computed at each monthly close |
+| The policy rate and the corridor | the advisory rule's rate, computed at each monthly close and in force from the next day; a command (lever system, M4) overrides it from its effective day (owner, 2026-10-29) |
 | Interest on reserves and advances | month end, with the banks' interest ([money-banking](money-banking.md)) |
 | The central bank's profit to the government | month end |
 | Credibility | monthly close, after the CPI |
@@ -127,7 +127,8 @@ pub fn advisory_rate_ppm(previous: i32, expected_ppm: i32, inflation_ppm: i32, t
 The month-end interest and profit postings and the close live with the `World`. New flow codes, append-only: `interest.reserves`, `interest.cb_foreign`, `transfer.cb_profit`.
 
 ## Open questions
-- [x] **The policy rate before levers (M3):** proposed constant at 1.75%; the alternative is the advisory rule set on autopilot until the player can move it (M4). **Decided (owner, 2026-10-20): as proposed.**
+- [x] **The policy rate before levers (M3):** proposed constant at 1.75%; the alternative is the advisory rule set on autopilot until the player can move it (M4). **Decided (owner, 2026-10-20): as proposed.** **Amended (owner, 2026-10-29):** the central bank follows the advisory rule by default in every world, and a `money.policy_rate` command overrides it ("Control"); with the rate pinned at 1.75% the 2021 economy spiralled after about 40 months (inflation, the reserves below their floor, the leu).
+- [ ] **Handing control back to the rule:** after a `money.policy_rate` command, can the player return the rate to the rule (a command, or the later independence option), and what does it do to credibility? Owner's decision.
 - [x] **Monetary financing once bonds exist:** proposed that the government issues bonds to keep its deposits at or above zero (fiscal policy), so monetary financing is a player's choice from M4. **Decided (owner, 2026-10-20): as proposed.**
 - [ ] When independence arrives later: should an independent CB be able to refuse to buy bonds in a debt crisis (forcing default)?
 - [ ] Euro adoption as a long-term option (gives up the policy rate and exchange rate)?
