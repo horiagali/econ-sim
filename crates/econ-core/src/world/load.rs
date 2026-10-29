@@ -587,6 +587,10 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             StartEdit::Depreciation { factor_ppm } => depreciation = *factor_ppm,
             #[cfg(feature = "revenue")]
             StartEdit::WithoutRevenue(part) => without_revenue.push(*part),
+            #[cfg(feature = "migration")]
+            StartEdit::NoDiaspora | StartEdit::MigrationUnemploymentShock { .. } => {
+                unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+            }
         }
     }
     if let Some(f) = wage_scale {

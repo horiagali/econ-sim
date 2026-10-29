@@ -103,6 +103,19 @@ mod people;
 mod revenue;
 #[cfg(feature = "fiscal")]
 mod treasury;
+// The test writer's additions of roadmap M5 (ADR-0014): education's first
+// version, migration, and the person columns their criteria read.
+#[cfg(feature = "education")]
+pub mod education;
+#[cfg(feature = "migration")]
+mod migration;
+#[cfg(any(
+    feature = "migration",
+    feature = "education",
+    feature = "approval",
+    feature = "poverty"
+))]
+mod persons_view;
 
 use econ_ledger::{InvariantError, Ledger};
 use econ_mech_households::HouseholdParams;
@@ -127,6 +140,8 @@ pub use foreign::{Foreign, TradeMonth, TradeParams};
 pub use insolvency::FirmUnpaid;
 #[cfg(feature = "investment")]
 pub use investment::InvestmentState;
+#[cfg(feature = "migration")]
+pub use migration::{DiasporaView, MIGRATION_AGE_BANDS, MigrationMonth, StockCell};
 #[cfg(feature = "revenue")]
 pub use observe::{
     HeldBenefit, HeldPayment, ImputedRentPayment, RevenueDay, RevenueMonth, eu_month,
@@ -181,6 +196,10 @@ pub struct StartState {
     pub self_employment_declared: Vec<Bani>,
     /// Stage J's firm unit, or `econ_popgen::NO_EMPLOYER`.
     pub employer: Vec<u16>,
+    /// Stage K's level of enrolment (spec society/education, first version):
+    /// the column `enrolled` of `persons.arrow`.
+    #[cfg(feature = "education")]
+    pub enrolled: Vec<econ_popgen::Enrolled>,
     // Firm units, in the order of the scenario's table.
     pub unit_industry: Vec<u8>,
     /// A cohort unit (not a public producer).
@@ -380,6 +399,27 @@ pub enum StartEdit {
     /// (ADR-0014).
     #[cfg(feature = "revenue")]
     WithoutRevenue(RevenuePart),
+    /// The world starts with no diaspora, as a scenario without the
+    /// diaspora tables (spec economy/migration-remittances, "Starting
+    /// state"): no linked emigrants (the starting population's `abroad`
+    /// persons are left out) and an empty stock, so no remittances;
+    /// emigration, returns, immigration and moves still run (the
+    /// counterfactual of AC-MIG-07 and 14). A test writer's addition
+    /// (ADR-0014).
+    #[cfg(feature = "migration")]
+    NoDiaspora,
+    /// A scripted shock (AC-MIG-15): for the whole run, the unemployment
+    /// rate the migration rules read for a development region (emigration,
+    /// and for moves between counties both the origin's push factor and the
+    /// destination choice) is its measured rate plus `points_ppm`. A test
+    /// writer's addition (ADR-0014).
+    #[cfg(feature = "migration")]
+    MigrationUnemploymentShock {
+        /// The development region.
+        region: u8,
+        /// Millionths (50,000 = 5 points).
+        points_ppm: u32,
+    },
 }
 
 /// A part of the 2021 law's revenue that [`StartEdit::WithoutRevenue`] leaves
@@ -608,6 +648,15 @@ pub struct WorldParams {
     /// Trade and the exchange rate.
     #[cfg(feature = "trade")]
     pub trade: TradeParams,
+    /// Approval (spec society/opinion-approval); `None`: approval is not
+    /// computed (AC-APP-03). A test writer's addition (ADR-0014).
+    #[cfg(feature = "approval")]
+    pub approval: Option<crate::approval::ApprovalParams>,
+    /// Poverty and inequality indicators (spec society/poverty-inequality);
+    /// `None`: they are not computed (AC-POV-07). A test writer's addition
+    /// (ADR-0014).
+    #[cfg(feature = "poverty")]
+    pub poverty: Option<crate::poverty::PovertyParams>,
 }
 
 impl WorldParams {
@@ -649,6 +698,10 @@ impl WorldParams {
             fiscal: FiscalParams::spec_defaults(),
             #[cfg(feature = "trade")]
             trade: TradeParams::spec_defaults(),
+            #[cfg(feature = "approval")]
+            approval: Some(crate::approval::ApprovalParams::spec_defaults()),
+            #[cfg(feature = "poverty")]
+            poverty: Some(crate::poverty::PovertyParams::spec_defaults()),
         }
     }
 }

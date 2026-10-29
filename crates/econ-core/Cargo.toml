@@ -30,6 +30,8 @@ econ-mech-monetary = { workspace = true, optional = true }
 econ-mech-fiscal = { workspace = true, optional = true }
 econ-mech-trade = { workspace = true, optional = true }
 econ-mech-investment = { workspace = true, optional = true }
+# Migration (feature `migration`, roadmap M5).
+econ-mech-migration = { workspace = true, optional = true }
 # The lever registry (feature `levers`).
 serde = { workspace = true, optional = true }
 toml = { workspace = true, optional = true }
@@ -124,6 +126,26 @@ lever_policy_rate = ["policy"]
 lever_monetary_financing = ["policy"]
 lever_fx_devaluation = ["policy"]
 lever_fuel_price = ["policy"]
+
+# Roadmap M5, written with their acceptance tests before the code (ADR-0014):
+# API skeletons whose bodies are `unimplemented!`, off by default; the
+# implementation adds each to `default` once its tests pass.
+# Migration, the diaspora and remittances (spec
+# economy/migration-remittances, AC-MIG-05 to 17): the month's flows, the
+# diaspora, the `abroad` column and the start edits of the counterfactuals.
+# The criteria compare runs and set levers, so it needs the lever system and
+# trade (the exchange rate, the current account).
+migration = ["levers", "trade", "dep:econ-mech-migration"]
+# Education's first version (spec society/education, AC-EDU-01 to 09): the
+# June and August closes, `enrolled` and `study_year`, the yearly report.
+education = ["levers"]
+# Approval's first version (spec society/opinion-approval, AC-APP-01 to 08):
+# the pure rule and the per-person approval on the `World`. It reads the
+# households' recent real income of poverty and inequality.
+approval = ["poverty", "levers", "trade"]
+# Poverty and inequality indicators (spec society/poverty-inequality,
+# AC-POV-01 to 09).
+poverty = ["levers"]
 
 [[test]]
 name = "acceptance"
