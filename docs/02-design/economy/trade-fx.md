@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/production, economy/prices-inflation, economy/money-banking, economy/monetary-policy, economy/opening-balance-sheet, game/world-loop, adr/0017-time-base]
 research: []
-updated: 2026-10-25
+updated: 2026-10-29
 ---
 
 # Trade & Exchange Rate
@@ -122,7 +122,7 @@ IDs are stable (added 2026-10-20). Tests go in `crates/econ-core/tests/acceptanc
 - [ ] **AC-TFX-01** `[unit]` The Armington share is the formula of step 2: at equal prices it is the starting share, and it rises when the domestic good becomes dearer.
 - [ ] **AC-TFX-02** `[unit]` The exchange-rate step is the formula of step 4, with the intervention offsetting its share of the move while reserves are above the floor and none below it.
 - [ ] **AC-TFX-03** `[sim]` The balance of payments closes every month end: current and capital account (exports less imports less primary income paid abroad, the coupons on government bonds included, plus the EU's grants of [eu-funds](eu-funds.md); the month report keeps the sum in `current_account` and the capital grants in a `capital_account` memo) + the change in the rest of the world's lei deposits + its purchases of government bonds less redemptions − the change of the central bank's foreign assets (its intervention sells them; its yield, [monetary policy](monetary-policy.md), adds to them) = 0, to the ban. Restated 2026-10-21 to include the bonds, and the same day (owner) the capital account; its signs corrected 2026-10-20 to the identity the ledger keeps (the first restatement wrote it as an equality with the wrong signs).
-- [ ] **AC-TFX-04** `[sim]` A permanent 10% depreciation (a world-constants edit) raises import prices at once, export volumes over the following months and CPI by less than 10%.
+- [ ] **AC-TFX-04** `[sim]` A permanent 10% depreciation (a world-constants edit) raises import prices at once, export volumes over the following months and CPI by less than 10% (restated, owner 2026-10-29: both runs hold the policy rate fixed). With the central bank following the advisory rule by default ([monetary policy](monetary-policy.md), owner 2026-10-29), the rule raised the rate in the depreciated world and its month-8 export volume fell below the baseline's (3,726.4 bn against 3,734.6 bn); both runs now keep the policy rate at its starting value (the rule at pure smoothing, rho = 1), so the test isolates the exchange rate's effect. The checks are unchanged.
 - [ ] **AC-TFX-05** `[sim]` Quiet baseline: on the Romania scenario with the 2021 law and constant world, the exchange rate over 120 months stays within 10% of its start and the central bank's reserves above their floor.
 - [ ] **AC-TFX-06** `[sim]` *(M4)* A 2-point rise in the domestic policy rate appreciates the currency.
 - [ ] **AC-TFX-07** `[sim]` *(M20)* A peg defended with insufficient reserves eventually breaks.
