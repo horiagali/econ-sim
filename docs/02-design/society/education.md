@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [society/population-groups, economy/fiscal-policy, society/population-inactivity-enrolment, society/population-attributes, economy/labor-market, economy/demographics, game/world-loop, adr/0006-determinism-contract, adr/0017-time-base]
 research: [research/education-flows-romania, research/inactivity-enrolment-romania]
-updated: 2026-10-26
+updated: 2026-10-29
 ---
 
 # Education
@@ -87,6 +87,8 @@ In every other month nobody's `enrolled`, `study_year` or `edu_level` changes. A
 > **Simplification:** completing upper secondary gives ISCED 3 and the right to go on; the baccalaureate (passed by about two thirds of candidates) is not modelled separately. Its effect is inside `continue_rate[4→6]`.
 
 **Starting state.** At load, `enrolled` and `activity` come from the scenario's persons table (Stages C and K). Each enrolled person's `study_year` is their age on 1 September 2021 (age in months at day 0, less 3, in whole years) less the level's typical starting age, if that lies between 0 and the level's years less 1. A person outside that range (repeating, late or adult students: about 360,000 enrolled persons who are employed, unemployed or other inactive) gets a uniform draw over the level's years: `draw(Education, tick 0, entity = person)`, first word, modulo the years. `edu_capacity` is the weighted count of persons enrolled at $\ell$ at load, so the 380,000 pupils above the school statistics' places (Stage K) have none.
+
+**Loaded 2026-10-29** (data only): the scenario builder runs Stage K and writes `enrolled` (and `inactive_kind`) into `tables/persons.arrow`; the `World` keeps `enrolled` and `edu_capacity` as defined here in `World::people()` (at 1:1000, seed 42: 506,000 pre-school, 905,000 primary, 719,000 lower secondary, 744,000 upper secondary, 89,000 post-secondary, 358,000 tertiary, 196,000 master or doctorate places). `study_year` waits for the education flows.
 
 **The June close.** For each enrolled person, in index order, with `draw(Education, tick = the day of the close, entity = person)`, first word in millionths $u_1$, second $u_2$:
 1. **Dropout.** If $u_1$ < `dropout_rate[ℓ]`, the person leaves the level: `enrolled` none, `study_year` 0, `edu_level` unchanged.

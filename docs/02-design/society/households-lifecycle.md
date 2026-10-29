@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [society/population-groups, society/population-generator, economy/households, economy/accounting, game/world-loop, adr/0003-people-representation, adr/0006-determinism-contract, adr/0007-money-and-ledger, adr/0017-time-base]
 research: [research/demographics-romania-2021]
-updated: 2026-10-26
+updated: 2026-10-29
 ---
 
 # Household Life Cycle — Leaving Home, Couples, Separation, Weighted Records
@@ -31,6 +31,8 @@ Weights at the start are close to `sample_scale` but not equal (the generator ra
 | `hh_moved_to_date` | money moved into the household by these operations since day 0, net, per household | LCU | keeps AC-HH-03's identity: balance = start + income − spending + moved |
 | `hh_alive` | the record counts | bool | an ended household is a tombstone until the yearly compaction |
 | `role` | head, partner, child, other | category | exists in the scenario |
+
+`hh_key` is loaded since 2026-10-29: a column of the scenario's `tables/households.arrow` (the start's index), kept by the `World` in `World::people()` with the next free key; the other columns here wait for the life cycle.
 
 Per transition and stratum: the alignment carry ([demographics](../economy/demographics.md#alignment)).
 
