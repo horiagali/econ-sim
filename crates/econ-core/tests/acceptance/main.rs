@@ -88,3 +88,25 @@ mod support_dem;
 // Its tests run in release builds only (ignored under debug_assertions).
 #[cfg(feature = "policy")]
 mod policy;
+
+// M5: migration, education, approval and poverty (specs
+// economy/migration-remittances, society/education, society/opinion-approval,
+// society/poverty-inequality), written before the code against the test
+// writer's API skeletons, each behind its feature, which the implementation
+// adds to `default`. Long runs are release-only (ignored under
+// debug_assertions, the form of AC-WLD-10).
+#[cfg(feature = "approval")]
+mod approval;
+#[cfg(feature = "education")]
+mod education;
+#[cfg(feature = "migration")]
+mod migration;
+#[cfg(feature = "poverty")]
+mod poverty;
+#[cfg(any(
+    feature = "migration",
+    feature = "education",
+    feature = "approval",
+    feature = "poverty"
+))]
+mod support_m5;

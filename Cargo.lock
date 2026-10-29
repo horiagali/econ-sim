@@ -237,6 +237,7 @@ dependencies = [
  "econ-mech-households",
  "econ-mech-investment",
  "econ-mech-labour",
+ "econ-mech-migration",
  "econ-mech-monetary",
  "econ-mech-prices",
  "econ-mech-production",
@@ -320,6 +321,14 @@ dependencies = [
 
 [[package]]
 name = "econ-mech-labour"
+version = "0.1.0"
+dependencies = [
+ "econ-num",
+ "econ-types",
+]
+
+[[package]]
+name = "econ-mech-migration"
 version = "0.1.0"
 dependencies = [
  "econ-num",

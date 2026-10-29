@@ -1,0 +1,25 @@
+[package]
+name = "econ-mech-migration"
+description = "Migration, the diaspora and remittances: the pull of abroad, emigration probabilities, whole-record alignment, remittances and the choice of a destination county (spec: economy/migration-remittances)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+econ-types.workspace = true
+econ-num.workspace = true
+
+[features]
+# Gates the acceptance tests: they were written before the code (ADR-0014), and
+# the implementation adds `mechanic` to `default`.
+default = []
+mechanic = []
+
+[[test]]
+name = "acceptance"
+path = "tests/acceptance/main.rs"
+
+[lints]
+workspace = true
