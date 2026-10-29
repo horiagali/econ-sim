@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/fiscal-policy, economy/accounting, economy/social-transfers, economy/industries, economy/state-capacity, society/population-employers, game/levers, adr/0007-money-and-ledger, adr/0016-firm-representation, adr/0017-time-base, adr/0018-scenario-and-commands, adr/0014-agent-workflow-guardrails]
 research: [research/budget-romania-2021, research/law-in-force-romania-2021]
-updated: 2026-10-20
+updated: 2026-10-29
 ---
 
 # The Starting Budget — Spending by Ministry Line, Public Employment and Wages
@@ -148,10 +148,10 @@ There is no per-tick rule in this increment. Two rules are fixed here because ev
 | Type | Paid to | Flow code |
 |---|---|---|
 | `wages` | the public units, which pay their employees | `gov.purchases` (1002) from government to public unit for the non-market output at cost (ADR-0016); then `wages` (2001) from unit to persons |
-| `employer_contributions` | CAM part: the public unit pays it to the government; imputed part: nothing moves | proposed `tax.employer_contribution` for the CAM; the imputed part is not posted (its cash is the special pensions inside `social_benefits_cash`) |
+| `employer_contributions` | CAM part: the public unit pays it to the government; imputed part: nothing moves | proposed `tax.employer_contribution` for the CAM; the imputed part is not posted (its cash is the special pensions inside `social_benefits_cash`, which the pension file does not hold: under `law.json` they are paid as the pensions' residual, game/lever-system; owner, 2026-10-29) |
 | `goods_services` | the public units, which buy inputs from industries | `gov.purchases` (1002) to the unit; the unit's purchases use production's intermediate code (not yet in `codes.rs`; production to propose) |
 | `social_benefits_cash` | households, by programme | proposed `benefit.*` codes, one per programme |
-| `social_benefits_in_kind` | the firms that deliver (pharmacies, private clinics) | proposed `benefit.in_kind` |
+| `social_benefits_in_kind` | the firms that deliver (pharmacies, private clinics) | `benefit.in_kind` (4009; added 2026-10-29: under `law.json` a twelfth a month to the other units of health and of social care, see game/lever-system) |
 | `subsidies` | firm units | proposed `subsidy.production` |
 | `interest` | holders of government debt | proposed `interest.gov_debt` |
 | `investment`, `non_produced_assets` | industries that build (construction, equipment) | proposed `gov.investment` |
@@ -187,7 +187,7 @@ Range 4xxx (transfers) and 5xxx (subsidies) are new ranges; [social transfers](s
 ### How public employment links to the firm units and the population
 - A public post is a job in one of the five public firm units (ADR-0016: non-market producers, state share 100%). `public_posts[f]` is the unit's headcount target at the start; the labour market's public hiring (M4) moves the unit's employees toward it.
 - The employees of a public unit are the persons whose `employer` is that unit ([Stage J](../society/population-employers.md)); `employer_type` follows from the unit's ownership. Stage J fills the units by their persons employed in the firm-unit file, which are this table's posts (since 2026-10-15), and ranks them by this table's wages per post.
-- What the government pays in wages each month is what the public units' employees earn (their `wage`), not the budget's `wages` cell: [Stage J](../society/population-employers.md) takes the population's side as the truth for wage bills. The budget's `wages` cell is the appropriation; the difference at the start is reported, not posted.
+- What the government pays in wages each month is what the public units' employees earn (their `wage`), not the budget's `wages` cell: [Stage J](../society/population-employers.md) takes the population's side as the truth for wage bills. The budget's `wages` cell is the appropriation; the difference at the start is reported, not posted. *(Owner, 2026-10-29: in worlds built from `law.json` the wage money of vacant posts stays in the starting ministry budgets, where it buys inputs (game/lever-system): taking it out too, 11.2 billion lei at 1:1000, put the 2022 deficit at 5.3% of GDP against 2021's 7.2%; with it, 6.2%.)*
 - Measured on the fixtures (seed 42, 2026-10-15): the starting population has 1,049,083 public employees at 1:1000 (1,047,489 at 1:100) against 1,262,318 posts (−17%), paid 109.1 billion lei a year against 120.0 billion (−9%; 109.3 billion at 1:100). The census counts fewer people working in administration, education and health than the Ministry counts posts. Each public unit has about 83% of its posts; by unit the population's wage bill differs from the budget's (health +11%, social care +7%, administration −15%, education −18%, defence −22%) because Stage F sets wages by industry group, not by unit.
 
 > **Simplification:** the public firm units take their persons employed and wage bills from this table (posts and `wages` by unit, 2026-10-15), but their output and value added still follow the input-output table by industry, and COFOG functions are not NACE industries. So social care's wages (6.39 billion lei) exceed its output (1.92 billion: the input-output table gives the whole industry 0.41 billion of compensation), administration's wages (56.28 billion) exceed its value added (54.58 billion), and by industry the firm units' wages no longer add up to the input-output table: education −1.8 billion, health −12.5, administration and defence +8.2, social care +6.1; nationally −0.08 billion (−0.03%). Confidence: medium that this matters little before production and the government's purchases use the public units' costs (open questions).
@@ -197,7 +197,7 @@ The budget sets the starting values; the levers belong to [fiscal policy](fiscal
 
 | Cell | Lever (catalogue name) | Proposed registry id | Starting value |
 |---|---|---|---|
-| `wages`, `employer_contributions`, `goods_services`, `investment`, `non_produced_assets` of a line | Budget per ministry, keyed by line | `spend.ministry_budget[line]` (money, bani a year) | the sum of those five cells of the line |
+| `wages`, `employer_contributions`, `goods_services`, `investment`, `non_produced_assets` of a line | Budget per ministry, keyed by line | `spend.ministry_budget[line]` (money, bani a year) | the sum of those five cells of the line, less its imputed employers' contributions (not posted, see "Ledger mapping"; owner, 2026-10-29) |
 | posts of a public unit | Public sector headcount targets | `spend.public_headcount[unit]` (number) | `public_posts[f]` |
 | pay of public employees | Public sector wages (% vs private equivalent) | `spend.public_wage_ratio` (rate) | the ratio in the starting population, measured by the scenario builder |
 | `social_benefits_*` by programme | State pension, Child benefit, Unemployment benefit, Minimum income, Housing benefit, Student finance | their own ids ([social transfers](social-transfers.md)) | the law in force ([research note](../../01-research/notes/law-in-force-romania-2021.md)); the programme totals here are what those rules must pay |

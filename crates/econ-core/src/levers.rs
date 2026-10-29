@@ -1293,6 +1293,16 @@ pub(crate) fn apply_due(world: &mut World, today: Date) {
         .iter()
         .position(|k| k == "oil")
         .and_then(|k| u32::try_from(k).ok());
+    // A `money.policy_rate` command ends the advisory rule's setting of the
+    // rate (spec economy/monetary-policy, "Control").
+    #[cfg_attr(not(feature = "monetary"), allow(unused_variables))]
+    let new_rate = due
+        .iter()
+        .filter(|p| p.command.lever == LeverId::MoneyPolicyRate)
+        .find_map(|p| match p.command.value {
+            LeverValue::Rate(bp) => Some(bp),
+            _ => None,
+        });
     for p in due {
         let c = &p.command;
         let old = st.law.get(c.lever, c.key).cloned();
@@ -1319,6 +1329,10 @@ pub(crate) fn apply_due(world: &mut World, today: Date) {
         }));
     }
     let law = law_of(&st.law, &st.registry, &industries);
+    #[cfg(feature = "monetary")]
+    if let Some(bp) = new_rate {
+        world.cb_override_rule(bp * 100);
+    }
     world.set_law(law);
     world.budget_refresh_pay();
     world.levers_refresh_params();
@@ -1600,6 +1614,7 @@ impl World {
             investment_domestic: start.investment_domestic.clone(),
             investment_imported: start.investment_imported.clone(),
             gov_investment_year: start.gov_investment_year,
+            benefits: start.budget_benefits_year.clone(),
         };
         let mut world = World::new(start, law_of(&law, &registry, &industries), params)?;
         world.set_lever_state(LeverState {

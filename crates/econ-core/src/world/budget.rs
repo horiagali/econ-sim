@@ -59,6 +59,17 @@ pub(super) struct BudgetState {
     invest_cash: Vec<i128>,
     /// Per firm unit: the government's top-ups at cost since the last month end.
     topup: Vec<i128>,
+    /// Per public unit: its market sales since the last month end, which go
+    /// to the government at the month end (`gov.sales`).
+    market_sales: Vec<i128>,
+    /// Benefits in kind (D632) a year and the firm units that deliver them
+    /// with their keys: the health programme's to the other units of
+    /// `health_services`, the rest to those of `social_care`.
+    in_kind: Vec<(i128, Vec<(usize, i128)>)>,
+    /// The old-age and survivors' cash benefits the pension rule does not pay
+    /// (the special pensions, budget-2021): the budget's less twelve times
+    /// the pension bill at load, a year.
+    pension_residual: i128,
     /// Per firm unit: the hiring freeze.
     freeze: Vec<bool>,
     /// Per line: running allowance and paid, year to date.
@@ -86,6 +97,8 @@ pub(crate) struct BudgetStart {
     pub(crate) investment_domestic: Vec<Bani>,
     pub(crate) investment_imported: Vec<Bani>,
     pub(crate) gov_investment_year: Bani,
+    /// The budget's social benefits: (programme id, cash, in kind) a year.
+    pub(crate) benefits: Vec<(String, Bani, Bani)>,
 }
 
 /// `wage / market`, millionths; 1 without a market wage.
@@ -146,6 +159,7 @@ impl World {
             input_cash: vec![0; n_u],
             invest_cash: vec![0; n_u],
             topup: vec![0; n_u],
+            market_sales: vec![0; n_u],
             freeze: vec![false; n_u],
             ytd_allowance: vec![0; lines.len()],
             ytd_paid: vec![0; lines.len()],
@@ -242,9 +256,87 @@ impl World {
                 *m = bani(ratio(i128::from(m.get()), keep, ONE));
             }
         }
+        // Benefits in kind and the pensions' residual (owner, 2026-10-29).
+        let staff_of = |industry: &str| -> Vec<(usize, i128)> {
+            (0..n_u)
+                .filter(|&u| {
+                    !self.uu.public[u]
+                        && self.industries.id[usize::from(self.units.industry[u])] == industry
+                })
+                .map(|u| (u, i128::from(self.units.staff[u]).max(1)))
+                .collect()
+        };
+        let (mut health, mut other) = (0i128, 0i128);
+        let mut pension_cash = 0i128;
+        for (id, cash, kind) in &start.benefits {
+            if id == "health_in_kind" {
+                health += i128::from(kind.get());
+            } else {
+                other += i128::from(kind.get());
+            }
+            if id == "old_age" || id == "survivors" {
+                pension_cash += i128::from(cash.get());
+            }
+        }
+        b.in_kind = vec![
+            (health, staff_of("health_services")),
+            (other, staff_of("social_care")),
+        ];
+        let bill: i128 = (0..self.persons.employer.len())
+            .map(|p| {
+                let w = i128::from(self.person_weight(u32::try_from(p).expect("a person id")));
+                w * i128::from(self.pension_of(p).0.get())
+            })
+            .sum();
+        b.pension_residual = if pension_cash > 0 {
+            (pension_cash - 12 * bill).max(0)
+        } else {
+            0
+        };
         b.lines = lines;
         self.bud = b;
         self.budget_market_wages();
+    }
+
+    /// The pay day: a twelfth of the benefits in kind to the units that
+    /// deliver them, by their staff, and of the pensions' residual to the
+    /// pensioners, the same to each, into their deposits (spec
+    /// `economy/budget-2021`, "Ledger mapping"; owner, 2026-10-29).
+    fn budget_benefits(&mut self, k: u8) {
+        let mut post = Postings::default();
+        let in_kind = std::mem::take(&mut self.bud.in_kind);
+        let mut firms = 0i128;
+        for (year, units) in &in_kind {
+            let w: Vec<i128> = units.iter().map(|&(_, w)| w).collect();
+            for (&(u, _), part) in units.iter().zip(split(twelfth(*year, k), &w)) {
+                self.units.deposits[u] += bani(part);
+                firms += part;
+            }
+        }
+        self.bud.in_kind = in_kind;
+        post.gov_pays(Sector::Firms, bani(firms), FlowCode::BENEFIT_IN_KIND);
+        let due = twelfth(self.bud.pension_residual, k);
+        let n_h = self.households.hh_weight.len();
+        let mut base = vec![0i128; n_h];
+        for p in 0..self.persons.employer.len() {
+            if self.pp.pension[p] > Bani::ZERO {
+                base[self.persons.household_id[p] as usize] += 1;
+            }
+        }
+        if due > 0
+            && let Some(parts) =
+                super::treasury::weighted_parts(due, &self.households.hh_weight, &base)
+        {
+            let mut paid = 0i128;
+            for (h, &a) in parts.iter().enumerate() {
+                if a > 0 {
+                    self.households.hh_deposits[h] += bani(a);
+                    paid += i128::from(self.households.hh_weight[h]) * a;
+                }
+            }
+            post.gov_pays(Sector::Households, bani(paid), FlowCode::BENEFIT_PENSION);
+        }
+        post.commit(&mut self.ledger);
     }
 
     /// Each tier's weighted mean wage by region and nationally (pay and job
@@ -468,6 +560,52 @@ impl World {
         }
     }
 
+    /// The goods market: an industry's sales over its sellers. Where public
+    /// units under the ministry budgets sell beside other units, the other
+    /// units sell first, as far as their stocks go, and the public units
+    /// serve the rest (spec game/lever-system, "Market sales"; owner,
+    /// 2026-10-29); within each group by stocks. Elsewhere by stocks
+    /// (production's rule).
+    pub(super) fn budget_share_sales(
+        &self,
+        sold: i64,
+        sellers: &[usize],
+        stocks: &[i64],
+    ) -> Vec<i64> {
+        let public: Vec<bool> = sellers.iter().map(|&u| self.budget_public(u)).collect();
+        if !public.iter().any(|&p| p) || public.iter().all(|&p| p) {
+            return econ_mech_production::share_sales(sold, stocks);
+        }
+        let of = |p: bool| -> Vec<i64> {
+            stocks
+                .iter()
+                .zip(&public)
+                .map(|(&s, &q)| if q == p { s.max(0) } else { 0 })
+                .collect()
+        };
+        let (others, publics) = (of(false), of(true));
+        let other_sold = sold.min(others.iter().sum());
+        let part = |total: i64, s: &[i64]| -> Vec<i64> {
+            if total > 0 {
+                econ_mech_production::share_sales(total, s)
+            } else {
+                vec![0; s.len()]
+            }
+        };
+        part(other_sold, &others)
+            .into_iter()
+            .zip(part(sold - other_sold, &publics))
+            .map(|(a, b)| a + b)
+            .collect()
+    }
+
+    /// The goods market: what a public unit received for its market sales.
+    pub(super) fn budget_sold(&mut self, u: usize, revenue: i128) {
+        if self.budget_public(u) {
+            self.bud.market_sales[u] += revenue;
+        }
+    }
+
     /// The government's top-up at cost of a public unit short of money.
     pub(super) fn budget_topup(&mut self, u: usize, amount: i128) {
         if self.budget_public(u) {
@@ -589,10 +727,18 @@ impl World {
             b.freeze[u] = labour[u] > allowance;
             b.topup[u] = 0;
         }
+        self.budget_benefits(k);
         let mut post = Postings::default();
         let (mut run_total, mut inv_total) = (0i128, 0i128);
         for u in 0..n_u {
             if run_pay[u] > 0 {
+                // Its non-market output, in real units at the day's price,
+                // counts in its industry's output for the wage cost per unit
+                // (owner, 2026-10-29).
+                let j = usize::from(self.units.industry[u]);
+                let price = i128::from(self.industries.price_ppm[j].max(1));
+                self.ii.output_month[j] +=
+                    i64::try_from(run_pay[u] * ONE / price).unwrap_or(i64::MAX);
                 self.units.deposits[u] += bani(run_pay[u]);
                 self.fs.add_value(u, run_pay[u]);
                 self.fs.add_sales(u, run_pay[u]);
@@ -605,11 +751,30 @@ impl World {
         }
         post.gov_pays(Sector::Firms, bani(run_total), FlowCode::GOV_PURCHASES);
         post.gov_pays(Sector::Firms, bani(inv_total), FlowCode::GOV_INVESTMENT);
+        // The units' market sales of the month go to the government (ESA
+        // P11 + P12 + P131; owner, 2026-10-29), never more than a unit holds.
+        let mut swept = 0i128;
+        for u in 0..n_u {
+            let s = std::mem::take(&mut self.bud.market_sales[u])
+                .min(i128::from(self.units.deposits[u].get()))
+                .max(0);
+            if s > 0 {
+                self.units.deposits[u] -= bani(s);
+                self.fs.add_value(u, -s);
+                self.fs.add_sales(u, -s);
+                swept += s;
+            }
+        }
+        post.pays_gov(Sector::Firms, bani(swept), FlowCode::GOV_SALES);
+        self.bank_intraday_advance(&mut post);
         post.commit(&mut self.ledger);
-        // Non-market output at cost (budget-2021): output, sold to the government.
-        self.mac.month.output_value += run_total;
-        self.mac.month.sales_value += run_total;
-        self.mac.month.government += run_total;
+        // Non-market output at cost less the market sales (budget-2021; ESA
+        // P13): output, sold to the government. Its market output is counted
+        // where it is produced and sold.
+        let non_market = run_total - swept;
+        self.mac.month.output_value += non_market;
+        self.mac.month.sales_value += non_market;
+        self.mac.month.government += non_market;
 
         let rows: Vec<BudgetLineMonth> = (0..n_l)
             .map(|l| BudgetLineMonth {

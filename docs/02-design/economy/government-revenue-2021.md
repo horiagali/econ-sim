@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/vat, economy/taxation, economy/excise, economy/eu-funds, economy/fiscal-policy, economy/budget-2021, economy/social-transfers, economy/prices-inflation, economy/investment-capital, game/world-loop, adr/0007-money-and-ledger, adr/0017-time-base]
 research: [research/government-revenue-romania-2021]
-updated: 2026-10-22
+updated: 2026-10-29
 ---
 
 # Government Revenue and Other Benefits at 2021 Levels
@@ -78,7 +78,7 @@ At month end, a twelfth of each line by [budget-2021](budget-2021.md)'s monthly 
 
 - **Payer short of money.** A household that cannot pay its share pays what it has; the rest is forgiven and reported. A unit borrows, as for other payments.
 - **Not held separately.** The other taxes on products (6.1 billion) are inside part 1.
-- **Classification only.** Sales of public units (26.5 billion) and imputed contributions (9.6) are reported, not posted (research note).
+- **Classification only.** Sales of public units (26.5 billion) and imputed contributions (9.6) are reported, not posted (research note). *(Owner, 2026-10-29: in worlds built from `law.json` the public units' market sales are posted, as `gov.sales`, game/lever-system "Market sales"; worlds under `Law::law_2021()` are unchanged.)*
 
 > **Simplification (M3):** fixed nominal amounts, as the budget's held spending lines. Property tax is equal per owner household until housing (M13) gives it a base and a rate; the other lines get mechanisms when their topic comes (gambling never, royalties with energy M12).
 

@@ -84,16 +84,37 @@ fn ac_tfx_03() {
 
 /// **AC-TFX-04** `[sim]` A permanent 10% depreciation (a world-constants
 /// edit) raises import prices at once, export volumes over the following
-/// months and CPI by less than 10%.
+/// months and CPI by less than 10% (restated, owner 2026-10-29: both runs
+/// hold the policy rate fixed).
+///
+/// "Hold the policy rate fixed" means the policy rate stays at its starting
+/// value for the whole run in both worlds, so the comparison isolates the
+/// exchange rate's effect: the central bank follows the advisory rule by
+/// default (spec economy/monetary-policy, owner 2026-10-29), and the rule
+/// with pure smoothing (rho = 1, `MonetaryParams::rule.smoothing_ppm` at
+/// 1,000,000) keeps the previous rate, which at the start is the starting
+/// rate. The old-law world takes no `money.policy_rate` command. The test
+/// checks the rate is the start's at every close.
 #[test]
 fn ac_tfx_04() {
-    let mut base = world_2021(1000);
+    #[cfg_attr(not(feature = "monetary"), allow(unused_mut))]
+    let mut p = params();
+    #[cfg(feature = "monetary")]
+    {
+        p.monetary.rule.smoothing_ppm = 1_000_000;
+    }
+    let mut base = world_2021_with(1000, Vec::new(), p);
     let mut dear = world_2021_with(
         1000,
         vec![StartEdit::WorldPrices {
             factor_ppm: 1_100_000,
         }],
-        params(),
+        p,
+    );
+    #[cfg(feature = "monetary")]
+    let start_rate = (
+        base.central_bank().policy_rate_ppm,
+        dear.central_bank().policy_rate_ppm,
     );
     step(&mut base);
     step(&mut dear);
@@ -116,6 +137,12 @@ fn ac_tfx_04() {
     for w in [&mut base, &mut dear] {
         while w.months().len() < 12 {
             step(w);
+            #[cfg(feature = "monetary")]
+            assert!(
+                w.central_bank().policy_rate_ppm == start_rate.0 && start_rate.0 == start_rate.1,
+                "the policy rate {} moved from its start {start_rate:?}",
+                w.central_bank().policy_rate_ppm
+            );
         }
     }
     // Export volumes: higher in every month after the first close.

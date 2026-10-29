@@ -21,6 +21,9 @@ impl FlowCode {
     /// Imports: residents pay the rest of the world for goods, inputs
     /// included (M2: in deposits, at the starting price).
     pub const IMPORTS: FlowCode = FlowCode(1005);
+    /// The public units' market sales, which go to the government (ESA
+    /// P11 + P12 + P131, spec `game/lever-system`, "Market sales").
+    pub const GOV_SALES: FlowCode = FlowCode(1006);
     // 2xxx — income
     /// Wages paid by firms.
     pub const WAGES: FlowCode = FlowCode(2001);
@@ -98,6 +101,8 @@ impl FlowCode {
     pub const BENEFIT_STUDENT: FlowCode = FlowCode(4007);
     /// Other social protection (and one-off transfers).
     pub const BENEFIT_OTHER: FlowCode = FlowCode(4008);
+    /// Social transfers in kind bought from market producers (D632).
+    pub const BENEFIT_IN_KIND: FlowCode = FlowCode(4009);
     // 41xx — other transfers (spec `economy/budget-2021`)
     /// Own resources paid to the EU budget (D76).
     pub const TRANSFER_EU_BUDGET: FlowCode = FlowCode(4101);
@@ -140,12 +145,13 @@ impl FlowCode {
 
     /// Every code the ledger knows, in ascending order. A new code is added here
     /// and in [`FlowCode::name`] in the same change.
-    pub const ALL: [FlowCode; 57] = [
+    pub const ALL: [FlowCode; 59] = [
         Self::CONSUMPTION,
         Self::GOV_PURCHASES,
         Self::GOV_INVESTMENT,
         Self::EXPORTS,
         Self::IMPORTS,
+        Self::GOV_SALES,
         Self::WAGES,
         Self::INTEREST_GOV_DEBT,
         Self::MIXED_INCOME,
@@ -181,6 +187,7 @@ impl FlowCode {
         Self::BENEFIT_SOCIAL_ASSISTANCE,
         Self::BENEFIT_STUDENT,
         Self::BENEFIT_OTHER,
+        Self::BENEFIT_IN_KIND,
         Self::TRANSFER_EU_BUDGET,
         Self::TRANSFER_OTHER_CURRENT,
         Self::TRANSFER_CAPITAL,
@@ -215,6 +222,7 @@ impl FlowCode {
             1003 => "gov.investment",
             1004 => "exports",
             1005 => "imports",
+            1006 => "gov.sales",
             2001 => "wages",
             2002 => "interest.gov_debt",
             2004 => "interest.loan",
@@ -250,6 +258,7 @@ impl FlowCode {
             4006 => "benefit.social_assistance",
             4007 => "benefit.student",
             4008 => "benefit.other",
+            4009 => "benefit.in_kind",
             4101 => "transfer.eu_budget",
             4102 => "transfer.other_current",
             4103 => "transfer.capital",

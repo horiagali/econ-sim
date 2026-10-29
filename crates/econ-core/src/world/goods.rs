@@ -5,7 +5,7 @@
 use econ_ledger::{FlowCode, Instrument, Sector};
 use econ_mech_households::{Budget, decide};
 use econ_mech_prices::{markup_ppm, step_price_ppm, target_price_ppm, unit_cost_ppm};
-use econ_mech_production::{UnitState as PlanInput, plan, ration, share_sales};
+use econ_mech_production::{UnitState as PlanInput, plan, ration};
 use econ_mech_tax::vat::{VatCategory, VatRate};
 use econ_num::math::powf;
 use econ_types::Bani;
@@ -231,11 +231,26 @@ impl World {
         let u = &self.units;
         for k in 0..u.industry.len() {
             let j = usize::from(u.industry[k]);
+            let target =
+                i128::from(u.inventory_target_ppm[k]) * i128::from(u.expected_demand[k]) / ONE;
             planned[j] += i128::from(self.uu.plan_output[k]);
+            target_stock[j] += target;
+            // A public unit under the ministry budgets staffs and stocks for
+            // its non-market output, so its capacity and stock say nothing of
+            // its industry's market: it counts as used at the normal rate and
+            // stocked at its target (owner, 2026-10-29).
+            #[cfg(feature = "levers")]
+            if self.budget_public(k) {
+                capacity[j] += ratio(
+                    i128::from(self.uu.plan_output[k]),
+                    ONE,
+                    i128::from(self.params.prices.normal_utilisation_ppm.max(1)),
+                );
+                stock[j] += target;
+                continue;
+            }
             capacity[j] += i128::from(u.capacity[k]);
             stock[j] += i128::from(u.inventory[k]);
-            target_stock[j] +=
-                i128::from(u.inventory_target_ppm[k]) * i128::from(u.expected_demand[k]) / ONE;
         }
         let old: Vec<u32> = self.industries.price_ppm.clone();
         let p = &self.params.prices;
@@ -963,7 +978,14 @@ impl World {
                 .map(|&u| self.units.inventory[u].max(0))
                 .collect();
             let shares = if sold > 0 {
-                share_sales(sold, &stocks)
+                #[cfg(feature = "levers")]
+                {
+                    self.budget_share_sales(sold, sellers, &stocks)
+                }
+                #[cfg(not(feature = "levers"))]
+                {
+                    econ_mech_production::share_sales(sold, &stocks)
+                }
             } else {
                 vec![0; sellers.len()]
             };
@@ -1041,6 +1063,8 @@ impl World {
                 self.units.deposits[u] += bani(r);
                 self.units.revenue_today[u] = bani(r);
                 self.fs.add_sales(u, r);
+                #[cfg(feature = "levers")]
+                self.budget_sold(u, r);
                 out += r;
             }
             let left = paid - out;
@@ -1166,6 +1190,8 @@ impl World {
                     self.units.deposits[u] += bani(r);
                     self.units.revenue_today[u] += bani(r);
                     self.fs.add_sales(u, r);
+                    #[cfg(feature = "levers")]
+                    self.budget_sold(u, r);
                     #[cfg(feature = "revenue")]
                     self.rev_household_sale(j, u, r);
                 }

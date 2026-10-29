@@ -91,7 +91,17 @@ pub(super) struct CentralBank {
     monfin_ppm: u32,
     /// What it added to expected inflation at the last close.
     push_ppm: i32,
+    /// Whether the policy rate follows the advisory rule (from the first
+    /// close; until a `money.policy_rate` command takes effect).
+    follows_rule: bool,
+    /// Whether a `money.policy_rate` command has taken effect.
+    overridden: bool,
 }
+
+/// The policy rate's floor (spec, "Zero lower bound": 0%) and ceiling (the
+/// lever's range, 50%), millionths a year.
+const RATE_FLOOR_PPM: i32 = 0;
+const RATE_CEILING_PPM: i32 = 500_000;
 
 impl World {
     /// The central bank.
@@ -299,7 +309,32 @@ impl World {
             target,
             gap,
             &p.rule,
-        );
+        )
+        .clamp(RATE_FLOOR_PPM, RATE_CEILING_PPM);
+        // By default the central bank follows the rule: its rate is the
+        // policy rate from the next day, until a `money.policy_rate` command
+        // takes effect (owner, 2026-10-29).
+        if !self.cb.overridden {
+            self.cb.follows_rule = true;
+            let rate = self.cb.view.advisory_rate_ppm;
+            self.bank_set_policy_rate(rate);
+        }
+    }
+
+    /// Whether the advisory rule sets the policy rate (the law's
+    /// `money.policy_rate` then stays the rate of the start date only).
+    pub(super) fn cb_follows_rule(&self) -> bool {
+        self.cb.active && self.cb.follows_rule && !self.cb.overridden
+    }
+
+    /// A `money.policy_rate` command took effect: unless it leaves the rate
+    /// in force as it is (it changes nothing, AC-LEV-09), the rule no longer
+    /// sets the rate.
+    #[cfg(feature = "levers")]
+    pub(crate) fn cb_override_rule(&mut self, rate_ppm: i32) {
+        if rate_ppm != self.bank_policy_rate() {
+            self.cb.overridden = true;
+        }
     }
 
     /// The central bank's state for the state hash.
@@ -310,6 +345,7 @@ impl World {
         write(u64::from(self.cb.view.credibility_ppm));
         #[allow(clippy::cast_sign_loss)]
         write(self.cb.view.advisory_rate_ppm as u64);
+        write(u64::from(self.cb.follows_rule) | u64::from(self.cb.overridden) << 1);
         for &b in &self.cb.in_band {
             write(u64::from(b));
         }

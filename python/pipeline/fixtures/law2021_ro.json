@@ -143,8 +143,8 @@
   "spend.ministry_budget": {
    "administration": 1941120000000,
    "public_debt": 31350000000,
-   "defence": 1679190000000,
-   "police_justice": 3107440000000,
+   "defence": 1282580000000,
+   "police_justice": 2510890000000,
    "economic_affairs": 2037410000000,
    "transport": 3027760000000,
    "environment": 654070000000,
@@ -153,13 +153,13 @@
    "culture": 885700000000,
    "education": 3242470000000,
    "social_protection": 1091370000000,
-   "research": 347440000000
+   "research": 346340000000
   },
   "spend.investment_share": {
    "administration": 485,
    "public_debt": 0,
-   "defence": 2972,
-   "police_justice": 47,
+   "defence": 3890,
+   "police_justice": 58,
    "economic_affairs": 3425,
    "transport": 5371,
    "environment": 3261,
@@ -168,7 +168,7 @@
    "culture": 1974,
    "education": 1077,
    "social_protection": 548,
-   "research": 3421
+   "research": 3432
   },
   "spend.public_pay": {
    "defence_services.public": 10000,
@@ -557,8 +557,8 @@
     "values": {
      "administration": 1941120000000,
      "public_debt": 31350000000,
-     "defence": 1679190000000,
-     "police_justice": 3107440000000,
+     "defence": 1282580000000,
+     "police_justice": 2510890000000,
      "economic_affairs": 2037410000000,
      "transport": 3027760000000,
      "environment": 654070000000,
@@ -567,10 +567,10 @@
      "culture": 885700000000,
      "education": 3242470000000,
      "social_protection": 1091370000000,
-     "research": 347440000000
+     "research": 346340000000
     },
     "unit": "bani (lei a year)",
-    "what": "sum of the line's wages, employer contributions, goods and services, investment and non-produced assets",
+    "what": "sum of the line's wages, employer contributions, goods and services, investment and non-produced assets, less the imputed employers' contributions (D12 above the CAM's 2.25% of wages: defence 3,966 and police and justice 5,966 million lei), which are not posted (budget-2021; owner, 2026-10-29)",
     "source": "python/pipeline/fixtures/budget2021_ro.json",
     "confidence": "high"
    },
@@ -579,8 +579,8 @@
     "values": {
      "administration": 485,
      "public_debt": 0,
-     "defence": 2972,
-     "police_justice": 47,
+     "defence": 3890,
+     "police_justice": 58,
      "economic_affairs": 3425,
      "transport": 5371,
      "environment": 3261,
@@ -589,10 +589,10 @@
      "culture": 1974,
      "education": 1077,
      "social_protection": 548,
-     "research": 3421
+     "research": 3432
     },
     "unit": "basis points (% of the ministry budget)",
-    "what": "investment plus non-produced assets over the five cells of ministry_budget",
+    "what": "investment plus non-produced assets over ministry_budget",
     "source": "python/pipeline/fixtures/budget2021_ro.json",
     "confidence": "high"
    },

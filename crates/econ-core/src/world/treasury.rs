@@ -34,7 +34,7 @@ use super::money::{Postings, bani};
 pub struct FiscalParams {
     /// New issues and the yield.
     pub debt: DebtParams,
-    /// `starting_coupon`, millionths a year (4.5%).
+    /// `starting_coupon`, millionths a year (3.6%).
     pub starting_coupon_ppm: u32,
     /// `gov_cash_target`, in months of spending (1).
     pub cash_target_months: u32,
@@ -46,7 +46,7 @@ impl FiscalParams {
     pub fn spec_defaults() -> FiscalParams {
         FiscalParams {
             debt: DebtParams::spec_defaults(),
-            starting_coupon_ppm: 45_000,
+            starting_coupon_ppm: 36_000,
             cash_target_months: 1,
         }
     }
