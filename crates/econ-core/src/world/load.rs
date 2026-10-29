@@ -107,6 +107,20 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     ] {
         shape(len == n_p, "the person columns differ in length")?;
     }
+    let le = &s.people.linked_emigrants;
+    shape(
+        le.household_id.iter().all(|&h| (h as usize) < n_hh)
+            && [
+                le.person_key.len(),
+                le.age.len(),
+                le.sex.len(),
+                le.role.len(),
+            ]
+            .iter()
+            .chain(&[le.edu_level.len(), le.months_abroad.len()])
+            .all(|&n| n == le.household_id.len()),
+        "the linked emigrants' columns",
+    )?;
     for len in [
         s.unit_cohort.len(),
         s.unit_size.len(),
@@ -232,6 +246,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         .iter()
         .map(|&h| u64::from(s.hh_weight[h as usize]))
         .collect();
+    // Roadmap M5's starting data (read by no phase yet).
+    let people = super::people::load(&s, &pw);
 
     // Households: equivalised adults, the month's income, the fifths.
     let mut eq = vec![0u32; n_hh];
@@ -789,6 +805,7 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             households: Vec::new(),
         },
         months: Vec::new(),
+        people,
         #[cfg(feature = "levers")]
         lev: None,
         #[cfg(feature = "levers")]
