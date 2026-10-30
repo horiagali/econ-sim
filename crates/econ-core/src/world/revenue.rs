@@ -1083,6 +1083,52 @@ impl World {
         }
     }
 
+    /// A new household record: its imputed-rent key and dwelling (an owner's
+    /// key is its dwelling value).
+    #[cfg(feature = "lifecycle")]
+    pub(super) fn rev_push_household(&mut self, rent_key: i128, dwelling: i128) {
+        if !self.rev.active {
+            return;
+        }
+        let r = &mut self.rev;
+        r.rent_key.push(rent_key);
+        r.dwelling.push(dwelling);
+        if !r.rent.key.is_empty() {
+            r.rent.key.push(Bani::ZERO);
+        }
+        if !r.rent.received.is_empty() {
+            r.rent.received.push(Bani::ZERO);
+        }
+    }
+
+    /// A household's imputed-rent key and dwelling, and setting them.
+    #[cfg(feature = "lifecycle")]
+    pub(super) fn rev_dwelling_of(&self, h: usize) -> (i128, i128) {
+        (
+            self.rev.rent_key.get(h).copied().unwrap_or(0),
+            self.rev.dwelling.get(h).copied().unwrap_or(0),
+        )
+    }
+
+    /// See [`World::rev_dwelling_of`].
+    #[cfg(feature = "lifecycle")]
+    pub(super) fn rev_set_dwelling(&mut self, h: usize, rent_key: i128, dwelling: i128) {
+        if let Some(k) = self.rev.rent_key.get_mut(h) {
+            *k = rent_key;
+        }
+        if let Some(d) = self.rev.dwelling.get_mut(h) {
+            *d = dwelling;
+        }
+    }
+
+    /// A copy of person `p`'s activity (a split record).
+    #[cfg(feature = "lifecycle")]
+    pub(super) fn rev_copy_person(&mut self, p: usize) {
+        if let Some(&a) = self.rev.activity.get(p) {
+            self.rev.activity.push(a);
+        }
+    }
+
     /// The yearly compaction: drop the removed persons and households.
     #[cfg(feature = "demography")]
     pub(super) fn rev_compact(&mut self, keep_p: &[bool], keep_h: &[bool]) {

@@ -393,6 +393,35 @@ impl World {
         self.fs.points[p] = points;
     }
 
+    /// A new household record (the life cycle): no members yet; minimum
+    /// income's take-up drawn per `hh_key`, as at load.
+    #[cfg(feature = "lifecycle")]
+    pub(super) fn fs_push_household(&mut self, hh_key: u64, collective: bool) {
+        let take_up_ppm = self
+            .law
+            .transfers
+            .as_ref()
+            .map_or(0, |t| u64::from(t.minimum_income.take_up_ppm));
+        let take = self.seed.fast_u64(Stream::Consumption, 0, hh_key, 11) % 1_000_000 < take_up_ppm;
+        let f = &mut self.fs;
+        f.size.push(0);
+        f.children.push(0);
+        f.collective.push(collective);
+        f.take_up.push(take && !collective);
+    }
+
+    /// A copy of person `p` (a split record): the same points, contributions
+    /// and claim.
+    #[cfg(feature = "lifecycle")]
+    pub(super) fn fs_copy_person(&mut self, p: usize) {
+        let f = &mut self.fs;
+        f.points.push(f.points[p]);
+        f.contribution_years.push(f.contribution_years[p]);
+        f.claims.push(f.claims[p]);
+        f.self_declared.push(f.self_declared[p]);
+        f.claims_dependants.push(false);
+    }
+
     /// The yearly compaction: drop the removed persons and households.
     #[cfg(feature = "demography")]
     pub(super) fn fs_compact(&mut self, keep_p: &[bool], keep_h: &[bool]) {
