@@ -1254,6 +1254,12 @@ impl World {
         self.rev_begin_day();
         #[cfg(feature = "trade")]
         self.trade_begin_day();
+        // Remittances on the 15th, with imputed rent: not on pay day, whose
+        // income AC-ST-05 holds to the pay slips.
+        #[cfg(feature = "trade")]
+        if date.day == 15 {
+            self.pay_remittances();
+        }
         let mut phases = Vec::with_capacity(PHASES.len());
         let mut failed = Vec::new();
         for (id, period) in PHASES {
@@ -1280,11 +1286,7 @@ impl World {
                 PhaseId::Households => self.household_decisions(cohort),
                 PhaseId::GoodsMarket => self.goods_market(),
                 PhaseId::Quits => self.quits(),
-                PhaseId::Pay => {
-                    self.pay();
-                    #[cfg(feature = "trade")]
-                    self.pay_remittances();
-                }
+                PhaseId::Pay => self.pay(),
                 #[cfg(feature = "demography")]
                 PhaseId::People => {
                     unimplemented!("test writer's addition (ADR-0014): the implementation fills it")

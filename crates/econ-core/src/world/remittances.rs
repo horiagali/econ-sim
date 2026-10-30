@@ -2,7 +2,7 @@
 //! step 3; feature `trade`, active with the outside world).
 //!
 //! Each linked emigrant sends, in euro, r̄ · ω^η · (1 − δ)^(months abroad / 12)
-//! on the month's last day, paid in lei at the day's rate from the rest of the
+//! on the 15th (with imputed rent, not on pay day), paid in lei at the day's rate from the rest of the
 //! world's lei deposits to its household's deposits (flow code
 //! `transfer.remittances`, secondary income). r̄ is fitted at load so that the
 //! start's links send the 2021 net flow at e0. Emigration, returns and the
@@ -41,7 +41,7 @@ impl RemittanceParams {
 /// A month's remittances.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct RemittanceMonth {
-    /// The month they were paid in (its last day).
+    /// The month they were paid in (on its 15th).
     pub month: Month,
     /// Paid to households, lei (national).
     pub lei: Bani,
@@ -106,8 +106,8 @@ impl World {
         self.rem.rbar_micro_cents = ratio(month, 1_000_000_000_000_000_000, weighted * e0);
     }
 
-    /// The month's last day, after pay: each link's remittance to its
-    /// household, in lei at the day's rate.
+    /// The 15th: each link's remittance to its household, in lei at the
+    /// day's rate.
     pub(super) fn pay_remittances(&mut self) {
         if !self.rem.active {
             return;

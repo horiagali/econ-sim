@@ -48,7 +48,7 @@ A tick is one day ([ADR-0017](../../03-architecture/decisions/0017-time-base.md)
 
 | What | When |
 |---|---|
-| Remittances paid to linked households | monthly, on the last day, with wages and pensions |
+| Remittances paid to linked households | monthly, on the 15th, with imputed rent |
 | Emigration, returns, foreign immigration, moves between counties | monthly close, after the demographics core's month-end step, in that order |
 | `months_abroad` of linked emigrants | monthly close |
 | Ageing and deaths of the diaspora stock | yearly, in January, with the demographics core's ageing |
@@ -106,7 +106,7 @@ p_i = \min\Big(p^{max},\ p^0_{a(i)} \cdot R_{s(i)}^{\varepsilon} \cdot \frac{1 +
 
 > **Simplification:** BPM6 treats a change of residence as an "other change in volume", not a transaction. Here it is a capital transfer, so that the rest of the world's deposits change only through flows and the balance of payments closes without an amendment to [trade and FX](trade-fx.md) (AC-TFX-03).
 
-### 3. Remittances (monthly, last day)
+### 3. Remittances (monthly, on the 15th)
 Each linked emigrant $i$ in household $h$ sends, in euro:
 ```math
 r_{i,t} = \bar r \cdot \omega_t^{\eta} \cdot (1 - \delta)^{\text{months\_abroad}_i / 12}
@@ -114,6 +114,8 @@ r_{i,t} = \bar r \cdot \omega_t^{\eta} \cdot (1 - \delta)^{\text{months\_abroad}
 paid in lei at the day's rate, $r_{i,t} \cdot e_t$, from the rest of the world's lei deposits to the household's deposits, multiplied by $w_h$ (ADR-0007), flow code `transfer.remittances` (secondary income). It enters `hh_income_received` and `hh_remittances_in` like any income ([households](households.md)), and is not taxed.
 
 $\bar r$ is fitted at load: the sum over linked emigrants at the start, at $e_0$, is the 2021 net flow, 17,248 million lei a year (1,437 million a month). Because remittances are in euro, a weaker leu raises them in lei: a cushion for linked households and a support for the leu.
+
+> **Paid on the 15th** (restated 2026-10-30, as proposed under the owner's delegation, as imputed rent was on 2026-10-21): on the last day it would change pay day's income, which AC-ST-05 holds to the pay slips; the exchange rate moves only at the monthly close, so the amount in lei is the same, and it is still in the next decision's income.
 
 > **First version (2026-10-30):** step 3 runs before the rest of the spec, on by default with the outside world (feature `trade`): the links are the starting ones (stage L), months abroad advance with the months, and ω stays at its starting 100% until `world.wages_abroad` is wired with emigration (the lever stays `planned`). The `[sim]` criteria stay behind the feature `migration` until the other steps exist; AC-MIG-06 passes with it on.
 
