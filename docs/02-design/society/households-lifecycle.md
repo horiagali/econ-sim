@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [society/population-groups, society/population-generator, economy/households, economy/accounting, game/world-loop, adr/0003-people-representation, adr/0006-determinism-contract, adr/0007-money-and-ledger, adr/0017-time-base]
 research: [research/demographics-romania-2021]
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # Household Life Cycle — Leaving Home, Couples, Separation, Weighted Records
@@ -93,6 +93,9 @@ Between records of **different** weights money moves only after a split, or thro
 **Eligible:** private households with a head and a partner of the other sex, the woman aged under 60. **One national stratum. Target:** `separation_rate` (0.9% a year ÷ 12; about 35,000 a year, pre-COVID divorces plus cohabiting separations; low confidence). **The man moves out** with $a$ = `separation_share` (0.5) of the per-household cash and of the deposits; debts, the dwelling and any children stay in the original record, whose woman becomes head. He keeps no survivor right to her pension.
 
 > **Simplification:** children always stay with their mother; debts stay with the dwelling; there is no remarriage rule beyond the union rule (a separated man is again eligible as soon as he lives alone).
+
+### Implementation status
+- **2026-10-30:** on the `World`, behind the feature `lifecycle` (off by default with `demography`): the record operations on the World's columns (a new household appended to every household column, a person copied to every person column, move out, split, merge, make collective), orphans after a death (step 1), and steps 2 to 4 of the People phase. Choices made as proposed (owner's delegation): a new household's stagger day uses the load's rule keyed by its `hh_key`; a record split off and merged away in the same phase is not reported as formed; a woman who gave birth in the run in the last 18 years does not leave home (there are no parent links to move the child with her). AC-HHL-08 and 10 pass. AC-HHL-06 fails in its first year: the starting population has 31.2% of 25–34-year-olds living with a head or partner at least 15 years older (Romania: 38.7%), at the criterion's floor of 30%, and the leaving rates bring it below; their tuning is for the owner. AC-HHL-05, 07 and 09 run 20 and 50 years and stop where the long runs break down (the treasury's financing, after about 17 years).
 
 ## Player levers
 None in the first version. Housing (M13), child benefits and student finance (M14) are the natural levers on leaving home and unions.

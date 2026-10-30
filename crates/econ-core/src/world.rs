@@ -102,6 +102,10 @@ mod pay_day;
 // Roadmap M5's starting data, read by no phase yet.
 #[allow(clippy::needless_range_loop)]
 mod people;
+// The household life cycle (roadmap M5).
+#[cfg(feature = "lifecycle")]
+#[allow(clippy::needless_range_loop)]
+mod lifecycle;
 // The People phase (ageing, deaths, retirement; roadmap M5).
 #[cfg(feature = "demography")]
 #[allow(clippy::needless_range_loop)]

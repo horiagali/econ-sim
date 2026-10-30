@@ -74,6 +74,11 @@ pub(super) struct DemState {
     support_2021: Option<ChildSupport>,
     support_history: Vec<ChildSupport>,
     real_income: Vec<i128>,
+    /// The life cycle's carries: leaving home by sex × band, unions by the
+    /// woman's band, separations.
+    pub(super) carry_leave: [i64; 8],
+    pub(super) carry_union: [i64; 5],
+    pub(super) carry_separation: i64,
 }
 
 impl World {
@@ -177,6 +182,9 @@ impl World {
             support_2021: self.child_support(),
             support_history: Vec::new(),
             real_income: Vec::new(),
+            carry_leave: [0; 8],
+            carry_union: [0; 5],
+            carry_separation: 0,
         };
         self.dem.k_birth = self.birth_normalisation();
     }
@@ -280,6 +288,24 @@ impl World {
         self.people_deaths();
         self.people_births();
         self.people_retirement();
+        #[cfg(feature = "lifecycle")]
+        {
+            let before = self.households.hh_weight.len();
+            self.people_lifecycle();
+            // A record formed and ended in the same phase (the part of a
+            // split merged away) never formed a household.
+            let alive: std::collections::BTreeSet<u64> = (before..self.households.hh_weight.len())
+                .filter(|&h| self.dem.hh_life.hh_alive[h])
+                .map(|h| self.people.hh_key[h])
+                .collect();
+            let formed_before: std::collections::BTreeSet<u64> =
+                (0..before).map(|h| self.people.hh_key[h]).collect();
+            self.dem
+                .report
+                .life
+                .households_formed
+                .retain(|k| alive.contains(k) || formed_before.contains(k));
+        }
     }
 
     /// The compaction (spec step 6, "Records"): tombstones and ended
@@ -846,6 +872,11 @@ impl World {
             .any(|q| self.persons.household_id[q] as usize == h && self.dem.life.alive[q]);
         if empty {
             self.settle_estate(h, self.pp.age[p]);
+        } else {
+            #[cfg(feature = "lifecycle")]
+            if self.orphaned(h) {
+                self.make_collective(h);
+            }
         }
     }
 
@@ -1061,7 +1092,7 @@ impl World {
 
     /// A household's equivalised adults and its transfers' counts, from its
     /// live members.
-    fn people_recount(&mut self, h: usize) {
+    pub(super) fn people_recount(&mut self, h: usize) {
         let members: Vec<usize> = (0..self.persons.household_id.len())
             .filter(|&q| self.persons.household_id[q] as usize == h && self.dem.life.alive[q])
             .collect();

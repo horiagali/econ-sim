@@ -506,6 +506,28 @@ impl World {
         }
     }
 
+    /// A household's dividend key, and setting it; a new record's.
+    #[cfg(feature = "lifecycle")]
+    pub(super) fn invest_key_of(&self, h: usize) -> i128 {
+        self.inv.hh_key.get(h).copied().unwrap_or(0)
+    }
+
+    /// See [`World::invest_key_of`].
+    #[cfg(feature = "lifecycle")]
+    pub(super) fn invest_set_key(&mut self, h: usize, key: i128) {
+        if let Some(k) = self.inv.hh_key.get_mut(h) {
+            *k = key;
+        }
+    }
+
+    /// A new household record's dividend key.
+    #[cfg(feature = "lifecycle")]
+    pub(super) fn invest_push_household(&mut self, key: i128) {
+        if self.inv.active || !self.inv.hh_key.is_empty() {
+            self.inv.hh_key.push(key);
+        }
+    }
+
     /// The yearly compaction: drop the removed households.
     #[cfg(feature = "demography")]
     pub(super) fn invest_compact(&mut self, keep_h: &[bool]) {

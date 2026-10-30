@@ -82,6 +82,24 @@ pub(super) struct Banks {
 }
 
 impl World {
+    /// A new household record with these debts (per household).
+    #[cfg(feature = "lifecycle")]
+    pub(super) fn bank_push_household(&mut self, mortgage: Bani, consumer: Bani) {
+        let v = &mut self.bk.view;
+        v.hh_mortgage.push(mortgage);
+        v.hh_consumer_debt.push(consumer);
+        v.hh_interest_paid.push(Bani::ZERO);
+        v.hh_interest_received.push(Bani::ZERO);
+    }
+
+    /// Set a household's debts (per household; the life cycle moves them).
+    #[cfg(feature = "lifecycle")]
+    pub(super) fn bank_set_debts(&mut self, h: usize, mortgage: Bani, consumer: Bani) {
+        let v = &mut self.bk.view;
+        v.hh_mortgage[h] = mortgage;
+        v.hh_consumer_debt[h] = consumer;
+    }
+
     /// The yearly compaction: drop the removed households.
     #[cfg(feature = "demography")]
     pub(super) fn bank_compact(&mut self, keep_h: &[bool]) {
