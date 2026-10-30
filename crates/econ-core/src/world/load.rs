@@ -781,6 +781,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         bk: super::banking::Banks::default(),
         #[cfg(feature = "trade")]
         fx: super::foreign::ForeignState::default(),
+        #[cfg(feature = "trade")]
+        rem: super::remittances::Remittances::default(),
         #[cfg(feature = "monetary")]
         cb: super::central_bank::CentralBank::default(),
         #[cfg(feature = "investment")]
@@ -830,6 +832,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     );
     #[cfg(feature = "trade")]
     world.start_trade(world_factor, depreciation, &s.oil_import_ppm);
+    #[cfg(feature = "trade")]
+    world.start_remittances();
     #[cfg(feature = "revenue")]
     world.start_revenue(&s, &without_revenue);
     #[cfg(feature = "monetary")]

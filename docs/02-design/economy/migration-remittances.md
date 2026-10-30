@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [economy/demographics, economy/households, economy/labor-market, economy/trade-fx, economy/eu-membership, economy/social-transfers, economy/transport-network, society/population-groups, adr/0003-people-representation, adr/0006-determinism-contract, adr/0007-money-and-ledger, adr/0008-explainability-architecture, adr/0017-time-base]
 research: [research/migration-remittances-romania-2021]
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # Migration, Diaspora & Remittances
@@ -114,6 +114,8 @@ r_{i,t} = \bar r \cdot \omega_t^{\eta} \cdot (1 - \delta)^{\text{months\_abroad}
 paid in lei at the day's rate, $r_{i,t} \cdot e_t$, from the rest of the world's lei deposits to the household's deposits, multiplied by $w_h$ (ADR-0007), flow code `transfer.remittances` (secondary income). It enters `hh_income_received` and `hh_remittances_in` like any income ([households](households.md)), and is not taxed.
 
 $\bar r$ is fitted at load: the sum over linked emigrants at the start, at $e_0$, is the 2021 net flow, 17,248 million lei a year (1,437 million a month). Because remittances are in euro, a weaker leu raises them in lei: a cushion for linked households and a support for the leu.
+
+> **First version (2026-10-30):** step 3 runs before the rest of the spec, on by default with the outside world (feature `trade`): the links are the starting ones (stage L), months abroad advance with the months, and ω stays at its starting 100% until `world.wages_abroad` is wired with emigration (the lever stays `planned`). The `[sim]` criteria stay behind the feature `migration` until the other steps exist; AC-MIG-06 passes with it on.
 
 > **Simplification:** the 2021 *net* flow is paid as an inflow; the 1,808 million lei that residents (mostly immigrants) send abroad are not modelled separately. The diaspora stock sends nothing; all remittances run through links.
 
@@ -255,7 +257,7 @@ impl World {
 pub enum StartEdit { /* … */ NoDiaspora }                 // the counterfactual of AC-MIG-07 and 14
 ```
 
-Powers and exponentials use the pinned `libm` through `econ_num::math` (ADR-0006). New flow codes (append-only, ADR-0007): 4109 `transfer.remittances` (secondary income, rest of the world to households), 4110 `transfer.migrant_capital` (capital account, both directions).
+Powers and exponentials use the pinned `libm` through `econ_num::math` (ADR-0006). New flow codes (append-only, ADR-0007): 4110 `transfer.remittances` (secondary income, rest of the world to households), 4111 `transfer.migrant_capital` (capital account, both directions). (Renumbered 2026-10-30, as proposed under the owner's delegation: 4109 is demographics' `transfer.estate`, which its test fixes.)
 
 ## Open questions
 - [x] **Diaspora destinations:** one "abroad" or named countries (Italy, Spain, Germany, UK)? **Decided by the owner, 2026-10-26:** one abroad in v1, with `world.wages_abroad` as its wage; named destinations after v1, "to consider" in the roadmap.

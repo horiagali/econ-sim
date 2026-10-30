@@ -102,6 +102,9 @@ mod pay_day;
 // Roadmap M5's starting data, read by no phase yet.
 #[allow(clippy::needless_range_loop)]
 mod people;
+// Remittances from linked emigrants, with the outside world.
+#[cfg(feature = "trade")]
+mod remittances;
 #[cfg(feature = "revenue")]
 #[allow(clippy::needless_range_loop)]
 mod revenue;
@@ -159,6 +162,8 @@ pub use observe::{
 pub use observe::{InvestmentMonth, InvestmentPlans};
 pub use pay_day::PaySlips;
 pub use people::{ENROLMENT, LinkedEmigrantColumns, People, PeopleStart};
+#[cfg(feature = "trade")]
+pub use remittances::{RemittanceMonth, RemittanceParams};
 #[cfg(feature = "fiscal")]
 pub use treasury::{FiscalMonth, FiscalParams, Treasury};
 
@@ -677,6 +682,9 @@ pub struct WorldParams {
     /// Trade and the exchange rate.
     #[cfg(feature = "trade")]
     pub trade: TradeParams,
+    /// Remittances from linked emigrants (spec economy/migration-remittances).
+    #[cfg(feature = "trade")]
+    pub remittances: RemittanceParams,
     /// Approval (spec society/opinion-approval); `None`: approval is not
     /// computed (AC-APP-03). A test writer's addition (ADR-0014).
     #[cfg(feature = "approval")]
@@ -729,6 +737,8 @@ impl WorldParams {
             fiscal: FiscalParams::spec_defaults(),
             #[cfg(feature = "trade")]
             trade: TradeParams::spec_defaults(),
+            #[cfg(feature = "trade")]
+            remittances: RemittanceParams::spec_defaults(),
             #[cfg(feature = "approval")]
             approval: Some(crate::approval::ApprovalParams::spec_defaults()),
             #[cfg(feature = "poverty")]
@@ -1153,6 +1163,8 @@ pub struct World {
     bk: banking::Banks,
     #[cfg(feature = "trade")]
     fx: foreign::ForeignState,
+    #[cfg(feature = "trade")]
+    rem: remittances::Remittances,
     #[cfg(feature = "monetary")]
     cb: central_bank::CentralBank,
     #[cfg(feature = "investment")]
@@ -1268,7 +1280,11 @@ impl World {
                 PhaseId::Households => self.household_decisions(cohort),
                 PhaseId::GoodsMarket => self.goods_market(),
                 PhaseId::Quits => self.quits(),
-                PhaseId::Pay => self.pay(),
+                PhaseId::Pay => {
+                    self.pay();
+                    #[cfg(feature = "trade")]
+                    self.pay_remittances();
+                }
                 #[cfg(feature = "demography")]
                 PhaseId::People => {
                     unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
