@@ -311,7 +311,17 @@ impl World {
                     / i128::from(self.hh.eq_adults_milli[h].max(1))
             })
             .collect();
-        let (_, bounds) = fifths(&per_adult, &self.households.hh_weight);
+        // Ended household records carry no weight in the fifths.
+        let weights: Vec<u32> = (0..n_hh)
+            .map(|h| {
+                if self.household_alive(h) {
+                    self.households.hh_weight[h]
+                } else {
+                    0
+                }
+            })
+            .collect();
+        let (_, bounds) = fifths(&per_adult, &weights);
         self.mac.fifth_bounds = bounds;
         self.hh.income_last_month =
             std::mem::replace(&mut self.hh.income_this_month, vec![Bani::ZERO; n_hh]);
@@ -418,8 +428,14 @@ impl World {
         self.cb_close();
         // The close of December: next year's mortality table.
         #[cfg(feature = "demography")]
-        if self.calendar.date(self.today).month == 12 {
-            self.people_year_end();
+        {
+            let december = self.calendar.date(self.today).month == 12;
+            if december {
+                self.people_year_end();
+            }
+            if december || self.params.demography.compact_monthly {
+                self.compact_people();
+            }
         }
         failed
     }

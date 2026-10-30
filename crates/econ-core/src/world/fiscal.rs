@@ -393,6 +393,22 @@ impl World {
         self.fs.points[p] = points;
     }
 
+    /// The yearly compaction: drop the removed persons and households.
+    #[cfg(feature = "demography")]
+    pub(super) fn fs_compact(&mut self, keep_p: &[bool], keep_h: &[bool]) {
+        use super::money::retain_by;
+        let f = &mut self.fs;
+        retain_by(&mut f.points, keep_p);
+        retain_by(&mut f.contribution_years, keep_p);
+        retain_by(&mut f.claims, keep_p);
+        retain_by(&mut f.self_declared, keep_p);
+        retain_by(&mut f.claims_dependants, keep_p);
+        retain_by(&mut f.size, keep_h);
+        retain_by(&mut f.children, keep_h);
+        retain_by(&mut f.collective, keep_h);
+        retain_by(&mut f.take_up, keep_h);
+    }
+
     /// A new person (a birth): no points, contributions, claim or income.
     #[cfg(feature = "demography")]
     pub(super) fn fs_push_person(&mut self) {

@@ -268,6 +268,22 @@ pub(super) fn ratio(a: i128, b: i128, d: i128) -> i128 {
 }
 
 /// An i128 amount as bani.
+/// Keep the entries of `v` whose `keep` is true, in order (the yearly
+/// compaction of the People phase). A column of another length is left as
+/// it is.
+#[cfg(feature = "demography")]
+pub(super) fn retain_by<T>(v: &mut Vec<T>, keep: &[bool]) {
+    if v.len() != keep.len() {
+        return;
+    }
+    let mut i = 0;
+    v.retain(|_| {
+        let k = keep[i];
+        i += 1;
+        k
+    });
+}
+
 pub(super) fn bani(v: i128) -> Bani {
     Bani(i64::try_from(v).expect("an amount that fits i64 bani"))
 }
