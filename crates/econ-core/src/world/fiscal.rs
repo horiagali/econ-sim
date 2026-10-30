@@ -393,6 +393,17 @@ impl World {
         self.fs.points[p] = points;
     }
 
+    /// A new person (a birth): no points, contributions, claim or income.
+    #[cfg(feature = "demography")]
+    pub(super) fn fs_push_person(&mut self) {
+        let f = &mut self.fs;
+        f.points.push(0);
+        f.contribution_years.push(0);
+        f.claims.push(None);
+        f.self_declared.push(Bani::ZERO);
+        f.claims_dependants.push(false);
+    }
+
     /// An ended household takes up no benefit.
     #[cfg(feature = "demography")]
     pub(super) fn fs_end_household(&mut self, h: usize) {

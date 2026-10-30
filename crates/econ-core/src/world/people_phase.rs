@@ -11,16 +11,16 @@
 
 use econ_ledger::{FlowCode, Instrument, Sector};
 use econ_mech_demography::{
-    Candidate, MORTALITY_AGES, MortalityTable, PensionLaw, align, new_pension_points,
-    table_for_year,
+    Candidate, ChildSupport, FertileWoman, MORTALITY_AGES, MortalityTable, PensionLaw, align,
+    benefit_gap, job_normalisation, m_cyc, m_job, m_pol, new_pension_points, table_for_year,
 };
-use econ_popgen::{Activity, NO_EMPLOYER, Role, Sex};
+use econ_popgen::{Activity, EduLevel, Enrolled, NO_EMPLOYER, Role, Sex};
 use econ_rng::Stream;
 use econ_types::{Bani, Month};
 
 use super::World;
 use super::demography::{
-    Death, EstateRecord, HouseholdLifeColumns, PeopleLifeColumns, PeopleReport, Retirement,
+    Birth, Death, EstateRecord, HouseholdLifeColumns, PeopleLifeColumns, PeopleReport, Retirement,
 };
 use super::money::{Postings, bani, ratio};
 
@@ -32,6 +32,10 @@ const EARLY_YEARS: usize = 10;
 const PURPOSE_DEATH: u32 = 1;
 const PURPOSE_EARLY: u32 = 2;
 const PURPOSE_HEIR: u32 = 3;
+const PURPOSE_BIRTH: u32 = 4;
+const PURPOSE_BIRTH_SEX: u32 = 5;
+/// Five-year bands of the mother's age, 15–19 to 45–49.
+const BIRTH_BANDS: usize = 7;
 /// The law's pension parameters the transfers rule does not hold.
 const FULL_YEARS: u8 = 35;
 const MIN_YEARS: u8 = 15;
@@ -61,6 +65,15 @@ pub(super) struct DemState {
     early_ppb: [[u32; EARLY_YEARS]; 2],
     /// `wage_nominal`: the mean gross wage of employees, a month.
     wage_nominal: Bani,
+    /// Births: the carries, the normalisation k_s of M^job by band
+    /// (millionths), the child support of the 2021 law and of each closed
+    /// month, and real income per equivalised adult at each month (for
+    /// M^cyc).
+    carry_birth: [i64; BIRTH_BANDS],
+    k_birth: [u32; BIRTH_BANDS],
+    support_2021: Option<ChildSupport>,
+    support_history: Vec<ChildSupport>,
+    real_income: Vec<i128>,
 }
 
 impl World {
@@ -159,7 +172,97 @@ impl World {
             carry_early: [[0; EARLY_YEARS]; 2],
             early_ppb,
             wage_nominal: self.people.wage_nominal,
+            carry_birth: [0; BIRTH_BANDS],
+            k_birth: [1_000_000; BIRTH_BANDS],
+            support_2021: self.child_support(),
+            support_history: Vec::new(),
+            real_income: Vec::new(),
         };
+        self.dem.k_birth = self.birth_normalisation();
+    }
+
+    /// The child support of the law in force, when the law has transfers.
+    fn child_support(&self) -> Option<ChildSupport> {
+        let t = self.law.transfers.as_ref()?;
+        let credit = self
+            .law
+            .income
+            .as_ref()
+            .map_or(Bani::ZERO, |l| l.child_credit);
+        Some(ChildSupport {
+            under2: t.child.under2,
+            to18: t.child.to18,
+            tax_credit: credit,
+        })
+    }
+
+    /// Each live person's partner (the other of a head and partner pair).
+    fn partners(&self) -> Vec<Option<usize>> {
+        let n_hh = self.households.hh_weight.len();
+        let (mut head, mut partner) = (vec![None; n_hh], vec![None; n_hh]);
+        for p in 0..self.pp.age.len() {
+            if !self.dem.life.alive[p] {
+                continue;
+            }
+            let h = self.persons.household_id[p] as usize;
+            match self.people.role[p] {
+                Role::Head => head[h] = Some(p),
+                Role::Partner => partner[h] = Some(p),
+                _ => {}
+            }
+        }
+        (0..self.pp.age.len())
+            .map(|p| {
+                let h = self.persons.household_id[p] as usize;
+                match self.people.role[p] {
+                    Role::Head => partner[h],
+                    Role::Partner => head[h],
+                    _ => None,
+                }
+            })
+            .collect()
+    }
+
+    /// The women who may give birth this month, by band: `(person, band)`.
+    /// `(person, band, recent)`: `recent` if she gave birth in the last 12
+    /// months (she counts in the band's target but cannot be chosen).
+    fn fertile_women(&self) -> Vec<(usize, usize, bool)> {
+        (0..self.pp.age.len())
+            .filter_map(|p| {
+                let h = self.persons.household_id[p] as usize;
+                let years = self.pp.age[p] / 12;
+                let recent = self.dem.life.months_since_birth[p].is_some_and(|m| m < 12);
+                (self.dem.life.alive[p]
+                    && self.people.sex[p] == Sex::F
+                    && (15..=49).contains(&years)
+                    && !self.dem.hh_life.hh_collective[h]
+                    && self.households.hh_weight[h] > 0)
+                    .then(|| (p, usize::from((years - 15) / 5), recent))
+            })
+            .collect()
+    }
+
+    /// k_s at load: the starting population gives the base-rate births.
+    fn birth_normalisation(&self) -> [u32; BIRTH_BANDS] {
+        let Some(dem) = self.people.demography.as_ref() else {
+            return [1_000_000; BIRTH_BANDS];
+        };
+        let partners = self.partners();
+        let r = &self.params.demography.fertility;
+        let mut by_band: Vec<Vec<FertileWoman>> = vec![Vec::new(); BIRTH_BANDS];
+        for (p, b, _) in self.fertile_women() {
+            let unemployed = self.pp.seeking[p] || partners[p].is_some_and(|q| self.pp.seeking[q]);
+            by_band[b].push(FertileWoman {
+                weight: self.weight_of(p),
+                fertility_ppb: dem.fertility.rate_ppm(self.pp.age[p] / 12) * 1_000,
+                m_job_ppm: m_job(unemployed, r),
+            });
+        }
+        let mut k = [1_000_000; BIRTH_BANDS];
+        for (b, women) in by_band.iter().enumerate() {
+            k[b] = job_normalisation(women);
+        }
+        k
     }
 
     /// The People phase, at month end after Pay.
@@ -175,6 +278,7 @@ impl World {
         self.people_ageing();
         self.people_contributions();
         self.people_deaths();
+        self.people_births();
         self.people_retirement();
     }
 
@@ -214,6 +318,9 @@ impl World {
         for p in 0..self.pp.age.len() {
             if self.dem.life.alive[p] {
                 self.pp.age[p] = self.pp.age[p].saturating_add(1);
+                if let Some(m) = &mut self.dem.life.months_since_birth[p] {
+                    *m = m.saturating_add(1);
+                }
             }
         }
     }
@@ -290,6 +397,234 @@ impl World {
                 self.die(by_key[&key]);
             }
         }
+    }
+
+    /// The household's money income per equivalised adult, last month.
+    fn income_per_adult(&self, h: usize) -> i128 {
+        i128::from(self.hh.income_last_month[h].get()) * 1_000
+            / i128::from(self.hh.eq_adults_milli[h].max(1))
+    }
+
+    /// Step 4: births, aligned by the mother's five-year band.
+    #[allow(clippy::too_many_lines)]
+    fn people_births(&mut self) {
+        let Some(dem) = self.people.demography.clone() else {
+            return;
+        };
+        let r = self.params.demography.fertility;
+        let fixed = self.params.demography.fixed_fertility_multipliers;
+        let scale = i128::from(self.params.demography.fertility_scale_ppm);
+        let t = self.months.len();
+        // The law of fertility_lag months ago (the start's before then).
+        let lag = usize::from(r.lag_months);
+        let support_then = if t >= lag {
+            self.dem.support_history.get(t - lag).copied()
+        } else {
+            None
+        }
+        .or(self.dem.support_2021);
+        let delta_b = match (support_then, self.dem.support_2021) {
+            (Some(then), Some(base)) => benefit_gap(&then, &base),
+            _ => Bani::ZERO,
+        };
+        // M^cyc from real income growth measured `lag` months ago.
+        let series = &self.dem.real_income;
+        let growth = (series.len() > lag + 12)
+            .then(|| {
+                let (now, before) = (
+                    series[series.len() - 1 - lag],
+                    series[series.len() - 13 - lag],
+                );
+                (before > 0)
+                    .then(|| i32::try_from((now - before) * 1_000_000 / before).unwrap_or(0))
+            })
+            .flatten();
+        let m_cycle = if fixed { 1_000_000 } else { m_cyc(growth, &r) };
+        // The national median income per adult (for M^pol's floor).
+        let n_hh = self.households.hh_weight.len();
+        let mut incomes: Vec<(i128, u32)> = (0..n_hh)
+            .filter(|&h| self.household_alive(h) && self.households.hh_weight[h] > 0)
+            .map(|h| (self.income_per_adult(h), self.households.hh_weight[h]))
+            .collect();
+        incomes.sort_unstable();
+        let total: u64 = incomes.iter().map(|&(_, w)| u64::from(w)).sum();
+        let mut acc = 0u64;
+        let median = incomes
+            .iter()
+            .find(|&&(_, w)| {
+                acc += u64::from(w);
+                2 * acc >= total
+            })
+            .map_or(0, |&(y, _)| y);
+        let median = Bani(i64::try_from(median).unwrap_or(0));
+        let partners = self.partners();
+        let couple_ratio = i128::from(self.params.demography.partner_fertility_ratio_ppm);
+        let mut strata: Vec<Vec<(usize, Candidate)>> = vec![Vec::new(); BIRTH_BANDS];
+        // The expected births of women who gave birth in the last 12 months:
+        // in the band's target, so the exclusion moves who gives birth, not
+        // how many (millionths of a person).
+        let mut recent_micro = [0i128; BIRTH_BANDS];
+        for (p, b, recent) in self.fertile_women() {
+            let h = self.persons.household_id[p] as usize;
+            let f = i128::from(dem.fertility.rate_ppm(self.pp.age[p] / 12)) * 1_000 / 12;
+            let (mp, mj) = if fixed {
+                (1_000_000, 1_000_000)
+            } else {
+                let y = Bani(i64::try_from(self.income_per_adult(h)).unwrap_or(0));
+                let unemployed =
+                    self.pp.seeking[p] || partners[p].is_some_and(|q| self.pp.seeking[q]);
+                (m_pol(delta_b, y, median, &r), m_job(unemployed, &r))
+            };
+            let k = if fixed {
+                1_000_000
+            } else {
+                self.dem.k_birth[b]
+            };
+            let mut prob = f * scale / 1_000_000;
+            for m in [
+                i128::from(k),
+                i128::from(mp),
+                i128::from(mj),
+                i128::from(m_cycle),
+            ] {
+                prob = prob * m / 1_000_000;
+            }
+            let prob = u32::try_from(prob.clamp(0, 1_000_000_000)).expect("a probability");
+            if recent {
+                recent_micro[b] += i128::from(self.weight_of(p)) * i128::from(prob) / 1_000;
+                continue;
+            }
+            let in_couple = partners[p].is_some_and(|q| self.people.sex[q] == Sex::M);
+            let rank = if in_couple {
+                u32::try_from((i128::from(prob) * couple_ratio / 1_000_000).min(1_000_000_000))
+                    .expect("a probability")
+            } else {
+                prob
+            };
+            strata[b].push((
+                p,
+                Candidate {
+                    person_key: self.people.person_key[p],
+                    weight: self.weight_of(p),
+                    p: prob,
+                    rank_p: rank.max(u32::from(prob > 0)),
+                },
+            ));
+        }
+        let day = self.today;
+        for (b, stratum) in strata.iter().enumerate() {
+            let cands: Vec<Candidate> = stratum.iter().map(|&(_, c)| c).collect();
+            let target: i128 = cands
+                .iter()
+                .map(|c| i128::from(c.weight) * i128::from(c.p) / 1_000)
+                .sum::<i128>()
+                + i128::from(self.dem.carry_birth[b])
+                + recent_micro[b];
+            self.dem.report.birth_targets_micro[b] = i64::try_from(target).unwrap_or(i64::MAX);
+            let carry = self.dem.carry_birth[b] + i64::try_from(recent_micro[b]).expect("a carry");
+            if stratum.is_empty() {
+                self.dem.carry_birth[b] = carry;
+                continue;
+            }
+            let sel = align(&cands, carry, &self.seed, day, PURPOSE_BIRTH);
+            self.dem.carry_birth[b] = sel.carry_micro;
+            let by_key: std::collections::BTreeMap<u64, usize> =
+                stratum.iter().map(|&(p, c)| (c.person_key, p)).collect();
+            for key in sel.chosen {
+                let mother = by_key[&key];
+                let in_couple = partners[mother].is_some_and(|q| self.people.sex[q] == Sex::M);
+                self.give_birth(mother, in_couple);
+            }
+        }
+        // This month's child support and real income per adult, for later
+        // months' lags.
+        if let Some(cs) = self.child_support() {
+            self.dem.support_history.push(cs);
+        }
+        let (mut inc, mut eq) = (0i128, 0i128);
+        for h in 0..n_hh {
+            if !self.household_alive(h) {
+                continue;
+            }
+            let w = i128::from(self.households.hh_weight[h]);
+            inc += w * i128::from(self.hh.income_last_month[h].get());
+            eq += w * i128::from(self.hh.eq_adults_milli[h]);
+        }
+        let cpi = i128::from(self.mac.cpi.last().copied().unwrap_or(1_000_000).max(1));
+        self.dem.real_income.push(if eq > 0 {
+            inc * 1_000 * 1_000_000 / eq / cpi
+        } else {
+            0
+        });
+    }
+
+    /// A birth: a newborn in the mother's household.
+    fn give_birth(&mut self, mother: usize, in_couple: bool) {
+        let key = self.people.person_key[mother];
+        let u = self
+            .seed
+            .fast_u64(Stream::Demography, self.today.0, key, PURPOSE_BIRTH_SEX)
+            % 1_000_000;
+        let boy = u < u64::from(self.params.demography.sex_ratio_at_birth_ppm);
+        let sex = if boy { Sex::M } else { Sex::F };
+        let h = self.persons.household_id[mother];
+        let child = self.push_person(h, sex, mother);
+        self.dem.life.months_since_birth[mother] = Some(0);
+        self.dem.report.births.push(Birth {
+            child_key: self.people.person_key[child],
+            sex,
+            mother_key: key,
+            mother_age: self.pp.age[mother],
+            mother_in_couple: in_couple,
+            hh_key: self.people.hh_key[h as usize],
+            weight: self.weight_of(mother),
+        });
+        self.people_recount(h as usize);
+    }
+
+    /// Append a person to every per-person column: a newborn in household
+    /// `h` (age 0, role child, no job, no pension, a new key), in the
+    /// region of `like`.
+    fn push_person(&mut self, h: u32, sex: Sex, like: usize) -> usize {
+        let p = self.pp.age.len();
+        let key = self.people.next_person_key;
+        self.people.next_person_key += 1;
+        let q = &mut self.persons;
+        q.household_id.push(h);
+        q.edu_level.push(EduLevel::Isced0To2);
+        q.employer.push(NO_EMPLOYER);
+        q.occupation.push(econ_popgen::NOT_EMPLOYED);
+        q.wage.push(Bani::ZERO);
+        q.wage_declared.push(Bani::ZERO);
+        q.months_unemployed.push(0);
+        q.hired_on.push(None);
+        q.last_pay.push(Bani::ZERO);
+        let s = &mut self.pp;
+        s.status.push(0);
+        s.seeking.push(false);
+        let region = s.region[like];
+        s.region.push(region);
+        s.pension.push(Bani::ZERO);
+        s.age.push(0);
+        s.other_income.push(Bani::ZERO);
+        let pe = &mut self.people;
+        pe.sex.push(sex);
+        pe.role.push(Role::Child);
+        pe.person_key.push(key);
+        pe.contribution_months.push(0);
+        pe.career_points.push(0);
+        pe.enrolled.push(Enrolled::None);
+        let l = &mut self.dem.life;
+        l.alive.push(true);
+        l.activity.push(Activity::Child);
+        l.pension_points.push(0);
+        l.survivor_points.push(0);
+        l.months_since_birth.push(None);
+        l.origin_household.push(None);
+        self.fs_push_person();
+        #[cfg(feature = "revenue")]
+        self.rev_push_person(Activity::Child as u8);
+        p
     }
 
     /// What the deceased would draw as a pension: points if retired, else
