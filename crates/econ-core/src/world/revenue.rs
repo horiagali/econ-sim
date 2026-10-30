@@ -609,6 +609,9 @@ impl World {
             _ => {
                 let p = &self.persons;
                 for i in 0..p.household_id.len() {
+                    if !self.person_alive(i) {
+                        continue;
+                    }
                     let h = p.household_id[i] as usize;
                     let age = self.pp.age[i];
                     k[h] += match key {

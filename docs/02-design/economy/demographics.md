@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [society/population-groups, society/households-lifecycle, society/population-generator, society/population-pensions, economy/social-transfers, economy/labor-market, economy/households, economy/money-banking, game/world-loop, game/lever-system, adr/0003-people-representation, adr/0006-determinism-contract, adr/0007-money-and-ledger, adr/0017-time-base]
 research: [research/demographics-romania-2021, research/law-in-force-romania-2021]
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # Demographics — Ageing, Births, Deaths, Retirement
@@ -190,6 +190,9 @@ with $\rho$ = `early_retirement_reduction` (0.75%) × months before the standard
 
 ### 6. Records
 A dead person's record stays as a tombstone (weight excluded from every sum, never selected, skipped by every phase) until the **yearly compaction** at the close of December: tombstones and ended households are removed, the tables are rewritten in their order, and every stored index (households' members, firm units' `members`, `origin_household`) is remapped. Keyed draws use `person_key`, never the index, so compaction changes no result. New persons and households are appended at the end of their tables.
+
+### Implementation status
+- **2026-10-30:** the pure rules and the record operations (`econ-mech-demography`, AC-DEM-01, 02, 10, 17, AC-HHL-01 to 04); on the `World`, behind the feature `demography` (off by default until the phase is complete): the People phase after Pay with steps 1 (ageing), 2 (contributions), 3 (deaths, aligned by sex and five-year band; the survivor right; a new head) and 5 (standard and early retirement), the yearly table and `wage_nominal` at the close of December. AC-DEM-08 and 09 pass. Owed: the estate and ended records, births, the record growth and compaction, the life cycle, then the feature on by default. The law's pension constants the transfers rule does not hold (35 and 15 years, 0.75% a month, 50%) are constants until the law file carries them.
 
 ### Starting data (loaded 2026-10-29)
 The data this spec starts from is in the scenario and on the `World` before any of its steps is built; no phase reads it yet, and it is outside the state hash, so loading it changed no result and no golden value:
