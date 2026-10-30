@@ -4,7 +4,7 @@ title: Roadmap
 status: draft
 owner: horia
 depends_on: [vision/scope]
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # Roadmap
@@ -107,6 +107,7 @@ This section replaces the old "Phase 2" list and orders the open items of Phase 
 | M7 | Alpha calibration and stability | trust the baseline and the policy responses | M |
 | M8 | Alpha app | play the core | L |
 | | **Part 2 — Systems** | | |
+| M8b | Laws and taxes in depth | add taxes, benefits and rules Romania does not have, and change how existing ones work | M |
 | M9 | Firms in depth and state ownership | see real companies; subsidise, nationalise, privatise | L |
 | M10 | Bank regulation and backstops | set bank rules; push the economy hard without breaking it | S |
 | M11 | Infrastructure and the project system | build roads, schools, hospitals | M |
@@ -300,6 +301,16 @@ On the stack of [ADR-0013](03-architecture/decisions/0013-ui-stack.md), growing 
 
 ## Part 2 — Systems: the rest of scope
 The order follows what depends on what: firm units before anything owned by a firm (plants, foreign owners, state companies); projects before energy, housing and EU funds; energy and EU before environment; EU, money and trade before the euro.
+
+### M8b — Laws and taxes in depth
+Added by the owner on 2026-10-30. The alpha's levers move the rates and amounts of the 2021 law; here the player can also add what Romania does not have and change how a law works. Each new law enters the registry with its 2021 value (0 or "not in force"), so the baseline does not move. Specs: [taxation](02-design/economy/taxation.md), [social transfers](02-design/economy/social-transfers.md), [lever system](02-design/game/lever-system.md), [levers](02-design/game/levers.md).
+- [ ] **New taxes at 0 by default:** levers for taxes Romania does not levy, each with its mechanic, revenue code and incidence. First in: the **inheritance tax** (`tax.inheritance.rate`, a rate on what passes to the heir, 0 in the 2021 law; owner, 2026-10-30), wired with the demographics' estates in M5. Candidates: a land-value tax, a financial transactions tax, a carbon tax (with M19), a windfall tax, a tax on sugary drinks.
+- [ ] **New benefits and transfers:** a universal basic income, a guaranteed pension, new family benefits, each with eligibility and take-up.
+- [ ] **Structural changes to existing laws:** progressive income tax brackets beyond the flat 10% (the schedule exists), taxing capital income as labour income, a different VAT base, contributions paid by employers instead of employees, a different pension formula.
+- [ ] **Exemptions and special regimes:** the IT and construction wage exemptions, micro-enterprise thresholds, sector tax holidays, as levers.
+- [ ] **A law's phase-in and its announcement:** a law passed today taking effect later, so expectations can respond before it does (lever system's effective dates, extended).
+- [ ] **Legal limits as warnings, not walls:** the Constitution's and the EU's limits shown when a lever goes past them (the binding EU rules come with M18).
+**Exit:** the player can introduce a tax Romania does not have, see its revenue, who pays it and how behaviour responds, and repeal it.
 
 ### M9 — Firms in depth and state ownership
 Specs: [production](02-design/economy/production.md), [state-enterprises](02-design/economy/state-enterprises.md), [investment-capital](02-design/economy/investment-capital.md), [fiscal-policy](02-design/economy/fiscal-policy.md) (subsidies), [prices-inflation](02-design/economy/prices-inflation.md) (caps).
