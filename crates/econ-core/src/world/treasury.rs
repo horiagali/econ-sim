@@ -609,6 +609,9 @@ impl World {
                     }
                     let hh = &mut self.households;
                     hh.hh_deposits[h] += bani(p);
+                    // In the money received to date (AC-HH-03), not in the
+                    // decision's income.
+                    hh.income_to_date[h] += bani(p);
                     paid += i128::from(hh.hh_weight[h]) * p;
                 }
                 bani(paid)
@@ -654,6 +657,7 @@ impl World {
                 }
                 for (h, &p) in parts.iter().enumerate() {
                     self.households.hh_deposits[h] -= bani(p);
+                    self.households.spending_to_date[h] += bani(p);
                 }
                 amount
             }

@@ -696,6 +696,7 @@ impl World {
             *a = (*a).min(i128::from(hh.hh_deposits[h].get()).max(0));
             if *a > 0 {
                 hh.hh_deposits[h] -= bani(*a);
+                hh.spending_to_date[h] += bani(*a);
                 paid += i128::from(hh.hh_weight[h]) * *a;
             }
         }
@@ -900,6 +901,7 @@ impl World {
             let x = a.min(i128::from(hh.hh_deposits[h].get()).max(0));
             if x > 0 {
                 hh.hh_deposits[h] -= bani(x);
+                hh.spending_to_date[h] += bani(x);
                 paid += w * x;
             }
             parts[h] = x;
@@ -939,6 +941,7 @@ impl World {
             let x = a.min(i128::from(hh.hh_deposits[h].get()).max(0));
             if x > 0 {
                 hh.hh_deposits[h] -= bani(x);
+                hh.spending_to_date[h] += bani(x);
                 paid += i128::from(hh.hh_weight[h]) * x;
             }
         }
@@ -1064,6 +1067,34 @@ impl World {
     pub(super) fn rev_output_value(&mut self, u: usize, value: i128) {
         if self.rev.active {
             self.rev.output_month[u] += value;
+        }
+    }
+
+    /// An estate's dwelling: the ended household's key and dwelling are
+    /// gone; the heir's dwelling is now `heir_dwelling` (per household), and
+    /// an owner heir's imputed-rent key follows it (tenure does not change
+    /// before housing, M13).
+    #[cfg(feature = "demography")]
+    pub(super) fn rev_estate_dwelling(&mut self, ended: usize, heir: Option<(usize, i128)>) {
+        if !self.rev.active {
+            return;
+        }
+        let r = &mut self.rev;
+        if let Some(k) = r.rent_key.get_mut(ended) {
+            *k = 0;
+        }
+        if let Some(d) = r.dwelling.get_mut(ended) {
+            *d = 0;
+        }
+        if let Some((h, value)) = heir {
+            if let Some(d) = r.dwelling.get_mut(h) {
+                *d = value;
+            }
+            if let Some(k) = r.rent_key.get_mut(h)
+                && *k > 0
+            {
+                *k = value.max(1);
+            }
         }
     }
 

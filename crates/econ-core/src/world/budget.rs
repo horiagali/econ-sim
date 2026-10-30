@@ -331,6 +331,8 @@ impl World {
             for (h, &a) in parts.iter().enumerate() {
                 if a > 0 {
                     self.households.hh_deposits[h] += bani(a);
+                    // In the money received to date (AC-HH-03).
+                    self.households.income_to_date[h] += bani(a);
                     paid += i128::from(self.households.hh_weight[h]) * a;
                 }
             }
