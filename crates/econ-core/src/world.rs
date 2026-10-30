@@ -102,6 +102,10 @@ mod pay_day;
 // Roadmap M5's starting data, read by no phase yet.
 #[allow(clippy::needless_range_loop)]
 mod people;
+// The People phase (ageing, deaths, retirement; roadmap M5).
+#[cfg(feature = "demography")]
+#[allow(clippy::needless_range_loop)]
+mod people_phase;
 // Remittances from linked emigrants, with the outside world.
 #[cfg(feature = "trade")]
 mod remittances;
@@ -773,6 +777,7 @@ pub enum PhaseId {
 }
 
 /// The phases of a day and their periods: the one list of the spec.
+#[cfg(not(feature = "demography"))]
 pub const PHASES: [(PhaseId, Period); 13] = [
     (PhaseId::Commands, Period::Daily),
     (PhaseId::Plan, Period::Staggered),
@@ -784,6 +789,26 @@ pub const PHASES: [(PhaseId, Period); 13] = [
     (PhaseId::GoodsMarket, Period::Daily),
     (PhaseId::Quits, Period::MonthEnd),
     (PhaseId::Pay, Period::MonthEnd),
+    (PhaseId::WageRound, Period::Yearly { month: 1, day: 1 }),
+    (PhaseId::MonthlyClose, Period::MonthEnd),
+    (PhaseId::Checks, Period::Daily),
+];
+
+/// The phases of a day and their periods, with the People phase after Pay
+/// (spec economy/demographics, "Periods").
+#[cfg(feature = "demography")]
+pub const PHASES: [(PhaseId, Period); 14] = [
+    (PhaseId::Commands, Period::Daily),
+    (PhaseId::Plan, Period::Staggered),
+    (PhaseId::Staffing, Period::Staggered),
+    (PhaseId::Prices, Period::Daily),
+    (PhaseId::OutputAndInputs, Period::Daily),
+    (PhaseId::FixedDemand, Period::Daily),
+    (PhaseId::Households, Period::Staggered),
+    (PhaseId::GoodsMarket, Period::Daily),
+    (PhaseId::Quits, Period::MonthEnd),
+    (PhaseId::Pay, Period::MonthEnd),
+    (PhaseId::People, Period::MonthEnd),
     (PhaseId::WageRound, Period::Yearly { month: 1, day: 1 }),
     (PhaseId::MonthlyClose, Period::MonthEnd),
     (PhaseId::Checks, Period::Daily),
@@ -1165,6 +1190,8 @@ pub struct World {
     fx: foreign::ForeignState,
     #[cfg(feature = "trade")]
     rem: remittances::Remittances,
+    #[cfg(feature = "demography")]
+    dem: people_phase::DemState,
     #[cfg(feature = "monetary")]
     cb: central_bank::CentralBank,
     #[cfg(feature = "investment")]
@@ -1288,9 +1315,7 @@ impl World {
                 PhaseId::Quits => self.quits(),
                 PhaseId::Pay => self.pay(),
                 #[cfg(feature = "demography")]
-                PhaseId::People => {
-                    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
-                }
+                PhaseId::People => self.people_phase(),
                 PhaseId::WageRound => self.wage_round(),
                 PhaseId::MonthlyClose => {
                     failed.extend(self.monthly_close());
@@ -1346,6 +1371,19 @@ impl World {
     #[must_use]
     pub fn months(&self) -> &[MonthStats] {
         &self.months
+    }
+
+    /// Whether person `p` is alive (always, without the People phase).
+    #[cfg(feature = "demography")]
+    pub(crate) fn person_alive(&self, p: usize) -> bool {
+        !self.dem.active || self.dem.life.alive.get(p).copied().unwrap_or(true)
+    }
+
+    /// Whether person `p` is alive (always, without the People phase).
+    #[cfg(not(feature = "demography"))]
+    #[allow(clippy::unused_self)]
+    pub(crate) fn person_alive(&self, _p: usize) -> bool {
+        true
     }
 
     /// The households table.

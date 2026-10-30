@@ -416,6 +416,11 @@ impl World {
         }
         #[cfg(feature = "monetary")]
         self.cb_close();
+        // The close of December: next year's mortality table.
+        #[cfg(feature = "demography")]
+        if self.calendar.date(self.today).month == 12 {
+            self.people_year_end();
+        }
         failed
     }
 

@@ -7,8 +7,8 @@
 //!
 //! Test writer's addition (ADR-0014), written with the `[sim]` acceptance
 //! tests (AC-DEM-03 to 09, 11 to 16, 18 to 20; AC-HHL-05 to 10) before the
-//! code; the bodies are `unimplemented!` until the implementation fills
-//! them.
+//! code; the implementation is in `people_phase` (ageing, deaths and
+//! retirement so far).
 //!
 //! Person columns are aligned with [`super::PersonColumns`] and household
 //! columns with [`super::HouseholdColumns`]; both tables keep tombstones (a
@@ -308,31 +308,41 @@ impl World {
     /// The person columns the People phase adds.
     #[must_use]
     pub fn people_life(&self) -> &PeopleLifeColumns {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        &self.dem.life
     }
 
     /// The household columns of the People phase.
     #[must_use]
     pub fn household_life(&self) -> &HouseholdLifeColumns {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        &self.dem.hh_life
     }
 
     /// The report of the latest People phase.
     #[must_use]
     pub fn people_report(&self) -> &PeopleReport {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        &self.dem.report
     }
 
     /// `retirement_age[sex]` in force today, months of age.
     #[must_use]
     pub fn retirement_age_in_force(&self, sex: Sex) -> u16 {
-        let _ = sex;
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        let date = self.calendar.date(self.today);
+        self.people
+            .demography
+            .as_ref()
+            .and_then(|d| {
+                d.retirement_age_schedule
+                    .age_in_force(usize::from(sex != Sex::F), date)
+            })
+            .unwrap_or(if sex == Sex::F { 741 } else { 780 })
     }
 
     /// The mortality table of the current calendar year.
     #[must_use]
     pub fn mortality_table(&self) -> &MortalityTable {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.dem
+            .table
+            .as_ref()
+            .expect("the scenario has demographic tables")
     }
 }

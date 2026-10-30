@@ -375,6 +375,51 @@ pub(super) struct Withheld {
 }
 
 impl World {
+    /// Each person's pension points (the People phase's view).
+    #[cfg(feature = "demography")]
+    pub(super) fn fs_points(&self) -> &[u64] {
+        &self.fs.points
+    }
+
+    /// Each household's collective flag.
+    #[cfg(feature = "demography")]
+    pub(super) fn fs_collective(&self) -> &[bool] {
+        &self.fs.collective
+    }
+
+    /// Set a person's pension points (a new pension, a survivor's).
+    #[cfg(feature = "demography")]
+    pub(super) fn fs_set_points(&mut self, p: usize, points: u64) {
+        self.fs.points[p] = points;
+    }
+
+    /// End a person's unemployment claim (death, retirement).
+    #[cfg(feature = "demography")]
+    pub(super) fn fs_end_claim(&mut self, p: usize) {
+        self.fs.claims[p] = None;
+    }
+
+    /// Recount a household's size, children and the member who claims the
+    /// dependants' deduction from its live members `(person, age)`.
+    #[cfg(feature = "demography")]
+    pub(super) fn fs_recount(&mut self, h: usize, members: &[(usize, u16)]) {
+        let mut size = 0u16;
+        let mut children = 0u8;
+        let mut claimed = false;
+        for &(p, age) in members {
+            size = size.saturating_add(1);
+            self.fs.claims_dependants[p] = false;
+            if age < 18 * 12 {
+                children = children.saturating_add(1);
+            } else if !claimed {
+                claimed = true;
+                self.fs.claims_dependants[p] = true;
+            }
+        }
+        self.fs.size[h] = size;
+        self.fs.children[h] = children;
+    }
+
     /// Taxes on one wage payment: the general rules, the unit's industry's
     /// override, the household's dependants for the person who claims them.
     /// No taxes under a law without them: the net is the gross.
@@ -507,7 +552,7 @@ impl World {
         let mut family = 0i128;
         for p in 0..self.persons.employer.len() {
             let h = self.persons.household_id[p] as usize;
-            if self.fs.collective[h] {
+            if self.fs.collective[h] || !self.person_alive(p) {
                 continue;
             }
             let amount = child_allowance(self.pp.age[p], &t.child);
