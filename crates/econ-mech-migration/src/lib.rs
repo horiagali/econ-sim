@@ -14,6 +14,7 @@
 //! before the code (ADR-0014): the bodies come with the implementation
 //! change.
 
+use econ_num::math;
 use econ_types::Bani;
 
 /// The tuning parameters of the spec's table, millionths.
@@ -67,8 +68,10 @@ impl MigrationParams {
 /// abroad in basis points of the start over the home net wage index in euro
 /// (millionths of the start).
 pub fn pull_ppm(wages_abroad_bp: u32, home_net_wage_eur_index_ppm: u32) -> u32 {
-    let _ = (wages_abroad_bp, home_net_wage_eur_index_ppm);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    // R = ω / H: ω in basis points (10,000 = 1), H in millionths.
+    let h = u64::from(home_net_wage_eur_index_ppm.max(1));
+    let r = (u64::from(wages_abroad_bp) * 100 * 1_000_000 * 2 + h) / (2 * h);
+    u32::try_from(r).unwrap_or(u32::MAX)
 }
 
 /// A person's monthly emigration probability (step 2, AC-MIG-01),
@@ -84,10 +87,22 @@ pub fn emigration_ppm(
     job_seeker: bool,
     p: &MigrationParams,
 ) -> u32 {
-    let _ = (
-        base_ppm, pull_ppm, unemp_ppm, unemp0_ppm, linked, job_seeker, p,
-    );
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let m = |ppm: u32| f64::from(ppm) / 1e6;
+    let beta_u = m(p.unemployment_response_ppm);
+    let mut x = f64::from(base_ppm)
+        * math::powf(m(pull_ppm), m(p.emigration_elasticity_ppm))
+        * (1.0 + beta_u * m(unemp_ppm))
+        / (1.0 + beta_u * m(unemp0_ppm));
+    if linked {
+        x *= 1.0 + m(p.network_effect_ppm);
+    }
+    if job_seeker {
+        x *= m(p.unemployed_factor_ppm);
+    }
+    let x = x.min(f64::from(p.max_emigration_ppm));
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let v = (x + 0.5) as u32;
+    v.min(p.max_emigration_ppm)
 }
 
 /// A record a cell may move: its index, its weight and its keyed priority.
@@ -106,8 +121,25 @@ pub struct Pick {
 /// target less the weight taken. Returns the records taken, in the order
 /// taken.
 pub fn take_whole_records(target: i64, carry: &mut i64, candidates: &mut [Pick]) -> Vec<u32> {
-    let _ = (target, carry, candidates);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    candidates.sort_unstable_by_key(|c| (c.priority, c.record));
+    let goal = i128::from(target) + i128::from(*carry);
+    let mut taken = Vec::new();
+    let mut weight = 0i128;
+    for c in candidates.iter() {
+        let w = i128::from(c.weight);
+        if weight + w / 2 > goal {
+            break;
+        }
+        weight += w;
+        taken.push(c.record);
+    }
+    // When every candidate moved, the rest of the target is dropped.
+    *carry = if taken.len() == candidates.len() && !candidates.is_empty() {
+        0
+    } else {
+        i64::try_from(goal - weight).expect("a carry")
+    };
+    taken
 }
 
 /// What one linked emigrant sends in a month (step 3, AC-MIG-03), euro
@@ -118,21 +150,71 @@ pub fn remittance_eur_cents(
     months_abroad: u16,
     p: &MigrationParams,
 ) -> i64 {
-    let _ = (base_cents, wages_abroad_bp, months_abroad, p);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let omega = f64::from(wages_abroad_bp) / 10_000.0;
+    let keep = 1.0 - f64::from(p.remittance_decay_ppm_year) / 1e6;
+    #[allow(clippy::cast_precision_loss)]
+    let x = base_cents as f64
+        * math::powf(omega, f64::from(p.remittance_elasticity_ppm) / 1e6)
+        * math::powf(keep, f64::from(months_abroad) / 12.0);
+    #[allow(clippy::cast_possible_truncation)]
+    let v = x.round() as i64;
+    v
 }
 
 /// Euro cents in lei at a rate of lei per euro in millionths, to the ban
 /// (AC-MIG-03).
 pub fn eur_to_lei(eur_cents: i64, exchange_rate_ppm: u64) -> Bani {
-    let _ = (eur_cents, exchange_rate_ppm);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    // A euro cent is e bani; to the nearest ban.
+    let x = i128::from(eur_cents) * i128::from(exchange_rate_ppm);
+    let v = if x >= 0 {
+        (x + 500_000) / 1_000_000
+    } else {
+        -((-x + 500_000) / 1_000_000)
+    };
+    Bani(i64::try_from(v).expect("an amount"))
 }
 
 /// The logit shares of the destinations of a move out of `origin` (step 6,
 /// AC-MIG-04), millionths summing to 1,000,000, one per county; the origin's
 /// is 0. `utility_ppm[d]` is `V_cd` in millionths.
 pub fn destination_ppm(origin: u8, utility_ppm: &[i64]) -> Vec<u32> {
-    let _ = (origin, utility_ppm);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let n = utility_ppm.len();
+    let o = usize::from(origin);
+    if n < 2 {
+        return vec![0; n];
+    }
+    // Softmax over the destinations, shifted by the largest utility.
+    #[allow(clippy::cast_precision_loss)]
+    let top = (0..n)
+        .filter(|&d| d != o)
+        .map(|d| utility_ppm[d])
+        .max()
+        .unwrap_or(0) as f64;
+    #[allow(clippy::cast_precision_loss)]
+    let e: Vec<f64> = (0..n)
+        .map(|d| {
+            if d == o {
+                0.0
+            } else {
+                math::exp((utility_ppm[d] as f64 - top) / 1e6)
+            }
+        })
+        .collect();
+    let sum: f64 = e.iter().sum();
+    let exact: Vec<f64> = e.iter().map(|&x| x / sum * 1e6).collect();
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let mut shares: Vec<u32> = exact.iter().map(|&x| x.floor() as u32).collect();
+    let left = 1_000_000 - shares.iter().sum::<u32>();
+    // The rest to the largest remainders, ties to the lower index.
+    let mut order: Vec<usize> = (0..n).filter(|&d| d != o).collect();
+    order.sort_by(|&a, &b| {
+        let (ra, rb) = (exact[a] - exact[a].floor(), exact[b] - exact[b].floor());
+        rb.partial_cmp(&ra)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.cmp(&b))
+    });
+    for &d in order.iter().take(left as usize) {
+        shares[d] += 1;
+    }
+    shares
 }
