@@ -20,7 +20,7 @@ econ-mech-transfers.workspace = true
 [features]
 # Gate the acceptance tests: they were written before the code (ADR-0014), and
 # the implementation adds each to `default` once its tests pass.
-default = []
+default = ["demography", "lifecycle"]
 # AC-DEM-01, 02, 10 and 17 (spec economy/demographics).
 demography = []
 # AC-HHL-01 to 04 (spec society/households-lifecycle).
