@@ -470,18 +470,6 @@ impl World {
         }
     }
 
-    /// Whether household `h` is a live private record of exactly one live
-    /// person; that person.
-    fn single(&self, h: usize) -> Option<usize> {
-        if !self.household_alive(h) || self.dem.hh_life.hh_collective[h] {
-            return None;
-        }
-        match self.members_of(h).as_slice() {
-            [p] => Some(*p),
-            _ => None,
-        }
-    }
-
     /// Step 3: unions of women and men who live alone.
     #[allow(clippy::too_many_lines)]
     fn unions(&mut self) {
@@ -491,8 +479,21 @@ impl World {
         // Eligible men by county: (person, age).
         let mut men: std::collections::BTreeMap<u8, Vec<(usize, u16)>> =
             std::collections::BTreeMap::new();
+        // Each household's live members, counted in one pass.
+        let mut count = vec![0u32; n_hh];
+        let mut only = vec![usize::MAX; n_hh];
+        for p in 0..self.pp.age.len() {
+            if self.dem.life.alive[p] {
+                let h = self.persons.household_id[p] as usize;
+                count[h] += 1;
+                only[h] = p;
+            }
+        }
         for h in 0..n_hh {
-            let Some(p) = self.single(h) else { continue };
+            if count[h] != 1 || !self.household_alive(h) || self.dem.hh_life.hh_collective[h] {
+                continue;
+            }
+            let p = only[h];
             let a = self.pp.age[p];
             let county = self.dem.hh_life.hh_county[h];
             match self.people.sex[p] {
