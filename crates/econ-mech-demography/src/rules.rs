@@ -9,17 +9,32 @@
 //! tests (AC-DEM-01, 02, 10, 17) before the code (ADR-0014): the bodies come
 //! with the implementation change.
 
-use econ_rng::KeyedRng;
+use econ_rng::{KeyedRng, Stream};
 use econ_types::{Bani, Day};
 
-use crate::{MortalityTable, Ppb};
+use crate::{MORTALITY_AGES, MortalityTable, PPB, Ppb};
+
+/// `n / d` to the nearest, half away from zero (`d` > 0).
+fn rdiv(n: i128, d: i128) -> i128 {
+    if n >= 0 {
+        (2 * n + d) / (2 * d)
+    } else {
+        -((-2 * n + d) / (2 * d))
+    }
+}
 
 /// The pipeline's rule (AC-DEM-01): the monthly probability of a yearly one,
 /// `m = 1 − (1 − q)^(1/12)`, in parts per billion.
 #[must_use]
 pub fn monthly_from_yearly(q_ppb: Ppb) -> Ppb {
-    let _ = q_ppb;
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    if q_ppb >= PPB {
+        return PPB;
+    }
+    let q = f64::from(q_ppb) / 1e9;
+    let m = 1.0 - econ_num::math::powf(1.0 - q, 1.0 / 12.0);
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let v = (m * 1e9 + 0.5) as u32;
+    v.min(PPB)
 }
 
 /// The table of calendar year `year` (AC-DEM-01): `round(m_base · (1 −
@@ -29,8 +44,25 @@ pub fn monthly_from_yearly(q_ppb: Ppb) -> Ppb {
 /// `mortality_improvement` a year.
 #[must_use]
 pub fn table_for_year(base: &MortalityTable, year: u16, improvement_ppm: u32) -> MortalityTable {
-    let _ = (base, year, improvement_ppm);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let mut monthly = base.monthly;
+    let keep = u128::from(1_000_000u32.saturating_sub(improvement_ppm));
+    for _ in base.base_year..year {
+        for row in &mut monthly {
+            for v in row.iter_mut() {
+                // round(v · keep / 10^6), half away from zero (v ≥ 0).
+                let n = u128::from(*v) * keep;
+                *v = u32::try_from((2 * n + 1_000_000) / 2_000_000).expect("below one");
+            }
+        }
+    }
+    for row in &mut monthly {
+        row[MORTALITY_AGES - 1] = PPB;
+    }
+    MortalityTable {
+        base_year: year,
+        yearly: base.yearly,
+        monthly,
+    }
 }
 
 /// One eligible person of a transition's stratum.
@@ -71,8 +103,40 @@ pub fn align(
     day: Day,
     purpose: u32,
 ) -> Selection {
-    let _ = (candidates, carry_micro, rng, day, purpose);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    // T = Σ w·p + carry, millionths of a person (p in parts per billion).
+    let target: i128 = candidates
+        .iter()
+        .map(|c| i128::from(c.weight) * i128::from(c.p) / 1_000)
+        .sum::<i128>()
+        + i128::from(carry_micro);
+    let mut ranked: Vec<(u64, u64, u32)> = candidates
+        .iter()
+        .filter(|c| c.weight > 0)
+        .map(|c| {
+            let u = rng.fast_u64(Stream::Demography, day.0, c.person_key, purpose);
+            let rank = if c.rank_p == 0 {
+                u64::MAX
+            } else {
+                u / u64::from(c.rank_p)
+            };
+            (rank, c.person_key, c.weight)
+        })
+        .collect();
+    ranked.sort_unstable();
+    let mut taken: i128 = 0;
+    let mut chosen = Vec::new();
+    for (rank, key, w) in ranked {
+        let w = i128::from(w) * 1_000_000;
+        if rank == u64::MAX || taken + w / 2 > target {
+            break;
+        }
+        taken += w;
+        chosen.push(key);
+    }
+    Selection {
+        chosen,
+        carry_micro: i64::try_from(target - taken).expect("a carry"),
+    }
 }
 
 /// The pension law a new pension reads.
@@ -105,14 +169,19 @@ pub fn new_pension_points(
     contribution_months: u16,
     law: &PensionLaw,
 ) -> Option<u64> {
-    let _ = (
-        career_points,
-        survivor_points,
-        months_early,
-        contribution_months,
-        law,
-    );
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    if u32::from(contribution_months) < u32::from(law.min_years) * 12 {
+        return None;
+    }
+    let own = u128::from(career_points) / u128::from(law.full_years.max(1));
+    let reduced = if u32::from(contribution_months) < (u32::from(law.full_years) + 8) * 12 {
+        let rho = u128::from(law.early_reduction_ppm_per_month) * u128::from(months_early.min(60));
+        let keep = 1_000_000u128.saturating_sub(rho);
+        (own * keep + 500_000) / 1_000_000
+    } else {
+        own
+    };
+    let own = u64::try_from(reduced).expect("points");
+    Some(own.max(survivor_points))
 }
 
 /// Fertility's responses to policy and the economy (spec
@@ -163,8 +232,10 @@ pub struct ChildSupport {
 /// ΔB, the extra support a newborn brings a month averaged over its
 /// childhood, against the 2021 law: `(2 Δunder2 + 16 Δto18) / 18 + Δcredit`.
 pub fn benefit_gap(law_then: &ChildSupport, law_2021: &ChildSupport) -> Bani {
-    let _ = (law_then, law_2021);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let d = |a: Bani, b: Bani| i128::from(a.get()) - i128::from(b.get());
+    let childhood = 2 * d(law_then.under2, law_2021.under2) + 16 * d(law_then.to18, law_2021.to18);
+    let avg = rdiv(childhood, 18);
+    Bani(i64::try_from(avg + d(law_then.tax_credit, law_2021.tax_credit)).expect("a gap"))
 }
 
 /// M^pol, the household's benefit multiplier: `clamp(1 + β_b ΔB / Y, 0.8,
@@ -172,16 +243,24 @@ pub fn benefit_gap(law_then: &ChildSupport, law_2021: &ChildSupport) -> Bani {
 /// share of the national `median`. Millionths, 800,000 to 1,300,000.
 #[must_use]
 pub fn m_pol(delta_b: Bani, income_per_adult: Bani, median: Bani, r: &FertilityResponse) -> u32 {
-    let _ = (delta_b, income_per_adult, median, r);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let floor = i128::from(median.get()) * i128::from(r.income_floor_ppm) / 1_000_000;
+    let y = i128::from(income_per_adult.get()).max(floor);
+    if y <= 0 {
+        return 1_000_000;
+    }
+    let m = 1_000_000 + rdiv(i128::from(r.benefit_ppm) * i128::from(delta_b.get()), y);
+    u32::try_from(m.clamp(800_000, 1_300_000)).expect("clamped")
 }
 
 /// M^job, the woman's multiplier: the unemployed ratio if she or her partner
 /// is unemployed, else one. Millionths.
 #[must_use]
 pub fn m_job(woman_or_partner_unemployed: bool, r: &FertilityResponse) -> u32 {
-    let _ = (woman_or_partner_unemployed, r);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    if woman_or_partner_unemployed {
+        r.unemployed_ratio_ppm
+    } else {
+        1_000_000
+    }
 }
 
 /// M^cyc, the national multiplier: `clamp(1 + β_y (g − g^ref), 0.97, 1.03)`,
@@ -190,8 +269,12 @@ pub fn m_job(woman_or_partner_unemployed: bool, r: &FertilityResponse) -> u32 {
 /// 1,030,000.
 #[must_use]
 pub fn m_cyc(real_growth_ppm: Option<i32>, r: &FertilityResponse) -> u32 {
-    let _ = (real_growth_ppm, r);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let Some(g) = real_growth_ppm else {
+        return 1_000_000;
+    };
+    let gap = i128::from(g) - i128::from(r.normal_growth_ppm);
+    let m = 1_000_000 + rdiv(i128::from(r.cycle_ppm) * gap, 1_000_000);
+    u32::try_from(m.clamp(970_000, 1_030_000)).expect("clamped")
 }
 
 /// An eligible woman of a birth stratum at load, for the normalisation.
@@ -211,6 +294,18 @@ pub struct FertileWoman {
 /// (AC-DEM-17). One for an empty stratum.
 #[must_use]
 pub fn job_normalisation(women: &[FertileWoman]) -> u32 {
-    let _ = women;
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let base: u128 = women
+        .iter()
+        .map(|w| u128::from(w.weight) * u128::from(w.fertility_ppb))
+        .sum();
+    let with_job: u128 = women
+        .iter()
+        .map(|w| u128::from(w.weight) * u128::from(w.fertility_ppb) * u128::from(w.m_job_ppm))
+        .sum();
+    if base == 0 || with_job == 0 {
+        return 1_000_000;
+    }
+    // base · 10^12 / with_job, to the nearest millionth.
+    let k = (2 * base * 1_000_000_000_000 + with_job) / (2 * with_job);
+    u32::try_from(k).expect("a normalisation")
 }
