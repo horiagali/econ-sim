@@ -904,7 +904,9 @@ pub struct HouseholdColumns {
     pub last_decision: Vec<Option<Day>>,
     /// Everything received since day 0 (AC-HH-03).
     pub income_to_date: Vec<Bani>,
-    /// Everything spent since day 0, VAT included (AC-HH-03).
+    /// Everything paid out of cash and deposits since day 0 (AC-HH-03):
+    /// purchases, VAT included, and the taxes, loan interest and bonds paid
+    /// from deposits.
     pub spending_to_date: Vec<Bani>,
 }
 
@@ -1377,6 +1379,21 @@ impl World {
     #[cfg(feature = "demography")]
     pub(crate) fn person_alive(&self, p: usize) -> bool {
         !self.dem.active || self.dem.life.alive.get(p).copied().unwrap_or(true)
+    }
+
+    /// Whether household record `h` counts (always, without the People
+    /// phase).
+    #[cfg(feature = "demography")]
+    pub(crate) fn household_alive(&self, h: usize) -> bool {
+        !self.dem.active || self.dem.hh_life.hh_alive.get(h).copied().unwrap_or(true)
+    }
+
+    /// Whether household record `h` counts (always, without the People
+    /// phase).
+    #[cfg(not(feature = "demography"))]
+    #[allow(clippy::unused_self)]
+    pub(crate) fn household_alive(&self, _h: usize) -> bool {
+        true
     }
 
     /// Whether person `p` is alive (always, without the People phase).

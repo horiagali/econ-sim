@@ -830,9 +830,12 @@ impl World {
         // household keeps it aside for the month end (M3, with the banks).
         #[cfg(feature = "banking")]
         let dues = self.hh_interest_due(cohort);
+        let alive: Vec<bool> = (0..self.households.hh_weight.len())
+            .map(|k| self.household_alive(k))
+            .collect();
         let h = &mut self.households;
         for k in 0..h.hh_weight.len() {
-            if h.hh_stagger_day[k] != cohort {
+            if h.hh_stagger_day[k] != cohort || !alive[k] {
                 continue;
             }
             #[cfg(feature = "banking")]

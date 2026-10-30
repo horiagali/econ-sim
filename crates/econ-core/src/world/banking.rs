@@ -82,6 +82,18 @@ pub(super) struct Banks {
 }
 
 impl World {
+    /// An estate repaid or wrote off a household's debts: they are gone.
+    #[cfg(feature = "demography")]
+    pub(super) fn bank_household_debts_settled(&mut self, h: usize) {
+        let v = &mut self.bk.view;
+        if let Some(m) = v.hh_mortgage.get_mut(h) {
+            *m = Bani::ZERO;
+        }
+        if let Some(c) = v.hh_consumer_debt.get_mut(h) {
+            *c = Bani::ZERO;
+        }
+    }
+
     /// The banks.
     #[must_use]
     pub fn bank(&self) -> &BankState {
@@ -456,6 +468,7 @@ impl World {
             let from_cash = (due - from_dep).min(hh.hh_cash[h].max(Bani::ZERO));
             hh.hh_deposits[h] -= from_dep;
             hh.hh_cash[h] -= from_cash;
+            hh.spending_to_date[h] += from_dep + from_cash;
             self.bk.view.hh_interest_paid[h] = from_dep + from_cash;
             hh_paid_dep += w * i128::from(from_dep.get());
             hh_paid_cash += w * i128::from(from_cash.get());

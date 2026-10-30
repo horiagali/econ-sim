@@ -393,6 +393,14 @@ impl World {
         self.fs.points[p] = points;
     }
 
+    /// An ended household takes up no benefit.
+    #[cfg(feature = "demography")]
+    pub(super) fn fs_end_household(&mut self, h: usize) {
+        self.fs.take_up[h] = false;
+        self.fs.size[h] = 0;
+        self.fs.children[h] = 0;
+    }
+
     /// End a person's unemployment claim (death, retirement).
     #[cfg(feature = "demography")]
     pub(super) fn fs_end_claim(&mut self, p: usize) {

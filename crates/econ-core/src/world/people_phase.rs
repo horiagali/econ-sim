@@ -1,6 +1,7 @@
 //! The People phase (feature `demography`; spec `economy/demographics`,
 //! "Periods"): at month end, after Pay, ageing, contributions, deaths and
-//! retirement. Births, estates and the household life cycle come in later
+//! retirement, and the estates of households left empty. Births and the
+//! household life cycle come in later
 //! steps of the implementation (roadmap M5).
 //!
 //! A dead person stays as a tombstone: `alive` false, with no job, no job
@@ -8,16 +9,20 @@
 //! pensions or incomes skips it; the phases that read ages check
 //! [`World::person_alive`].
 
+use econ_ledger::{FlowCode, Instrument, Sector};
 use econ_mech_demography::{
     Candidate, MORTALITY_AGES, MortalityTable, PensionLaw, align, new_pension_points,
     table_for_year,
 };
 use econ_popgen::{Activity, NO_EMPLOYER, Role, Sex};
+use econ_rng::Stream;
 use econ_types::{Bani, Month};
 
 use super::World;
-use super::demography::{Death, HouseholdLifeColumns, PeopleLifeColumns, PeopleReport, Retirement};
-use super::money::ratio;
+use super::demography::{
+    Death, EstateRecord, HouseholdLifeColumns, PeopleLifeColumns, PeopleReport, Retirement,
+};
+use super::money::{Postings, bani, ratio};
 
 /// Five-year age bands of the death strata (0–4 … 100 and over).
 const DEATH_BANDS: usize = 21;
@@ -26,6 +31,7 @@ const EARLY_YEARS: usize = 10;
 /// Keyed-draw purposes on `Stream::Demography`.
 const PURPOSE_DEATH: u32 = 1;
 const PURPOSE_EARLY: u32 = 2;
+const PURPOSE_HEIR: u32 = 3;
 /// The law's pension parameters the transfers rule does not hold.
 const FULL_YEARS: u8 = 35;
 const MIN_YEARS: u8 = 15;
@@ -363,7 +369,198 @@ impl World {
                 self.people.role[q] = Role::Head;
             }
         }
-        self.people_recount(self.persons.household_id[p] as usize);
+        let h = self.persons.household_id[p] as usize;
+        self.people_recount(h);
+        let empty = !(0..self.persons.household_id.len())
+            .any(|q| self.persons.household_id[q] as usize == h && self.dem.life.alive[q]);
+        if empty {
+            self.settle_estate(h, self.pp.age[p]);
+        }
+    }
+
+    /// The heir of an ended household (step 3, "Estate settlement"): the
+    /// household of the first live person who left this one; else a keyed
+    /// draw among private households of the county with a member 18 to 45
+    /// years younger than the deceased; else any private household of the
+    /// county; else none.
+    fn find_heir(&self, h: usize, deceased_age: u16) -> Option<usize> {
+        let key = self.people.hh_key[h];
+        let n_p = self.persons.household_id.len();
+        let child = (0..n_p)
+            .filter(|&q| {
+                let g = self.persons.household_id[q] as usize;
+                self.dem.life.alive[q]
+                    && self.dem.life.origin_household[q] == Some(key)
+                    && g != h
+                    && self.household_alive(g)
+            })
+            .min_by_key(|&q| self.people.person_key[q]);
+        if let Some(q) = child {
+            return Some(self.persons.household_id[q] as usize);
+        }
+        let county = self.dem.hh_life.hh_county[h];
+        let (lo, hi) = (
+            deceased_age.saturating_sub(45 * 12),
+            deceased_age.saturating_sub(18 * 12),
+        );
+        let n_hh = self.households.hh_weight.len();
+        let mut younger = vec![false; n_hh];
+        for q in 0..n_p {
+            let a = self.pp.age[q];
+            if self.dem.life.alive[q] && a >= lo && a <= hi {
+                younger[self.persons.household_id[q] as usize] = true;
+            }
+        }
+        let eligible = |g: usize| {
+            g != h
+                && self.household_alive(g)
+                && !self.dem.hh_life.hh_collective[g]
+                && self.households.hh_weight[g] > 0
+                && self.dem.hh_life.hh_county[g] == county
+        };
+        let draw = |g: usize| {
+            self.seed.fast_u64(
+                Stream::Demography,
+                self.today.0,
+                self.people.hh_key[g],
+                PURPOSE_HEIR,
+            )
+        };
+        (0..n_hh)
+            .filter(|&g| eligible(g) && younger[g])
+            .min_by_key(|&g| (draw(g), g))
+            .or_else(|| {
+                (0..n_hh)
+                    .filter(|&g| eligible(g))
+                    .min_by_key(|&g| (draw(g), g))
+            })
+    }
+
+    /// A household left with no live member: its money repays its debts
+    /// (the rest written off), what remains and its dwelling pass to the
+    /// heir (the remainders and, with no heir, everything to the
+    /// government under `transfer.estate`), and the record ends.
+    fn settle_estate(&mut self, h: usize, deceased_age: u16) {
+        let wd = i128::from(self.households.hh_weight[h]);
+        let cash = i128::from(self.households.hh_cash[h].get().max(0));
+        let deposits = i128::from(self.households.hh_deposits[h].get().max(0));
+        let money = cash + deposits;
+        let (mortgage, consumer) = (
+            self.bank()
+                .hh_mortgage
+                .get(h)
+                .copied()
+                .unwrap_or(Bani::ZERO),
+            self.bank()
+                .hh_consumer_debt
+                .get(h)
+                .copied()
+                .unwrap_or(Bani::ZERO),
+        );
+        let debts = i128::from(mortgage.get().max(0)) + i128::from(consumer.get().max(0));
+        let repaid = money.min(debts);
+        let left = money - repaid;
+        let dwelling = i128::from(self.dem.hh_life.hh_dwelling_value[h].get().max(0));
+        let heir = self.find_heir(h, deceased_age);
+        let wh = heir.map_or(0, |g| i128::from(self.households.hh_weight[g]));
+        // Per household of the heir: ⌊w_d · a / w_h⌋; the remainder (money)
+        // to the government, the dwelling's dropped.
+        let (to_heir_per, to_heir_dw_per) = if wh > 0 {
+            (wd * left / wh, wd * dwelling / wh)
+        } else {
+            (0, 0)
+        };
+        let to_heir = to_heir_per * wh;
+        let to_government = wd * left - to_heir;
+        let mut post = Postings::default();
+        if cash > 0 {
+            let x = bani(wd * cash);
+            post.leg(
+                Sector::Households,
+                Sector::Banks,
+                Instrument::Cash,
+                x,
+                FlowCode::CASH_DEPOSIT,
+            );
+            post.leg(
+                Sector::Banks,
+                Sector::Households,
+                Instrument::Deposits,
+                x,
+                FlowCode::CASH_DEPOSIT,
+            );
+        }
+        if repaid > 0 {
+            let x = bani(wd * repaid);
+            post.leg(
+                Sector::Banks,
+                Sector::Households,
+                Instrument::Loans,
+                x,
+                FlowCode::LOAN,
+            );
+            post.leg(
+                Sector::Households,
+                Sector::Banks,
+                Instrument::Deposits,
+                x,
+                FlowCode::LOAN,
+            );
+        }
+        if debts > repaid {
+            let x = bani(wd * (debts - repaid));
+            post.leg(
+                Sector::Banks,
+                Sector::Households,
+                Instrument::Loans,
+                x,
+                FlowCode::WRITE_OFF,
+            );
+        }
+        if to_government > 0 {
+            post.pays_gov(
+                Sector::Households,
+                bani(to_government),
+                FlowCode::TRANSFER_ESTATE,
+            );
+        }
+        self.bank_intraday_advance(&mut post);
+        post.commit(&mut self.ledger);
+        // The tables: the ended record holds nothing; the heir receives.
+        self.households.hh_cash[h] = Bani::ZERO;
+        self.households.hh_deposits[h] = Bani::ZERO;
+        self.households.hh_hardship[h] = false;
+        self.bank_household_debts_settled(h);
+        let life = &mut self.dem.hh_life;
+        life.hh_mortgage[h] = Bani::ZERO;
+        life.hh_consumer_debt[h] = Bani::ZERO;
+        life.hh_dwelling_value[h] = Bani::ZERO;
+        life.hh_alive[h] = false;
+        life.hh_moved_to_date[h] -= bani(left);
+        let mut heir_dwelling = None;
+        if let Some(g) = heir {
+            let a = bani(to_heir_per);
+            self.households.hh_deposits[g] += a;
+            life.hh_moved_to_date[g] += a;
+            life.hh_dwelling_value[g] += bani(to_heir_dw_per);
+            heir_dwelling = Some((g, i128::from(life.hh_dwelling_value[g].get())));
+        }
+        self.rev_estate_dwelling(h, heir_dwelling);
+        self.fs_end_household(h);
+        self.dem.report.estates.push(EstateRecord {
+            hh_key: self.people.hh_key[h],
+            weight: u32::try_from(wd).expect("a weight"),
+            money: bani(wd * money),
+            debts: bani(wd * debts),
+            repaid: bani(wd * repaid),
+            written_off: bani(wd * (debts - repaid)),
+            to_government: bani(to_government),
+            heir: heir.map(|g| self.people.hh_key[g]),
+            heir_weight: u32::try_from(wh).expect("a weight"),
+            to_heir: bani(to_heir),
+            dwelling: bani(wd * dwelling),
+            to_heir_dwelling: bani(to_heir_dw_per * wh),
+        });
     }
 
     /// A person's job or self-employment ends for good (death, retirement):
