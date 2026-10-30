@@ -133,8 +133,12 @@ impl World {
             let mut members = self.uu.members[u].clone();
             members.sort_by_key(|&i| {
                 (
-                    self.seed
-                        .fast_u64(Stream::Labour, today.0, u64::from(i), DRAW_LAYOFF),
+                    self.seed.fast_u64(
+                        Stream::Labour,
+                        today.0,
+                        self.people.person_key[i as usize],
+                        DRAW_LAYOFF,
+                    ),
                     i,
                 )
             });
@@ -161,9 +165,12 @@ impl World {
             .filter(|&(_, &s)| s)
             .map(|(i, _)| {
                 let id = u32::try_from(i).expect("a person id");
-                let prio = self
-                    .seed
-                    .fast_u64(Stream::Labour, today.0, i as u64, DRAW_HIRE);
+                let prio = self.seed.fast_u64(
+                    Stream::Labour,
+                    today.0,
+                    self.people.person_key[i],
+                    DRAW_HIRE,
+                );
                 u128::from(u16::MAX - self.persons.months_unemployed[i]) << 96
                     | u128::from(prio) << 32
                     | u128::from(id)
@@ -194,8 +201,12 @@ impl World {
                 let mut members = self.uu.members[u].clone();
                 members.sort_by_key(|&i| {
                     (
-                        self.seed
-                            .fast_u64(Stream::Labour, today.0, u64::from(i), DRAW_LAYOFF),
+                        self.seed.fast_u64(
+                            Stream::Labour,
+                            today.0,
+                            self.people.person_key[i as usize],
+                            DRAW_LAYOFF,
+                        ),
                         i,
                     )
                 });
@@ -361,8 +372,12 @@ impl World {
             let g = usize::from(self.industries.group[usize::from(self.units.industry[u])]);
             for &i in members {
                 by_group[g].push((
-                    self.seed
-                        .fast_u64(Stream::Labour, today.0, u64::from(i), DRAW_QUIT),
+                    self.seed.fast_u64(
+                        Stream::Labour,
+                        today.0,
+                        self.people.person_key[i as usize],
+                        DRAW_QUIT,
+                    ),
                     i,
                 ));
             }
@@ -402,9 +417,12 @@ impl World {
             for &i in members {
                 let rho = self.person_rho_ppm(i as usize);
                 let prob = quit_probability_ppm(rate, rho, &pay).max(1);
-                let draw = self
-                    .seed
-                    .fast_u64(Stream::Labour, today.0, u64::from(i), DRAW_QUIT);
+                let draw = self.seed.fast_u64(
+                    Stream::Labour,
+                    today.0,
+                    self.people.person_key[i as usize],
+                    DRAW_QUIT,
+                );
                 let key = u128::from(draw >> 24) * 1_000_000 / u128::from(prob);
                 by_group[g].push((key, i, prob));
             }
@@ -419,9 +437,12 @@ impl World {
             let target = u64::try_from((expected + 500_000) / 1_000_000).expect("quits");
             for i in take(&order, |i| self.person_weight(i), target) {
                 let p = i as usize;
-                let draw =
-                    self.seed
-                        .fast_u64(Stream::Labour, today.0, u64::from(i), DRAW_JOB_TO_JOB);
+                let draw = self.seed.fast_u64(
+                    Stream::Labour,
+                    today.0,
+                    self.people.person_key[i as usize],
+                    DRAW_JOB_TO_JOB,
+                );
                 if self.person_rho_ppm(p) < 1_000_000
                     && draw % 1_000_000 < u64::from(pay.job_to_job_share_ppm)
                 {

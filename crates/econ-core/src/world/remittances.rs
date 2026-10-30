@@ -106,6 +106,12 @@ impl World {
         self.rem.rbar_micro_cents = ratio(month, 1_000_000_000_000_000_000, weighted * e0);
     }
 
+    /// The yearly compaction: drop the links whose household ended.
+    #[cfg(feature = "demography")]
+    pub(super) fn rem_compact(&mut self, keep_link: &[bool]) {
+        super::money::retain_by(&mut self.rem.months_abroad0, keep_link);
+    }
+
     /// The 15th: each link's remittance to its household, in lei at the
     /// day's rate.
     pub(super) fn pay_remittances(&mut self) {
@@ -124,7 +130,7 @@ impl World {
         for (i, &h) in links.household_id.iter().enumerate() {
             let h = h as usize;
             let w = i128::from(self.households.hh_weight[h]);
-            if w == 0 {
+            if w == 0 || !self.household_alive(h) {
                 continue;
             }
             let d = decay_ppm(p.decay_ppm, u32::from(self.rem.months_abroad0[i]) + t);

@@ -595,7 +595,9 @@ impl World {
                         .map(|d| i128::from(d.get()))
                         .collect()
                 } else {
-                    vec![1; self.households.hh_weight.len()]
+                    (0..self.households.hh_weight.len())
+                        .map(|h| i128::from(self.household_alive(h)))
+                        .collect()
                 };
                 let parts = weighted_parts(total, &self.households.hh_weight, &base)
                     .unwrap_or_else(|| vec![0; base.len()]);

@@ -82,6 +82,17 @@ pub(super) struct Banks {
 }
 
 impl World {
+    /// The yearly compaction: drop the removed households.
+    #[cfg(feature = "demography")]
+    pub(super) fn bank_compact(&mut self, keep_h: &[bool]) {
+        use super::money::retain_by;
+        let v = &mut self.bk.view;
+        retain_by(&mut v.hh_mortgage, keep_h);
+        retain_by(&mut v.hh_consumer_debt, keep_h);
+        retain_by(&mut v.hh_interest_paid, keep_h);
+        retain_by(&mut v.hh_interest_received, keep_h);
+    }
+
     /// An estate repaid or wrote off a household's debts: they are gone.
     #[cfg(feature = "demography")]
     pub(super) fn bank_household_debts_settled(&mut self, h: usize) {

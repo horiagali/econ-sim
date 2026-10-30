@@ -635,7 +635,17 @@ impl World {
                 }
             }
         }
+        self.mask_ended(&mut k);
         k
+    }
+
+    /// Ended household records take no share of a payment by key.
+    fn mask_ended(&self, keys: &mut [i128]) {
+        for (h, k) in keys.iter_mut().enumerate() {
+            if !self.household_alive(h) {
+                *k = 0;
+            }
+        }
     }
 
     /// Part 4 on the 15th: a twelfth of each held programme to its group.
@@ -677,6 +687,9 @@ impl World {
     /// Equal keys are an equal amount per household, rounded down, the
     /// remainder falling short (every owner pays the same property tax).
     fn households_pay(&mut self, total: i128, keys: &[i128]) -> (Vec<i128>, i128) {
+        let mut masked = keys.to_vec();
+        self.mask_ended(&mut masked);
+        let keys = &masked;
         let w = &self.households.hh_weight;
         let mut keyed = keys.iter().copied().filter(|&k| k > 0);
         let first = keyed.next().unwrap_or(0);
@@ -1068,6 +1081,18 @@ impl World {
         if self.rev.active {
             self.rev.output_month[u] += value;
         }
+    }
+
+    /// The yearly compaction: drop the removed persons and households.
+    #[cfg(feature = "demography")]
+    pub(super) fn rev_compact(&mut self, keep_p: &[bool], keep_h: &[bool]) {
+        use super::money::retain_by;
+        let r = &mut self.rev;
+        retain_by(&mut r.activity, keep_p);
+        retain_by(&mut r.rent_key, keep_h);
+        retain_by(&mut r.dwelling, keep_h);
+        retain_by(&mut r.rent.key, keep_h);
+        retain_by(&mut r.rent.received, keep_h);
     }
 
     /// A new person's activity (Stage C's code), for the distribution keys.

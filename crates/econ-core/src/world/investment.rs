@@ -485,6 +485,33 @@ impl World {
 
     /// The start of a day: the day's columns emptied; on the 15th, last
     /// month's profit paid out (step 5).
+    /// An estate: the ended household's shares (its dividend key) pass to
+    /// the heir, `key × w_d / w_h` per household so the national holding is
+    /// kept; with no heir they lapse.
+    #[cfg(feature = "demography")]
+    pub(super) fn invest_estate(&mut self, ended: usize, heir: Option<usize>) {
+        if !self.inv.active {
+            return;
+        }
+        let Some(&k) = self.inv.hh_key.get(ended) else {
+            return;
+        };
+        self.inv.hh_key[ended] = 0;
+        if let Some(g) = heir {
+            let wd = i128::from(self.households.hh_weight[ended]);
+            let wh = i128::from(self.households.hh_weight[g]).max(1);
+            if let Some(x) = self.inv.hh_key.get_mut(g) {
+                *x += k * wd / wh;
+            }
+        }
+    }
+
+    /// The yearly compaction: drop the removed households.
+    #[cfg(feature = "demography")]
+    pub(super) fn invest_compact(&mut self, keep_h: &[bool]) {
+        super::money::retain_by(&mut self.inv.hh_key, keep_h);
+    }
+
     pub(super) fn invest_begin_day(&mut self) {
         if !self.inv.active {
             return;

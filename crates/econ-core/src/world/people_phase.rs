@@ -282,6 +282,142 @@ impl World {
         self.people_retirement();
     }
 
+    /// The compaction (spec step 6, "Records"): tombstones and ended
+    /// households are removed, the tables keep their order, and every stored
+    /// index (households' members, firm units' members, the links' households)
+    /// is remapped. Keyed draws use keys, never indices, so no result changes.
+    pub(super) fn compact_people(&mut self) {
+        use super::money::retain_by;
+        if !self.dem.active {
+            return;
+        }
+        let keep_p = self.dem.life.alive.clone();
+        let keep_h = self.dem.hh_life.hh_alive.clone();
+        if keep_p.iter().all(|&k| k) && keep_h.iter().all(|&k| k) {
+            return;
+        }
+        debug_assert!(self.mac.owed.is_empty(), "no pay owed at a close");
+        // Old index → new index.
+        let remap = |keep: &[bool]| -> Vec<u32> {
+            let mut next = 0u32;
+            keep.iter()
+                .map(|&k| {
+                    let i = next;
+                    if k {
+                        next += 1;
+                    }
+                    if k { i } else { u32::MAX }
+                })
+                .collect()
+        };
+        let (map_p, map_h) = (remap(&keep_p), remap(&keep_h));
+        // Persons.
+        for h in &mut self.persons.household_id {
+            *h = map_h[*h as usize];
+        }
+        let q = &mut self.persons;
+        retain_by(&mut q.household_id, &keep_p);
+        retain_by(&mut q.edu_level, &keep_p);
+        retain_by(&mut q.employer, &keep_p);
+        retain_by(&mut q.occupation, &keep_p);
+        retain_by(&mut q.wage, &keep_p);
+        retain_by(&mut q.wage_declared, &keep_p);
+        retain_by(&mut q.months_unemployed, &keep_p);
+        retain_by(&mut q.hired_on, &keep_p);
+        retain_by(&mut q.last_pay, &keep_p);
+        let s = &mut self.pp;
+        retain_by(&mut s.status, &keep_p);
+        retain_by(&mut s.seeking, &keep_p);
+        retain_by(&mut s.region, &keep_p);
+        retain_by(&mut s.pension, &keep_p);
+        retain_by(&mut s.age, &keep_p);
+        retain_by(&mut s.other_income, &keep_p);
+        let pe = &mut self.people;
+        retain_by(&mut pe.sex, &keep_p);
+        retain_by(&mut pe.role, &keep_p);
+        retain_by(&mut pe.person_key, &keep_p);
+        retain_by(&mut pe.contribution_months, &keep_p);
+        retain_by(&mut pe.career_points, &keep_p);
+        retain_by(&mut pe.enrolled, &keep_p);
+        retain_by(&mut pe.hh_key, &keep_h);
+        let l = &mut self.dem.life;
+        retain_by(&mut l.alive, &keep_p);
+        retain_by(&mut l.activity, &keep_p);
+        retain_by(&mut l.pension_points, &keep_p);
+        retain_by(&mut l.survivor_points, &keep_p);
+        retain_by(&mut l.months_since_birth, &keep_p);
+        retain_by(&mut l.origin_household, &keep_p);
+        // The firm units' members: live persons only, remapped (the order of
+        // indices is kept, so the lists stay sorted).
+        for members in &mut self.uu.members {
+            members.retain(|&i| map_p[i as usize] != u32::MAX);
+            for i in members.iter_mut() {
+                *i = map_p[*i as usize];
+            }
+        }
+        // Yesterday's job seekers of pay and job choice.
+        #[cfg(feature = "levers")]
+        {
+            let js = &mut self.bud.job_seekers;
+            js.retain(|&i| map_p[i as usize] != u32::MAX);
+            for i in js.iter_mut() {
+                *i = map_p[*i as usize];
+            }
+        }
+        // Households.
+        let h = &mut self.households;
+        retain_by(&mut h.hh_weight, &keep_h);
+        retain_by(&mut h.hh_cash, &keep_h);
+        retain_by(&mut h.hh_deposits, &keep_h);
+        retain_by(&mut h.hh_income_received, &keep_h);
+        retain_by(&mut h.hh_stagger_day, &keep_h);
+        retain_by(&mut h.hh_hardship, &keep_h);
+        retain_by(&mut h.hh_fifth, &keep_h);
+        retain_by(&mut h.last_decision, &keep_h);
+        retain_by(&mut h.income_to_date, &keep_h);
+        retain_by(&mut h.spending_to_date, &keep_h);
+        let hs = &mut self.hh;
+        retain_by(&mut hs.eq_adults_milli, &keep_h);
+        retain_by(&mut hs.subsistence, &keep_h);
+        retain_by(&mut hs.income_this_month, &keep_h);
+        retain_by(&mut hs.income_last_month, &keep_h);
+        let hl = &mut self.dem.hh_life;
+        retain_by(&mut hl.hh_alive, &keep_h);
+        retain_by(&mut hl.hh_county, &keep_h);
+        retain_by(&mut hl.hh_collective, &keep_h);
+        retain_by(&mut hl.hh_tenure, &keep_h);
+        retain_by(&mut hl.hh_dwelling_value, &keep_h);
+        retain_by(&mut hl.hh_mortgage, &keep_h);
+        retain_by(&mut hl.hh_consumer_debt, &keep_h);
+        retain_by(&mut hl.hh_moved_to_date, &keep_h);
+        // The links: those of ended households go (their remittances had
+        // stopped); the rest point at their household's new index.
+        let le = &mut self.people.linked_emigrants;
+        let keep_link: Vec<bool> = le
+            .household_id
+            .iter()
+            .map(|&g| keep_h[g as usize])
+            .collect();
+        for g in &mut le.household_id {
+            *g = map_h[*g as usize];
+        }
+        retain_by(&mut le.household_id, &keep_link);
+        retain_by(&mut le.person_key, &keep_link);
+        retain_by(&mut le.age, &keep_link);
+        retain_by(&mut le.sex, &keep_link);
+        retain_by(&mut le.role, &keep_link);
+        retain_by(&mut le.edu_level, &keep_link);
+        retain_by(&mut le.months_abroad, &keep_link);
+        #[cfg(feature = "trade")]
+        self.rem_compact(&keep_link);
+        self.fs_compact(&keep_p, &keep_h);
+        self.bank_compact(&keep_h);
+        #[cfg(feature = "investment")]
+        self.invest_compact(&keep_h);
+        #[cfg(feature = "revenue")]
+        self.rev_compact(&keep_p, &keep_h);
+    }
+
     /// The close of December: next year's mortality table and wage_nominal.
     pub(super) fn people_year_end(&mut self) {
         if !self.dem.active {
@@ -881,6 +1017,8 @@ impl World {
             heir_dwelling = Some((g, i128::from(life.hh_dwelling_value[g].get())));
         }
         self.rev_estate_dwelling(h, heir_dwelling);
+        #[cfg(feature = "investment")]
+        self.invest_estate(h, heir);
         self.fs_end_household(h);
         self.dem.report.estates.push(EstateRecord {
             hh_key: self.people.hh_key[h],
