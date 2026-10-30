@@ -1070,6 +1070,14 @@ impl World {
         }
     }
 
+    /// A new person's activity (Stage C's code), for the distribution keys.
+    #[cfg(feature = "demography")]
+    pub(super) fn rev_push_person(&mut self, activity: u8) {
+        if !self.rev.activity.is_empty() {
+            self.rev.activity.push(activity);
+        }
+    }
+
     /// An estate's dwelling: the ended household's key and dwelling are
     /// gone; the heir's dwelling is now `heir_dwelling` (per household), and
     /// an owner heir's imputed-rent key follows it (tenure does not change
