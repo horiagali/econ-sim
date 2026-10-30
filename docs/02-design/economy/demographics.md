@@ -130,7 +130,7 @@ computed once a year by repeated integer multiplication, half away from zero (20
 4. **Dwelling.** `hh_dwelling_value` passes the same way (it is not money: the remainder is dropped and counted in the month's report). The heir's tenure does not change until housing (M13).
 5. Money moved between two households is not a ledger posting (the ledger holds the household sector's totals, [world loop](../game/world-loop.md)); it is recorded in both households' `hh_moved_to_date` so the household identity of AC-HH-03 still holds. Only the legs to banks and government are posted.
 
-> **Simplification:** one heir per estate; heirs inherit the dwelling but never the debt (debts are paid from the money or written off); no inheritance tax (Romania has none; notary fees are ignored). An heir with a much smaller weight than the deceased receives proportionally more per household.
+> **Simplification:** one heir per estate; heirs inherit the dwelling but never the debt (debts are paid from the money or written off); no inheritance tax (Romania has none for estates settled within two years, as here; notary fees are ignored). The player can create one in roadmap M8b, laws and taxes in depth (owner, 2026-10-30). An heir with a much smaller weight than the deceased receives proportionally more per household.
 
 ### 4. Births
 **Eligible:** live women aged 15 to 49 in private households, except those who gave birth in the last 12 months (`months_since_birth` < 12). **Strata:** five-year bands of the mother's age (15–19, …, 45–49). **Target:** $T_s$ with
