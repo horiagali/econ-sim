@@ -91,7 +91,9 @@ impl World {
     /// Every closed month's migration, in order (one per monthly close).
     #[must_use]
     pub fn migration_months(&self) -> &[MigrationMonth] {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        // Remittances only, so far (spec step 3); the other flows come with
+        // emigration, returns, immigration and moves.
+        &self.rem.migration_months
     }
 
     /// The diaspora now: linked emigrants and the stock.

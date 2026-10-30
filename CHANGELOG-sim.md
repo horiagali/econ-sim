@@ -3,6 +3,11 @@
 Every change to a golden hash or snapshot needs an entry here with the reason
 (ADR-0010). Newest first.
 
+## 2026-10-30 — Remittances from linked emigrants
+- **New flow code:** 4110 `transfer.remittances` (secondary income, rest of the world to households) (`econ-ledger/src/codes.rs`).
+- **Remittances (worlds with the outside world, i.e. built from `law.json` or `Law::law_2021`):** on each month's 15th (with imputed rent; not on pay day, AC-ST-05), each linked emigrant of stage L sends r̄ · (1 − 5%)^(months abroad / 12) euro to its household, in lei at the day's rate, from the rest of the world's lei deposits; it is household income (`hh_income_received`) and a current-account credit. r̄ is fitted at load so that the starting links send 2021's net 17,248 million lei a year at e0 (spec `economy/migration-remittances`, step 3; `world/remittances.rs`). At 1:1000 GDP is 1–2.4 billion lei a month higher in the first year and unemployment about a point lower.
+- **Unchanged:** every golden in `tests/golden/` (the World golden runs the placeholder law, which has no outside world).
+
 ## 2026-10-29 — Calibration of the 2021 budget and the central bank (owner's decisions)
 - **New flow codes:** 1006 `gov.sales` (public units' market sales, ESA's P11 + P12 + P131) and 4009 `benefit.in_kind` (social benefits in kind, D632) (`econ-ledger/src/codes.rs`).
 - **Public units' sales (worlds built from `law.json`):** at each month end, after the government's payment, each public unit's market sales of the month (never more than its deposits) are swept to the treasury under `gov.sales`; before, its surplus stayed with it (about 76 billion lei a year of deposits). Its non-market output is valued at what the government paid less those sales (P13), so GDP does not count the market output twice. Public units' non-market output counts in their industry's wage cost per unit, their capacity and stocks are neutral in its price, and where they sell beside other units of their industry the other units sell first (spec `game/lever-system`, "Market sales").
