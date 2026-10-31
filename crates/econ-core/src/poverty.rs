@@ -6,8 +6,7 @@
 //!
 //! All in integers, ratios in millionths, sums in i128. API skeleton from the
 //! spec's API sketch, written with the acceptance tests before the code
-//! (ADR-0014); every body is `unimplemented!` until the implementation fills
-//! it.
+//! (ADR-0014); the `World` side is in `world::poverty_state`.
 
 use econ_types::{Bani, Month};
 
@@ -41,30 +40,132 @@ pub struct IncomeMeasures {
 /// The measures of a distribution with the poverty line at `poverty_line_ppm`
 /// of the median (AC-POV-02, 03).
 pub fn measures(d: &Distribution, poverty_line_ppm: u32) -> IncomeMeasures {
-    let _ = (d, poverty_line_ppm);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let n = d.income_milli.len();
+    let mut order: Vec<usize> = (0..n).filter(|&h| d.weight[h] > 0).collect();
+    order.sort_by_key(|&h| (d.income_milli[h], h));
+    let v_all: i128 = order.iter().map(|&h| i128::from(d.weight[h])).sum();
+    let population = u64::try_from(v_all).unwrap_or(u64::MAX);
+    if v_all == 0 {
+        return IncomeMeasures {
+            median_milli: 0,
+            poverty_rate_ppm: 0,
+            gini_ppm: 0,
+            s80_s20_ppm: None,
+            population: 0,
+        };
+    }
+    let x = |h: usize| d.income_milli[h].max(0);
+    // The median: the smallest x with V_h ≥ V/2.
+    let mut cum = 0i128;
+    let mut median = 0i128;
+    for &h in &order {
+        cum += i128::from(d.weight[h]);
+        if 2 * cum >= v_all {
+            median = d.income_milli[h];
+            break;
+        }
+    }
+    let line = i128::from(poverty_line_ppm);
+    let poor: i128 = order
+        .iter()
+        .filter(|&&h| d.income_milli[h] * 1_000_000 < line * median)
+        .map(|&h| i128::from(d.weight[h]))
+        .sum();
+    // Gini: Σ v x (2V_h − v) / (V X) − 1.
+    let total_x: i128 = order.iter().map(|&h| i128::from(d.weight[h]) * x(h)).sum();
+    let gini = if total_x > 0 {
+        let mut cum = 0i128;
+        let mut num = 0i128;
+        for &h in &order {
+            let v = i128::from(d.weight[h]);
+            cum += v;
+            num += v * x(h) * (2 * cum - v);
+        }
+        let g = num * 1_000_000 / (v_all * total_x) - 1_000_000;
+        u32::try_from(g.max(0)).unwrap_or(0)
+    } else {
+        0
+    };
+    // S80/S20: the income of the richest V/5 persons over the poorest V/5,
+    // splitting the households on the boundaries (persons counted × 5).
+    let fifth_income = |iter: &mut dyn Iterator<Item = usize>| -> i128 {
+        let mut left = v_all; // V/5 persons, × 5
+        let mut sum = 0i128;
+        for h in iter {
+            if left <= 0 {
+                break;
+            }
+            let v5 = 5 * i128::from(d.weight[h]);
+            let take = v5.min(left);
+            sum += take * x(h);
+            left -= take;
+        }
+        sum
+    };
+    let bottom = fifth_income(&mut order.iter().copied());
+    let top = fifth_income(&mut order.iter().rev().copied());
+    let s80_s20 = (bottom > 0).then(|| u32::try_from(top * 1_000_000 / bottom).unwrap_or(u32::MAX));
+    IncomeMeasures {
+        median_milli: median,
+        poverty_rate_ppm: u32::try_from(poor * 1_000_000 / v_all).expect("a share"),
+        gini_ppm: gini,
+        s80_s20_ppm: s80_s20,
+        population,
+    }
 }
 
 /// The standard-of-living class of an equivalised real income against the
 /// anchor and the class lines (millionths of the anchor): 0 at risk, 1
 /// lower-middle, 2 middle, 3 affluent.
 pub fn class_of(x_milli: i128, anchor_milli: i128, lines_ppm: [u32; 3]) -> u8 {
-    let _ = (x_milli, anchor_milli, lines_ppm);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let x = x_milli * 1_000_000;
+    let line = |k: usize| i128::from(lines_ppm[k]) * anchor_milli;
+    if x < line(0) {
+        0
+    } else if x < line(1) {
+        1
+    } else if x <= line(2) {
+        2
+    } else {
+        3
+    }
 }
 
 /// The modified OECD scale (AC-POV-01), thousandths: 1 for the first member,
 /// 0.5 for each further member of 14 or more, 0.3 for each under 14.
 pub fn eq_adults_milli(member_ages_months: &[u16]) -> u32 {
-    let _ = member_ages_months;
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let n = u32::try_from(member_ages_months.len()).expect("members");
+    if n == 0 {
+        return 0;
+    }
+    let older = u32::try_from(member_ages_months.iter().filter(|&&a| a >= 14 * 12).count())
+        .expect("members");
+    let younger = n - older;
+    if older > 0 {
+        1_000 + 500 * (older - 1) + 300 * younger
+    } else {
+        1_000 + 300 * (younger - 1)
+    }
 }
 
 /// Step 2 (AC-POV-09): `ỹ + λ (Y / P − ỹ)`, whole bani, with the CPI `P` in
 /// millionths of day 0's and the speed `λ` in millionths.
 pub fn recent_income(prev: Bani, month_income: Bani, cpi_ppm: u32, speed_ppm: u32) -> Bani {
-    let _ = (prev, month_income, cpi_ppm, speed_ppm);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    // ỹ + λ (Y / P − ỹ), exactly, rounded half away from zero once.
+    let p = i128::from(cpi_ppm.max(1));
+    let (prev, y, l) = (
+        i128::from(prev.get()),
+        i128::from(month_income.get()),
+        i128::from(speed_ppm),
+    );
+    let num = prev * 1_000_000 * p + l * (y * 1_000_000 - prev * p);
+    let den = 1_000_000 * p;
+    let v = if num >= 0 {
+        (2 * num + den) / (2 * den)
+    } else {
+        -((-2 * num + den) / (2 * den))
+    };
+    Bani(i64::try_from(v).expect("an amount"))
 }
 
 /// The tuning parameters of the spec's table.
@@ -128,25 +229,25 @@ impl World {
     /// The indicators of every closed month, in order.
     #[must_use]
     pub fn poverty_stats(&self) -> &[PovertyStats] {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.pov().stats.as_slice()
     }
 
     /// `poverty_anchor`: the median equivalised recent real income of month
     /// 0, December 2021 lei a month.
     pub fn poverty_anchor(&self) -> Bani {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.pov().anchor
     }
 
     /// `hh_real_income_recent`: each household's recent real income, December
     /// 2021 lei a month, aligned with [`crate::world::HouseholdColumns`].
     pub fn hh_real_income_recent(&self) -> &[Bani] {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.pov().recent.as_slice()
     }
 
     /// `hh_income_year`: each household's income received in the calendar
     /// year so far (zero after a December close), aligned with
     /// [`crate::world::HouseholdColumns`].
     pub fn hh_income_year(&self) -> &[Bani] {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.pov().year.as_slice()
     }
 }

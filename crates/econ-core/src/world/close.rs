@@ -390,6 +390,13 @@ impl World {
             });
         }
         self.months.push(stats);
+        #[cfg(any(
+            feature = "migration",
+            feature = "education",
+            feature = "approval",
+            feature = "poverty"
+        ))]
+        self.refresh_activities();
         // The treasury: the units' shortfalls of the day settled first, so
         // its deposits at the central bank end the day at their target.
         #[cfg(feature = "fiscal")]
@@ -426,6 +433,9 @@ impl World {
         }
         #[cfg(feature = "monetary")]
         self.cb_close();
+        // The poverty indicators last: every payment of the close is in.
+        #[cfg(feature = "poverty")]
+        self.poverty_close();
         // The close of December: next year's mortality table.
         #[cfg(feature = "demography")]
         {

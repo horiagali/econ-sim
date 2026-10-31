@@ -131,6 +131,9 @@ mod migration;
     feature = "poverty"
 ))]
 mod persons_view;
+// The poverty and inequality indicators (roadmap M5).
+#[cfg(feature = "poverty")]
+mod poverty_state;
 
 use econ_ledger::{InvariantError, Ledger};
 use econ_mech_households::HouseholdParams;
@@ -1196,6 +1199,17 @@ pub struct World {
     fx: foreign::ForeignState,
     #[cfg(feature = "trade")]
     rem: remittances::Remittances,
+    #[cfg(feature = "poverty")]
+    pov: poverty_state::PovState,
+    /// Each person's main activity (Stage C's at load; refreshed at each
+    /// monthly close from jobs, job search and pensions).
+    #[cfg(any(
+        feature = "migration",
+        feature = "education",
+        feature = "approval",
+        feature = "poverty"
+    ))]
+    act: persons_view::Activities,
     #[cfg(feature = "demography")]
     dem: people_phase::DemState,
     #[cfg(feature = "monetary")]
