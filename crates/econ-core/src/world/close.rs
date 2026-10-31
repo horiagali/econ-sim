@@ -447,6 +447,8 @@ impl World {
         self.poverty_close();
         #[cfg(feature = "wellbeing")]
         self.wellbeing_close();
+        #[cfg(feature = "home_quality")]
+        self.mig_home_quality_close();
         #[cfg(feature = "approval")]
         self.approval_close();
         // The close of December: next year's mortality table.

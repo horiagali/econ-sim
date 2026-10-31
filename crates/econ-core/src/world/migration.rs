@@ -40,8 +40,7 @@ pub struct MigrationMonth {
     /// household and persons back from the diaspora stock.
     pub returns: u64,
     /// The same by the development region they return to, in the
-    /// scenario's order (AC-MIG-20). Test writer's addition (ADR-0014): empty
-    /// until the implementation fills it.
+    /// scenario's order (AC-MIG-20).
     pub returns_by_region: Vec<u64>,
     /// Foreign immigrants.
     pub immigrants: u64,
@@ -145,6 +144,14 @@ pub(crate) struct MigState {
     pub(crate) move_carry: Vec<i64>,
     /// The destination carries by (origin, destination), households ×1e6.
     pub(crate) dest_carry: Vec<i64>,
+    /// Step 5b: each region's expected home quality, its wellbeing index at
+    /// the first close, and the unemployment step 2 measured this month.
+    pub(crate) home_quality: Vec<u32>,
+    #[cfg_attr(not(feature = "home_quality"), allow(dead_code))]
+    pub(crate) wellbeing0: Vec<u32>,
+    pub(crate) unemp_now: Vec<u32>,
+    /// Returns of the month by the region returned to.
+    pub(crate) returns_by_region: Vec<u64>,
 }
 
 /// Migration's parameters on the `World`.
@@ -273,6 +280,9 @@ impl World {
             .max(le.person_key.iter().map(|&k| k + 1).max().unwrap_or(0));
         self.mig.omega_bp = self.mig_omega_bp();
         self.mig.hh_before = self.households.hh_weight.len();
+        let n_r = usize::from(self.pp.region.iter().copied().max().unwrap_or(0)) + 1;
+        self.mig.home_quality = vec![1_000_000; n_r];
+        self.mig.returns_by_region = vec![0; n_r];
         self.mig_fit();
         self.mig_fit_returns();
         self.mig_fit_moves();
@@ -407,6 +417,10 @@ impl World {
         let m = months.last_mut().expect("the month");
         m.emigrants = d.emigrants;
         m.returns = returns;
+        m.returns_by_region = std::mem::replace(
+            &mut self.mig.returns_by_region,
+            vec![0; self.mig.home_quality.len()],
+        );
         m.immigrants = immigrants;
         m.emigrants_by_age = d.by_age;
         m.emigrated_households = d.households;
@@ -448,10 +462,72 @@ impl World {
     /// `home_quality[r]`: each development region's expected home quality
     /// (step 5b) after the latest close, millionths (1 at the start), in the
     /// scenario's order of regions.
-    ///
-    /// Test writer's addition (ADR-0014): the implementation fills it.
     #[must_use]
     pub fn home_quality_ppm(&self) -> &[u32] {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        &self.mig.home_quality
+    }
+
+    /// A return to region `r` (the month's report).
+    pub(super) fn mig_count_return(&mut self, r: usize, persons: u64) {
+        if self.mig.returns_by_region.len() <= r {
+            self.mig.returns_by_region.resize(r + 1, 0);
+        }
+        self.mig.returns_by_region[r] += persons;
+    }
+
+    /// The residents' mean expected home quality, millionths.
+    #[cfg(feature = "home_quality")]
+    pub(super) fn mig_mean_quality(&self) -> u32 {
+        let n_r = self.mig.home_quality.len();
+        let mut res = vec![0u128; n_r];
+        for p in 0..self.pp.age.len() {
+            let r = usize::from(self.pp.region[p]);
+            if r < n_r && self.person_resident(p) {
+                res[r] +=
+                    u128::from(self.households.hh_weight[self.persons.household_id[p] as usize]);
+            }
+        }
+        let all: u128 = res.iter().sum();
+        if all == 0 {
+            return 1_000_000;
+        }
+        let q: u128 = (0..n_r)
+            .map(|r| res[r] * u128::from(self.mig.home_quality[r]))
+            .sum();
+        u32::try_from((q + all / 2) / all).expect("a quality")
+    }
+
+    /// Step 5b at the end of the close, after the wellbeing index: each
+    /// region's instant quality and its expected quality's update, read by
+    /// the next month's flows.
+    #[cfg(feature = "home_quality")]
+    pub(super) fn mig_home_quality_close(&mut self) {
+        let Some(w) = self.wellbeing_stats().last().map(|s| {
+            s.by_region
+                .iter()
+                .map(|x| x.index_ppm)
+                .collect::<Vec<u32>>()
+        }) else {
+            return;
+        };
+        if self.mig.wellbeing0.is_empty() {
+            self.mig.wellbeing0.clone_from(&w);
+        }
+        let q = self.params.migration;
+        for r in 0..self.mig.home_quality.len() {
+            let instant = econ_mech_migration::instant_quality_ppm(
+                w.get(r).copied().unwrap_or(0),
+                self.mig.wellbeing0.get(r).copied().unwrap_or(0),
+                self.mig.unemp_now.get(r).copied().unwrap_or(0),
+                self.mig.base_unemp.get(r).copied().unwrap_or(0),
+                q.rules.unemployment_response_ppm,
+                q.quality_jobs_weight_ppm,
+            );
+            self.mig.home_quality[r] = econ_mech_migration::home_quality_ppm(
+                self.mig.home_quality[r],
+                instant,
+                q.quality_memory_months,
+            );
+        }
     }
 }
