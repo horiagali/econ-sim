@@ -8,7 +8,9 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use econ_io::people::{read_demography, read_inactivity_margins, read_linked_emigrant_margins};
+use econ_io::people::{
+    read_county_moves, read_demography, read_inactivity_margins, read_linked_emigrant_margins,
+};
 use econ_io::popgen::{
     MarginFile, StageFile, read_attribute_margins, read_firm_units, read_housing_margins,
     read_income_margins, read_job_margins, read_margins, read_pension_margins, read_wage_margins,
@@ -34,7 +36,7 @@ use crate::{
 };
 
 /// The input files of the spec's table, in its order.
-pub(crate) const INPUT_FILES: [&str; 18] = [
+pub(crate) const INPUT_FILES: [&str; 19] = [
     MARGINS,
     ATTRIBUTES,
     JOBS,
@@ -53,6 +55,7 @@ pub(crate) const INPUT_FILES: [&str; 18] = [
     INACTIVITY,
     EMIGRANTS,
     DEMOGRAPHY,
+    COUNTY_MOVES,
 ];
 const MARGINS: &str = "census2021_margins_ro.json";
 const ATTRIBUTES: &str = "census2021_edu_activity_ro.json";
@@ -81,6 +84,9 @@ const EMIGRANTS: &str = "linked_emigrants2021_ro.json";
 /// The demographic tables (spec `economy/demographics`), written to the
 /// scenario as `demography.json` as they are.
 pub(crate) const DEMOGRAPHY: &str = "demography2019_ro.json";
+/// Moves between counties (spec `economy/migration-remittances`, step 6),
+/// written to the scenario as `county_moves.json` as it is.
+pub(crate) const COUNTY_MOVES: &str = "county_moves2021_ro.json";
 
 /// The margin files of the stages, parsed.
 #[derive(Debug, Clone)]
@@ -138,6 +144,8 @@ pub(crate) fn read_inputs(dir: &Path) -> Result<Inputs, BuildError> {
     let jobs = read_job_margins(text(JOBS), &attributes.margins)
         .map_err(|e| input_err(JOBS, format!("{e:?}")))?;
     read_demography(text(DEMOGRAPHY)).map_err(|e| input_err(DEMOGRAPHY, format!("{e:?}")))?;
+    read_county_moves(text(COUNTY_MOVES), &margins.margins.counties)
+        .map_err(|e| input_err(COUNTY_MOVES, format!("{e:?}")))?;
     let stages = StageInputs {
         inactivity: read_inactivity_margins(text(INACTIVITY))
             .map_err(|e| input_err(INACTIVITY, format!("{e:?}")))?,

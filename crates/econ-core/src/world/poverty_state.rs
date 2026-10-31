@@ -103,6 +103,14 @@ impl World {
             .clone_from(&self.households.income_to_date);
     }
 
+    /// Household `h` moved (migration's moves between counties).
+    #[cfg(feature = "migration")]
+    pub(crate) fn pov_set_place(&mut self, h: usize, county: u8, region: u8) {
+        self.pov_grow();
+        self.pov.county[h] = county;
+        self.pov.region[h] = region;
+    }
+
     /// Imputed rent paid to household `h` (per household).
     pub(crate) fn pov_imputed_rent(&mut self, h: usize, x: Bani) {
         if self.pov.imputed.len() <= h {

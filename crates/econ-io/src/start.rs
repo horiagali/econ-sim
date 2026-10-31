@@ -675,6 +675,23 @@ fn people_start(
             .map_err(|e| SaveError::Io(format!("demography.json: {e}")))?;
         p.demography = Some(crate::people::read_demography(&text)?);
     }
+    let moves = dir.join("county_moves.json");
+    if moves.exists() {
+        let text = std::fs::read_to_string(&moves)
+            .map_err(|e| SaveError::Io(format!("county_moves.json: {e}")))?;
+        // The file's own counties are the scenario's order (the census margins').
+        let names: Vec<String> = serde_json::from_str::<serde_json::Value>(&text)
+            .ok()
+            .and_then(|v| {
+                v["counties"].as_array().map(|a| {
+                    a.iter()
+                        .filter_map(|x| x.as_str().map(str::to_string))
+                        .collect()
+                })
+            })
+            .unwrap_or_default();
+        p.county_moves = Some(crate::people::read_county_moves(&text, &names)?);
+    }
     p.next_person_key = scenario["next_person_key"].as_u64().unwrap_or(0);
     p.next_hh_key = scenario["next_hh_key"].as_u64().unwrap_or(0);
     Ok(p)

@@ -23,6 +23,7 @@ mod housing;
 mod inactivity;
 mod incomes;
 mod jobs;
+mod moves;
 mod pensions;
 mod seed;
 mod wages;
@@ -46,6 +47,7 @@ pub use incomes::{
     IncomeError, IncomeMargins, IncomeParams, InformalPropensity, OtherIncomes,
     assign_other_incomes,
 };
+pub use moves::CountyMoves;
 pub use pensions::{PensionError, PensionMargins, PensionParams, PersonPensions, assign_pensions};
 pub use wages::{PersonWages, WageError, WageMargins, WageParams, assign_wages};
 pub use wealth::{
