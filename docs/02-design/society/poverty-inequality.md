@@ -89,6 +89,21 @@ All in integers (i128), ratios in millionths, sums in the sorted order.
 
 **8. The calendar year.** `hh_income_year` += $Y_{h,t}$. At the December close the same measures are also computed on the calendar year's income (nominal; for the classes, deflated by the year's average CPI) as the **annual** indicators, the ones comparable with the survey, and `hh_income_year` is set to zero. The first December (month 0) has only one month: its annual indicators are month 0's × 12.
 
+**9. Standard of living (SoL)** (owner, 2026-10-31; display and a migration input, no other behaviour reads it). A Victoria-3-style number per household, on what it actually consumes, public services included (Eurostat's *actual individual consumption*, which compares living standards without penalising countries whose health and schooling are public):
+```math
+c_{h,t} = \frac{G_{h,t} + K_{h,t} + R_{h,t} + H_{h,t} + E_{h,t}}{P_t \cdot \text{eq}_h}, \qquad
+\tilde c_{h,t} = \tilde c_{h,t-1} + \lambda\,(c_{h,t} - \tilde c_{h,t-1}), \qquad
+\text{SoL}_h = \operatorname{clamp}_{[0,\,100]}\Big(10 + 10\,\log_2 \frac{\tilde c_h}{s}\Big)
+```
+- $G$: the household's purchases of goods and services in the month (VAT included); $K$: food grown at home (`hh_subsistence_income`); $R$: owner-occupiers' imputed rent (housing they consume without paying rent); all per household, lei.
+- $H$: its members' share of the month's public health spending (the government's health output in kind, valued at cost): each resident person takes a share by age weight (`sol_health_age_weights`: under 5, 5–64, 65 and over); $E$: its pupils' and students' share of public education spending, by the level they are enrolled at (`sol_education_level_weights`). Both are what people get for free; a budget cut lowers SoL at once.
+- $P_t$ the CPI (real, day 0's prices), $\text{eq}_h$ the equivalised adults of step 2, $\lambda$ = `income_recent_speed` (a three-month memory, as recent income), month 0 seeded with month 0's $c$.
+- $s$ = `sol_subsistence`: the subsistence basket per adult at day 0's prices (the households' 700 lei a month). **SoL 10 is living at subsistence; below 10 is hardship; each doubling of consumption adds 10.** Most households land between 20 and 35, the affluent above 40.
+- Outputs each monthly close: the weighted mean SoL (persons) nationally, by county, region, class (step 6), income fifth, age group and, through M6's group queries, any group; and the decomposition of the national mean's change into its five parts (purchases, home-grown food, imputed rent, health, education) for the "why" (ADR-0008), parts summing to the change.
+
+> **Simplification:** public services are valued at what they cost (as the national accounts do), not by their quality; quality joins with [social outcomes](social-outcomes.md)' health and education measures, which feed the separate wellbeing index, not SoL.
+
+
 > **Simplification:** income is money received. Food grown at home (`hh_subsistence_income`) and owner-occupiers' imputed rent are left out, as in the survey's headline income; Romania's rural households are poorer here than in a consumption measure. Informal income is in, while survey respondents under-report it.
 
 > **Simplification:** one equivalence scale and one national line. No regional price levels: a leu in Bucharest buys what it buys in Vaslui.
@@ -112,6 +127,9 @@ None directly. Every lever that moves incomes or prices moves them: transfers (`
 | `poverty_line_share` | 0.60 | fixed (Eurostat) | the relative poverty line |
 | `class_lines` | 0.60, 0.75, 2.00 × `poverty_anchor` | fixed (owner, 2026-10-26) | the class bounds |
 | `income_recent_speed` | 1/3 a month | 1/12–1 | how fast the monthly indicators follow income; 1 is last month's income only |
+| `sol_subsistence` | 700 lei a month per adult (day 0's prices) | — | consumption at SoL 10 (the households' subsistence basket) |
+| `sol_health_age_weights` | under 5: 1.5, 5–64: 1.0, 65 and over: 3.0 | 0.5–5 | how public health spending is shared by age (older people use more; an educated guess, Eurostat's spending by age profile) |
+| `sol_education_level_weights` | pre-school 1.0, primary 1.0, lower secondary 1.2, upper secondary 1.3, post-secondary 1.3, tertiary 2.0, master or doctorate 2.5 | 0.5–5 | how public education spending is shared by level (cost per pupil; an educated guess) |
 
 ## Interactions
 - **Reads:** [households](../economy/households.md) (income received, equivalised size, hardship), [prices](../economy/prices-inflation.md) (CPI), [demographics](../economy/demographics.md) (members and ages), [migration and remittances](../economy/migration-remittances.md) (remittances are income received).
@@ -139,6 +157,9 @@ IDs are stable. Tests go in `crates/econ-core/tests/acceptance/poverty.rs` (prot
 - [ ] **AC-POV-07** `[sim]` Isolation: at 1:1000, the `World`'s state hash after 24 months is the same with the indicators computed and not computed.
 - [ ] **AC-POV-08** `[sim]` The annual indicators of each December close are the measures of AC-POV-02 applied to the calendar year's income of every household; `hh_income_year` is zero after the close.
 - [ ] **AC-POV-09** `[unit]` Recent income: the update of step 2 in whole bani for given income, CPI and previous value; equal to month 0's income at month 0. *(Restated 2026-10-31, owner: month 0's income starts after November's pay on day 0 and leaves out imputed rent, as step 1's income does.)*
+- [ ] **AC-POV-10** `[unit]` *(SoL, step 9, 2026-10-31)* SoL is 10 when real equivalised consumption equals `sol_subsistence`, 20 at twice it, 0 at half (clamped to 0 and 100 beyond), in thousandths of a point rounded to the nearest; the health and education shares of a month add up to the month's public health and education spending exactly (weighted, to the ban).
+- [ ] **AC-POV-11** `[sim]` *(SoL)* At 1:1000, at every close of the first year: the classes' mean SoL rises from the class at risk to the affluent; households in hardship have a mean SoL below the national mean; and the national mean's change is the sum of its five parts exactly.
+- [ ] **AC-POV-12** `[sim]` *(SoL)* At 1:1000, cutting the health ministry's budget by 30% from month 3 lowers the national mean SoL within 3 months against the same run without the change, and the health part of the decomposition is the largest fall; the mean SoL of persons 65 and over falls more than that of persons 18 to 64.
 
 ## API sketch
 Names may change before lock; shapes should not. There is no code yet (tests come first, ADR-0014).
@@ -154,6 +175,8 @@ pub fn measures(d: &Distribution, poverty_line_ppm: u32) -> IncomeMeasures;     
 pub fn class_of(x_milli: i128, anchor_milli: i128, lines_ppm: [u32; 3]) -> u8;      // 0 at risk … 3 affluent
 pub fn eq_adults_milli(member_ages_months: &[u16]) -> u32;                          // AC-POV-01
 pub fn recent_income(prev: Bani, month_income: Bani, cpi_ppm: u32, speed_ppm: u32) -> Bani; // AC-POV-09
+pub fn sol_milli(consumption_real_eq: Bani, subsistence: Bani) -> u32;              // AC-POV-10, 0 to 100,000
+pub fn share_by_weight(total: Bani, weights: &[(u32 /*record weight*/, u32 /*person weight*/)]) -> Vec<Bani>; // AC-POV-10
 
 // in the World
 pub struct PovertyStats {
@@ -162,10 +185,17 @@ pub struct PovertyStats {
     pub class_added: [u64; 4], pub class_removed: [u64; 4],
     pub by_county: Vec<IncomeMeasures>, pub by_region: Vec<IncomeMeasures>, pub by_age: [IncomeMeasures; 3],
     pub annual: Option<IncomeMeasures>,       // December closes only
+    pub sol: SolStats,                        // step 9
+}
+pub struct SolStats {
+    pub national_milli: u32, pub by_county: Vec<u32>, pub by_region: Vec<u32>,
+    pub by_class: [u32; 4], pub by_fifth: [u32; 5], pub by_age: [u32; 3],
+    pub parts_change_milli: [i64; 5],         // purchases, home-grown food, imputed rent, health, education
 }
 impl World {
     pub fn poverty_stats(&self) -> &[PovertyStats];   // history, one per closed month
     pub fn poverty_anchor(&self) -> Bani;              // real, December 2021 lei a month
+    pub fn hh_sol_milli(&self) -> &[u32];              // each household's SoL, aligned with the households table
 }
 ```
 

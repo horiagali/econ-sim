@@ -252,6 +252,7 @@ Without this a long run is a frozen population.
 - [ ] **Education flows:** enrolment, graduation, entry to the labour market (simple version; depth in M14).
 - [ ] **Approval, first version:** the per-person number of [opinion-approval](02-design/society/opinion-approval.md), driven by own finances. Display only. Depth in M14.
 - [ ] Poverty and inequality indicators from incomes: [poverty and inequality](02-design/society/poverty-inequality.md) (with the standard-of-living classes of M6).
+- [ ] **Standard of living (SoL) and the wellbeing index** (owner, 2026-10-31): SoL, a Victoria-3-style number per household on actual consumption with public health and education included ([poverty and inequality](02-design/society/poverty-inequality.md), step 9); the wellbeing index, an HDI-style geometric mean of life expectancy, schooling and SoL by region ([social outcomes](02-design/society/social-outcomes.md)); then migration's expected home quality reads the index ([migration](02-design/economy/migration-remittances.md), step 5b). Histories computed each close; the panel with its graphs in M8.
 
 **Exit:** a 50-year run reproduces the direction of the official population projection (shrinking, ageing); pension spending responds to it. *(Owner, 2026-10-30: the 50-year runs and switching the People phase on by default move to M7; long runs break down after about 17 years on labour demand, investment, the policy rule, the exchange rate and the budget together, which is M7's joint calibration. M5 builds and checks its mechanics on short runs.)*
 
