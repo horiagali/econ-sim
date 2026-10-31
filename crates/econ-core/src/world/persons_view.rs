@@ -67,7 +67,7 @@ impl World {
 
     /// Set the activity a person keeps when neither employed, seeking nor
     /// retired (education's leavers and pupils).
-    #[cfg(feature = "education")]
+    #[cfg(any(feature = "education", feature = "migration"))]
     pub(super) fn set_base_activity(&mut self, p: usize, a: Activity) {
         if self.act.start.len() <= p {
             self.act.start.resize(p + 1, Activity::Child);
