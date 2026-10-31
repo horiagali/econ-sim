@@ -785,6 +785,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         rem: super::remittances::Remittances::default(),
         #[cfg(feature = "poverty")]
         pov: super::poverty_state::PovState::default(),
+        #[cfg(feature = "approval")]
+        app: super::approval_state::AppState::default(),
         #[cfg(any(
             feature = "migration",
             feature = "education",

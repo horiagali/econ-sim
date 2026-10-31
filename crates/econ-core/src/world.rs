@@ -131,6 +131,9 @@ mod migration;
     feature = "poverty"
 ))]
 mod persons_view;
+// Approval from own finances (roadmap M5).
+#[cfg(feature = "approval")]
+mod approval_state;
 // The poverty and inequality indicators (roadmap M5).
 #[cfg(feature = "poverty")]
 mod poverty_state;
@@ -1201,6 +1204,8 @@ pub struct World {
     rem: remittances::Remittances,
     #[cfg(feature = "poverty")]
     pov: poverty_state::PovState,
+    #[cfg(feature = "approval")]
+    app: approval_state::AppState,
     /// Each person's main activity (Stage C's at load; refreshed at each
     /// monthly close from jobs, job search and pensions).
     #[cfg(any(

@@ -7,9 +7,7 @@ use econ_popgen::{Activity, Sex};
 use econ_types::{Bani, Month};
 
 use super::World;
-use crate::approval::{
-    ApprovalStats, GroupApproval, PersonInputs, next_reference, step, targets,
-};
+use crate::approval::{ApprovalStats, GroupApproval, PersonInputs, next_reference, step, targets};
 
 /// Approval's state, aligned with the persons and the households.
 #[derive(Debug, Clone, Default)]
@@ -45,8 +43,15 @@ fn mean(members: &[(u64, [i32; 5])]) -> Option<GroupApproval> {
     }
     let mut parts = [0i32; 5];
     for (k, part) in parts.iter_mut().enumerate() {
-        let s: i128 = members.iter().map(|&(w, p)| i128::from(w) * i128::from(p[k])).sum();
-        let m = if s >= 0 { (2 * s + total) / (2 * total) } else { -((-2 * s + total) / (2 * total)) };
+        let s: i128 = members
+            .iter()
+            .map(|&(w, p)| i128::from(w) * i128::from(p[k]))
+            .sum();
+        let m = if s >= 0 {
+            (2 * s + total) / (2 * total)
+        } else {
+            -((-2 * s + total) / (2 * total))
+        };
         *part = i32::try_from(m).expect("millipoints");
     }
     Some(GroupApproval {
@@ -138,7 +143,10 @@ impl World {
         }
         // Groups.
         let n_act = 7;
-        let n_reg = (0..n_p).map(|q| usize::from(self.pp.region[q]) + 1).max().unwrap_or(0);
+        let n_reg = (0..n_p)
+            .map(|q| usize::from(self.pp.region[q]) + 1)
+            .max()
+            .unwrap_or(0);
         #[cfg(feature = "poverty")]
         let county_of = |w: &World, h: usize| usize::from(w.pov_county(h));
         let n_cty = (0..n_hh).map(|h| county_of(self, h) + 1).max().unwrap_or(0);
@@ -167,7 +175,13 @@ impl World {
             sex[usize::from(self.people.sex[q] != Sex::F)].push(e);
         }
         let arr5 = |v: &[Vec<(u64, [i32; 5])>]| -> [Option<GroupApproval>; 5] {
-            [mean(&v[0]), mean(&v[1]), mean(&v[2]), mean(&v[3]), mean(&v[4])]
+            [
+                mean(&v[0]),
+                mean(&v[1]),
+                mean(&v[2]),
+                mean(&v[3]),
+                mean(&v[4]),
+            ]
         };
         self.app.stats.push(ApprovalStats {
             month: Month(u32::try_from(t).expect("a month")),
