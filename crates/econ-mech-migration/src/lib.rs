@@ -179,8 +179,6 @@ pub fn eur_to_lei(eur_cents: i64, exchange_rate_ppm: u64) -> Bani {
 /// wellbeing index now and at the first close (millionths), its unemployment
 /// rate now and at the start (millionths), β_u (`emigration_unemployment`,
 /// millionths) and θ_u (`quality_jobs_weight`, millionths).
-///
-/// Test writer's addition (ADR-0014): the implementation fills it.
 #[must_use]
 pub fn instant_quality_ppm(
     wellbeing_ppm: u32,
@@ -190,35 +188,45 @@ pub fn instant_quality_ppm(
     unemployment_response_ppm: u32,
     jobs_weight_ppm: u32,
 ) -> u32 {
-    let _ = (
-        wellbeing_ppm,
-        wellbeing0_ppm,
-        unemp_ppm,
-        unemp0_ppm,
-        unemployment_response_ppm,
-        jobs_weight_ppm,
-    );
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let f = |x: u32| f64::from(x) / 1e6;
+    let index = if wellbeing0_ppm == 0 {
+        1.0
+    } else {
+        f(wellbeing_ppm) / f(wellbeing0_ppm)
+    };
+    let beta = f(unemployment_response_ppm);
+    let jobs = (1.0 + beta * f(unemp0_ppm)) / (1.0 + beta * f(unemp_ppm));
+    let q = index * math::powf(jobs, f(jobs_weight_ppm));
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let v = (q * 1e6).round().min(f64::from(u32::MAX)) as u32;
+    v
 }
 
 /// Expected home quality's monthly update (step 5b, AC-MIG-18), millionths:
 /// `Q + (q − Q) / m`, with `m` = `quality_memory` in months.
-///
-/// Test writer's addition (ADR-0014): the implementation fills it.
 #[must_use]
 pub fn home_quality_ppm(prev_ppm: u32, instant_ppm: u32, memory_months: u16) -> u32 {
-    let _ = (prev_ppm, instant_ppm, memory_months);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let m = i64::from(memory_months.max(1));
+    let gap = i64::from(instant_ppm) - i64::from(prev_ppm);
+    // A share 1/m of the gap, to the nearest millionth (half away from 0).
+    let step = if gap >= 0 {
+        (2 * gap + m) / (2 * m)
+    } else {
+        -((-2 * gap + m) / (2 * m))
+    };
+    u32::try_from(i64::from(prev_ppm) + step).unwrap_or(0)
 }
 
 /// A multiplier of step 5b (AC-MIG-18), millionths: `Q^ε` for an elasticity
 /// in millionths, negative for emigration (`Q^−ε_q,e`).
-///
-/// Test writer's addition (ADR-0014): the implementation fills it.
 #[must_use]
 pub fn quality_factor_ppm(quality_ppm: u32, elasticity_ppm: i64) -> u32 {
-    let _ = (quality_ppm, elasticity_ppm);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    #[allow(clippy::cast_precision_loss)]
+    let e = elasticity_ppm as f64 / 1e6;
+    let x = math::powf(f64::from(quality_ppm) / 1e6, e);
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let v = (x * 1e6).round().min(f64::from(u32::MAX)) as u32;
+    v
 }
 
 /// The logit shares of the destinations of a move out of `origin` (step 6,

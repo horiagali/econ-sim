@@ -269,6 +269,7 @@ impl World {
         let omega = self.mig_omega_bp();
         let pull = self.mig_pull(omega);
         let (u, u0) = self.mig_unemployment();
+        self.mig.unemp_now.clone_from(&u);
         let n_r = u.len();
         let (linked, members, pensioner) = self.mig_households();
         let n_cells = n_r * BANDS * TIERS;
@@ -295,6 +296,16 @@ impl World {
                 self.pp.seeking[p],
                 &r,
             );
+            // Step 5b: the other side of the choice, capped at p^max.
+            #[cfg(feature = "home_quality")]
+            let prob = {
+                let q = self.mig.home_quality.get(reg).copied().unwrap_or(1_000_000);
+                let e = -i64::from(self.params.migration.quality_emigration_elasticity_ppm);
+                let f = econ_mech_migration::quality_factor_ppm(q, e);
+                u32::try_from((u64::from(prob) * u64::from(f) + 500_000) / 1_000_000)
+                    .unwrap_or(u32::MAX)
+                    .min(r.max_emigration_ppm)
+            };
             if prob == 0 {
                 continue;
             }

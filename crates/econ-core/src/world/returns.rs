@@ -105,7 +105,7 @@ impl World {
     }
 
     /// `q0[g] · R_s^(−ε_r)` (times `link_return` for a link), millionths.
-    fn mig_return_ppm(&self, g: usize, tier: usize, link: bool) -> u32 {
+    fn mig_return_ppm(&self, g: usize, tier: usize, link: bool, region: usize) -> u32 {
         let r = self.params.migration.rules;
         let pull = f64::from(self.mig.pull[tier].max(1)) / 1e6;
         let mut x = f64::from(self.mig.q0_ppm[g])
@@ -113,6 +113,20 @@ impl World {
         if link {
             x *= f64::from(r.link_return_ppm) / 1e6;
         }
+        // Step 5b: the expected quality of the region they return to.
+        #[cfg(feature = "home_quality")]
+        {
+            let q = self
+                .mig
+                .home_quality
+                .get(region)
+                .copied()
+                .unwrap_or(1_000_000);
+            let e = i64::from(self.params.migration.quality_return_elasticity_ppm);
+            x *= f64::from(econ_mech_migration::quality_factor_ppm(q, e)) / 1e6;
+        }
+        #[cfg(not(feature = "home_quality"))]
+        let _ = region;
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let v = x.round().min(1e6) as u32;
         v
@@ -161,7 +175,7 @@ impl World {
             }
             let g = group_of(i32::from(self.pp.age[p] / 12));
             let s = edu_tier(self.persons.edu_level[p]);
-            let q = self.mig_return_ppm(g, s, true);
+            let q = self.mig_return_ppm(g, s, true, usize::from(self.pp.region[p]));
             if q == 0 {
                 continue;
             }
@@ -195,6 +209,10 @@ impl World {
                 let p = i as usize;
                 let h = self.persons.household_id[p] as usize;
                 returns += u64::from(self.households.hh_weight[h]);
+                self.mig_count_return(
+                    usize::from(self.pp.region[p]),
+                    u64::from(self.households.hh_weight[h]),
+                );
                 self.mig.abroad[p] = false;
                 self.mig.months_abroad[p] = 0;
                 let years = self.pp.age[p] / 12;
@@ -386,7 +404,7 @@ impl World {
         for c in &self.mig.stock {
             if let Some(k) = cell_of(c) {
                 let g = (k / TIERS) % GROUPS;
-                let q = self.mig_return_ppm(g, k % TIERS, false);
+                let q = self.mig_return_ppm(g, k % TIERS, false, k / (GROUPS * TIERS));
                 expected[k] += i128::from(c.persons) * i128::from(q);
             }
         }
@@ -446,6 +464,7 @@ impl World {
                 if self.mig_arrive(&arrival, key) {
                     self.mig.stock[pick].persons -= u64::try_from(scale).expect("a scale");
                     returns += u64::try_from(scale).expect("a scale");
+                    self.mig_count_return(reg, u64::try_from(scale).expect("a scale"));
                 }
             }
         }
@@ -460,6 +479,15 @@ impl World {
         #[allow(clippy::cast_precision_loss)]
         let month = q.immigrants_2021 as f64 / 12.0
             * math::powf(h, f64::from(q.immigration_elasticity_ppm) / 1e6);
+        // Step 5b, weakly: the residents' mean expected home quality.
+        #[cfg(feature = "home_quality")]
+        #[allow(clippy::cast_precision_loss)]
+        let month = month
+            * f64::from(econ_mech_migration::quality_factor_ppm(
+                self.mig_mean_quality(),
+                i64::from(q.quality_immigration_elasticity_ppm),
+            ))
+            / 1e6;
         #[allow(clippy::cast_possible_truncation)]
         let goal = month.round() as i64 + self.mig.imm_carry;
         let n = (goal + scale / 2).div_euclid(scale).max(0);
