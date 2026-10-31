@@ -133,6 +133,8 @@ mod migration;
     feature = "poverty"
 ))]
 mod persons_view;
+#[cfg(feature = "migration")]
+mod returns;
 // Approval from own finances (roadmap M5).
 #[cfg(feature = "approval")]
 mod approval_state;

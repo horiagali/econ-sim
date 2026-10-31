@@ -99,7 +99,7 @@ pub(crate) struct MigState {
     /// `months_abroad` of a linked emigrant.
     pub(crate) months_abroad: Vec<u16>,
     /// `diaspora_stock[k]`, in the scenario's order; new cells appended.
-    stock: Vec<StockCell>,
+    pub(crate) stock: Vec<StockCell>,
     /// The scripted unemployment shocks by region (AC-MIG-15), millionths.
     pub(crate) shocks: Vec<(u8, u32)>,
     /// `emigration_base[a]` for bands 15–24 to 55–64, millionths a month.
@@ -114,6 +114,23 @@ pub(crate) struct MigState {
     pub(crate) deaths_abroad: u64,
     /// `world.wages_abroad` at the latest close, basis points.
     pub(crate) omega_bp: u32,
+    /// The all-tier mean net wage in euro at the first close (×1e12).
+    pub(crate) base_wage_all: Option<i128>,
+    /// The all-tier home wage index in euro now, millionths.
+    pub(crate) h_all_ppm: u32,
+    /// The pull by tier now, millionths.
+    pub(crate) pull: [u32; 3],
+    /// `return_base[g]` for ages under 15, 15–64 and 65 and over,
+    /// millionths a month.
+    pub(crate) q0_ppm: [u32; 3],
+    /// The carries of returns of links (group × tier), of the stock (region
+    /// × group × tier) and of foreign immigration, real persons.
+    pub(crate) link_carry: Vec<i64>,
+    pub(crate) stock_carry: Vec<i64>,
+    pub(crate) imm_carry: i64,
+    /// The household records before the day's People phase: those formed
+    /// since (splits, the life cycle) do not leave whole the same day.
+    pub(crate) hh_before: usize,
 }
 
 /// Migration's parameters on the `World`.
@@ -124,6 +141,17 @@ pub struct MigrationWorldParams {
     /// 2021's emigrants aged 15–24, 25–34, 35–44, 45–54 and 55–64 (Eurostat
     /// `migr_emi2`, the research note), the targets `p0` is fitted to.
     pub emigrants_2021: [u64; 5],
+    /// 2021's returns of Romanian citizens under 15, 15–64 and 65 and over
+    /// (Eurostat `migr_imm1ctz`).
+    pub returns_2021: [u64; 3],
+    /// 2021's foreign immigrants, EU and non-EU.
+    pub immigrants_2021: u64,
+    /// ε_i, `immigration_elasticity`, millionths.
+    pub immigration_elasticity_ppm: u32,
+    /// `return_savings`: what a returning adult brings, euro cents.
+    pub return_savings_eur_cents: i64,
+    /// The share of men among foreign immigrants, millionths (INS 2021).
+    pub immigrant_men_ppm: u32,
 }
 
 impl MigrationWorldParams {
@@ -133,6 +161,11 @@ impl MigrationWorldParams {
         MigrationWorldParams {
             rules: econ_mech_migration::MigrationParams::spec_defaults(),
             emigrants_2021: [39_259, 62_148, 45_638, 31_050, 13_111],
+            returns_2021: [18_473, 125_609, 5_431],
+            immigrants_2021: 45_043,
+            immigration_elasticity_ppm: 1_000_000,
+            return_savings_eur_cents: 300_000,
+            immigrant_men_ppm: 547_000,
         }
     }
 }
@@ -182,7 +215,6 @@ impl World {
             self.people.role[p] = le.role[i];
             self.persons.edu_level[p] = le.edu_level[i];
             self.dem.life.activity[p] = econ_popgen::Activity::InactiveOther;
-            #[cfg(feature = "education")]
             self.set_base_activity(p, econ_popgen::Activity::InactiveOther);
             self.mig.abroad[p] = true;
             self.mig.months_abroad[p] = le.months_abroad[i];
@@ -192,7 +224,9 @@ impl World {
             .next_person_key
             .max(le.person_key.iter().map(|&k| k + 1).max().unwrap_or(0));
         self.mig.omega_bp = self.mig_omega_bp();
+        self.mig.hh_before = self.households.hh_weight.len();
         self.mig_fit();
+        self.mig_fit_returns();
     }
 
     /// Add persons to the stock's cell.
@@ -273,6 +307,16 @@ impl World {
             }
         }
         let d = self.mig_emigration();
+        let returns = self.mig_link_returns() + self.mig_stock_returns();
+        let immigrants = self.mig_immigration();
+        // Linked emigrants' deaths (in the People phase's report), then the
+        // stock's of the year, each January.
+        let link_deaths = std::mem::take(&mut self.mig.deaths_abroad);
+        let stock_deaths = if self.calendar.date(self.today).month == 1 {
+            self.mig_stock_deaths()
+        } else {
+            0
+        };
         self.mig.omega_bp = self.mig_omega_bp();
         let t = u32::try_from(self.months.len() - 1).expect("a month");
         let births: u64 = self
@@ -289,7 +333,6 @@ impl World {
             .iter()
             .map(|x| u64::from(x.weight))
             .sum();
-        let abroad = std::mem::take(&mut self.mig.deaths_abroad);
         let n_c = usize::from(
             self.dem
                 .hh_life
@@ -308,11 +351,13 @@ impl World {
         }
         let m = months.last_mut().expect("the month");
         m.emigrants = d.emigrants;
+        m.returns = returns;
+        m.immigrants = immigrants;
         m.emigrants_by_age = d.by_age;
         m.emigrated_households = d.households;
         m.births = births;
-        m.deaths_resident = deaths - abroad;
-        m.deaths_abroad = abroad;
+        m.deaths_resident = deaths - link_deaths;
+        m.deaths_abroad = link_deaths + stock_deaths;
         m.moves_in = vec![0; n_c];
         m.moves_out = vec![0; n_c];
     }

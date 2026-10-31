@@ -282,6 +282,10 @@ impl World {
             return;
         }
         let t = u32::try_from(self.months.len()).expect("a month");
+        #[cfg(feature = "migration")]
+        {
+            self.mig.hh_before = self.households.hh_weight.len();
+        }
         self.dem.report = PeopleReport {
             month: Some(Month(t)),
             ..PeopleReport::default()

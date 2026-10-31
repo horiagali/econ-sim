@@ -201,15 +201,25 @@ impl World {
                 sum[s] * 1_000_000_000_000 / wt[s] / e
             }
         });
+        let (sum_all, wt_all) = (sum.iter().sum::<i128>(), wt.iter().sum::<i128>());
+        let all = if wt_all == 0 {
+            0
+        } else {
+            sum_all * 1_000_000_000_000 / wt_all / e
+        };
         let base = *self.mig.base_wage_eur.get_or_insert(now);
-        std::array::from_fn(|s| {
-            let h = if base[s] > 0 && now[s] > 0 {
-                u32::try_from(now[s] * 1_000_000 / base[s]).unwrap_or(u32::MAX)
+        let base_all = *self.mig.base_wage_all.get_or_insert(all);
+        let index = |now: i128, base: i128| {
+            if base > 0 && now > 0 {
+                u32::try_from(now * 1_000_000 / base).unwrap_or(u32::MAX)
             } else {
                 1_000_000
-            };
-            pull_ppm(omega_bp, h)
-        })
+            }
+        };
+        self.mig.h_all_ppm = index(all, base_all);
+        let pull = std::array::from_fn(|s| pull_ppm(omega_bp, index(now[s], base[s])));
+        self.mig.pull = pull;
+        pull
     }
 
     /// The unemployment rate of each region now, millionths (with the
@@ -317,7 +327,8 @@ impl World {
             for i in chosen {
                 let p = i as usize;
                 let h = self.persons.household_id[p] as usize;
-                if gone[h] || !self.mig_eligible(p) {
+                // A record formed today (the life cycle) stays this month.
+                if gone[h] || h >= self.mig.hh_before || !self.mig_eligible(p) {
                     continue;
                 }
                 let whole = self
@@ -399,7 +410,6 @@ impl World {
             self.people.role[p] = Role::Other;
         }
         self.dem.life.activity[p] = Activity::InactiveOther;
-        #[cfg(feature = "education")]
         self.set_base_activity(p, Activity::InactiveOther);
         self.mig.abroad[p] = true;
         self.mig.months_abroad[p] = 0;

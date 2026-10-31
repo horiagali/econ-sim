@@ -45,7 +45,7 @@ impl World {
     /// Append a household record like `like` (county, region, locality;
     /// fifth) with `weight`, no members, no balances, a new `hh_key` and
     /// stagger day, no decision yet. Returns its index.
-    fn push_household(&mut self, like: usize, weight: u32, collective: bool) -> usize {
+    pub(super) fn push_household(&mut self, like: usize, weight: u32, collective: bool) -> usize {
         let n = self.households.hh_weight.len();
         let key = self.people.next_hh_key;
         self.people.next_hh_key += 1;
@@ -91,7 +91,7 @@ impl World {
     /// Append a copy of person `p` in household `h` with a new key: every
     /// attribute, the job included (the unit's weighted staff does not
     /// change: the records' weights were split).
-    fn copy_person(&mut self, p: usize, h: usize) -> usize {
+    pub(super) fn copy_person(&mut self, p: usize, h: usize) -> usize {
         let c = self.pp.age.len();
         let key = self.people.next_person_key;
         self.people.next_person_key += 1;
