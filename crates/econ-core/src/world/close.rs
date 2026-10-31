@@ -394,6 +394,8 @@ impl World {
         // close before.
         #[cfg(feature = "education")]
         self.education_close();
+        #[cfg(feature = "migration")]
+        self.migration_close();
         #[cfg(any(
             feature = "migration",
             feature = "education",

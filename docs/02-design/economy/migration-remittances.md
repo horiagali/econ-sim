@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [economy/demographics, economy/households, economy/labor-market, economy/trade-fx, economy/eu-membership, economy/social-transfers, economy/transport-network, society/population-groups, adr/0003-people-representation, adr/0006-determinism-contract, adr/0007-money-and-ledger, adr/0008-explainability-architecture, adr/0017-time-base]
 research: [research/migration-remittances-romania-2021]
-updated: 2026-10-30
+updated: 2026-10-31
 ---
 
 # Migration, Diaspora & Remittances
@@ -155,6 +155,9 @@ The household's `hh_county` and `hh_region` change. Its employed members keep th
 
 ### 7. Explainability
 Emigration, return, the destination choice and the remittance amount are `behaviour_rule!`s ([ADR-0008](../../03-architecture/decisions/0008-explainability-architecture.md)): the "why" of a month's emigrants names the pull (wages at home in euro, wages abroad), unemployment, the network and the base rate; the "why" of remittances names the number of linked emigrants, their decay, wages abroad and the exchange rate.
+
+### Implementation status
+- **2026-10-31, slice (a) of four** (owner: linked emigrants and the diaspora view; then emigration, returns and immigration, moves): with the feature `migration` (off by default; it now includes `demography`, since linked emigrants age and die with the People phase), the linked emigrants of `tables/linked_emigrants.arrow` become person rows of their households at load, with `abroad` and `months_abroad`: inert (no job, no search, no pension, no income) and skipped by every loop of residents (the People phase's households, births, retirement and life cycle; poverty, approval, education, the child allowance, revenue's keys). They age and die by the People phase's mortality. A record split copies them with the record, a union takes them along, and when their household ends they join the stock (`diaspora_stock`, tiers low 0 to high 2). Remittances read the rows. `StartEdit::NoDiaspora` drops both tables. AC-MIG-06 and 07 pass. AC-MIG-14's first month fails on the wording of 2026-10-29 (the test is to be restated as the owner did on 2026-10-30).
 
 ## Effects on the rest of the economy
 - **Labour supply:** emigrants leave the labour force and their jobs; returns and immigrants join as job seekers. Tight tiers raise wages ([labour market](labor-market.md), step 5), which lowers the pull: a self-correcting loop.

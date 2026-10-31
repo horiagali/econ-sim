@@ -147,7 +147,7 @@ lever_fuel_price = ["policy"]
 # diaspora, the `abroad` column and the start edits of the counterfactuals.
 # The criteria compare runs and set levers, so it needs the lever system and
 # trade (the exchange rate, the current account).
-migration = ["levers", "trade", "dep:econ-mech-migration"]
+migration = ["levers", "trade", "demography", "dep:econ-mech-migration"]
 # Education's first version (spec society/education, AC-EDU-01 to 09): the
 # June and August closes, `enrolled` and `study_year`, the yearly report.
 education = ["levers", "econ-io/education"]

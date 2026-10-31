@@ -75,6 +75,17 @@ fn shape(ok: bool, what: &'static str) -> Result<(), WorldError> {
 
 #[allow(clippy::too_many_lines)]
 pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<World, WorldError> {
+    // The counterfactual without the diaspora tables (AC-MIG-07, 14).
+    #[cfg(feature = "migration")]
+    let s = {
+        let mut s = start;
+        if s.edits.iter().any(|e| matches!(e, StartEdit::NoDiaspora)) {
+            s.people.linked_emigrants = super::people::LinkedEmigrantColumns::default();
+            s.people.diaspora_stock.clear();
+        }
+        s
+    };
+    #[cfg(not(feature = "migration"))]
     let s = start;
     let (n_hh, n_p, n_u, n_i) = (
         s.hh_weight.len(),
@@ -592,9 +603,9 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             #[cfg(feature = "revenue")]
             StartEdit::WithoutRevenue(part) => without_revenue.push(*part),
             #[cfg(feature = "migration")]
-            StartEdit::NoDiaspora | StartEdit::MigrationUnemploymentShock { .. } => {
-                unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
-            }
+            StartEdit::NoDiaspora => {}
+            #[cfg(feature = "migration")]
+            StartEdit::MigrationUnemploymentShock { .. } => later.push(e.clone()),
         }
     }
     if let Some(f) = wage_scale {
@@ -789,6 +800,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         app: super::approval_state::AppState::default(),
         #[cfg(feature = "education")]
         edu: super::education::EduState::default(),
+        #[cfg(feature = "migration")]
+        mig: super::migration::MigState::default(),
         #[cfg(any(
             feature = "migration",
             feature = "education",
@@ -851,6 +864,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     world.start_remittances();
     #[cfg(feature = "demography")]
     world.start_people_phase(&s);
+    #[cfg(feature = "migration")]
+    world.start_migration();
     #[cfg(feature = "poverty")]
     world.start_poverty(&s);
     #[cfg(feature = "education")]
@@ -884,6 +899,10 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             StartEdit::ExtraLoan { unit, amount } => world.bank_extra_loan(unit, amount),
             #[cfg(feature = "monetary")]
             StartEdit::CentralBankFinancing { months } => world.treasury_cb_financing(months),
+            #[cfg(feature = "migration")]
+            StartEdit::MigrationUnemploymentShock { region, points_ppm } => {
+                world.mig.shocks.push((region, points_ppm));
+            }
             _ => {}
         }
     }

@@ -105,14 +105,14 @@ impl World {
         // Job seekers per household.
         let mut seekers = vec![0u8; n_hh];
         for q in 0..n_p {
-            if self.person_alive(q) && self.pp.seeking[q] {
+            if self.person_resident(q) && self.pp.seeking[q] {
                 let h = self.persons.household_id[q] as usize;
                 seekers[h] = seekers[h].saturating_add(1);
             }
         }
         for q in 0..n_p {
             let h = self.persons.household_id[q] as usize;
-            if !self.person_alive(q) || self.pp.age[q] < 18 * 12 || !self.household_alive(h) {
+            if !self.person_resident(q) || self.pp.age[q] < 18 * 12 || !self.household_alive(h) {
                 self.app.smoothed[q] = None;
                 continue;
             }

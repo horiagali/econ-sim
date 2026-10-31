@@ -616,7 +616,7 @@ impl World {
         let mut family = 0i128;
         for p in 0..self.persons.employer.len() {
             let h = self.persons.household_id[p] as usize;
-            if self.fs.collective[h] || !self.person_alive(p) {
+            if self.fs.collective[h] || !self.person_resident(p) {
                 continue;
             }
             let amount = child_allowance(self.pp.age[p], &t.child);

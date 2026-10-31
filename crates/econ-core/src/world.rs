@@ -1213,6 +1213,8 @@ pub struct World {
     app: approval_state::AppState,
     #[cfg(feature = "education")]
     edu: education::EduState,
+    #[cfg(feature = "migration")]
+    mig: migration::MigState,
     /// Each person's main activity (Stage C's at load; refreshed at each
     /// monthly close from jobs, job search and pensions).
     #[cfg(any(
@@ -1409,6 +1411,15 @@ impl World {
     #[cfg(feature = "demography")]
     pub(crate) fn person_alive(&self, p: usize) -> bool {
         !self.dem.active || self.dem.life.alive.get(p).copied().unwrap_or(true)
+    }
+
+    /// Whether person `p` lives in Romania: alive and not a linked emigrant.
+    pub(crate) fn person_resident(&self, p: usize) -> bool {
+        #[cfg(feature = "migration")]
+        if self.mig_abroad(p) {
+            return false;
+        }
+        self.person_alive(p)
     }
 
     /// Whether household record `h` counts (always, without the People
