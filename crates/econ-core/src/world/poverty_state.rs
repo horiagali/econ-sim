@@ -6,7 +6,8 @@ use econ_types::{Bani, Month};
 
 use super::World;
 use crate::poverty::{
-    Distribution, IncomeMeasures, PovertyStats, class_of, eq_adults_milli, measures, recent_income,
+    Distribution, IncomeMeasures, PovertyStats, SolStats, class_of, eq_adults_milli, measures,
+    recent_income,
 };
 
 /// The indicators' state: per household, aligned with the households table.
@@ -244,6 +245,9 @@ impl World {
             by_region: Vec::new(),
             by_age: [national; 3],
             annual: None,
+            // Step 9: the test writer's placeholder (ADR-0014); the
+            // implementation computes it.
+            sol: SolStats::default(),
         };
         for h in 0..n_hh {
             let now = (v[h] > 0).then(|| class_of(x[h], self.pov.anchor_milli, p.class_lines_ppm));

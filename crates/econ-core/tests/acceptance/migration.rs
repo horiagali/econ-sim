@@ -1,4 +1,4 @@
-//! Acceptance tests for AC-MIG-05 to AC-MIG-17 (spec:
+//! Acceptance tests for AC-MIG-05 to AC-MIG-20 (spec:
 //! economy/migration-remittances), the `[sim]` criteria, on the `World`.
 //! Written by the test writer from the spec and its API sketch before the
 //! code (ADR-0014), against the test writer's additions behind the feature
@@ -7,6 +7,15 @@
 //! the start edits `StartEdit::NoDiaspora` (the counterfactual of AC-MIG-07
 //! and 14) and `StartEdit::MigrationUnemploymentShock` (AC-MIG-15).
 //! AC-MIG-01 to 04 (`[unit]`) are in `econ-mech-migration`.
+//!
+//! Step 5b, expected home quality (AC-MIG-18 to 20, 2026-10-31), reads the
+//! wellbeing index, so its tests are behind the feature `home_quality`
+//! (`migration` and `wellbeing`; the spec's AC-WB-04 puts step 5b "behind
+//! its own feature"). They read the test writer's additions: the pure rules
+//! `econ_mech_migration::{instant_quality_ppm, home_quality_ppm,
+//! quality_factor_ppm}`, step 5b's parameters at the end of
+//! `MigrationWorldParams` (named as the spec's tuning table),
+//! `World::home_quality_ppm` and `MigrationMonth::returns_by_region`.
 //!
 //! "1:1000" and "1:100" are the Romania scenario at that scale, seed 42,
 //! under the law of its folder (`law.json`, `world.json`: the 2021 law), as
@@ -31,8 +40,12 @@ use econ_ledger::{Instrument, Sector};
 use econ_types::{Bani, Date};
 
 use super::support::params;
+#[cfg(feature = "home_quality")]
+use super::support_lev::key_of;
 use super::support_lev::{give, set};
 use super::support_m3::{FlowSum, code, is_financing, legs_of_day, legs_sum};
+#[cfg(feature = "home_quality")]
+use super::support_m5::money_in_force;
 use super::support_m5::{
     county, rate_in_force, region_of_county, residents, step_checked, weights_of_persons,
     world_2021,
@@ -663,27 +676,47 @@ fn ac_mig_13() {
     );
 }
 
+/// Step, checking every day, through the first close; the rest of the
+/// world's receipts under `imports` over those days (month 0's imports).
+fn first_month_imports(w: &mut World) -> i128 {
+    let imports = code("imports");
+    let mut total = 0i128;
+    while w.months().is_empty() {
+        step_checked(w);
+        total += i128::from(w.ledger().flows().get(imports, Sector::RestOfWorld).get());
+    }
+    total
+}
+
 /// **AC-MIG-14** `[sim]` Remittances support the leu: in the counterfactual
 /// without the diaspora tables, the exchange rate after 24 months is higher
 /// (the leu weaker) than with them, and the current account lower: in the
-/// first month (remittances arrive on its last day, before they are spent)
-/// by at least 95% of the month's remittances, and in every later month by
-/// more than zero and at most the month's remittances (spending on imports
-/// and the weaker leu narrow the gap; owner, 2026-10-29).
+/// first month by at least the month's remittances less that month's extra
+/// imports (imports with the diaspora tables less without them), minus 5%
+/// of the remittances, and in every later month by more than zero and at
+/// most the month's remittances (spending on imports and the weaker leu
+/// narrow the gap; owner, 2026-10-29).
 ///
 /// Restated with the spec on 2026-10-29 (owner's yes, recorded in the
 /// spec): the 95% floor held in every month before; it now holds in the
-/// first month, and later months are bounded on both sides.
+/// first month, and later months are bounded on both sides. First month
+/// restated on 2026-10-31 as the owner worded it on 2026-10-30: remittances
+/// arrive on the 15th, so part is spent on imports within the month; the
+/// test of 2026-10-29 assumed they arrived on its last day.
 ///
 /// Readings: at 1:1000, the counterfactual is `StartEdit::NoDiaspora`. The
 /// exchange rate is `Foreign::exchange_rate_ppm` after the 24th close. The
 /// gap of a month is the current account with the diaspora less that of the
 /// counterfactual, at each of the 24 closes; "the month's remittances" are
-/// those of the run with the diaspora.
+/// those of the run with the diaspora. A month's imports are the rest of the
+/// world's receipts under the flow code `imports` over the month's days (to
+/// the day of its close), so the first month's floor is `r − (imports with −
+/// imports without) − 5% · r`, in bani.
 #[test]
 fn ac_mig_14() {
     let mut with = world(1000, Vec::new());
     let mut without = world(1000, vec![StartEdit::NoDiaspora]);
+    let extra_imports = first_month_imports(&mut with) - first_month_imports(&mut without);
     run(&mut with, 24);
     run(&mut without, 24);
     assert!(
@@ -700,8 +733,8 @@ fn ac_mig_14() {
         assert!(r > 0, "month {t}: remittances are paid");
         if t == 0 {
             assert!(
-                gap * 100 >= r * 95,
-                "month 0: the current account is {gap} bani lower without the diaspora, less than 95% of {r}"
+                gap * 100 >= (r - extra_imports) * 100 - r * 5,
+                "month 0: the current account is {gap} bani lower without the diaspora, less than the remittances {r} less the extra imports {extra_imports}, minus 5% of the remittances"
             );
         } else {
             assert!(
@@ -922,5 +955,262 @@ fn ac_mig_17() {
     assert!(
         end < residents0,
         "residents {end} after fifty years against {residents0}"
+    );
+}
+
+/// `|a − b| ≤ 1`.
+#[cfg(feature = "home_quality")]
+fn near_ppm(a: u32, b: u32) -> bool {
+    a.abs_diff(b) <= 1
+}
+
+/// **AC-MIG-18** `[unit]` *(step 5b, 2026-10-31)* Expected home quality is
+/// 1 at the start and stays 1 while the wellbeing index and unemployment
+/// hold their starting values; after a step change of $q$ it moves a share
+/// $1/m$ of the gap a month, and every multiplier of step 5b is 1 when
+/// $Q = 1$.
+///
+/// Readings: the pure rules are the test writer's additions to
+/// `econ_mech_migration` (`instant_quality_ppm`, `home_quality_ppm`,
+/// `quality_factor_ppm`, all millionths), with the spec's defaults from
+/// `MigrationWorldParams` (β_u is `emigration_unemployment`, 5; θ_u 1; m 36
+/// months). "Moves a share 1/m of the gap" is checked month by month to
+/// within one millionth (rounding), and after 36 and 120 months against
+/// `1 − (1 − 1/m)^n` of the step, to within one millionth per month. The
+/// instant quality is checked on worked values to within one millionth:
+/// the index 10% up at the starting unemployment gives 1.1; unemployment
+/// from 5% to 10% gives 1.25 / 1.5 = 0.833333 with θ_u 1, 1 with θ_u 0 and
+/// 0.694444 with θ_u 2. "Every multiplier is 1 when Q = 1": `Q^ε` at Q = 1
+/// is exactly 1 for the three elasticities of the spec (returns ε_q,
+/// emigration −ε_q,e, immigration ε_q,i) and others in their ranges. On the
+/// `World` at 1:1000: `home_quality_ppm` has one value per development
+/// region (eight), each exactly 1 before the first close and at it (the
+/// spec's `W_{r,0}` is the first close's, and step 2's starting
+/// unemployment is the first close's, so `q` is 1 then).
+#[cfg(feature = "home_quality")]
+#[test]
+fn ac_mig_18() {
+    use econ_mech_migration::{home_quality_ppm, instant_quality_ppm, quality_factor_ppm};
+    let p = params().migration;
+    let beta = p.rules.unemployment_response_ppm;
+    let theta = p.quality_jobs_weight_ppm;
+    let m = p.quality_memory_months;
+    assert_eq!(
+        (
+            p.quality_return_elasticity_ppm,
+            p.quality_emigration_elasticity_ppm,
+            p.quality_immigration_elasticity_ppm,
+            theta,
+            m,
+        ),
+        (1_000_000, 500_000, 250_000, 1_000_000, 36),
+        "the spec's defaults"
+    );
+    const ONE: u32 = 1_000_000;
+
+    // At the starting values the instant quality is 1, and Q stays 1.
+    for (w0, u0) in [(750_000, 50_000), (600_000, 120_000), (900_000, 0)] {
+        assert_eq!(
+            instant_quality_ppm(w0, w0, u0, u0, beta, theta),
+            ONE,
+            "index {w0}, unemployment {u0}: q is 1"
+        );
+        let mut q = ONE;
+        for month in 0..120 {
+            q = home_quality_ppm(q, instant_quality_ppm(w0, w0, u0, u0, beta, theta), m);
+            assert_eq!(q, ONE, "month {month}: Q left 1");
+        }
+    }
+
+    // The instant quality on worked values.
+    let q = instant_quality_ppm(825_000, 750_000, 60_000, 60_000, beta, theta);
+    assert!(near_ppm(q, 1_100_000), "the index 10% up: {q}");
+    let q = instant_quality_ppm(750_000, 750_000, 100_000, 50_000, beta, ONE);
+    assert!(near_ppm(q, 833_333), "unemployment 5% to 10%: {q}");
+    let q = instant_quality_ppm(750_000, 750_000, 100_000, 50_000, beta, 0);
+    assert_eq!(q, ONE, "θ_u 0: jobs left out");
+    let q = instant_quality_ppm(750_000, 750_000, 100_000, 50_000, beta, 2 * ONE);
+    assert!(near_ppm(q, 694_444), "θ_u 2: squared, {q}");
+    let q = instant_quality_ppm(750_000, 750_000, 20_000, 50_000, beta, ONE);
+    assert!(
+        near_ppm(q, 1_136_364),
+        "unemployment 5% to 2%: 1.25 / 1.1, {q}"
+    );
+    let q = instant_quality_ppm(825_000, 750_000, 100_000, 50_000, beta, ONE);
+    assert!(near_ppm(q, 916_667), "both: 1.1 × 0.833333, {q}");
+
+    // A step change of q: a share 1/m of the gap a month.
+    for target in [1_200_000u32, 800_000] {
+        let mut q = ONE;
+        for month in 1..=120u32 {
+            let next = home_quality_ppm(q, target, m);
+            // next = q + (target − q) / m, to within one millionth.
+            let want_m = i128::from(q) * i128::from(m) + i128::from(target) - i128::from(q);
+            let got_m = i128::from(next) * i128::from(m);
+            assert!(
+                (got_m - want_m).abs() <= i128::from(m),
+                "target {target}, month {month}: {q} → {next}"
+            );
+            assert!(
+                (i128::from(next) - i128::from(q)).signum()
+                    == (i128::from(target) - i128::from(q)).signum()
+                    || next == target,
+                "target {target}, month {month}: Q moved away ({q} → {next})"
+            );
+            q = next;
+            if month == 36 || month == 120 {
+                let keep = (0..month).fold(1.0, |k, _| k * (1.0 - 1.0 / f64::from(m)));
+                let exact = f64::from(target) + (f64::from(ONE) - f64::from(target)) * keep;
+                assert!(
+                    (f64::from(q) - exact).abs() <= f64::from(month),
+                    "target {target}, after {month} months: Q {q} against {exact:.0}"
+                );
+            }
+        }
+    }
+    assert_eq!(
+        home_quality_ppm(ONE, 1_200_000, 1),
+        1_200_000,
+        "a memory of one month follows q at once"
+    );
+
+    // Every multiplier is 1 at Q = 1.
+    let e = |x: u32| i64::from(x);
+    for elasticity in [
+        e(p.quality_return_elasticity_ppm),
+        -e(p.quality_emigration_elasticity_ppm),
+        e(p.quality_immigration_elasticity_ppm),
+        0,
+        3_000_000,
+        -3_000_000,
+    ] {
+        assert_eq!(
+            quality_factor_ppm(ONE, elasticity),
+            ONE,
+            "Q^{elasticity} ppm at Q = 1"
+        );
+    }
+    assert!(near_ppm(quality_factor_ppm(1_210_000, 500_000), 1_100_000));
+    assert!(near_ppm(quality_factor_ppm(1_210_000, -500_000), 909_091));
+    assert!(near_ppm(
+        quality_factor_ppm(1_210_000, 1_000_000),
+        1_210_000
+    ));
+    assert!(near_ppm(quality_factor_ppm(810_000, 500_000), 900_000));
+
+    // On the World: 1 at the start and at the first close.
+    let mut w = world(1000, Vec::new());
+    let q = w.home_quality_ppm().to_vec();
+    assert_eq!(q.len(), 8, "one per development region");
+    assert!(q.iter().all(|&x| x == ONE), "at the start: {q:?}");
+    run(&mut w, 1);
+    let q = w.home_quality_ppm();
+    assert_eq!(q.len(), 8, "one per development region");
+    assert!(q.iter().all(|&x| x == ONE), "at the first close: {q:?}");
+}
+
+/// **AC-MIG-19** `[sim]` *(step 5b)* Raising the health and education
+/// ministry budgets by 30% for five years: returns are higher and emigrants
+/// lower than in the baseline, and the gap in returns is larger in the
+/// fifth year than in the first (expectations build slowly).
+///
+/// Readings: at 1:1000, `spend.ministry_budget[health]` and
+/// `[education]` set on day 0 to 130% of their values in force (effective
+/// 1 January 2022, month 1), and kept for the run; "five years" are the 60
+/// closes from that month, over which returns and emigrants are summed. The
+/// first year is the first 12 of them, the fifth the last 12; the gap is
+/// the run's returns less the baseline's in that year. Release builds only.
+#[cfg(feature = "home_quality")]
+#[test]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "two five-year runs: cargo test --release -p econ-core --features home_quality --test acceptance migration::"
+)]
+fn ac_mig_19() {
+    let mut base = world(1000, Vec::new());
+    let mut w = world(1000, Vec::new());
+    let lever = LeverId::SpendMinistryBudget;
+    let mut from = Vec::new();
+    for name in ["health", "education"] {
+        let line = key_of(&w, lever, name);
+        let now = money_in_force(&w, lever, Some(line));
+        let a = give(
+            &mut w,
+            set(lever, Some(line), LeverValue::Money(now.mul_ratio(13, 10))),
+        );
+        from.push(month_of(a.effective));
+    }
+    assert_eq!(from[0], from[1], "both budgets from the same month");
+    let from = from[0];
+    let to = from + 60;
+    run(&mut w, to);
+    run(&mut base, to);
+    let (s, s0) = (span(&w, from, to), span(&base, from, to));
+    let (r, r0) = (sum(s, |m| m.returns), sum(s0, |m| m.returns));
+    let (e, e0) = (sum(s, |m| m.emigrants), sum(s0, |m| m.emigrants));
+    assert!(r > r0, "returns {r} against {r0} in the baseline");
+    assert!(e < e0, "emigrants {e} against {e0} in the baseline");
+    let gap = |a: usize, b: usize| {
+        i128::from(sum(&s[a..b], |m| m.returns)) - i128::from(sum(&s0[a..b], |m| m.returns))
+    };
+    let (first, fifth) = (gap(0, 12), gap(48, 60));
+    assert!(
+        fifth > first,
+        "the gap in returns in the fifth year {fifth} against {first} in the first"
+    );
+}
+
+/// **AC-MIG-20** `[sim]` *(step 5b)* A region whose unemployment rises 5
+/// points (`MigrationUnemploymentShock`) receives fewer returns over the
+/// next 24 months than in the baseline.
+///
+/// Readings: the region is Nord-Est (the region of Bacău, `RO211`), where
+/// most emigrants come from; the shock is
+/// `StartEdit::MigrationUnemploymentShock` of 50,000 millionths (5 points)
+/// for the whole run, as AC-MIG-15 reads it, and "the next 24 months" are
+/// the first 24 closes. Returns to a region are the test writer's addition
+/// `MigrationMonth::returns_by_region` (by the region they return to), which
+/// sums to the month's returns at every close. At 1:100 (at 1:1000 a region
+/// has a few dozen returning records a year), so release builds only.
+#[cfg(feature = "home_quality")]
+#[test]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "two two-year runs at 1:100: cargo test --release -p econ-core --features home_quality --test acceptance migration::"
+)]
+fn ac_mig_20() {
+    let region = region_of_county(100, county("RO211"));
+    let mut base = world(100, Vec::new());
+    let mut shocked = world(
+        100,
+        vec![StartEdit::MigrationUnemploymentShock {
+            region,
+            points_ppm: 50_000,
+        }],
+    );
+    run(&mut base, 24);
+    run(&mut shocked, 24);
+    let returns_to = |w: &World| -> u64 {
+        span(w, 0, 24)
+            .iter()
+            .enumerate()
+            .map(|(t, m)| {
+                assert_eq!(
+                    m.returns_by_region.iter().sum::<u64>(),
+                    m.returns,
+                    "month {t}: returns by region sum to the returns"
+                );
+                m.returns_by_region
+                    .get(usize::from(region))
+                    .copied()
+                    .unwrap_or_else(|| panic!("month {t}: no returns for region {region}"))
+            })
+            .sum()
+    };
+    let (r, r0) = (returns_to(&shocked), returns_to(&base));
+    assert!(r0 > 0, "the baseline has returns to the region");
+    assert!(
+        r < r0,
+        "returns to the region with the shock {r} against {r0} in the baseline"
     );
 }

@@ -716,6 +716,10 @@ pub struct WorldParams {
     /// (ADR-0014).
     #[cfg(feature = "poverty")]
     pub poverty: Option<crate::poverty::PovertyParams>,
+    /// The wellbeing index (spec society/social-outcomes); `None`: it is not
+    /// computed (AC-WB-04). A test writer's addition (ADR-0014).
+    #[cfg(feature = "wellbeing")]
+    pub wellbeing: Option<crate::wellbeing::WellbeingParams>,
     /// Education's first version (spec society/education).
     #[cfg(feature = "education")]
     pub education: education::EducationParams,
@@ -771,6 +775,8 @@ impl WorldParams {
             approval: Some(crate::approval::ApprovalParams::spec_defaults()),
             #[cfg(feature = "poverty")]
             poverty: Some(crate::poverty::PovertyParams::spec_defaults()),
+            #[cfg(feature = "wellbeing")]
+            wellbeing: Some(crate::wellbeing::WellbeingParams::spec_defaults()),
             #[cfg(feature = "education")]
             education: education::EducationParams::spec_defaults(),
             #[cfg(feature = "migration")]

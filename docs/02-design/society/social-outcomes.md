@@ -61,7 +61,7 @@ Police and justice budget, health budget, hospitals (infrastructure), education 
 - [ ] **AC-WB-01** `[unit]` The index is the geometric mean of the three dimension indices, each clamped to [0, 1], in millionths rounded to the nearest; with any dimension at 0 the index is 0; with all at 1 it is 1; the goalposts give 0 and 1 at life expectancy 20 and 85, mean years 0 and 15, expected years 0 and 18, SoL 10 and 60.
 - [ ] **AC-WB-02** `[unit]` Life expectancy from a mortality table: a table in which nobody dies before 100 and everyone dies at 100 gives 100.5 years (deaths at mid-year); a constant yearly probability q below 100 gives the life table's closed form; from the 2019 table of the Romania scenario (pre-pandemic), 74.5 to 76.5 years (2019: 75.6).
 - [ ] **AC-WB-03** `[sim]` At 1:1000, at the close of month 0: mean years of schooling of residents 25 and over between 10.0 and 12.5 (UNDP 2021: 11.3), expected years of schooling between 12.5 and 16.0 (14.2), and every region's index between 0 and 1 with the national index between the regions' lowest and highest.
-- [ ] **AC-WB-04** `[sim]` Isolation: at 1:1000, the state hash after 24 months is the same with the index computed and not computed (it is read by migration only through step 5b, behind its own feature).
+- [ ] **AC-WB-04** `[sim]` Isolation: at 1:1000, the state hash after 24 months is the same with the index computed and not computed (it is read by migration only through step 5b, behind its own feature). *(Test 2026-10-31: "not computed" is `WorldParams::wellbeing` `None`; step 5b's feature is `home_quality`, and with it compiled in step 5b's elasticities are 0 in both runs.)*
 
 - [ ] A recession raising youth unemployment by 10 points raises crime in the affected regions within 12 ticks.
 - [ ] Doubling police spending lowers crime with diminishing returns.
@@ -78,6 +78,7 @@ pub struct Wellbeing { pub index_ppm: u32, pub health_ppm: u32, pub education_pp
 pub struct WellbeingStats { pub month: Month, pub national: Wellbeing, pub by_region: Vec<Wellbeing>,
     pub life_expectancy_milli: u32, pub mean_years_milli: Vec<u32>, pub expected_years_milli: Vec<u32> } // by region, national last
 impl World { pub fn wellbeing_stats(&self) -> &[WellbeingStats]; }
+pub struct WellbeingParams { pub schooling_years_milli: [u32; 5] }   // WorldParams::wellbeing: Option<WellbeingParams>, None: not computed (AC-WB-04)
 ```
 
 ## Open questions

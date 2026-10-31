@@ -110,3 +110,8 @@ mod poverty;
     feature = "poverty"
 ))]
 mod support_m5;
+// M5: the wellbeing index (spec society/social-outcomes, "Wellbeing index",
+// AC-WB-01 to 04), behind the feature `wellbeing` (which implies `poverty`,
+// so `support_m5` is compiled with it).
+#[cfg(feature = "wellbeing")]
+mod wellbeing;

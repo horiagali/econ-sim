@@ -21,6 +21,10 @@ pub mod poverty;
 pub mod scale_spike;
 pub mod schedule;
 pub mod sim;
+// The wellbeing index (spec society/social-outcomes, M5): a test writer's API
+// skeleton (ADR-0014).
+#[cfg(feature = "wellbeing")]
+pub mod wellbeing;
 #[cfg(feature = "world")]
 pub mod world;
 

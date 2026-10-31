@@ -1,6 +1,10 @@
-//! Acceptance tests for AC-POV-01 to AC-POV-09 (spec:
+//! Acceptance tests for AC-POV-01 to AC-POV-12 (spec:
 //! society/poverty-inequality), written by the test writer from the spec and
 //! its API sketch before the code (ADR-0014); behind the feature `poverty`.
+//! AC-POV-10 to 12 (the standard of living, step 9, 2026-10-31) read the
+//! test writer's additions `sol_milli`, `share_by_weight`,
+//! `PovertyStats::sol` and `World::hh_sol_milli`; AC-POV-08 and 09 (restated
+//! 2026-10-31) read `World::hh_income_month`.
 //!
 //! "1:100" and "1:1000" are the Romania scenario at that scale, seed 42,
 //! under the law of its folder (`law.json`: the 2021 law). Month 0 is
@@ -13,24 +17,35 @@
 //!   households are the scenario's (a record added during the run is
 //!   private).
 //! - A household's income of a month (`Y_h`, the `World`'s income of the
-//!   month) is what its `income_to_date` grew by over that month: the money
-//!   it received in it. The calendar year's income is its growth over the
-//!   year's months.
+//!   month, `World::hh_income_month`) is what its `income_to_date` grew by
+//!   over that month less the imputed rent it received in it (the
+//!   simplification of step 1: imputed rent is left out, though the `World`
+//!   pays it as money). Month 0's growth starts after November's pay on day
+//!   0 (restated by the owner, 2026-10-31): the test cannot see that point
+//!   inside day 0, so it bounds month 0's income between the growth from the
+//!   end of day 0 and the growth from the load. Households are followed by
+//!   `hh_key`, so the yearly compaction (with the People phase compiled in)
+//!   does not mix them up. The calendar year's income is the sum of its
+//!   months' incomes.
 //! - `x_h = Y / e_h` in thousandths of a ban is `Y · 1,000,000 / eq_milli`,
 //!   rounded half away from zero (the spec says "bani × 1,000, integer" and
 //!   does not fix the rounding).
 
-use econ_core::levers::LeverId;
+use std::collections::BTreeMap;
+
+use econ_core::levers::{LeverId, LeverValue};
 use econ_core::poverty::{
     Distribution, IncomeMeasures, class_of, eq_adults_milli, measures, recent_income,
+    share_by_weight, sol_milli,
 };
 use econ_core::world::World;
 use econ_types::Bani;
 
 use super::support::params;
+use super::support_lev::{date, give, key_of, set};
 use super::support_m5::{
-    collective, feb_15_2022, members, round_div, run_closes, scale_money_lever, step_until,
-    world_2021, world_2021_default,
+    collective, feb_15_2022, members, money_in_force, next_close, round_div, run_closes,
+    scale_money_lever, step_checked, step_until, world_2021, world_2021_default,
 };
 
 const LINE: u32 = 600_000;
@@ -435,14 +450,26 @@ fn ac_pov_06() {
 /// feature `approval` compiled in, approval (which reads the recent income)
 /// is off in both runs, so that only the indicators differ. The test
 /// compares the state hash of every day, which includes the one after 24
-/// months.
+/// months. With the feature `home_quality` compiled in (migration reads the
+/// wellbeing index, which reads SoL), step 5b's three elasticities are 0 in
+/// both runs, so that its multipliers are 1 whatever the indicators.
 #[test]
 fn ac_pov_07() {
-    let mut on = params();
+    let on = params();
     #[cfg(feature = "approval")]
-    {
+    let on = {
+        let mut on = on;
         on.approval = None;
-    }
+        on
+    };
+    #[cfg(feature = "home_quality")]
+    let on = {
+        let mut on = on;
+        on.migration.quality_return_elasticity_ppm = 0;
+        on.migration.quality_emigration_elasticity_ppm = 0;
+        on.migration.quality_immigration_elasticity_ppm = 0;
+        on
+    };
     let mut off = on;
     off.poverty = None;
     assert!(on.poverty.is_some());
@@ -462,99 +489,218 @@ fn ac_pov_07() {
     assert_eq!(a.poverty_stats().len(), 24, "the indicators were computed");
 }
 
+/// `income_to_date` of each household by `hh_key`.
+fn to_date_by_key(w: &World) -> BTreeMap<u64, Bani> {
+    let keys = &w.people().hh_key;
+    w.households()
+        .income_to_date
+        .iter()
+        .enumerate()
+        .map(|(h, &y)| (keys[h], y))
+        .collect()
+}
+
+/// Follows each household's income of the months from its `income_to_date`
+/// and the imputed rent it is paid (the module's readings), by `hh_key`, and
+/// checks `World::hh_income_month` against them at each close.
+struct MonthIncome {
+    /// `income_to_date` at the load.
+    load: BTreeMap<u64, Bani>,
+    /// At the end of day 0 (after November's pay).
+    end_day0: Option<BTreeMap<u64, Bani>>,
+    /// At the last close.
+    last_close: Option<BTreeMap<u64, Bani>>,
+    /// Imputed rent received since the last close, per record.
+    imputed: BTreeMap<u64, Bani>,
+}
+
+impl MonthIncome {
+    fn new(w: &World) -> MonthIncome {
+        assert_eq!(w.date(), date(2021, 12, 1), "from the load");
+        MonthIncome {
+            load: to_date_by_key(w),
+            end_day0: None,
+            last_close: None,
+            imputed: BTreeMap::new(),
+        }
+    }
+
+    /// Step, checking every day, to the next close; check the month's
+    /// `hh_income_month` and return it by `hh_key`.
+    fn next_close(&mut self, w: &mut World) -> BTreeMap<u64, Bani> {
+        let t = w.months().len();
+        while w.months().len() == t {
+            let r = step_checked(w);
+            if self.end_day0.is_none() {
+                self.end_day0 = Some(to_date_by_key(w));
+            }
+            let p = w.imputed_rent();
+            if p.day == Some(r.day) {
+                let keys = &w.people().hh_key;
+                for (h, &x) in p.received.iter().enumerate() {
+                    match keys.get(h) {
+                        Some(&k) => *self.imputed.entry(k).or_insert(Bani::ZERO) += x,
+                        None => assert_eq!(x, Bani::ZERO, "imputed rent to no household"),
+                    }
+                }
+            }
+        }
+        let now = to_date_by_key(w);
+        let keys = &w.people().hh_key;
+        let weights = &w.households().hh_weight;
+        let month = w.hh_income_month();
+        assert_eq!(
+            month.len(),
+            keys.len(),
+            "month {t}: one income per household"
+        );
+        let mut got = BTreeMap::new();
+        let mut left_out = 0i128;
+        for (h, &y) in month.iter().enumerate() {
+            let k = keys[h];
+            got.insert(k, y);
+            let imputed = self.imputed.get(&k).copied().unwrap_or(Bani::ZERO);
+            let to_date = now[&k];
+            if let Some(last) = &self.last_close {
+                // A household formed during the month is not checked.
+                let Some(&before) = last.get(&k) else {
+                    continue;
+                };
+                assert_eq!(
+                    y,
+                    to_date - before - imputed,
+                    "month {t}: household {h}'s income is its income_to_date's growth less imputed rent"
+                );
+            } else {
+                let from_load =
+                    to_date - self.load.get(&k).copied().unwrap_or(Bani::ZERO) - imputed;
+                let day0 = self.end_day0.as_ref().expect("day 0 stepped");
+                let from_day0 = to_date - day0.get(&k).copied().unwrap_or(Bani::ZERO) - imputed;
+                assert!(
+                    from_day0 <= y && y <= from_load,
+                    "month 0: household {h}'s income {y:?} is not between its growth from the end of day 0 ({from_day0:?}) and from the load ({from_load:?})"
+                );
+                left_out += i128::from(weights[h]) * i128::from((from_load - y).get());
+            }
+        }
+        if self.last_close.is_none() {
+            assert!(
+                left_out > 0,
+                "month 0's income leaves out November's pay on day 0"
+            );
+        }
+        self.last_close = Some(now);
+        self.imputed.clear();
+        got
+    }
+}
+
 /// **AC-POV-08** `[sim]` The annual indicators of each December close are
 /// the measures of AC-POV-02 applied to the calendar year's income of every
 /// household; `hh_income_year` is zero after the close.
 ///
+/// Restated 2026-10-31 (owner's yes, the spec's "Implementation status"):
+/// the month's income starts after November's pay on day 0 and leaves out
+/// imputed rent (the module's readings), where the test of 2026-10-26 took
+/// all of `income_to_date`'s growth.
+///
 /// Readings: checked at the December closes of 2021 (month 0), 2022 (month
-/// 12) and 2023 (month 24) at 1:1000. The calendar year's income of a
-/// household is the growth of its `income_to_date` over the year's months;
-/// for month 0, which has one month, the annual indicators are month 0's ×
-/// 12 (the spec's words): the measures on 12 times each household's income
-/// of month 0, or those on month 0's income with the median times 12 (the
-/// two differ only by rounding, and the spec does not choose). The distribution is the private households
-/// with members, `x_h` the year's income over the equivalised size at the
-/// close (see the module's readings), `v_h` members times weight, the line
-/// 0.6. Other closes have no annual indicators. Between Decembers,
-/// `hh_income_year` is the income received since the last December close.
+/// 12) and 2023 (month 24) at 1:1000. Each month's income
+/// (`World::hh_income_month`) is checked against `income_to_date` as the
+/// module's readings say, and the calendar year's income of a household is
+/// the sum of its months' incomes since the last December close; for month
+/// 0, which has one month, the annual indicators are month 0's × 12 (the
+/// spec's words): the measures on 12 times each household's income of month
+/// 0, or those on month 0's income with the median times 12 (the two differ
+/// only by rounding, and the spec does not choose). The distribution is the
+/// private households with members, `x_h` the year's income over the
+/// equivalised size at the close (see the module's readings), `v_h` members
+/// times weight, the line 0.6. Other closes have no annual indicators.
+/// Between Decembers, `hh_income_year` is the sum of the months' incomes
+/// since the last December close.
 #[test]
 fn ac_pov_08() {
     let mut w = world_2021_default(1000);
-    let mut at_december: Vec<Bani> = Vec::new();
+    let mut income = MonthIncome::new(&w);
+    let mut year: BTreeMap<u64, Bani> = BTreeMap::new();
     while w.months().len() < 25 {
-        next_close_and_check(&mut w, &mut at_december);
-    }
-}
-
-/// Step one month and check the month's annual indicators and
-/// `hh_income_year`.
-fn next_close_and_check(w: &mut World, at_december: &mut Vec<Bani>) {
-    super::support_m5::next_close(w);
-    let t = w.months().len() - 1;
-    let to_date = w.households().income_to_date.clone();
-    let s = &w.poverty_stats()[t];
-    let december = t.is_multiple_of(12);
-    if !december {
-        assert!(
-            s.annual.is_none(),
-            "month {t}: annual indicators outside December"
-        );
-        for (h, &y) in w.hh_income_year().iter().enumerate() {
-            let since = at_december.get(h).copied().unwrap_or(Bani::ZERO);
-            assert_eq!(
-                y,
-                to_date[h] - since,
-                "month {t}: household {h}'s income of the year so far"
-            );
+        let month = income.next_close(&mut w);
+        let t = w.months().len() - 1;
+        for (&k, &y) in &month {
+            *year.entry(k).or_insert(Bani::ZERO) += y;
         }
-        return;
-    }
-    let year: Vec<Bani> = if t == 0 {
-        to_date.iter().map(|&y| y.mul_ratio(12, 1)).collect()
-    } else {
-        to_date
+        let keys = w.people().hh_key.clone();
+        let s = &w.poverty_stats()[t];
+        if !t.is_multiple_of(12) {
+            assert!(
+                s.annual.is_none(),
+                "month {t}: annual indicators outside December"
+            );
+            for (h, &y) in w.hh_income_year().iter().enumerate() {
+                assert_eq!(
+                    y,
+                    year.get(&keys[h]).copied().unwrap_or(Bani::ZERO),
+                    "month {t}: household {h}'s income of the year so far"
+                );
+            }
+            continue;
+        }
+        let of_year: Vec<Bani> = keys
             .iter()
-            .enumerate()
-            .map(|(h, &y)| y - at_december.get(h).copied().unwrap_or(Bani::ZERO))
-            .collect()
-    };
-    let (x, v) = distribution_of(w, 1000, &year);
-    let want = measures(&dist(&x, &v), LINE);
-    let got = s
-        .annual
-        .unwrap_or_else(|| panic!("month {t}: December has annual indicators"));
-    if t == 0 {
-        // "Month 0's × 12": the measures on 12 times the month's income, or
-        // the month's measures with the median times 12 (the spec does not
-        // say which; they differ only by the rounding of `x_h`).
-        let (x1, v1) = distribution_of(w, 1000, &to_date);
-        let month = measures(&dist(&x1, &v1), LINE);
-        let scaled = IncomeMeasures {
-            median_milli: month.median_milli * 12,
-            ..month
-        };
+            .map(|k| {
+                let y = year.get(k).copied().unwrap_or(Bani::ZERO);
+                if t == 0 { y.mul_ratio(12, 1) } else { y }
+            })
+            .collect();
+        let (x, v) = distribution_of(&w, 1000, &of_year);
+        let want = measures(&dist(&x, &v), LINE);
+        let got = s
+            .annual
+            .unwrap_or_else(|| panic!("month {t}: December has annual indicators"));
+        if t == 0 {
+            // "Month 0's × 12": the measures on 12 times the month's income, or
+            // the month's measures with the median times 12 (the spec does not
+            // say which; they differ only by the rounding of `x_h`).
+            let of_month: Vec<Bani> = keys
+                .iter()
+                .map(|k| month.get(k).copied().unwrap_or(Bani::ZERO))
+                .collect();
+            let (x1, v1) = distribution_of(&w, 1000, &of_month);
+            let m = measures(&dist(&x1, &v1), LINE);
+            let scaled = IncomeMeasures {
+                median_milli: m.median_milli * 12,
+                ..m
+            };
+            assert!(
+                got == want || got == scaled,
+                "month 0: the annual indicators {got:?}, against {want:?} or {scaled:?}"
+            );
+        } else {
+            assert_eq!(got, want, "month {t}: the annual indicators");
+        }
         assert!(
-            got == want || got == scaled,
-            "month 0: the annual indicators {got:?}, against {want:?} or {scaled:?}"
+            w.hh_income_year().iter().all(|&y| y == Bani::ZERO),
+            "month {t}: hh_income_year is zero after the December close"
         );
-    } else {
-        assert_eq!(got, want, "month {t}: the annual indicators");
+        year.clear();
     }
-    assert!(
-        w.hh_income_year().iter().all(|&y| y == Bani::ZERO),
-        "month {t}: hh_income_year is zero after the December close"
-    );
-    *at_december = to_date;
 }
 
 /// **AC-POV-09** `[unit]` Recent income: the update of step 2 in whole bani
 /// for given income, CPI and previous value; equal to month 0's income at
 /// month 0.
 ///
+/// Restated 2026-10-31 (owner's yes, recorded in the spec): month 0's income
+/// starts after November's pay on day 0 and leaves out imputed rent, as
+/// step 1's income does; the test of 2026-10-26 took all of
+/// `income_to_date`'s growth from the load.
+///
 /// Readings: λ = 1/3 is 333,333 millionths. "Month 0's income at month 0":
 /// on the `World` at 1:1000, after the close of month 0, each household's
-/// recent real income is its income of month 0 over the CPI of the close,
-/// in whole bani rounded half away from zero (`ỹ_0 = Y_0 / P_0`).
+/// recent real income is its income of month 0 (`World::hh_income_month`,
+/// itself checked against `income_to_date` as the module's readings say)
+/// over the CPI of the close, in whole bani rounded half away from zero
+/// (`ỹ_0 = Y_0 / P_0`).
 #[test]
 fn ac_pov_09() {
     let third = 333_333;
@@ -591,11 +737,302 @@ fn ac_pov_09() {
     );
 
     let mut w = world_2021_default(1000);
-    run_closes(&mut w, 1);
+    let month = MonthIncome::new(&w).next_close(&mut w);
     let cpi = i128::from(w.months()[0].cpi_ppm);
-    let to_date = &w.households().income_to_date;
+    let keys = &w.people().hh_key;
     for (h, &r) in w.hh_real_income_recent().iter().enumerate() {
-        let want = round_div(i128::from(to_date[h].get()) * 1_000_000, cpi);
+        let y = month[&keys[h]];
+        let want = round_div(i128::from(y.get()) * 1_000_000, cpi);
         assert_eq!(i128::from(r.get()), want, "household {h}: ỹ_0 = Y_0 / P_0");
     }
+}
+
+/// `share_by_weight` with its checks: one share per record, summing to the
+/// total exactly, each within one ban of its exact part (`total · r_i p_i /
+/// Σ r p`), none to a record of zero weight.
+fn checked_shares(total: Bani, weights: &[(u32, u32)]) -> Vec<Bani> {
+    let shares = share_by_weight(total, weights);
+    assert_eq!(shares.len(), weights.len(), "one share per record");
+    assert_eq!(
+        shares.iter().map(|b| i128::from(b.get())).sum::<i128>(),
+        i128::from(total.get()),
+        "the shares add up to the month's spending exactly: {shares:?}"
+    );
+    let k: Vec<i128> = weights
+        .iter()
+        .map(|&(r, p)| i128::from(r) * i128::from(p))
+        .collect();
+    let all: i128 = k.iter().sum();
+    for (i, (&s, &ki)) in shares.iter().zip(&k).enumerate() {
+        let exact_floor = i128::from(total.get()) * ki / all;
+        let s = i128::from(s.get());
+        assert!(
+            s == exact_floor || s == exact_floor + 1,
+            "record {i}: share {s} against {exact_floor} and a fraction"
+        );
+        if ki == 0 {
+            assert_eq!(s, 0, "record {i} of zero weight");
+        }
+    }
+    shares
+}
+
+/// **AC-POV-10** `[unit]` *(SoL, step 9, 2026-10-31)* SoL is 10 when real
+/// equivalised consumption equals `sol_subsistence`, 20 at twice it, 0 at
+/// half (clamped to 0 and 100 beyond), in thousandths of a point rounded to
+/// the nearest; the health and education shares of a month add up to the
+/// month's public health and education spending exactly (weighted, to the
+/// ban).
+///
+/// Readings: `sol_milli(c, s)` takes the household's real equivalised
+/// consumption and `sol_subsistence` (700 lei at the spec's default), so
+/// 10 + 10 log2(3) = 25.8496 is 25,850 and 10 + 10 log2(10 / 7) = 15.1457
+/// is 15,146; nothing (or less) is 0. "Weighted, to the ban": each element
+/// of `share_by_weight` is a record's whole amount, its record weight
+/// included, in whole bani, so the elements sum to the month's spending
+/// exactly; each record's part is proportional to its record weight times
+/// its person weight (the sum of its members' age weights for health, of
+/// its pupils' level weights for education), within one ban (a largest
+/// remainder split; the spec does not fix the rule).
+#[test]
+fn ac_pov_10() {
+    let lei = Bani::from_lei;
+    let s = lei(700);
+    assert_eq!(sol_milli(s, s), 10_000, "at subsistence");
+    assert_eq!(sol_milli(lei(1_400), s), 20_000, "twice subsistence");
+    assert_eq!(sol_milli(lei(2_800), s), 30_000, "four times");
+    assert_eq!(sol_milli(lei(350), s), 0, "half");
+    assert_eq!(sol_milli(lei(175), s), 0, "a quarter: clamped to 0");
+    assert_eq!(sol_milli(Bani::ZERO, s), 0, "nothing");
+    assert_eq!(sol_milli(Bani(-10_000), s), 0, "less than nothing");
+    assert_eq!(sol_milli(lei(700 * 512), s), 100_000, "2^9 times: 100");
+    assert_eq!(
+        sol_milli(lei(700 * 1_024), s),
+        100_000,
+        "2^10 times: clamped to 100"
+    );
+    assert_eq!(sol_milli(lei(2_100), s), 25_850, "three times");
+    assert_eq!(sol_milli(lei(1_050), s), 15_850, "one and a half");
+    assert_eq!(sol_milli(lei(1_000), s), 15_146, "10 / 7");
+    assert_eq!(
+        sol_milli(lei(2_000), lei(1_000)),
+        20_000,
+        "another subsistence: the ratio counts"
+    );
+    // Increasing in consumption.
+    let mut last = 0;
+    for c in (100..=20_000).step_by(100) {
+        let v = sol_milli(lei(c), s);
+        assert!(v >= last, "{c} lei: {v} below {last}");
+        last = v;
+    }
+
+    // Health: 10,000,003 bani over records of weight 1,000 (998 for one)
+    // with members' age weights (millionths: under 5 1.5, 5–64 1.0, 65 and
+    // over 3.0): a couple over 65, two parents and a child under 5, one
+    // adult, one adult in a record of weight 998, a freed record (weight 0).
+    let health = checked_shares(
+        Bani(10_000_003),
+        &[
+            (1_000, 6_000_000),
+            (1_000, 3_500_000),
+            (1_000, 1_000_000),
+            (998, 1_000_000),
+            (0, 2_000_000),
+        ],
+    );
+    assert!(
+        health[0] > health[1] && health[1] > health[2] && health[2] > health[3],
+        "health shares follow the weights: {health:?}"
+    );
+    // Education: level weights of the pupils (lower secondary 1.2, tertiary
+    // 2.0, primary 1.0 twice); a household with no pupil gets nothing.
+    let education = checked_shares(
+        Bani(7_777_777),
+        &[
+            (1_000, 1_200_000),
+            (1_000, 2_000_000),
+            (1_000, 2_000_000),
+            (1_000, 0),
+        ],
+    );
+    assert!(
+        education[1].get().abs_diff(education[2].get()) <= 1,
+        "equal weights, equal shares: {education:?}"
+    );
+    // Seven equal records and a total that does not divide.
+    checked_shares(Bani(1_000_003), &[(1, 1); 7]);
+    // No spending: no shares.
+    assert!(
+        checked_shares(Bani::ZERO, &[(1_000, 1_000_000), (500, 3_000_000)])
+            .iter()
+            .all(|&b| b == Bani::ZERO),
+        "no spending, no shares"
+    );
+}
+
+/// Each household's persons in the indicators' population (`n_h w_h` for a
+/// private household with members, else 0).
+fn persons_by_household(w: &World, scale: u32) -> Vec<u64> {
+    let coll = collective(w, scale);
+    members(w)
+        .iter()
+        .enumerate()
+        .map(|(h, m)| {
+            if coll[h] {
+                0
+            } else {
+                m.len() as u64 * u64::from(w.households().hh_weight[h])
+            }
+        })
+        .collect()
+}
+
+/// The weighted mean of households' SoL over the persons of the households
+/// chosen, thousandths of a point; `None` with no person.
+fn mean_sol(w: &World, v: &[u64], chosen: impl Fn(usize) -> bool) -> Option<i128> {
+    let sol = w.hh_sol_milli();
+    let (mut num, mut den) = (0i128, 0i128);
+    for (h, &vh) in v.iter().enumerate() {
+        if vh > 0 && chosen(h) {
+            num += i128::from(vh) * i128::from(sol[h]);
+            den += i128::from(vh);
+        }
+    }
+    (den > 0).then(|| round_div(num, den))
+}
+
+/// **AC-POV-11** `[sim]` *(SoL)* At 1:1000, at every close of the first
+/// year: the classes' mean SoL rises from the class at risk to the affluent;
+/// households in hardship have a mean SoL below the national mean; and the
+/// national mean's change is the sum of its five parts exactly.
+///
+/// Readings: the first year is the closes of months 0 to 11. "Rises" is
+/// strict, class by class (`SolStats::by_class`), and every class has
+/// persons. The mean SoL of households in hardship (`hh_hardship`) is over
+/// their persons (members times weight, the indicators' population), from
+/// `World::hh_sol_milli`; the same mean over every household of the
+/// population is the national mean (`SolStats::national_milli`) to within
+/// one thousandth (rounding), which ties the column to the stats. "The
+/// change" is from one close to the next (months 1 to 11):
+/// `national_milli` now less at the close before equals the sum of
+/// `parts_change_milli`, exactly.
+#[test]
+fn ac_pov_11() {
+    let mut w = world_2021_default(1000);
+    for t in 0..12 {
+        next_close(&mut w);
+        let s = &w.poverty_stats()[t];
+        let sol = &s.sol;
+        for k in 0..4 {
+            assert!(s.class_persons[k] > 0, "month {t}: class {k} has persons");
+        }
+        for k in 1..4 {
+            assert!(
+                sol.by_class[k - 1] < sol.by_class[k],
+                "month {t}: class {}'s mean SoL {} not below class {k}'s {}",
+                k - 1,
+                sol.by_class[k - 1],
+                sol.by_class[k]
+            );
+        }
+        let v = persons_by_household(&w, 1000);
+        let hardship = w.households().hh_hardship.clone();
+        let all = mean_sol(&w, &v, |_| true).expect("a population");
+        assert!(
+            (all - i128::from(sol.national_milli)).abs() <= 1,
+            "month {t}: households' mean SoL {all} against the national {}",
+            sol.national_milli
+        );
+        let poor = mean_sol(&w, &v, |h| hardship[h])
+            .unwrap_or_else(|| panic!("month {t}: households in hardship"));
+        assert!(
+            poor < i128::from(sol.national_milli),
+            "month {t}: households in hardship {poor} against the national mean {}",
+            sol.national_milli
+        );
+        if t > 0 {
+            let before = &w.poverty_stats()[t - 1].sol;
+            let change = i64::from(sol.national_milli) - i64::from(before.national_milli);
+            assert_eq!(
+                sol.parts_change_milli.iter().sum::<i64>(),
+                change,
+                "month {t}: the five parts {:?} against the change",
+                sol.parts_change_milli
+            );
+        }
+    }
+}
+
+/// A run at 1:1000 to the close of month 5, with the health ministry's
+/// budget cut by 30% on 15 February 2022 when `cut`.
+fn health_budget_run(cut: bool) -> World {
+    let mut w = world_2021_default(1000);
+    step_until(&mut w, feb_15_2022());
+    if cut {
+        let lever = LeverId::SpendMinistryBudget;
+        let line = key_of(&w, lever, "health");
+        let now = money_in_force(&w, lever, Some(line));
+        let a = give(
+            &mut w,
+            set(lever, Some(line), LeverValue::Money(now.mul_ratio(7, 10))),
+        );
+        assert_eq!(a.effective, date(2022, 3, 1), "the cut is from month 3");
+    }
+    run_closes(&mut w, 6);
+    w
+}
+
+/// **AC-POV-12** `[sim]` *(SoL)* At 1:1000, cutting the health ministry's
+/// budget by 30% from month 3 lowers the national mean SoL within 3 months
+/// against the same run without the change, and the health part of the
+/// decomposition is the largest fall; the mean SoL of persons 65 and over
+/// falls more than that of persons 18 to 64.
+///
+/// Readings: `spend.ministry_budget[health]` set to 70% of its value in
+/// force on 15 February 2022, which takes effect on 1 March 2022 (month 3),
+/// as AC-POV-06. "Within 3 months": at the close of month 5, the national
+/// mean SoL is strictly below the baseline's. "The largest fall": over the
+/// closes of months 3 to 5, each part's change summed, less the same in the
+/// baseline; health's (the fourth part) is negative and below every other
+/// part's. "Falls more": at the close of month 5, the baseline's mean SoL of
+/// the age group 65 and over less the cut run's is larger than the same for
+/// 18 to 64 (in points, `SolStats::by_age`).
+#[test]
+fn ac_pov_12() {
+    let base = health_budget_run(false);
+    let cut = health_budget_run(true);
+    let (b, c) = (&base.poverty_stats()[5].sol, &cut.poverty_stats()[5].sol);
+    assert!(
+        c.national_milli < b.national_milli,
+        "the national mean SoL {} with the cut against {}",
+        c.national_milli,
+        b.national_milli
+    );
+    let parts = |w: &World| -> [i64; 5] {
+        let mut p = [0i64; 5];
+        for s in &w.poverty_stats()[3..6] {
+            for (k, x) in p.iter_mut().enumerate() {
+                *x += s.sol.parts_change_milli[k];
+            }
+        }
+        p
+    };
+    let (pb, pc) = (parts(&base), parts(&cut));
+    let diff: Vec<i64> = (0..5).map(|k| pc[k] - pb[k]).collect();
+    assert!(diff[3] < 0, "the health part does not fall: {diff:?}");
+    for k in [0, 1, 2, 4] {
+        assert!(
+            diff[3] < diff[k],
+            "the health part's fall {} is not the largest: {diff:?}",
+            diff[3]
+        );
+    }
+    let fall = |k: usize| i64::from(b.by_age[k]) - i64::from(c.by_age[k]);
+    assert!(
+        fall(2) > fall(1),
+        "65 and over fell {} thousandths, 18 to 64 {}",
+        fall(2),
+        fall(1)
+    );
 }

@@ -39,6 +39,10 @@ pub struct MigrationMonth {
     /// Returns of Romanian citizens: linked emigrants who rejoined their
     /// household and persons back from the diaspora stock.
     pub returns: u64,
+    /// The same by the development region they return to, in the
+    /// scenario's order (AC-MIG-20). Test writer's addition (ADR-0014): empty
+    /// until the implementation fills it.
+    pub returns_by_region: Vec<u64>,
     /// Foreign immigrants.
     pub immigrants: u64,
     /// Births of the month (the demographics core's), for the balance of
@@ -174,6 +178,17 @@ pub struct MigrationWorldParams {
     /// straight-line distance times `road_factor`, at `road_speed`.
     pub road_factor_ppm: u32,
     pub road_speed_kmh: u32,
+    /// ε_q, `quality_return_elasticity`, millionths (step 5b). Test writer's
+    /// addition (ADR-0014).
+    pub quality_return_elasticity_ppm: u32,
+    /// ε_q,e, `quality_emigration_elasticity`, millionths (step 5b).
+    pub quality_emigration_elasticity_ppm: u32,
+    /// ε_q,i, `quality_immigration_elasticity`, millionths (step 5b).
+    pub quality_immigration_elasticity_ppm: u32,
+    /// θ_u, `quality_jobs_weight`, millionths (step 5b).
+    pub quality_jobs_weight_ppm: u32,
+    /// m, `quality_memory`, months (step 5b).
+    pub quality_memory_months: u16,
 }
 
 impl MigrationWorldParams {
@@ -194,6 +209,11 @@ impl MigrationWorldParams {
             move_time_ppm: 100_000,
             road_factor_ppm: 1_300_000,
             road_speed_kmh: 70,
+            quality_return_elasticity_ppm: 1_000_000,
+            quality_emigration_elasticity_ppm: 500_000,
+            quality_immigration_elasticity_ppm: 250_000,
+            quality_jobs_weight_ppm: 1_000_000,
+            quality_memory_months: 36,
         }
     }
 }
@@ -423,5 +443,15 @@ impl World {
     #[must_use]
     pub fn abroad(&self) -> &[bool] {
         &self.mig.abroad
+    }
+
+    /// `home_quality[r]`: each development region's expected home quality
+    /// (step 5b) after the latest close, millionths (1 at the start), in the
+    /// scenario's order of regions.
+    ///
+    /// Test writer's addition (ADR-0014): the implementation fills it.
+    #[must_use]
+    pub fn home_quality_ppm(&self) -> &[u32] {
+        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
     }
 }

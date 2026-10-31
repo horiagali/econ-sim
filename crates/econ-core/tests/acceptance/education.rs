@@ -16,10 +16,18 @@
 //!   ISCED 3 or more, the high tier with ISCED 5 or more (the labour
 //!   market's table); an occupation's tier is high for ISCO 1 to 3, mid for
 //!   4 to 8, low for 9.
-//! - Persons who are no longer residents (a record of weight 0, or abroad
-//!   with migration) are left out of every count and comparison.
+//! - Persons who are no longer residents (a record of weight 0, abroad
+//!   with migration, or dead with the People phase) are left out of every
+//!   count and comparison.
+//! - A person is the same person at two snapshots when it has the same
+//!   `person_key` (`World::people`): with the People phase compiled in
+//!   (features `demography` and `lifecycle`, which `migration` implies), the
+//!   yearly compaction moves rows (restated 2026-10-31; the tests read rows
+//!   and "age did not fall" before).
 //! - A leaver is a person who was enrolled, or a pupil or student, before a
 //!   close and after it is not enrolled and is neither pupil nor student.
+
+use std::collections::{BTreeMap, BTreeSet};
 
 use econ_core::world::World;
 use econ_core::world::education::{
@@ -97,17 +105,42 @@ fn in_school(a: Activity) -> bool {
     matches!(a, Activity::Pupil | Activity::Student)
 }
 
-/// Whether a person row holds the same person at two snapshots: its age did
-/// not fall (a row freed by a death or a departure and reused by a newborn or
-/// an arrival starts younger).
-fn same_person(before: &[u16], after: &[u16], p: usize) -> bool {
-    matches!((before.get(p), after.get(p)), (Some(a), Some(b)) if b >= a)
+/// Each person's `person_key`, aligned with the person rows now.
+fn person_keys(w: &World) -> Vec<u64> {
+    w.people().person_key.clone()
+}
+
+/// The row of each `person_key` now.
+fn rows_by_key(w: &World) -> BTreeMap<u64, usize> {
+    w.people()
+        .person_key
+        .iter()
+        .enumerate()
+        .map(|(p, &k)| (k, p))
+        .collect()
+}
+
+/// Whether each person row is a resident now: `support_m5`'s residents
+/// (a record of positive weight, not abroad) and, with the People phase
+/// compiled in, alive (a dead person's row stays until the compaction).
+fn residents_now(w: &World) -> Vec<bool> {
+    #[cfg(feature = "demography")]
+    let res = {
+        let mut res = residents_mask(w);
+        for (r, &alive) in res.iter_mut().zip(&w.people_life().alive) {
+            *r &= alive;
+        }
+        res
+    };
+    #[cfg(not(feature = "demography"))]
+    let res = residents_mask(w);
+    res
 }
 
 /// The weighted enrolled persons of each level now.
 fn enrolled_by_level(w: &World) -> [u64; 7] {
     let weights = weights_of_persons(w);
-    let res = residents_mask(w);
+    let res = residents_now(w);
     let mut n = [0u64; 7];
     for (p, &e) in w.enrolled().iter().enumerate() {
         if let Some(l) = level(e)
@@ -664,7 +697,7 @@ fn ac_edu_04() {
 /// Weighted job seekers qualifying for each tier.
 fn seekers_by_tier(w: &World) -> [u64; 3] {
     let weights = weights_of_persons(w);
-    let res = residents_mask(w);
+    let res = residents_now(w);
     let mut s = [0u64; 3];
     for (p, &a) in w.activity().iter().enumerate() {
         if a == Activity::Unemployed && res[p] {
@@ -701,6 +734,11 @@ fn in_july(d: Day, w: &World) -> bool {
 /// than June and August no person's `enrolled`, `study_year` or `edu_level`
 /// changes.
 ///
+/// Restated 2026-10-31 (the owner's yes for this run): persons are followed
+/// by `person_key` (`World::people`), not by row and "age did not fall",
+/// because with the People phase compiled in the yearly compaction shifts
+/// the rows; a dead person (with the People phase) is not a resident.
+///
 /// Readings: the June close runs after the month's statistics, so the
 /// seekers "before" are those of the June close without the leavers who
 /// seek (the seekers after the close less the June report's
@@ -709,20 +747,26 @@ fn in_july(d: Day, w: &World) -> bool {
 /// are the persons hired in July who qualify for the tier (each such hire
 /// leaves the tier's pool). The third part compares the three columns at
 /// every monthly close of 14 months with the close before, for the persons
-/// present at both (a resident row whose age did not fall: a row reused by a
-/// newborn or an arrival is another person).
+/// present at both (the same `person_key`, a resident at the close).
 #[test]
 fn ac_edu_05() {
     let mut w = world_2021_default(1000);
     assert_eq!(w.date(), date(2021, 12, 1));
     assert_eq!(date(2022, 7, 1), Date::new(2022, 7, 1).expect("a date"));
     let mut cols = edu_columns(&w);
-    let mut ages = w.person_age_months().to_vec();
-    let mut pre_june: Option<Vec<Activity>> = None;
-    let mut after_june: Option<([u64; 3], [u64; 3], Vec<bool>)> = None;
+    let mut keys = person_keys(&w);
+    let mut pre_june: Option<BTreeMap<u64, Activity>> = None;
+    let mut after_june: Option<([u64; 3], [u64; 3], BTreeSet<u64>)> = None;
     while w.months().len() < 14 {
         if w.date() == date(2022, 6, 30) {
-            pre_june = Some(w.activity().to_vec());
+            pre_june = Some(
+                w.people()
+                    .person_key
+                    .iter()
+                    .zip(w.activity())
+                    .map(|(&k, &a)| (k, a))
+                    .collect(),
+            );
         }
         let closes = w.months().len();
         step_checked(&mut w);
@@ -731,20 +775,22 @@ fn ac_edu_05() {
         }
         let t = closes; // the month just closed
         let now = edu_columns(&w);
-        let res = residents_mask(&w);
-        let ages_now = w.person_age_months().to_vec();
+        let res = residents_now(&w);
+        let rows = rows_by_key(&w);
         if t != 6 && t != 8 {
-            for (p, &resident) in res.iter().enumerate().take(cols.0.len().min(now.0.len())) {
-                if !resident || !same_person(&ages, &ages_now, p) {
+            for (p, k) in keys.iter().enumerate() {
+                let Some(&q) = rows.get(k) else { continue };
+                if !res[q] {
                     continue;
                 }
                 assert_eq!(
                     (cols.0[p], cols.1[p], cols.2[p]),
-                    (now.0[p], now.1[p], now.2[p]),
-                    "month {t}: person {p}'s education changed outside June and August"
+                    (now.0[q], now.1[q], now.2[q]),
+                    "month {t}: person {k}'s education changed outside June and August"
                 );
             }
         }
+        let keys_now = person_keys(&w);
         if t == 6 {
             let report = w.education_year().expect("the June report").clone();
             let mut leavers_seek = [0u64; 3];
@@ -756,8 +802,13 @@ fn ac_edu_05() {
                 }
             }
             let pre = pre_june.as_ref().expect("the day before the June close");
-            let leavers: Vec<bool> = (0..pre.len())
-                .map(|p| res[p] && in_school(pre[p]) && w.activity()[p] == Activity::Unemployed)
+            let leavers: BTreeSet<u64> = (0..keys_now.len())
+                .filter(|&q| {
+                    res[q]
+                        && pre.get(&keys_now[q]).is_some_and(|&a| in_school(a))
+                        && w.activity()[q] == Activity::Unemployed
+                })
+                .map(|q| keys_now[q])
                 .collect();
             after_june = Some((seekers_by_tier(&w), leavers_seek, leavers));
         }
@@ -776,11 +827,12 @@ fn ac_edu_05() {
                         *x += u64::from(weights[p]);
                     }
                 }
-                if leavers.get(p).copied().unwrap_or(false) && pp.employer[p] != NO_EMPLOYER {
+                if leavers.contains(&keys_now[p]) && pp.employer[p] != NO_EMPLOYER {
                     let tier = tier_of(pp.occupation[p]);
                     assert!(
                         qualifies_tier(tier, pp.edu_level[p]),
-                        "leaver {p} with {:?} hired into occupation {}",
+                        "leaver {} with {:?} hired into occupation {}",
+                        keys_now[p],
                         pp.edu_level[p],
                         pp.occupation[p]
                     );
@@ -804,7 +856,7 @@ fn ac_edu_05() {
             );
         }
         cols = now;
-        ages = ages_now;
+        keys = keys_now;
     }
 }
 
@@ -840,71 +892,120 @@ fn ac_edu_06() {
 /// the start is ever enrolled; each becomes a leaver at the first June close
 /// at which they are 16 or older.
 ///
+/// Restated 2026-10-31 (the owner's yes for this run): persons are followed
+/// by `person_key` (`World::people`), not by row and "age did not fall",
+/// because with the People phase compiled in the yearly compaction shifts
+/// the rows.
+///
 /// Readings: "a pupil not enrolled" is a person whose activity is pupil or
 /// student and who is not enrolled at load. The run covers three June closes
 /// (to July 2024). At every close such a person is not enrolled; at each
 /// June close, one still pupil or student before it who is 16 or older at
 /// the close is not pupil nor student after it; one younger still is. A
-/// person who dies or emigrates (no longer a resident, or their row reused:
-/// its age falls) is followed no further.
+/// person who dies or emigrates (no `person_key` row now, or not a
+/// resident) is followed no further. With the People phase compiled in, a
+/// person it retires (activity retired: the standard or early retirement of
+/// demographics, step 5) has left school through a pension, not through
+/// education's closes (the spec's edge case: a pension does not change
+/// education's rule, which acts on pupils and students only), and is
+/// followed no further; without it nobody retires.
 #[test]
 fn ac_edu_07() {
     let mut w = world_2021_default(1000);
-    let start: Vec<usize> = (0..w.enrolled().len())
+    let start: Vec<u64> = (0..w.enrolled().len())
         .filter(|&p| w.enrolled()[p] == Enrolled::None && in_school(w.activity()[p]))
+        .map(|p| w.people().person_key[p])
         .collect();
     assert!(
         !start.is_empty(),
         "the start has pupils not enrolled (Stage K)"
     );
     let mut became_16 = 0;
-    let mut gone = vec![false; w.enrolled().len()];
-    let mut ages_before = w.person_age_months().to_vec();
+    let mut gone: BTreeSet<u64> = BTreeSet::new();
     while w.date() < date(2024, 7, 1) {
-        let before = w.activity().to_vec();
+        let before: BTreeMap<u64, Activity> = w
+            .people()
+            .person_key
+            .iter()
+            .zip(w.activity())
+            .map(|(&k, &a)| (k, a))
+            .collect();
         let closes = w.months().len();
         step_checked(&mut w);
         if w.months().len() == closes {
             continue;
         }
         let june = w.date() == date(w.date().year, 7, 1);
-        let res = residents_mask(&w);
+        let res = residents_now(&w);
+        let rows = rows_by_key(&w);
         let ages = w.person_age_months();
-        for &p in &start {
-            gone[p] |= !res[p] || !same_person(&ages_before, ages, p);
-            if gone[p] {
+        for &k in &start {
+            let row = rows.get(&k).copied().filter(|&q| res[q]);
+            let Some(q) = row.filter(|_| !gone.contains(&k)) else {
+                gone.insert(k);
                 continue;
-            }
+            };
             assert_eq!(
-                w.enrolled()[p],
+                w.enrolled()[q],
                 Enrolled::None,
-                "{:?}: person {p} enrolled",
+                "{:?}: person {k} enrolled",
                 w.date()
             );
-            if !in_school(before[p]) {
+            let was = before
+                .get(&k)
+                .copied()
+                .expect("followed since the last day");
+            if !in_school(was) {
                 continue;
             }
-            let still = in_school(w.activity()[p]);
-            if june && ages[p] >= years(16) {
+            let now = w.activity()[q];
+            if now == Activity::Retired {
+                // Retired by the People phase: a pension, not a close.
+                gone.insert(k);
+                continue;
+            }
+            let still = in_school(now);
+            if june && ages[q] >= years(16) {
                 assert!(
                     !still,
-                    "{:?}: person {p}, {} months, still a pupil",
+                    "{:?}: person {k}, {} months, still a pupil",
                     w.date(),
-                    ages[p]
+                    ages[q]
                 );
                 became_16 += 1;
             } else {
                 assert!(
                     still,
-                    "{:?}: person {p}, {} months, left school outside a June close at 16",
+                    "{:?}: person {k}, {} months, left school outside a June close at 16",
                     w.date(),
-                    ages[p]
+                    ages[q]
                 );
             }
         }
-        ages_before = ages.to_vec();
     }
     assert!(became_16 > 0, "some reached 16 and left");
+}
+
+/// A snapshot of the persons on the day before a close: `enrolled`, the
+/// activity and the row, by `person_key`.
+type Snapshot = BTreeMap<u64, (Enrolled, Activity)>;
+
+/// The snapshot of the persons now.
+fn snapshot(w: &World) -> Snapshot {
+    let k = &w.people().person_key;
+    (0..k.len())
+        .map(|p| (k[p], (w.enrolled()[p], w.activity()[p])))
+        .collect()
+}
+
+/// The leavers of a close by fate, weighted.
+#[derive(Debug, Default)]
+struct Leavers {
+    seeking: u64,
+    inactive: u64,
+    employed: u64,
+    /// Leavers retired after the close (a pension of the People phase).
+    retired: u64,
 }
 
 /// The leavers of a close by the criterion, against the persons table.
@@ -913,55 +1014,61 @@ fn ac_edu_07() {
 /// close among the dropouts, the completers who do not continue and the
 /// refused entrants (in the persons table: enrolled before the close and not
 /// enrolled after it) and, at a June close, the persons not enrolled whose
-/// activity was pupil or student before it. Asserts that each of them has
-/// left school (neither enrolled nor pupil or student) and that nobody else
-/// has; returns their weights by fate: seeking, other inactive, keeping a
-/// job.
-fn leavers_by_snapshot(
-    before: &(Vec<Enrolled>, Vec<Activity>, Vec<u16>),
-    w: &World,
-    june: bool,
-) -> (u64, u64, u64) {
+/// activity was pupil or student before it. Persons are matched by
+/// `person_key` (a person born in the step is not in the snapshot and not a
+/// leaver). Asserts that each of them has left school (neither enrolled nor
+/// pupil or student) and that nobody else has, but for a person retired by
+/// the People phase; returns their weights by fate: seeking, other
+/// inactive, keeping a job, or retired.
+fn leavers_by_snapshot(before: &Snapshot, w: &World, june: bool) -> Leavers {
     let weights = weights_of_persons(w);
-    let res = residents_mask(w);
+    let res = residents_now(w);
     let ages = w.person_age_months();
-    let (mut seek, mut inactive, mut employed) = (0, 0, 0);
-    for p in 0..before.0.len() {
-        if !res[p] || !same_person(&before.2, ages, p) {
+    let keys = &w.people().person_key;
+    let mut out = Leavers::default();
+    for p in 0..keys.len() {
+        let Some(&(enrolled_before, activity_before)) = before.get(&keys[p]) else {
+            continue;
+        };
+        if !res[p] {
             continue;
         }
-        let was_enrolled = before.0[p] != Enrolled::None;
+        let was_enrolled = enrolled_before != Enrolled::None;
         let left_level = was_enrolled && w.enrolled()[p] == Enrolled::None;
-        let pupil_not_enrolled = !was_enrolled && in_school(before.1[p]);
+        let pupil_not_enrolled = !was_enrolled && in_school(activity_before);
         let leaver = ages[p] >= years(16) && (left_level || (june && pupil_not_enrolled));
-        let was = was_enrolled || in_school(before.1[p]);
+        let was = was_enrolled || in_school(activity_before);
         let is = w.enrolled()[p] != Enrolled::None || in_school(w.activity()[p]);
+        let retired = w.activity()[p] == Activity::Retired;
         if !leaver {
             assert!(
-                !was || is,
-                "{:?}: person {p} ({} months) left school without being a leaver",
+                !was || is || retired,
+                "{:?}: person {} ({} months) left school without being a leaver",
                 w.date(),
+                keys[p],
                 ages[p]
             );
             continue;
         }
         assert!(
             !is,
-            "{:?}: leaver {p} ({} months) is still {:?}, {:?}",
+            "{:?}: leaver {} ({} months) is still {:?}, {:?}",
             w.date(),
+            keys[p],
             ages[p],
             w.enrolled()[p],
             w.activity()[p]
         );
         let wt = u64::from(weights[p]);
         match w.activity()[p] {
-            Activity::Unemployed => seek += wt,
-            Activity::InactiveOther => inactive += wt,
-            Activity::Employed => employed += wt,
-            other => panic!("{:?}: leaver {p} became {other:?}", w.date()),
+            Activity::Unemployed => out.seeking += wt,
+            Activity::InactiveOther => out.inactive += wt,
+            Activity::Employed => out.employed += wt,
+            Activity::Retired => out.retired += wt,
+            other => panic!("{:?}: leaver {} became {other:?}", w.date(), keys[p]),
         }
     }
-    (seek, inactive, employed)
+    out
 }
 
 /// **AC-EDU-08** `[unit]` The `EducationYear` report balances at every June
@@ -973,25 +1080,35 @@ fn leavers_by_snapshot(
 /// (younger ones stay pupils, step 3); all weighted, exact. (Restated in the
 /// spec 2026-10-29.)
 ///
+/// Restated 2026-10-31 (the owner's yes for this run): persons are followed
+/// by `person_key` (`World::people`), not by row and "age did not fall",
+/// because with the People phase compiled in the yearly compaction shifts
+/// the rows; and a leaver who is retired after the close is accepted (see
+/// below) where the test of 2026-10-29 panicked.
+///
 /// Readings: "entrants admitted" is `entrants − refused`; "enrolled after"
 /// is also the weighted enrolled count of the persons table after the
-/// close. The leavers are found in the persons table by snapshots of the day
-/// before and after the close (see `leavers_by_snapshot`); the report's
-/// leavers, by fate (seeking, other inactive, keeping their job), equal
-/// them exactly. The not-enrolled pupils and students are a source at the
-/// June closes only: step 3 runs at the June close, and the August close
-/// makes leavers of refused entrants only. The run covers the closes of
-/// June and August 2022, 2023 and 2024.
+/// close (residents; with the People phase, alive). The leavers are found
+/// in the persons table by snapshots of the day before and after the close
+/// (see `leavers_by_snapshot`); the report's leavers, by fate (seeking,
+/// other inactive, keeping their job), equal them exactly. A leaver whose
+/// activity is retired after the close (the People phase's retirement: a
+/// pension) is still a leaver; the spec's edge case says a pension does not
+/// change education's activity rule, so the report counts such a leaver
+/// under the fate the rule gave them, which the persons table no longer
+/// shows: each fate is then exact up to the retired leavers (the
+/// table's count ≤ the report's ≤ the table's + the retired leavers), and
+/// the total exact. Without the People phase nobody retires and every fate
+/// is exact. The not-enrolled pupils and students are a source at the June
+/// closes only: step 3 runs at the June close, and the August close makes
+/// leavers of refused entrants only. The run covers the closes of June and
+/// August 2022, 2023 and 2024.
 #[test]
 fn ac_edu_08() {
     let mut w = world_2021_default(1000);
     let mut checked = 0;
     while w.months().len() < 33 {
-        let snap = (
-            w.enrolled().to_vec(),
-            w.activity().to_vec(),
-            w.person_age_months().to_vec(),
-        );
+        let snap = snapshot(&w);
         let closes = w.months().len();
         step_checked(&mut w);
         if w.months().len() == closes {
@@ -1032,29 +1149,37 @@ fn ac_edu_08() {
                 );
             }
         }
-        let (seek, inactive, employed) = leavers_by_snapshot(&snap, &w, june);
-        assert_eq!(
-            y.leavers_seeking.iter().sum::<u64>(),
-            seek,
-            "month {t}: leavers seeking"
-        );
-        assert_eq!(
-            y.leavers_inactive.iter().sum::<u64>(),
-            inactive,
-            "month {t}: leavers inactive"
-        );
-        assert_eq!(
-            y.leavers_employed.iter().sum::<u64>(),
-            employed,
-            "month {t}: leavers employed"
-        );
+        let found = leavers_by_snapshot(&snap, &w, june);
+        for (name, reported, table) in [
+            (
+                "seeking",
+                y.leavers_seeking.iter().sum::<u64>(),
+                found.seeking,
+            ),
+            (
+                "inactive",
+                y.leavers_inactive.iter().sum::<u64>(),
+                found.inactive,
+            ),
+            (
+                "employed",
+                y.leavers_employed.iter().sum::<u64>(),
+                found.employed,
+            ),
+        ] {
+            assert!(
+                table <= reported && reported <= table + found.retired,
+                "month {t}: leavers {name} {reported} in the report, {table} in the table (and {} retired)",
+                found.retired
+            );
+        }
         let reported: u64 = y.leavers_seeking.iter().sum::<u64>()
             + y.leavers_inactive.iter().sum::<u64>()
             + y.leavers_employed.iter().sum::<u64>();
         assert_eq!(
             reported,
-            seek + inactive + employed,
-            "month {t}: the leavers are exactly the persons of 16 or more who left"
+            found.seeking + found.inactive + found.employed + found.retired,
+            "month {t}: the leavers are exactly the persons of 16 or more who left: {found:?}"
         );
         if june {
             assert!(reported > 0, "month {t}: the June close has leavers");

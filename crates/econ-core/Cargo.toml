@@ -156,8 +156,16 @@ education = ["levers", "econ-io/education"]
 # households' recent real income of poverty and inequality.
 approval = ["poverty", "levers", "trade"]
 # Poverty and inequality indicators (spec society/poverty-inequality,
-# AC-POV-01 to 09).
+# AC-POV-01 to 09; the standard of living, step 9, AC-POV-10 to 12).
 poverty = ["levers"]
+# The wellbeing index's first version (spec society/social-outcomes,
+# "Wellbeing index", AC-WB-01 to 04): the pure functions, the index on the
+# `World` and its parameters. It reads SoL, so it needs `poverty`.
+wellbeing = ["poverty"]
+# Migration's expected home quality (spec economy/migration-remittances, step
+# 5b, AC-MIG-18 to 20): it reads the wellbeing index and the regions'
+# unemployment and multiplies returns, emigration and immigration.
+home_quality = ["migration", "wellbeing"]
 
 [[test]]
 name = "acceptance"
