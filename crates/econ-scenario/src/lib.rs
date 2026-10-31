@@ -24,6 +24,7 @@
 //! | `tables/persons.arrow` | also `person_key` (u64) and stage K's `inactive_kind`, `enrolled` (u8) |
 //! | `tables/linked_emigrants.arrow`, `tables/diaspora_stock.arrow` | stage L (`econ_io::people`) |
 //! | `demography.json` | the demographic tables, as the input file is |
+//! | `county_moves.json` | moves between counties' inputs (2021 net balances, county seats), as the input file is |
 //! | `scenario.json` | also `people_hashes`: `{inactivity_enrolment, linked_emigrants}`, and `next_person_key`, `next_hh_key` |
 
 use std::collections::BTreeMap;

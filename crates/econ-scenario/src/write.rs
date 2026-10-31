@@ -196,6 +196,15 @@ fn files(scenario: &Scenario, inputs: &Inputs) -> Result<BTreeMap<String, Vec<u8
     {
         out.insert("demography.json".to_string(), bytes.clone());
     }
+    // Moves between counties (spec economy/migration-remittances), as the
+    // fixture is.
+    if let Some((_, bytes)) = inputs
+        .files
+        .iter()
+        .find(|(n, _)| n == crate::build::COUNTY_MOVES)
+    {
+        out.insert("county_moves.json".to_string(), bytes.clone());
+    }
     out.insert("report.json".to_string(), pretty(&report_json(scenario))?);
     let (law, world) = law_files(inputs)?;
     out.insert("law.json".to_string(), law);

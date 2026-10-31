@@ -135,6 +135,16 @@ pub(crate) struct MigState {
     /// The household records before the day's People phase: those formed
     /// since (splits, the life cycle) do not leave whole the same day.
     pub(crate) hh_before: usize,
+    /// Moves between counties: `m0`, parts per billion a month; each
+    /// county's appeal α; its region; travel times between county seats,
+    /// hours (row-major); the carries by county, households.
+    pub(crate) m0_ppb: u32,
+    pub(crate) alpha: Vec<f64>,
+    pub(crate) county_region: Vec<u8>,
+    pub(crate) travel_hours: Vec<f64>,
+    pub(crate) move_carry: Vec<i64>,
+    /// The destination carries by (origin, destination), households ×1e6.
+    pub(crate) dest_carry: Vec<i64>,
 }
 
 /// Migration's parameters on the `World`.
@@ -156,6 +166,18 @@ pub struct MigrationWorldParams {
     pub return_savings_eur_cents: i64,
     /// The share of men among foreign immigrants, millionths (INS 2021).
     pub immigrant_men_ppm: u32,
+    /// β^move_u, `move_unemployment`: the origin region's unemployment push
+    /// on moves between counties, millionths.
+    pub move_unemployment_ppm: u32,
+    /// β_w, β_u and β_t of the destination choice (wages, unemployment,
+    /// travel time per hour), millionths.
+    pub move_wage_ppm: u32,
+    pub move_unemployment_dest_ppm: u32,
+    pub move_time_ppm: u32,
+    /// Travel time between county seats until the transport network (M11):
+    /// straight-line distance times `road_factor`, at `road_speed`.
+    pub road_factor_ppm: u32,
+    pub road_speed_kmh: u32,
     /// ε_q, `quality_return_elasticity`, millionths (step 5b). Test writer's
     /// addition (ADR-0014).
     pub quality_return_elasticity_ppm: u32,
@@ -181,6 +203,12 @@ impl MigrationWorldParams {
             immigration_elasticity_ppm: 1_000_000,
             return_savings_eur_cents: 300_000,
             immigrant_men_ppm: 547_000,
+            move_unemployment_ppm: 5_000_000,
+            move_wage_ppm: 1_000_000,
+            move_unemployment_dest_ppm: 5_000_000,
+            move_time_ppm: 100_000,
+            road_factor_ppm: 1_300_000,
+            road_speed_kmh: 70,
             quality_return_elasticity_ppm: 1_000_000,
             quality_emigration_elasticity_ppm: 500_000,
             quality_immigration_elasticity_ppm: 250_000,
@@ -247,6 +275,7 @@ impl World {
         self.mig.hh_before = self.households.hh_weight.len();
         self.mig_fit();
         self.mig_fit_returns();
+        self.mig_fit_moves();
     }
 
     /// Add persons to the stock's cell.
@@ -329,6 +358,21 @@ impl World {
         let d = self.mig_emigration();
         let returns = self.mig_link_returns() + self.mig_stock_returns();
         let immigrants = self.mig_immigration();
+        let n_c = self.people.county_moves.as_ref().map_or_else(
+            || {
+                usize::from(
+                    self.dem
+                        .hh_life
+                        .hh_county
+                        .iter()
+                        .copied()
+                        .max()
+                        .unwrap_or(0),
+                ) + 1
+            },
+            |c| c.net_2021.len(),
+        );
+        let moves = self.mig_moves(n_c);
         // Linked emigrants' deaths (in the People phase's report), then the
         // stock's of the year, each January.
         let link_deaths = std::mem::take(&mut self.mig.deaths_abroad);
@@ -353,15 +397,6 @@ impl World {
             .iter()
             .map(|x| u64::from(x.weight))
             .sum();
-        let n_c = usize::from(
-            self.dem
-                .hh_life
-                .hh_county
-                .iter()
-                .copied()
-                .max()
-                .unwrap_or(0),
-        ) + 1;
         let months = &mut self.rem.migration_months;
         if months.last().is_none_or(|m| m.month.0 != t) {
             months.push(MigrationMonth {
@@ -378,8 +413,8 @@ impl World {
         m.births = births;
         m.deaths_resident = deaths - link_deaths;
         m.deaths_abroad = link_deaths + stock_deaths;
-        m.moves_in = vec![0; n_c];
-        m.moves_out = vec![0; n_c];
+        m.moves_in = moves.moves_in;
+        m.moves_out = moves.moves_out;
     }
 
     /// Every closed month's migration, in order (one per monthly close).
