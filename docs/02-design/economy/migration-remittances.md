@@ -3,7 +3,7 @@ id: economy/migration-remittances
 title: Migration, Diaspora & Remittances
 status: draft
 owner: horia
-depends_on: [economy/demographics, economy/households, economy/labor-market, economy/trade-fx, economy/eu-membership, economy/social-transfers, economy/transport-network, society/population-groups, adr/0003-people-representation, adr/0006-determinism-contract, adr/0007-money-and-ledger, adr/0008-explainability-architecture, adr/0017-time-base]
+depends_on: [society/social-outcomes, economy/demographics, economy/households, economy/labor-market, economy/trade-fx, economy/eu-membership, economy/social-transfers, economy/transport-network, society/population-groups, adr/0003-people-representation, adr/0006-determinism-contract, adr/0007-money-and-ledger, adr/0008-explainability-architecture, adr/0017-time-base]
 research: [research/migration-remittances-romania-2021, research/return-immigration-drivers]
 updated: 2026-10-31
 ---
@@ -138,25 +138,27 @@ with $H_t$ the all-tier home wage index in euro of step 1 (Romania richer, more 
 
 > **Simplification:** no quota until M14. The yearly quota of non-EU work permits (25,000 in 2021, 100,000 in 2022) becomes a lever there, capping the non-EU part.
 
-### 5b. Expected home quality (proposed 2026-10-31, not built)
-*Proposed at the owner's request (2026-10-31): people who know Romania also weigh the quality of life they expect there, not only wages. Research: [return and immigration drivers](../../01-research/notes/return-immigration-drivers.md). Not built until the open question below is decided.*
+### 5b. Expected home quality (owner, 2026-10-31)
+*People who know Romania weigh the life they expect there, not only wages (owner, 2026-10-31). Research: [return and immigration drivers](../../01-research/notes/return-immigration-drivers.md): Romanians abroad name corruption, health care and bureaucracy as what keeps them away; foreign immigrants follow wages and jobs.*
 
 Each region $r$ has an **expected home quality** $Q_{r,t}$ (`home_quality[r]`), 1 at the start, a slow memory of what people hear about home:
 ```math
 Q_{r,t} = Q_{r,t-1} + \frac{1}{m}\,\big(q_{r,t} - Q_{r,t-1}\big), \qquad
-q_{r,t} = \Big(\frac{S_t}{S_0}\Big)^{\theta_s} \cdot \Big(\frac{1 + \beta_u u_{r,0}}{1 + \beta_u u_{r,t}}\Big)^{\theta_u}
+q_{r,t} = \frac{W_{r,t}}{W_{r,0}} \cdot \Big(\frac{1 + \beta_u u_{r,0}}{1 + \beta_u u_{r,t}}\Big)^{\theta_u}
 ```
-- $S_t$ is real public spending per resident on health and education in the month (the ministry budgets of the [lever system](../game/lever-system.md), deflated by the CPI); $S_0$ the first close's. Public services are what Romanians abroad name, with corruption, as what keeps them away.
+- $W_{r,t}$ is the region's **wellbeing index** ([social outcomes](../society/social-outcomes.md): life expectancy, schooling, and the standard of living SoL of [poverty and inequality](../society/poverty-inequality.md), which counts public health and education); $W_{r,0}$ the first close's. Governance, safety and environment reach migration when they join the index.
 - $u_{r,t}$ is the region's unemployment rate (step 2's, shocks included): jobs at home bring people back, not only keep them.
 - $m$ is `quality_memory` (months): expectations move slowly, over years.
-- Governance and corruption, the reason most named, have no variable yet; they enter $q$ as a third factor when the institutions milestone defines one.
 
 It multiplies:
-- **returns** (step 4), links and stock, of the region the person would return to: $q_i \cdot Q_r^{\varepsilon_q}$;
-- **emigration** (step 2), the other side of the same choice: $p_i \cdot Q_r^{-\varepsilon_{q,e}}$, still capped at $p^{max}$;
-- **foreign immigration** (step 5), weakly (the evidence finds little effect once wages are in): $I_t \cdot \bar Q_t^{\varepsilon_{q,i}}$, $\bar Q$ the residents' mean.
 
-At the start every factor is 1, so the 2021 fit of $p^0$ and $q^0$ is unchanged.
+| Flow | Wages (steps 1, 5) | Jobs | Expected home quality |
+|---|---|---|---|
+| Returns (step 4), links and stock, of the region they return to | yes | in $Q$ | $Q_r^{\varepsilon_q}$ |
+| Emigration (step 2), the other side of the same choice | yes | yes (step 2) | $Q_r^{-\varepsilon_{q,e}}$, still capped at $p^{max}$ |
+| Foreign immigration (step 5) | yes | (vacancies, later) | $\bar Q^{\varepsilon_{q,i}}$, weak; $\bar Q$ the residents' mean |
+
+SoL reaches migration only through the wellbeing index, so wages are not counted twice. At the start every factor is 1, so the 2021 fit of $p^0$ and $q^0$ is unchanged.
 
 ### 6. Moves between counties (monthly close)
 Only moves that cross a county border are modelled (a move inside a county changes nothing in the `World`). Each resident household in county $c$ moves with a monthly probability
@@ -212,11 +214,11 @@ Emigration, return, the destination choice and the remittance amount are `behavi
 | $\beta_w$, $\beta_u$, $\beta_t$ (moves) | 1.0, 5, 0.1 per hour | — | destination choice: wages, unemployment, travel time |
 | $\beta^{move}_u$ `move_unemployment` | 5 | 0–20 | +1 point of the origin region's unemployment raises moves out by about 5% (step 6) |
 | `exit_barrier` | 0.4 | 0–1 | emigration multiple outside the EU (M18) |
-| $\varepsilon_q$ `quality_return_elasticity` | 1.0 | 0–3 | returns and expected home quality (step 5b, proposed; a guess, no estimate exists) |
-| $\varepsilon_{q,e}$ `quality_emigration_elasticity` | 0.5 | 0–3 | emigration and expected home quality (step 5b, proposed) |
-| $\varepsilon_{q,i}$ `quality_immigration_elasticity` | 0.25 | 0–1 | foreign immigration and expected home quality (step 5b, proposed; weak in the evidence) |
-| $\theta_s$, $\theta_u$ `quality_weights` | 0.5, 1.0 | 0–2 | public services and jobs in the instant quality $q$ (step 5b, proposed) |
-| $m$ `quality_memory` | 36 months | 6–120 | how slowly expectations of home follow it (step 5b, proposed) |
+| $\varepsilon_q$ `quality_return_elasticity` | 1.0 | 0–3 | returns and expected home quality (step 5b; a guess, no estimate exists) |
+| $\varepsilon_{q,e}$ `quality_emigration_elasticity` | 0.5 | 0–3 | emigration and expected home quality (step 5b) |
+| $\varepsilon_{q,i}$ `quality_immigration_elasticity` | 0.25 | 0–1 | foreign immigration and expected home quality (step 5b; weak in the evidence) |
+| $\theta_u$ `quality_jobs_weight` | 1.0 | 0–2 | jobs in the instant quality $q$ (step 5b) |
+| $m$ `quality_memory` | 36 months | 6–120 | how slowly expectations of home follow it (step 5b) |
 
 ## Starting state
 - **Linked emigrants** come from a new population stage (owed, in the Python pipeline, [population generator](../society/population-generator.md)): it adds one `abroad` person to chosen households, with age, sex and education drawn like 2021's emigrant stock, and `months_abroad` from a distribution centred on 2007–2014 departures. Targets (educated guesses, low confidence): about 1.2 million real households with a linked emigrant (15% of households), more in rural Moldavia, Maramureș and the south; fewer in Bucharest. It is the only change to the starting population.
@@ -261,9 +263,9 @@ IDs are stable. Tests go in `crates/econ-core/tests/acceptance/` (protected) and
 - [ ] **AC-MIG-15** `[sim]` Moves between counties: in the first year Ilfov, Cluj and Timiș gain residents and Teleorman, Vaslui and Bacău lose them; a county whose region's unemployment rises 5 points (a scripted shock) gains fewer movers and sends more over the next 24 months.
 - [ ] **AC-MIG-16** `[sim]` Determinism and scale: two runs with the same seed give identical persons, weights and ledger; at 1:1000 and 1:100 the first year's emigration rate per resident differs by less than 10% of its value.
 - [ ] **AC-MIG-17** `[sim]` 50-year quiet run: the diaspora stays between 2 and 7 million, the resident population shrinks with net emigration (the direction of the official projection, M5's exit), and no table outgrows its starting size by more than half (free slots reused).
-- [ ] **AC-MIG-18** `[unit]` *(proposed with step 5b, 2026-10-31)* Expected home quality is 1 at the start and stays 1 while spending per resident and unemployment hold their starting values; after a step change of $q$ it moves a share $1/m$ of the gap a month, and every multiplier of step 5b is 1 when $Q = 1$.
-- [ ] **AC-MIG-19** `[sim]` *(proposed with step 5b)* Raising the health and education ministry budgets by 30% for five years: returns are higher and emigrants lower than in the baseline, and the gap in returns is larger in the fifth year than in the first (expectations build slowly).
-- [ ] **AC-MIG-20** `[sim]` *(proposed with step 5b)* A region whose unemployment rises 5 points (`MigrationUnemploymentShock`) receives fewer returns over the next 24 months than in the baseline.
+- [ ] **AC-MIG-18** `[unit]` *(step 5b, 2026-10-31)* Expected home quality is 1 at the start and stays 1 while the wellbeing index and unemployment hold their starting values; after a step change of $q$ it moves a share $1/m$ of the gap a month, and every multiplier of step 5b is 1 when $Q = 1$.
+- [ ] **AC-MIG-19** `[sim]` *(step 5b)* Raising the health and education ministry budgets by 30% for five years: returns are higher and emigrants lower than in the baseline, and the gap in returns is larger in the fifth year than in the first (expectations build slowly).
+- [ ] **AC-MIG-20** `[sim]` *(step 5b)* A region whose unemployment rises 5 points (`MigrationUnemploymentShock`) receives fewer returns over the next 24 months than in the baseline.
 
 ## API sketch
 For the test writer and the implementer; names may change, shapes should not.
@@ -295,7 +297,7 @@ pub enum StartEdit { /* … */ NoDiaspora }                 // the counterfactua
 Powers and exponentials use the pinned `libm` through `econ_num::math` (ADR-0006). New flow codes (append-only, ADR-0007): 4110 `transfer.remittances` (secondary income, rest of the world to households), 4111 `transfer.migrant_capital` (capital account, both directions). (Renumbered 2026-10-30, as proposed under the owner's delegation: 4109 is demographics' `transfer.estate`, which its test fixes.)
 
 ## Open questions
-- [ ] **Expected home quality (step 5b, proposed 2026-10-31 at the owner's request):** add it, and when? *Proposed:* yes, as a slice after moves between counties (it is small: one index per region and three multipliers), with the defaults above as guesses calibrated in M7 against 2022–2024's rising returns; governance joins the index with the institutions milestone. To decide: the scope (public services and jobs now; housing, safety and schools for children later), whether immigration takes it at all, and the elasticities' order of magnitude.
+- [x] **Expected home quality (step 5b).** **Decided by the owner, 2026-10-31:** yes. Returns and emigration read the expected wellbeing index (which holds SoL) and jobs; foreign immigration reads wages and jobs, with at most a weak quality factor; SoL itself reaches migration only through the index. Built after SoL and the index, with the defaults above as guesses calibrated in M7 against 2022–2024's rising returns.
 - [x] **Diaspora destinations:** one "abroad" or named countries (Italy, Spain, Germany, UK)? **Decided by the owner, 2026-10-26:** one abroad in v1, with `world.wages_abroad` as its wage; named destinations after v1, "to consider" in the roadmap.
 - [x] **Compensation of employees** (€3.8 billion in 2021, residents working abroad under a year, primary income): model seasonal work abroad? Decided as proposed (owner's delegation, 2026-10-26): not in M5; list it with remittances as the second candidate in M7's household-income gap (added to the roadmap), as a person status "working abroad this season" if M7 needs it.
 - [x] **Starting links:** how many households receive remittances, and where? Decided as proposed (owner's delegation, 2026-10-26): 1.2 million (15%), skewed to rural Moldavia and older heads, until a source (the household budget survey's income from abroad) is read; the total flow is exact whatever the count. The pipeline stage is owed in roadmap M5.

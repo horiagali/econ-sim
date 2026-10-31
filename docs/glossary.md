@@ -250,7 +250,10 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `foreign_price_growth[b]`, `foreign_demand_growth[b]` | World setting: growth a year of import prices and of demand for exports, by bloc *b* (EU, non-EU); basis points in code | % / year | lever | economy/trade-fx |
 | — | `fuel_price[fuel]` | World setting: world price of oil (a barrel), gas (a MWh) and coal (a tonne) | LCU / unit | lever | economy/energy |
 | — | `foreign_rate` | World setting: interest rate abroad (the ECB's); basis points in code | % / year | lever | economy/trade-fx |
-| $Q_r$ | `home_quality[r]` | Expected quality of life at home in region *r* that migrants weigh (public services, jobs), a slow memory, relative to the start (proposed) | ratio | derived | economy/migration-remittances |
+| $Q_r$ | `home_quality[r]` | Expected quality of life at home in region *r* that migrants weigh: the wellbeing index and jobs, a slow memory, relative to the start | ratio | derived | economy/migration-remittances |
+| — | `sol` | Standard of living of a household: 10 + 10·log2 of its real actual consumption per equivalised adult (purchases, home-grown food, imputed rent, public health and education in kind) over the subsistence basket; 10 is subsistence | points (0–100) | derived | society/poverty-inequality |
+| $W_r$ | `wellbeing_index[r]` | Wellbeing index of region *r* (and the nation): geometric mean of life expectancy, schooling and SoL dimension indices | index (0–1) | derived | society/social-outcomes |
+| — | `mean_years_schooling[r]`, `expected_years_schooling[r]` | Mean years of schooling of residents 25 and over; expected years from the enrolment shares of ages 5 to 29 | years | derived | society/social-outcomes |
 | — | `wages_abroad` | World setting: wages abroad relative to Romania's at the start; basis points in code | ratio | lever | economy/migration-remittances |
 | — | `age`, `sex`, `role` | Person's age (months), sex (F, M) and role in the household (head, partner, child, other) | months / category | state | society/population-groups |
 | — | `person_key` | Stable identity of a person, never reused; the entity of keyed draws about the person (indices change at compaction) | id | state | economy/demographics |
