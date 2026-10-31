@@ -445,6 +445,8 @@ impl World {
         // The poverty indicators last: every payment of the close is in.
         #[cfg(feature = "poverty")]
         self.poverty_close();
+        #[cfg(feature = "wellbeing")]
+        self.wellbeing_close();
         #[cfg(feature = "approval")]
         self.approval_close();
         // The close of December: next year's mortality table.

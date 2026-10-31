@@ -276,6 +276,15 @@ impl World {
         k
     }
 
+    /// The year's mortality table's yearly probabilities, if the phase has
+    /// one.
+    #[cfg(feature = "wellbeing")]
+    pub(super) fn dem_mortality_yearly(
+        &self,
+    ) -> Option<[[u32; econ_mech_demography::MORTALITY_AGES]; 2]> {
+        self.dem.table.as_ref().map(|t| t.yearly)
+    }
+
     /// The People phase, at month end after Pay.
     pub(super) fn people_phase(&mut self) {
         if !self.dem.active {

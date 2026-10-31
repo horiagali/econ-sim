@@ -798,6 +798,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         pov: super::poverty_state::PovState::default(),
         #[cfg(feature = "approval")]
         app: super::approval_state::AppState::default(),
+        #[cfg(feature = "wellbeing")]
+        wb: Vec::new(),
         #[cfg(feature = "education")]
         edu: super::education::EduState::default(),
         #[cfg(feature = "migration")]

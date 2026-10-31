@@ -143,6 +143,8 @@ mod approval_state;
 // The poverty and inequality indicators (roadmap M5).
 #[cfg(feature = "poverty")]
 mod poverty_state;
+#[cfg(feature = "wellbeing")]
+mod wellbeing_state;
 
 use econ_ledger::{InvariantError, Ledger};
 use econ_mech_households::HouseholdParams;
@@ -1230,6 +1232,8 @@ pub struct World {
     pov: poverty_state::PovState,
     #[cfg(feature = "approval")]
     app: approval_state::AppState,
+    #[cfg(feature = "wellbeing")]
+    wb: Vec<crate::wellbeing::WellbeingStats>,
     #[cfg(feature = "education")]
     edu: education::EduState,
     #[cfg(feature = "migration")]

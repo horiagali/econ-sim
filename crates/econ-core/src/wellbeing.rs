@@ -6,10 +6,8 @@
 //! Outputs only, read by migration's expected home quality (step 5b, feature
 //! `home_quality`).
 //!
-//! API skeleton from the spec's API sketch, written with the acceptance
-//! tests before the code (ADR-0014); every body is `unimplemented!` until the
-//! implementation fills it. Ratios are millionths, years and SoL points
-//! thousandths.
+//! The API is the spec's sketch, written with the acceptance tests before the
+//! code (ADR-0014). Ratios are millionths, years and SoL points thousandths.
 
 use econ_types::Month;
 
@@ -69,21 +67,35 @@ pub struct WellbeingStats {
 /// mortality table (`[sex][age]`, F 0 and M 1, the yearly probability of
 /// dying in parts per billion, ages 0 to 100, 100 the last age): a standard
 /// period life table with deaths at mid-year, the two sexes weighted by
-/// `men_share_ppm`.
-///
-/// Test writer's addition (ADR-0014): the implementation fills it.
+/// `men_share_ppm`. Everyone alive at 100 dies in its year.
 #[must_use]
 pub fn life_expectancy_milli(yearly_q_ppb: &[[u32; 101]; 2], men_share_ppm: u32) -> u32 {
-    let _ = (yearly_q_ppb, men_share_ppm);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let e0 = |q: &[u32; 101]| -> f64 {
+        let (mut alive, mut years) = (1.0f64, 0.0f64);
+        for (a, &x) in q.iter().enumerate() {
+            let q = if a == 100 {
+                1.0
+            } else {
+                (f64::from(x) / 1e9).min(1.0)
+            };
+            let next = alive * (1.0 - q);
+            years += (alive + next) / 2.0;
+            alive = next;
+        }
+        years
+    };
+    let m = f64::from(men_share_ppm.min(1_000_000)) / 1e6;
+    let e = e0(&yearly_q_ppb[0]) * (1.0 - m) + e0(&yearly_q_ppb[1]) * m;
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let v = (e * 1_000.0).round() as u32;
+    v
 }
 
 /// AC-WB-01: the index from its four inputs (life expectancy, mean and
 /// expected years of schooling, all thousandths of a year; the mean SoL,
 /// thousandths of a point), each dimension clamped to [0, 1], millionths
-/// rounded to the nearest.
-///
-/// Test writer's addition (ADR-0014): the implementation fills it.
+/// rounded to the nearest; the index is the geometric mean of the exact
+/// dimensions.
 #[must_use]
 pub fn wellbeing_ppm(
     life_exp_milli: u32,
@@ -91,22 +103,32 @@ pub fn wellbeing_ppm(
     expected_years_milli: u32,
     sol_milli: u32,
 ) -> Wellbeing {
-    let _ = (
-        life_exp_milli,
-        mean_years_milli,
-        expected_years_milli,
-        sol_milli,
-    );
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let unit = |x: f64| x.clamp(0.0, 1.0);
+    let f = |x: u32| f64::from(x) / 1_000.0;
+    let health = unit((f(life_exp_milli) - 20.0) / 65.0);
+    let education = unit((f(mean_years_milli) / 15.0 + f(expected_years_milli) / 18.0) / 2.0);
+    let living = unit((f(sol_milli) - 10.0) / 50.0);
+    let product = health * education * living;
+    let index = if product > 0.0 {
+        econ_num::math::powf(product, 1.0 / 3.0)
+    } else {
+        0.0
+    };
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let ppm = |x: f64| (x * 1e6).round() as u32;
+    Wellbeing {
+        index_ppm: ppm(index),
+        health_ppm: ppm(health),
+        education_ppm: ppm(education),
+        living_ppm: ppm(living),
+    }
 }
 
 impl World {
     /// The wellbeing index of every closed month, in order (empty when
     /// `WorldParams::wellbeing` is `None`).
-    ///
-    /// Test writer's addition (ADR-0014): the implementation fills it.
     #[must_use]
     pub fn wellbeing_stats(&self) -> &[WellbeingStats] {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.wb()
     }
 }
