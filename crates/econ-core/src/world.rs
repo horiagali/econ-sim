@@ -123,6 +123,8 @@ mod treasury;
 #[cfg(feature = "education")]
 pub mod education;
 #[cfg(feature = "migration")]
+mod emigration;
+#[cfg(feature = "migration")]
 mod migration;
 #[cfg(any(
     feature = "migration",
@@ -167,7 +169,9 @@ pub use insolvency::FirmUnpaid;
 #[cfg(feature = "investment")]
 pub use investment::InvestmentState;
 #[cfg(feature = "migration")]
-pub use migration::{DiasporaView, MIGRATION_AGE_BANDS, MigrationMonth, StockCell};
+pub use migration::{
+    DiasporaView, MIGRATION_AGE_BANDS, MigrationMonth, MigrationWorldParams, StockCell,
+};
 #[cfg(feature = "revenue")]
 pub use observe::{
     HeldBenefit, HeldPayment, ImputedRentPayment, RevenueDay, RevenueMonth, eu_month,
@@ -711,6 +715,9 @@ pub struct WorldParams {
     /// Education's first version (spec society/education).
     #[cfg(feature = "education")]
     pub education: education::EducationParams,
+    /// Migration (spec economy/migration-remittances).
+    #[cfg(feature = "migration")]
+    pub migration: migration::MigrationWorldParams,
 }
 
 impl WorldParams {
@@ -762,6 +769,8 @@ impl WorldParams {
             poverty: Some(crate::poverty::PovertyParams::spec_defaults()),
             #[cfg(feature = "education")]
             education: education::EducationParams::spec_defaults(),
+            #[cfg(feature = "migration")]
+            migration: migration::MigrationWorldParams::spec_defaults(),
         }
     }
 }

@@ -451,7 +451,9 @@ impl World {
             if december {
                 self.people_year_end();
             }
-            if december || self.params.demography.compact_monthly {
+            // With migration the tables are compacted at every close: the
+            // records and persons that left or died free their rows.
+            if december || self.params.demography.compact_monthly || cfg!(feature = "migration") {
                 self.compact_people();
             }
         }

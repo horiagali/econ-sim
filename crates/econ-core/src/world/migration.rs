@@ -102,6 +102,39 @@ pub(crate) struct MigState {
     stock: Vec<StockCell>,
     /// The scripted unemployment shocks by region (AC-MIG-15), millionths.
     pub(crate) shocks: Vec<(u8, u32)>,
+    /// `emigration_base[a]` for bands 15–24 to 55–64, millionths a month.
+    pub(crate) p0_ppm: [u32; 5],
+    /// `migration_carry[cell]` of emigration, real persons.
+    pub(crate) carry: Vec<i64>,
+    /// Each tier's mean net wage in euro at the first close (×1e12).
+    pub(crate) base_wage_eur: Option<[i128; 3]>,
+    /// Each region's unemployment rate at the first close, millionths.
+    pub(crate) base_unemp: Vec<u32>,
+    /// Deaths of linked emigrants this month, weighted.
+    pub(crate) deaths_abroad: u64,
+    /// `world.wages_abroad` at the latest close, basis points.
+    pub(crate) omega_bp: u32,
+}
+
+/// Migration's parameters on the `World`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MigrationWorldParams {
+    /// The rules' tuning parameters.
+    pub rules: econ_mech_migration::MigrationParams,
+    /// 2021's emigrants aged 15–24, 25–34, 35–44, 45–54 and 55–64 (Eurostat
+    /// `migr_emi2`, the research note), the targets `p0` is fitted to.
+    pub emigrants_2021: [u64; 5],
+}
+
+impl MigrationWorldParams {
+    /// The spec's defaults.
+    #[must_use]
+    pub fn spec_defaults() -> MigrationWorldParams {
+        MigrationWorldParams {
+            rules: econ_mech_migration::MigrationParams::spec_defaults(),
+            emigrants_2021: [39_259, 62_148, 45_638, 31_050, 13_111],
+        }
+    }
 }
 
 /// The skill tier of an education level: low 0, mid 1, high 2.
@@ -158,6 +191,19 @@ impl World {
             .people
             .next_person_key
             .max(le.person_key.iter().map(|&k| k + 1).max().unwrap_or(0));
+        self.mig.omega_bp = self.mig_omega_bp();
+        self.mig_fit();
+    }
+
+    /// Add persons to the stock's cell.
+    pub(super) fn mig_stock_add(&mut self, cell: StockCell) {
+        match self.mig.stock.iter_mut().find(|c| {
+            (c.region, c.sex, c.birth_year, c.tier)
+                == (cell.region, cell.sex, cell.birth_year, cell.tier)
+        }) {
+            Some(c) => c.persons += cell.persons,
+            None => self.mig.stock.push(cell),
+        }
     }
 
     /// Append migration's columns for a new person row: a copy of person
@@ -185,8 +231,10 @@ impl World {
 
     /// A linked emigrant died (the People phase): no longer abroad.
     pub(super) fn mig_died(&mut self, p: usize) {
-        if let Some(a) = self.mig.abroad.get_mut(p) {
-            *a = false;
+        if self.mig_abroad(p) {
+            self.mig.abroad[p] = false;
+            self.mig.deaths_abroad +=
+                u64::from(self.households.hh_weight[self.persons.household_id[p] as usize]);
         }
     }
 
@@ -194,7 +242,7 @@ impl World {
     /// counts (the record's weight) and their rows end.
     pub(super) fn mig_household_ends(&mut self, h: usize) {
         let w = u64::from(self.households.hh_weight[h]);
-        let year = i32::from(self.calendar.date(self.today).year);
+        let year = self.calendar.date(self.today).year;
         for p in 0..self.pp.age.len() {
             if self.persons.household_id[p] as usize != h
                 || !self.mig_abroad(p)
@@ -210,25 +258,63 @@ impl World {
                 tier: tier_of(self.persons.edu_level[p]),
                 persons: w,
             };
-            match self.mig.stock.iter_mut().find(|c| {
-                (c.region, c.sex, c.birth_year, c.tier)
-                    == (cell.region, cell.sex, cell.birth_year, cell.tier)
-            }) {
-                Some(c) => c.persons += w,
-                None => self.mig.stock.push(cell),
-            }
+            self.mig_stock_add(cell);
             self.mig.abroad[p] = false;
             self.dem.life.alive[p] = false;
         }
     }
 
-    /// The monthly close: a month more abroad.
+    /// The monthly close: a month more abroad, the month's emigration, and
+    /// the month's report (with the People phase's births and deaths).
     pub(super) fn migration_close(&mut self) {
         for p in 0..self.mig.abroad.len() {
             if self.mig.abroad[p] {
                 self.mig.months_abroad[p] = self.mig.months_abroad[p].saturating_add(1);
             }
         }
+        let d = self.mig_emigration();
+        self.mig.omega_bp = self.mig_omega_bp();
+        let t = u32::try_from(self.months.len() - 1).expect("a month");
+        let births: u64 = self
+            .dem
+            .report
+            .births
+            .iter()
+            .map(|b| u64::from(b.weight))
+            .sum();
+        let deaths: u64 = self
+            .dem
+            .report
+            .deaths
+            .iter()
+            .map(|x| u64::from(x.weight))
+            .sum();
+        let abroad = std::mem::take(&mut self.mig.deaths_abroad);
+        let n_c = usize::from(
+            self.dem
+                .hh_life
+                .hh_county
+                .iter()
+                .copied()
+                .max()
+                .unwrap_or(0),
+        ) + 1;
+        let months = &mut self.rem.migration_months;
+        if months.last().is_none_or(|m| m.month.0 != t) {
+            months.push(MigrationMonth {
+                month: Month(t),
+                ..MigrationMonth::default()
+            });
+        }
+        let m = months.last_mut().expect("the month");
+        m.emigrants = d.emigrants;
+        m.emigrants_by_age = d.by_age;
+        m.emigrated_households = d.households;
+        m.births = births;
+        m.deaths_resident = deaths - abroad;
+        m.deaths_abroad = abroad;
+        m.moves_in = vec![0; n_c];
+        m.moves_out = vec![0; n_c];
     }
 
     /// Every closed month's migration, in order (one per monthly close).

@@ -38,6 +38,8 @@ pub enum Stream {
     Schedule = 7,
     /// Education's June and August closes (spec `society/education`).
     Education = 8,
+    /// Migration's monthly close (spec `economy/migration-remittances`).
+    Migration = 9,
 }
 
 /// Number of 32-bit words reserved per (tick, entity, stream).

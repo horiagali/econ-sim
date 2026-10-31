@@ -89,7 +89,8 @@ pub struct TradeMonth {
     /// (< 0) against the rest of the world's lei deposits.
     pub intervention: Bani,
     /// The capital account inside `current_account` (a memo): the EU's
-    /// capital grants (spec economy/eu-funds, AC-TFX-03 restated).
+    /// capital grants (spec economy/eu-funds, AC-TFX-03 restated) and
+    /// migrants' capital (spec economy/migration-remittances).
     pub capital_account: Bani,
 }
 
@@ -546,10 +547,15 @@ impl World {
         };
         let flows = std::mem::take(&mut self.fx.month_flows);
         let ca: i128 = -flows.values().sum::<i128>();
-        let capital = -flows
-            .get(&FlowCode::TRANSFER_EU_GRANTS_CAPITAL)
-            .copied()
-            .unwrap_or(0);
+        // The capital account's lines (inside the total above, as the EU's
+        // capital grants): the EU's grants and migrants' capital.
+        let capital = -[
+            FlowCode::TRANSFER_EU_GRANTS_CAPITAL,
+            FlowCode::TRANSFER_MIGRANT_CAPITAL,
+        ]
+        .iter()
+        .map(|c| flows.get(c).copied().unwrap_or(0))
+        .sum::<i128>();
         let volume = std::mem::take(&mut self.fx.exports_month);
         self.fx.months.push(TradeMonth {
             month,
