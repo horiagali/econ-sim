@@ -126,6 +126,8 @@ pub mod education;
 mod emigration;
 #[cfg(feature = "migration")]
 mod migration;
+#[cfg(feature = "migration")]
+mod moves;
 #[cfg(any(
     feature = "migration",
     feature = "education",

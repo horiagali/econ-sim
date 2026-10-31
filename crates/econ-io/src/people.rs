@@ -188,6 +188,62 @@ fn date(s: &str) -> Option<Date> {
     })
 }
 
+/// Parse `county_moves.json` (the pipeline's `county_moves2021_ro.json`):
+/// its counties must be `counties`, in that order, and the balances sum to
+/// zero.
+///
+/// # Errors
+/// `SaveError::Parse` if the JSON is not such a file.
+pub fn read_county_moves(
+    json: &str,
+    counties: &[String],
+) -> Result<econ_popgen::CountyMoves, SaveError> {
+    const FILE: &str = "county moves";
+    let v = parse(json, FILE)?;
+    let names: Vec<&str> = v["counties"]
+        .as_array()
+        .map(|a| a.iter().filter_map(Value::as_str).collect())
+        .unwrap_or_default();
+    if names.len() != counties.len() || names.iter().zip(counties).any(|(a, b)| *a != b.as_str()) {
+        return Err(stage_err(FILE, "counties differ from the census margins'"));
+    }
+    let ints = |name: &str| -> Result<Vec<i64>, SaveError> {
+        let a = v[name]
+            .as_array()
+            .filter(|a| a.len() == counties.len())
+            .ok_or_else(|| stage_err(FILE, &format!("{name} needs one value per county")))?;
+        a.iter()
+            .map(|x| {
+                x.as_i64()
+                    .ok_or_else(|| stage_err(FILE, &format!("{name} holds a non-integer")))
+            })
+            .collect()
+    };
+    let net_2021 = ints("net_2021")?;
+    if net_2021.iter().sum::<i64>() != 0 {
+        return Err(stage_err(FILE, "net_2021 does not sum to zero"));
+    }
+    let deg = |name: &str| -> Result<Vec<i32>, SaveError> {
+        ints(name)?
+            .into_iter()
+            .map(|x| i32::try_from(x).map_err(|_| stage_err(FILE, &format!("{name} out of range"))))
+            .collect()
+    };
+    Ok(econ_popgen::CountyMoves {
+        net_2021,
+        seat_lat_milli: deg("seat_lat_milli")?,
+        seat_lon_milli: deg("seat_lon_milli")?,
+        settlements_2021: v["settlements_2021"]
+            .as_u64()
+            .ok_or_else(|| stage_err(FILE, "settlements_2021"))?,
+        between_county_share_ppm: v["between_county_share_ppm"]
+            .as_u64()
+            .and_then(|x| u32::try_from(x).ok())
+            .filter(|&x| x <= 1_000_000)
+            .ok_or_else(|| stage_err(FILE, "between_county_share_ppm"))?,
+    })
+}
+
 /// Parse `demography.json` (the pipeline's `demography2019_ro.json`): the
 /// mortality table (ages 0 to 109 in the file; at 110 the probability is
 /// one), the fertility rates, the sex ratio at birth and the dated

@@ -76,6 +76,9 @@ pub struct PeopleStart {
     pub diaspora_stock: Vec<DiasporaCell>,
     /// The demographic tables; `None` for a scenario without `demography.json`.
     pub demography: Option<Demography>,
+    /// Moves between counties' inputs; `None` for a scenario without
+    /// `county_moves.json`.
+    pub county_moves: Option<econ_popgen::CountyMoves>,
     /// The next free `person_key`; 0 means after every key above.
     pub next_person_key: u64,
     /// The next free `hh_key`; 0 means after every key above.
@@ -105,6 +108,8 @@ pub struct People {
     pub diaspora_stock: Vec<DiasporaCell>,
     /// The demographic tables.
     pub demography: Option<Demography>,
+    /// Moves between counties' inputs.
+    pub county_moves: Option<econ_popgen::CountyMoves>,
     /// `edu_capacity[ℓ]` by `Enrolled` (index 0, not enrolled, is 0):
     /// weighted persons.
     pub edu_capacity: [u64; ENROLMENT],
@@ -237,6 +242,7 @@ pub(super) fn load(s: &StartState, person_weight: &[u64]) -> People {
         linked_emigrants: linked,
         diaspora_stock: p.diaspora_stock.clone(),
         demography: p.demography.clone(),
+        county_moves: p.county_moves.clone(),
         edu_capacity,
         wage_nominal,
         next_person_key,

@@ -350,3 +350,19 @@ source = "eurostat"
 code = "migr_emi2"                 # emigration by age and sex
 filters = { geo = ["RO"], time = ["2021"], unit = ["NR"], agedef = ["COMPLET"], sex = ["F", "M"] }
 licence = "eurostat-reuse"
+
+# Internal migration by change of domicile, 2021, all 42 counties (INS TEMPO). Inputs of
+# normalise_county_moves.py (spec economy/migration-remittances, step 6).
+[[dataset]]
+id = "ro_domicile_balance_2021"
+source = "ins_tempo"
+code = "POP303B"                   # net balance of changes of domicile by county
+select = { "Medii" = ["Total"], "Ani" = ["Anul 2021"] }
+licence = "ins"                    # INS data (TEMPO), reuse with attribution
+
+[[dataset]]
+id = "ro_domicile_settlements_2021"
+source = "ins_tempo"
+code = "POP301B"                   # settlements of domicile (every change between localities) by county
+select = { "Medii" = ["Total"], "Ani" = ["Anul 2021"] }
+licence = "ins"

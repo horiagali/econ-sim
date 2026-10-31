@@ -24,6 +24,10 @@ stages:
     cmd: python normalise_linked_emigrants.py
     deps: [normalise_linked_emigrants.py, normalise_census.py, jsonstat.py, data/raw/ro_emigrants_age_2021.json]
     outs: [data/derived/linked_emigrants2021_ro.json]
+  normalise_county_moves:
+    cmd: python normalise_county_moves.py
+    deps: [normalise_county_moves.py, data/raw/ro_domicile_balance_2021.csv, data/raw/ro_domicile_settlements_2021.csv, data/derived/census2021_margins_ro.json]
+    outs: [data/derived/county_moves2021_ro.json]
   normalise_census_jobs:
     cmd: python normalise_census_jobs.py
     deps: [normalise_census_jobs.py, normalise_census_attributes.py, normalise_census.py, jsonstat.py, data/raw/ro_census2021_employment_industry.json, data/raw/ro_census2021_employment_occupation.json, data/raw/eu_lfs2021_occupation_industry.json, data/raw/eu_lfs2021_occupation_education.json, data/derived/census2021_edu_activity_ro.json]
