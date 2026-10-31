@@ -1290,6 +1290,9 @@ impl World {
             hh.hh_income_received[h] += x;
             hh.income_to_date[h] += x;
             self.hh.income_this_month[h] += x;
+            // Imputed rent is not money income for the poverty indicators.
+            #[cfg(feature = "poverty")]
+            self.pov_imputed_rent(h, x);
         }
         let by_unit = super::money::split(paid, &self.rev.rent_last);
         for (u, &p) in by_unit.iter().enumerate() {
