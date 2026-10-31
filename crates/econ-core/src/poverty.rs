@@ -168,6 +168,54 @@ pub fn recent_income(prev: Bani, month_income: Bani, cpi_ppm: u32, speed_ppm: u3
     Bani(i64::try_from(v).expect("an amount"))
 }
 
+/// Step 9 (AC-POV-10): the standard of living of a household, thousandths of
+/// a point, `clamp(10 + 10 log2(c / s), 0, 100)` rounded to the nearest, from
+/// its real equivalised consumption `c` (bani a month per adult, day 0's
+/// prices) and `sol_subsistence` `s`.
+///
+/// Test writer's addition (ADR-0014): the implementation fills it.
+#[must_use]
+pub fn sol_milli(consumption_real_eq: Bani, subsistence: Bani) -> u32 {
+    let _ = (consumption_real_eq, subsistence);
+    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+}
+
+/// Step 9 (AC-POV-10): a month's public health (or education) spending
+/// shared out over household records by `record weight × person weight`
+/// (the person weight being the sum of the age or level weights of its
+/// members). Each element is the record's whole amount (its weight
+/// included), whole bani; the elements sum to `total` exactly.
+///
+/// Test writer's addition (ADR-0014): the implementation fills it.
+#[must_use]
+pub fn share_by_weight(total: Bani, weights: &[(u32, u32)]) -> Vec<Bani> {
+    let _ = (total, weights);
+    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+}
+
+/// Step 9's outputs of a month: weighted means of SoL over persons,
+/// thousandths of a point.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SolStats {
+    /// The national mean.
+    pub national_milli: u32,
+    /// By county.
+    pub by_county: Vec<u32>,
+    /// By development region.
+    pub by_region: Vec<u32>,
+    /// By standard-of-living class (step 6): at risk, lower-middle, middle,
+    /// affluent.
+    pub by_class: [u32; 4],
+    /// By income fifth of the households (`hh_fifth`), poorest first.
+    pub by_fifth: [u32; 5],
+    /// By age group: 0–17, 18–64, 65 or more.
+    pub by_age: [u32; 3],
+    /// The national mean's change since the last close by part: purchases,
+    /// home-grown food, imputed rent, health, education; they sum to the
+    /// change.
+    pub parts_change_milli: [i64; 5],
+}
+
 /// The tuning parameters of the spec's table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PovertyParams {
@@ -177,6 +225,16 @@ pub struct PovertyParams {
     pub class_lines_ppm: [u32; 3],
     /// `income_recent_speed` a month, millionths (1/3).
     pub income_recent_speed_ppm: u32,
+    /// `sol_subsistence`: consumption at SoL 10, per adult a month at day 0's
+    /// prices (700 lei). Test writer's addition (ADR-0014).
+    pub sol_subsistence: Bani,
+    /// `sol_health_age_weights`, millionths: under 5, 5–64, 65 and over.
+    /// Test writer's addition (ADR-0014).
+    pub sol_health_age_weights_ppm: [u32; 3],
+    /// `sol_education_level_weights`, millionths: pre-school, primary, lower
+    /// secondary, upper secondary, post-secondary, tertiary, master or
+    /// doctorate. Test writer's addition (ADR-0014).
+    pub sol_education_level_weights_ppm: [u32; 7],
 }
 
 impl PovertyParams {
@@ -187,6 +245,11 @@ impl PovertyParams {
             poverty_line_ppm: 600_000,
             class_lines_ppm: [600_000, 750_000, 2_000_000],
             income_recent_speed_ppm: 333_333,
+            sol_subsistence: Bani::from_lei(700),
+            sol_health_age_weights_ppm: [1_500_000, 1_000_000, 3_000_000],
+            sol_education_level_weights_ppm: [
+                1_000_000, 1_000_000, 1_200_000, 1_300_000, 1_300_000, 2_000_000, 2_500_000,
+            ],
         }
     }
 }
@@ -223,6 +286,9 @@ pub struct PovertyStats {
     /// The annual indicators, on the calendar year's income: December
     /// closes only.
     pub annual: Option<IncomeMeasures>,
+    /// The standard of living (step 9). Test writer's addition (ADR-0014):
+    /// left at its default until the implementation computes it.
+    pub sol: SolStats,
 }
 
 impl World {
@@ -249,5 +315,25 @@ impl World {
     /// [`crate::world::HouseholdColumns`].
     pub fn hh_income_year(&self) -> &[Bani] {
         self.pov().year.as_slice()
+    }
+
+    /// `hh_disposable_income` as the indicators take it: each household's
+    /// income `Y_h` of the latest closed month (step 1; month 0's from after
+    /// November's pay on day 0, imputed rent left out, as restated on
+    /// 2026-10-31), aligned with [`crate::world::HouseholdColumns`].
+    ///
+    /// Test writer's addition (ADR-0014): the implementation fills it.
+    pub fn hh_income_month(&self) -> &[Bani] {
+        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    }
+
+    /// Each household's standard of living (step 9) at the latest close,
+    /// thousandths of a point, aligned with
+    /// [`crate::world::HouseholdColumns`].
+    ///
+    /// Test writer's addition (ADR-0014): the implementation fills it.
+    #[must_use]
+    pub fn hh_sol_milli(&self) -> &[u32] {
+        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
     }
 }

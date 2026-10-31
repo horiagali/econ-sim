@@ -174,6 +174,53 @@ pub fn eur_to_lei(eur_cents: i64, exchange_rate_ppm: u64) -> Bani {
     Bani(i64::try_from(v).expect("an amount"))
 }
 
+/// The instant home quality of a region (step 5b, AC-MIG-18), millionths:
+/// `q = W / W0 · ((1 + β_u u0) / (1 + β_u u))^θ_u`, with the region's
+/// wellbeing index now and at the first close (millionths), its unemployment
+/// rate now and at the start (millionths), β_u (`emigration_unemployment`,
+/// millionths) and θ_u (`quality_jobs_weight`, millionths).
+///
+/// Test writer's addition (ADR-0014): the implementation fills it.
+#[must_use]
+pub fn instant_quality_ppm(
+    wellbeing_ppm: u32,
+    wellbeing0_ppm: u32,
+    unemp_ppm: u32,
+    unemp0_ppm: u32,
+    unemployment_response_ppm: u32,
+    jobs_weight_ppm: u32,
+) -> u32 {
+    let _ = (
+        wellbeing_ppm,
+        wellbeing0_ppm,
+        unemp_ppm,
+        unemp0_ppm,
+        unemployment_response_ppm,
+        jobs_weight_ppm,
+    );
+    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+}
+
+/// Expected home quality's monthly update (step 5b, AC-MIG-18), millionths:
+/// `Q + (q − Q) / m`, with `m` = `quality_memory` in months.
+///
+/// Test writer's addition (ADR-0014): the implementation fills it.
+#[must_use]
+pub fn home_quality_ppm(prev_ppm: u32, instant_ppm: u32, memory_months: u16) -> u32 {
+    let _ = (prev_ppm, instant_ppm, memory_months);
+    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+}
+
+/// A multiplier of step 5b (AC-MIG-18), millionths: `Q^ε` for an elasticity
+/// in millionths, negative for emigration (`Q^−ε_q,e`).
+///
+/// Test writer's addition (ADR-0014): the implementation fills it.
+#[must_use]
+pub fn quality_factor_ppm(quality_ppm: u32, elasticity_ppm: i64) -> u32 {
+    let _ = (quality_ppm, elasticity_ppm);
+    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+}
+
 /// The logit shares of the destinations of a move out of `origin` (step 6,
 /// AC-MIG-04), millionths summing to 1,000,000, one per county; the origin's
 /// is 0. `utility_ppm[d]` is `V_cd` in millionths.

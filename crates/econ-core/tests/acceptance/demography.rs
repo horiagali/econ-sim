@@ -263,12 +263,20 @@ fn ac_dem_05() {
 /// mean age within 0.5 years of 28.1, and births to women in a couple are a
 /// larger share than their share of women aged 15–49.
 ///
-/// Readings: at 1:100. The rate is Σ over ages 15 to 49 of the year's births
-/// to mothers of that age (in whole years at the birth) over the mean number
-/// of women of that age at the 12 month ends. The mean age of mothers uses
-/// exact ages (months + ½ over 12). "In a couple" is the birth's
-/// `mother_in_couple`; the women's share is the mean over the 12 month ends
-/// of the weighted share of live women aged 15–49 who live in a couple.
+/// Restated 2026-10-31 (the owner's choice of 2026-10-30, recorded in the
+/// spec): the mothers' mean age is read from the run's age-specific rates,
+/// as the TFR is, not as the births' mean age (which the starting
+/// population's age structure pulls to about 28.7).
+///
+/// Readings: at 1:100. The age-specific rate `f_a` is the year's births to
+/// mothers of age `a` (in whole years at the birth) over the mean number of
+/// women of that age at the 12 month ends; the rate is Σ `f_a` over ages 15
+/// to 49. The mothers' mean age is the rates' mean age, Σ `f_a` (a + ½) / Σ
+/// `f_a` (the age-specific fertility schedule's mean age at childbearing,
+/// independent of the population's age structure). "In a couple" is the
+/// birth's `mother_in_couple`; the women's share is the mean over the 12
+/// month ends of the weighted share of live women aged 15–49 who live in a
+/// couple.
 #[test]
 #[cfg_attr(
     debug_assertions,
@@ -278,7 +286,7 @@ fn ac_dem_06() {
     let mut w = world_dem_default(100);
     let mut births_at = vec![0u64; 50];
     let mut women_at = vec![0u64; 50];
-    let (mut births, mut in_couple_births, mut age_sum) = (0u64, 0u64, 0.0f64);
+    let (mut births, mut in_couple_births) = (0u64, 0u64);
     let (mut women, mut women_in_couple) = (0u64, 0u64);
     for _ in 0..12 {
         to_close(&mut w);
@@ -290,7 +298,6 @@ fn ac_dem_06() {
             if b.mother_in_couple {
                 in_couple_births += u64::from(b.weight);
             }
-            age_sum += f64::from(b.weight) * (f64::from(b.mother_age) + 0.5) / 12.0;
         }
         let people = people(&w);
         let couple = in_couple(&w);
@@ -305,12 +312,18 @@ fn ac_dem_06() {
             }
         }
     }
-    let tfr: f64 = (15..=49)
-        .map(|a| ratio(births_at[a], women_at[a]) * 12.0)
-        .sum();
+    let rates: Vec<(f64, f64)> = (15..=49u16)
+        .map(|a| {
+            (
+                f64::from(a) + 0.5,
+                ratio(births_at[usize::from(a)], women_at[usize::from(a)]) * 12.0,
+            )
+        })
+        .collect();
+    let tfr: f64 = rates.iter().map(|&(_, f)| f).sum();
     assert!((tfr - 1.77).abs() <= 0.05, "total fertility rate {tfr:.3}");
-    #[allow(clippy::cast_precision_loss)]
-    let mean_age = age_sum / births as f64;
+    assert!(births > 0, "births in the first year");
+    let mean_age = rates.iter().map(|&(a, f)| f * a).sum::<f64>() / tfr;
     assert!(
         (mean_age - 28.1).abs() <= 0.5,
         "mothers' mean age {mean_age:.2}"
