@@ -1152,6 +1152,8 @@ impl World {
             self.households.hh_cash[k] -= pc;
             self.households.hh_deposits[k] -= pd;
             self.households.spending_to_date[k] += gross;
+            #[cfg(feature = "poverty")]
+            self.pov_purchase(k, gross);
             let w = weight[b];
             by_cash += w * i128::from(pc.get());
             by_deposits += w * i128::from(pd.get());
