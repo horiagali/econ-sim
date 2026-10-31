@@ -395,10 +395,12 @@ impl World {
         self.months.push(stats);
         // Education after the month's statistics, on the activities of the
         // close before.
-        #[cfg(feature = "education")]
-        self.education_close();
+        // Migration first: education's report counts the residents left
+        // after the month's departures and arrivals.
         #[cfg(feature = "migration")]
         self.migration_close();
+        #[cfg(feature = "education")]
+        self.education_close();
         #[cfg(any(
             feature = "migration",
             feature = "education",
