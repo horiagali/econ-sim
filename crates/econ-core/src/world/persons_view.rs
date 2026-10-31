@@ -75,6 +75,16 @@ impl World {
         self.act.start[p] = a;
     }
 
+    /// Set a new person's current activity before the next refresh (an
+    /// arrival cloned from a donor must not keep the donor's).
+    #[cfg(feature = "migration")]
+    pub(super) fn set_activity_now(&mut self, p: usize, a: Activity) {
+        if self.act.now.len() <= p {
+            self.act.now.resize(p + 1, Activity::Child);
+        }
+        self.act.now[p] = a;
+    }
+
     /// The yearly compaction of the People phase.
     #[cfg(feature = "demography")]
     pub(super) fn act_compact(&mut self, keep_p: &[bool]) {

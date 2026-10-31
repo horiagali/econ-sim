@@ -354,6 +354,12 @@ impl World {
         self.fs_set_points(p, 0);
         self.fs_end_claim(p);
         self.set_base_activity(p, Activity::InactiveOther);
+        let now = if self.pp.seeking[p] {
+            Activity::Unemployed
+        } else {
+            Activity::InactiveOther
+        };
+        self.set_activity_now(p, now);
         self.people_recount(h);
         self.mig_bring(h, a.savings);
         true
