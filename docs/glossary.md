@@ -4,7 +4,7 @@ title: Glossary & Variable Registry
 status: draft
 owner: horia
 depends_on: []
-updated: 2026-10-29
+updated: 2026-10-31
 ---
 
 # Glossary & Variable Registry
@@ -250,6 +250,7 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `foreign_price_growth[b]`, `foreign_demand_growth[b]` | World setting: growth a year of import prices and of demand for exports, by bloc *b* (EU, non-EU); basis points in code | % / year | lever | economy/trade-fx |
 | — | `fuel_price[fuel]` | World setting: world price of oil (a barrel), gas (a MWh) and coal (a tonne) | LCU / unit | lever | economy/energy |
 | — | `foreign_rate` | World setting: interest rate abroad (the ECB's); basis points in code | % / year | lever | economy/trade-fx |
+| $Q_r$ | `home_quality[r]` | Expected quality of life at home in region *r* that migrants weigh (public services, jobs), a slow memory, relative to the start (proposed) | ratio | derived | economy/migration-remittances |
 | — | `wages_abroad` | World setting: wages abroad relative to Romania's at the start; basis points in code | ratio | lever | economy/migration-remittances |
 | — | `age`, `sex`, `role` | Person's age (months), sex (F, M) and role in the household (head, partner, child, other) | months / category | state | society/population-groups |
 | — | `person_key` | Stable identity of a person, never reused; the entity of keyed draws about the person (indices change at compaction) | id | state | economy/demographics |
