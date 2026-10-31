@@ -547,6 +547,10 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     s.budget_benefits_year = budget_benefits(scenario_dir)?;
     s.gov_investment_year = budget_investment(scenario_dir)?;
     s.people = people_start(scenario_dir, &scenario, &hb, &pb)?;
+    #[cfg(feature = "education")]
+    {
+        s.enrolled.clone_from(&s.people.enrolled);
+    }
     Ok(s)
 }
 

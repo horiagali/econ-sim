@@ -122,6 +122,15 @@ impl World {
         self.fs_copy_person(p);
         #[cfg(feature = "revenue")]
         self.rev_copy_person(p);
+        #[cfg(any(
+            feature = "migration",
+            feature = "education",
+            feature = "approval",
+            feature = "poverty"
+        ))]
+        self.act_push(Some(p));
+        #[cfg(feature = "education")]
+        self.edu_push_person(Some(p));
         let u = self.persons.employer[p];
         if u != NO_EMPLOYER {
             let i = u32::try_from(c).expect("a person");

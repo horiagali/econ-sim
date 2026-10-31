@@ -36,6 +36,8 @@ pub enum Stream {
     Weather = 6,
     /// Stagger days of households and firm units (ADR-0017).
     Schedule = 7,
+    /// Education's June and August closes (spec `society/education`).
+    Education = 8,
 }
 
 /// Number of 32-bit words reserved per (tick, entity, stream).

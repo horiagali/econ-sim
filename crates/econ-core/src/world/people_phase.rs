@@ -446,6 +446,8 @@ impl World {
         self.pov_compact(&keep_h);
         #[cfg(feature = "approval")]
         self.app_compact(&keep_p, &keep_h);
+        #[cfg(feature = "education")]
+        self.edu_compact(&keep_p);
         #[cfg(any(
             feature = "migration",
             feature = "education",
@@ -797,6 +799,15 @@ impl World {
         self.fs_push_person();
         #[cfg(feature = "revenue")]
         self.rev_push_person(Activity::Child as u8);
+        #[cfg(any(
+            feature = "migration",
+            feature = "education",
+            feature = "approval",
+            feature = "poverty"
+        ))]
+        self.act_push(None);
+        #[cfg(feature = "education")]
+        self.edu_push_person(None);
         p
     }
 
