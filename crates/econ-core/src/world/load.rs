@@ -787,6 +787,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         pov: super::poverty_state::PovState::default(),
         #[cfg(feature = "approval")]
         app: super::approval_state::AppState::default(),
+        #[cfg(feature = "education")]
+        edu: super::education::EduState::default(),
         #[cfg(any(
             feature = "migration",
             feature = "education",
@@ -851,6 +853,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     world.start_people_phase(&s);
     #[cfg(feature = "poverty")]
     world.start_poverty(&s);
+    #[cfg(feature = "education")]
+    world.start_education();
     #[cfg(any(
         feature = "migration",
         feature = "education",

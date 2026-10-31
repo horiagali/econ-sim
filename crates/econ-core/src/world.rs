@@ -708,6 +708,9 @@ pub struct WorldParams {
     /// (ADR-0014).
     #[cfg(feature = "poverty")]
     pub poverty: Option<crate::poverty::PovertyParams>,
+    /// Education's first version (spec society/education).
+    #[cfg(feature = "education")]
+    pub education: education::EducationParams,
 }
 
 impl WorldParams {
@@ -757,6 +760,8 @@ impl WorldParams {
             approval: Some(crate::approval::ApprovalParams::spec_defaults()),
             #[cfg(feature = "poverty")]
             poverty: Some(crate::poverty::PovertyParams::spec_defaults()),
+            #[cfg(feature = "education")]
+            education: education::EducationParams::spec_defaults(),
         }
     }
 }
@@ -1206,6 +1211,8 @@ pub struct World {
     pov: poverty_state::PovState,
     #[cfg(feature = "approval")]
     app: approval_state::AppState,
+    #[cfg(feature = "education")]
+    edu: education::EduState,
     /// Each person's main activity (Stage C's at load; refreshed at each
     /// monthly close from jobs, job search and pensions).
     #[cfg(any(

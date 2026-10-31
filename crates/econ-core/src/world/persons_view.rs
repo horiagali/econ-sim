@@ -49,6 +49,32 @@ impl World {
         self.act.now = now;
     }
 
+    /// Append the activity of a new person row (the last one): a copy of
+    /// person `from`'s, or a child's.
+    #[cfg(feature = "demography")]
+    pub(super) fn act_push(&mut self, from: Option<usize>) {
+        let n = self.pp.age.len();
+        let a = |v: &[Activity]| {
+            from.and_then(|p| v.get(p).copied())
+                .unwrap_or(Activity::Child)
+        };
+        let (start, now) = (a(&self.act.start), a(&self.act.now));
+        self.act.start.resize(n - 1, Activity::Child);
+        self.act.now.resize(n - 1, Activity::Child);
+        self.act.start.push(start);
+        self.act.now.push(now);
+    }
+
+    /// Set the activity a person keeps when neither employed, seeking nor
+    /// retired (education's leavers and pupils).
+    #[cfg(feature = "education")]
+    pub(super) fn set_base_activity(&mut self, p: usize, a: Activity) {
+        if self.act.start.len() <= p {
+            self.act.start.resize(p + 1, Activity::Child);
+        }
+        self.act.start[p] = a;
+    }
+
     /// The yearly compaction of the People phase.
     #[cfg(feature = "demography")]
     pub(super) fn act_compact(&mut self, keep_p: &[bool]) {

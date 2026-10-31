@@ -32,6 +32,8 @@ default = ["budget"]
 # `read_commands`: a commands file of headless play (spec game/lever-system),
 # as an API skeleton before its acceptance tests (ADR-0014). Off by default.
 levers = ["world", "econ-core/levers"]
+# Stage K's `enrolled` in the `StartState` (spec society/education).
+education = ["world", "econ-core/education"]
 
 [dev-dependencies]
 # The reconciliation with the starting population (AC-BUD-09) builds the

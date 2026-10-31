@@ -390,6 +390,10 @@ impl World {
             });
         }
         self.months.push(stats);
+        // Education after the month's statistics, on the activities of the
+        // close before.
+        #[cfg(feature = "education")]
+        self.education_close();
         #[cfg(any(
             feature = "migration",
             feature = "education",

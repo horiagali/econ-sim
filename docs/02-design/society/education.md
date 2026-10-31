@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [society/population-groups, economy/fiscal-policy, society/population-inactivity-enrolment, society/population-attributes, economy/labor-market, economy/demographics, game/world-loop, adr/0006-determinism-contract, adr/0017-time-base]
 research: [research/education-flows-romania, research/inactivity-enrolment-romania]
-updated: 2026-10-29
+updated: 2026-10-31
 ---
 
 # Education
@@ -115,6 +115,9 @@ With the start's places, primary binds at first: a year of 6-year-olds (about 19
 > **Simplification:** dropout and continuation rates are the same for everyone at a level: they do not depend on household income, parents' education, region or grades (M14).
 
 **Not in M5:** the enrolment decision and its logistic rule, quality, capacity by region, teachers, fields of study, grade repetition, private schools, adults returning, student finance beyond Stage K's grants, the skill effect and wage returns, emigration of graduates (that is [migration](../economy/migration-remittances.md)'s, which reads `edu_level`).
+
+### Implementation status
+- **2026-10-31:** the first version on the `World` (feature `education`, off by default): the starting `study_year`, the June and August closes after the month's statistics (keyed stream `Education`, draws by the day of the close and `person_key`), the report, the two indicators and the hash. Readings the code takes: a pre-school child leaving at 6 counts among pre-school's completers (so its line balances); the August report's `before` is the continuing students, and June's continuers are its entrants again (they are checked against the places then); a leaver under 16 and a refused primary entrant become pupils not enrolled; only children whose activity is child (never schooled) or who left pre-school in June are in the intake, so the start's pupils not enrolled never enrol. AC-EDU-01, 02, 03, 05, 07 and 08 pass (and the hash part of 09). **Owner question, owed to M7's calibration:** AC-EDU-04 fails on the start's data. Stage K puts about 113,000 bachelor students in their last year (by age: 62,000 aged 21 on 1 September and a third of the older ones), so June 2022 has 99,000 bachelor completers against at most 95,700; master and doctorate give 95,000 against at most 71,400, and post-secondary 41,900 in 2023 against at most 41,200. AC-EDU-06 fails at load already: the start's early leavers are 20.3% (2021: 15.3%) and tertiary attainment of 25 to 34 30.5% (2021: 23.3%), so the bands break by 2025. With the People phase compiled in (3e), AC-EDU-05, 07 and 08 need the tests to follow persons by `person_key` across the yearly compaction, and an enrolled adult who reaches pension age ends as retired (the spec's "cannot happen").
 
 ## Player levers
 **M5:** none. The education budget lever of M4 pays staff and inputs but does not yet move enrolment, completion or quality.
