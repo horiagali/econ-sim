@@ -858,5 +858,7 @@ glossary = "wages_abroad"
 reader = "MonthlyClose"
 group = "world"
 milestone = "alpha"
+# Wired by econ-core's feature `migration` (off by default), which makes it
+# active when it parses this file.
 status = "planned"
 label = "lever.world.wages_abroad"

@@ -3,6 +3,11 @@
 Every change to a golden hash or snapshot needs an entry here with the reason
 (ADR-0010). Newest first.
 
+## 2026-10-31 — Migration: emigration (feature `migration`, off by default)
+- **New flow code:** 4111 `transfer.migrant_capital` (households to the rest of the world, capital account) (`econ-ledger/src/codes.rs`).
+- **New keyed stream:** `Stream::Migration` (9) (`econ-rng`).
+- **Unchanged:** every golden in `tests/golden/` (the feature is off by default).
+
 ## 2026-10-30 — Remittances from linked emigrants
 - **New flow code:** 4110 `transfer.remittances` (secondary income, rest of the world to households) (`econ-ledger/src/codes.rs`).
 - **Remittances (worlds with the outside world, i.e. built from `law.json` or `Law::law_2021`):** on each month's 15th (with imputed rent; not on pay day, AC-ST-05), each linked emigrant of stage L sends r̄ · (1 − 5%)^(months abroad / 12) euro to its household, in lei at the day's rate, from the rest of the world's lei deposits; it is household income (`hh_income_received`) and a current-account credit. r̄ is fitted at load so that the starting links send 2021's net 17,248 million lei a year at e0 (spec `economy/migration-remittances`, step 3; `world/remittances.rs`). At 1:1000 GDP is 1–2.4 billion lei a month higher in the first year and unemployment about a point lower.

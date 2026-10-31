@@ -126,6 +126,10 @@ impl FlowCode {
     /// Remittances: personal transfers from linked emigrants abroad to their
     /// households (secondary income, spec economy/migration-remittances).
     pub const TRANSFER_REMITTANCES: FlowCode = FlowCode(4110);
+    /// The net deposits a household takes when it emigrates whole, from
+    /// households to the rest of the world (capital account, spec
+    /// economy/migration-remittances).
+    pub const TRANSFER_MIGRANT_CAPITAL: FlowCode = FlowCode(4111);
     // 5xxx — subsidies
     /// Subsidies on production (D3).
     pub const SUBSIDY_PRODUCTION: FlowCode = FlowCode(5001);
@@ -151,7 +155,7 @@ impl FlowCode {
 
     /// Every code the ledger knows, in ascending order. A new code is added here
     /// and in [`FlowCode::name`] in the same change.
-    pub const ALL: [FlowCode; 61] = [
+    pub const ALL: [FlowCode; 62] = [
         Self::CONSUMPTION,
         Self::GOV_PURCHASES,
         Self::GOV_INVESTMENT,
@@ -204,6 +208,7 @@ impl FlowCode {
         Self::TRANSFER_CAPITAL_RECEIVED,
         Self::TRANSFER_ESTATE,
         Self::TRANSFER_REMITTANCES,
+        Self::TRANSFER_MIGRANT_CAPITAL,
         Self::SUBSIDY_PRODUCTION,
         Self::SUBSIDY_EU_AGRI,
         Self::CASH_DEPOSIT,
@@ -277,6 +282,7 @@ impl FlowCode {
             4108 => "transfer.capital_received",
             4109 => "transfer.estate",
             4110 => "transfer.remittances",
+            4111 => "transfer.migrant_capital",
             5001 => "subsidy.production",
             5002 => "subsidy.eu_agri",
             7001 => "finance.cash_deposit",

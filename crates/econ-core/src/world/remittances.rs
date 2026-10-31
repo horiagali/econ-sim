@@ -148,7 +148,17 @@ impl World {
         let p = self.params.remittances;
         let t = u32::try_from(self.months.len()).expect("a month");
         let e = i128::from(self.foreign().exchange_rate_ppm);
-        // ω^η with ω at its starting 100% until `world.wages_abroad` is wired.
+        // ω^η: `world.wages_abroad` of the latest close with migration, else
+        // its starting 100%.
+        #[cfg(feature = "migration")]
+        let omega_ppm: i128 = {
+            let omega = f64::from(self.mig.omega_bp) / 10_000.0;
+            let eta = f64::from(p.elasticity_ppm) / 1e6;
+            #[allow(clippy::cast_possible_truncation)]
+            let v = (econ_num::math::powf(omega, eta) * 1e6).round() as i128;
+            v
+        };
+        #[cfg(not(feature = "migration"))]
         let omega_ppm: i128 = 1_000_000;
         let n_hh = self.households.hh_weight.len();
         let mut per_hh = vec![0i128; n_hh];

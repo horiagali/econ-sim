@@ -171,7 +171,15 @@ impl Registry {
             let raw: RawLever = entry
                 .try_into()
                 .map_err(|e| fault(format!("entry {}: {e}", n + 1)))?;
-            levers.push(meta_of(raw, &file.key_tables).map_err(fault)?);
+            #[cfg_attr(not(feature = "migration"), allow(unused_mut))]
+            let mut meta = meta_of(raw, &file.key_tables).map_err(fault)?;
+            // Wired by a feature still off by default: active with it
+            // (`world.wages_abroad`, migration).
+            #[cfg(feature = "migration")]
+            if meta.id == LeverId::WorldWagesAbroad {
+                meta.status = Status::Active;
+            }
+            levers.push(meta);
         }
         Ok(Registry {
             levers,
