@@ -155,6 +155,9 @@ impl World {
                 .income_this_month
                 .iter_mut()
                 .for_each(|w| *w = Bani::ZERO);
+            // Nor in the poverty indicators' month 0.
+            #[cfg(feature = "poverty")]
+            self.pov_after_start_pay();
         }
         let transfer = std::mem::take(&mut self.mac.transfer);
         if transfer.is_empty() {

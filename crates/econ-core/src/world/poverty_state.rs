@@ -17,8 +17,11 @@ pub(crate) struct PovState {
     anchor_milli: i128,
     pub(crate) recent: Vec<Bani>,
     pub(crate) year: Vec<Bani>,
-    /// `income_to_date` at the last close: the month's income is its growth.
+    /// `income_to_date` at the last close: the month's income is its growth,
+    /// less the month's imputed rent.
     to_date_prev: Vec<Bani>,
+    /// Imputed rent received since the last close (left out, step 1).
+    imputed: Vec<Bani>,
     /// The class and the persons counted of each household at the last close.
     class_prev: Vec<Option<u8>>,
     persons_prev: Vec<u64>,
@@ -59,6 +62,7 @@ fn with_national_line(d: &Distribution, median_milli: i128, line_ppm: u32) -> In
 
 impl World {
     /// A household's county (from load, or the People phase's).
+    #[cfg_attr(not(feature = "approval"), allow(dead_code))]
     pub(crate) fn pov_county(&self, h: usize) -> u8 {
         self.pov.county.get(h).copied().unwrap_or(0)
     }
@@ -91,6 +95,22 @@ impl World {
         };
     }
 
+    /// After November's pay on day 0: it is income received before December,
+    /// so month 0's income is what `income_to_date` grows by from here.
+    pub(super) fn pov_after_start_pay(&mut self) {
+        self.pov
+            .to_date_prev
+            .clone_from(&self.households.income_to_date);
+    }
+
+    /// Imputed rent paid to household `h` (per household).
+    pub(crate) fn pov_imputed_rent(&mut self, h: usize, x: Bani) {
+        if self.pov.imputed.len() <= h {
+            self.pov.imputed.resize(h + 1, Bani::ZERO);
+        }
+        self.pov.imputed[h] += x;
+    }
+
     /// The yearly compaction of the People phase: keep the households kept.
     #[cfg(feature = "demography")]
     pub(super) fn pov_compact(&mut self, keep_h: &[bool]) {
@@ -99,6 +119,7 @@ impl World {
         retain_by(&mut p.recent, keep_h);
         retain_by(&mut p.year, keep_h);
         retain_by(&mut p.to_date_prev, keep_h);
+        retain_by(&mut p.imputed, keep_h);
         retain_by(&mut p.class_prev, keep_h);
         retain_by(&mut p.persons_prev, keep_h);
         retain_by(&mut p.county, keep_h);
@@ -133,6 +154,7 @@ impl World {
         self.pov.recent.resize(n, Bani::ZERO);
         self.pov.year.resize(n, Bani::ZERO);
         self.pov.to_date_prev.resize(n, Bani::ZERO);
+        self.pov.imputed.resize(n, Bani::ZERO);
         self.pov.class_prev.resize(n, None);
         self.pov.persons_prev.resize(n, 0);
     }
@@ -160,8 +182,11 @@ impl World {
         let mut x = vec![0i128; n_hh];
         let mut v = vec![0u64; n_hh];
         for h in 0..n_hh {
-            // The month's money income: what `income_to_date` grew by.
-            let y = self.households.income_to_date[h] - self.pov.to_date_prev[h];
+            // The month's money income: what `income_to_date` grew by, less
+            // imputed rent (step 1: money received, as the survey's).
+            let y = self.households.income_to_date[h]
+                - self.pov.to_date_prev[h]
+                - std::mem::replace(&mut self.pov.imputed[h], Bani::ZERO);
             self.pov.to_date_prev[h] = self.households.income_to_date[h];
             // Step 2: recent real income (a new household starts at its
             // first month's).
