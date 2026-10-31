@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [society/social-outcomes, society/population-groups, economy/households, game/world-loop, economy/demographics, adr/0006-determinism-contract, adr/0008-explainability-architecture, adr/0017-time-base]
 research: [research/poverty-inequality-romania-2021]
-updated: 2026-10-26
+updated: 2026-10-31
 ---
 
 # Poverty and Inequality Indicators from Incomes
@@ -96,6 +96,11 @@ All in integers (i128), ratios in millionths, sums in the sorted order.
 > **Simplification:** the hardship rate stands for material deprivation but is not the survey's measure (lacking 7 of 13 items, 23.1% in 2021): it is the game's own, households whose money could not cover the subsistence basket at their last decision. It is shown, not compared with the survey.
 
 > **Simplification:** the monthly indicators use a three-month moving average of income, which is more unequal than a year's income; the annual ones are the survey's comparison.
+
+### Implementation status
+- **2026-10-31:** the pure functions (`crate::poverty`) and the indicators on the `World` (feature `poverty`, off by default), computed at the end of each monthly close, outside the state hash; the month's income $Y_{h,t}$ is the growth of `income_to_date` over the month (the tests' reading), $x_h$ rounded to the nearest. AC-POV-01 to 04 and 07 to 09 pass. **For the owner:**
+  - AC-POV-05: month 0's annual median is about 85,000 lei a year against 27,129 ± 30%. Two causes: month 0's income holds two pays (November's, paid on day 0, is in `income_to_date`, as AC-POV-09 reads it), and the model's incomes follow the national accounts while survey respondents under-report (calibration, M7). The first conflicts with AC-POV-09's reading.
+  - AC-POV-06: a 50% higher minimum-income floor (2021: about 142 lei for one person) moves no household across a poverty line of about 2,000 lei per adult, so the indicators do not change within three months.
 
 ## Player levers
 None directly. Every lever that moves incomes or prices moves them: transfers (`transfer.min_income.floor`, `transfer.pension.minimum`, `transfer.child.to18`, …), taxes, `labour.minimum_wage`, public pay. The anchor year cannot be changed in v1.
