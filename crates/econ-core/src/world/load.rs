@@ -783,6 +783,15 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         fx: super::foreign::ForeignState::default(),
         #[cfg(feature = "trade")]
         rem: super::remittances::Remittances::default(),
+        #[cfg(feature = "poverty")]
+        pov: super::poverty_state::PovState::default(),
+        #[cfg(any(
+            feature = "migration",
+            feature = "education",
+            feature = "approval",
+            feature = "poverty"
+        ))]
+        act: super::persons_view::Activities::start(&s.activity),
         #[cfg(feature = "demography")]
         dem: super::people_phase::DemState::default(),
         #[cfg(feature = "monetary")]
@@ -838,6 +847,15 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     world.start_remittances();
     #[cfg(feature = "demography")]
     world.start_people_phase(&s);
+    #[cfg(feature = "poverty")]
+    world.start_poverty(&s);
+    #[cfg(any(
+        feature = "migration",
+        feature = "education",
+        feature = "approval",
+        feature = "poverty"
+    ))]
+    world.refresh_activities();
     #[cfg(feature = "revenue")]
     world.start_revenue(&s, &without_revenue);
     #[cfg(feature = "monetary")]

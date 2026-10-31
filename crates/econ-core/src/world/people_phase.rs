@@ -442,6 +442,15 @@ impl World {
         self.invest_compact(&keep_h);
         #[cfg(feature = "revenue")]
         self.rev_compact(&keep_p, &keep_h);
+        #[cfg(feature = "poverty")]
+        self.pov_compact(&keep_h);
+        #[cfg(any(
+            feature = "migration",
+            feature = "education",
+            feature = "approval",
+            feature = "poverty"
+        ))]
+        self.act_compact(&keep_p);
     }
 
     /// The close of December: next year's mortality table and wage_nominal.

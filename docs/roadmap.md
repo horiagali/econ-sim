@@ -253,7 +253,7 @@ Without this a long run is a frozen population.
 - [ ] **Approval, first version:** the per-person number of [opinion-approval](02-design/society/opinion-approval.md), driven by own finances. Display only. Depth in M14.
 - [ ] Poverty and inequality indicators from incomes: [poverty and inequality](02-design/society/poverty-inequality.md) (with the standard-of-living classes of M6).
 
-**Exit:** a 50-year run reproduces the direction of the official population projection (shrinking, ageing); pension spending responds to it.
+**Exit:** a 50-year run reproduces the direction of the official population projection (shrinking, ageing); pension spending responds to it. *(Owner, 2026-10-30: the 50-year runs and switching the People phase on by default move to M7; long runs break down after about 17 years on labour demand, investment, the policy rule, the exchange rate and the budget together, which is M7's joint calibration. M5 builds and checks its mechanics on short runs.)*
 
 ### M6 — Indicators and explanations
 - [ ] **Statistics registry:** every indicator tagged `alpha` in D3 computed each tick from state and ledger (GDP three ways, CPI and components, employment and unemployment, wages, budget and debt, trade and current account, money and credit, distribution, by county and by group).
