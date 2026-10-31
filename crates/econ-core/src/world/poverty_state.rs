@@ -58,6 +58,11 @@ fn with_national_line(d: &Distribution, median_milli: i128, line_ppm: u32) -> In
 }
 
 impl World {
+    /// A household's county (from load, or the People phase's).
+    pub(crate) fn pov_county(&self, h: usize) -> u8 {
+        self.pov.county.get(h).copied().unwrap_or(0)
+    }
+
     pub(crate) fn pov(&self) -> &PovState {
         &self.pov
     }

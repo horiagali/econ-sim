@@ -444,6 +444,8 @@ impl World {
         self.rev_compact(&keep_p, &keep_h);
         #[cfg(feature = "poverty")]
         self.pov_compact(&keep_h);
+        #[cfg(feature = "approval")]
+        self.app_compact(&keep_p, &keep_h);
         #[cfg(any(
             feature = "migration",
             feature = "education",

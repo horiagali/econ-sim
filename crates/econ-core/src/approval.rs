@@ -6,8 +6,8 @@
 //!
 //! Points are thousandths (millipoints), ratios millionths, rounding half
 //! away from zero; no random draw. API skeleton from the spec's API sketch,
-//! written with the acceptance tests before the code (ADR-0014); every body
-//! is `unimplemented!` until the implementation fills it.
+//! written with the acceptance tests before the code (ADR-0014); the `World`
+//! side is in `world::approval_state`.
 
 use econ_types::{Bani, Month};
 
@@ -73,6 +73,19 @@ pub enum Part {
     Bounds = 4,
 }
 
+/// `n / d` to the nearest, half away from zero (`d` > 0).
+fn rdiv(n: i128, d: i128) -> i128 {
+    if n >= 0 {
+        (2 * n + d) / (2 * d)
+    } else {
+        -((-2 * n + d) / (2 * d))
+    }
+}
+
+fn milli(v: i128) -> i32 {
+    i32::try_from(v.clamp(i128::from(i32::MIN), i128::from(i32::MAX))).expect("clamped")
+}
+
 /// What steps 1 to 4 read for one adult.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PersonInputs {
@@ -93,8 +106,40 @@ pub struct PersonInputs {
 /// The targets of steps 1 to 4 (AC-APP-01), millipoints: income,
 /// unemployment, inflation, hardship.
 pub fn targets(i: &PersonInputs, p: &ApprovalParams) -> [i32; 4] {
-    let _ = (i, p);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let cap = i128::from(p.income_cap_milli);
+    let (y, r) = (i128::from(i.recent.get()), i128::from(i.reference.get()));
+    // Step 1: the real change against the reference, losses κ times.
+    let income = if r == 0 {
+        if y == 0 { 0 } else { cap }
+    } else {
+        let mut c = rdiv(i128::from(p.income_weight_milli) * (y - r), r);
+        if y < r {
+            c = rdiv(c * i128::from(p.loss_aversion_ppm), 1_000_000);
+        }
+        c.clamp(-cap, cap)
+    };
+    // Step 2.
+    let unemployment = -(if i.seeking {
+        i128::from(p.unemployed_self_milli)
+    } else {
+        0
+    }) - i128::from(p.unemployed_household_milli)
+        * i128::from(i.others_seeking.min(2));
+    // Step 3: percentage points above π0 (millionths a year / 10,000).
+    let above = (i128::from(i.inflation_ppm) - i128::from(p.inflation_neutral_ppm)).max(0);
+    let inflation = -rdiv(i128::from(p.inflation_weight_milli) * above, 10_000);
+    // Step 4.
+    let hardship = if i.hardship {
+        -i128::from(p.hardship_milli)
+    } else {
+        0
+    };
+    [
+        milli(income),
+        milli(unemployment),
+        milli(inflation),
+        milli(hardship),
+    ]
 }
 
 /// Steps 5 and 6 (AC-APP-02): the smoothed parts from the previous ones
@@ -102,14 +147,28 @@ pub fn targets(i: &PersonInputs, p: &ApprovalParams) -> [i32; 4] {
 /// then `A_i` and the bounds part. Returns the five parts and `A_i`,
 /// millipoints.
 pub fn step(prev: Option<[i32; 4]>, targets: [i32; 4], p: &ApprovalParams) -> ([i32; 5], i32) {
-    let _ = (prev, targets, p);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let l = i128::from(p.smoothing_ppm);
+    let mut parts = [0i32; 5];
+    for k in 0..4 {
+        parts[k] = match prev {
+            None => targets[k],
+            Some(s) => {
+                let s0 = i128::from(s[k]);
+                milli(s0 + rdiv(l * (i128::from(targets[k]) - s0), 1_000_000))
+            }
+        };
+    }
+    let raw: i128 = 50_000 + parts[..4].iter().map(|&x| i128::from(x)).sum::<i128>();
+    let a = raw.clamp(0, 100_000);
+    parts[4] = milli(a - raw);
+    (parts, milli(a))
 }
 
 /// The household's reference after the close: `r + λ_r (ỹ − r)`, whole bani.
 pub fn next_reference(reference: Bani, recent: Bani, p: &ApprovalParams) -> Bani {
-    let _ = (reference, recent, p);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let (r, y) = (i128::from(reference.get()), i128::from(recent.get()));
+    let v = r + rdiv(i128::from(p.reference_speed_ppm) * (y - r), 1_000_000);
+    Bani(i64::try_from(v).expect("an amount"))
 }
 
 /// The approval of a group of adults at a close.
@@ -157,12 +216,12 @@ impl World {
     #[must_use]
     pub fn approval(&self, person: u32) -> Option<(i32, [i32; 5])> {
         let _ = person;
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.approval_of(person)
     }
 
     /// The approval of every close, in order.
     #[must_use]
     pub fn approval_stats(&self) -> &[ApprovalStats] {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.app_stats()
     }
 }

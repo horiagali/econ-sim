@@ -5,7 +5,7 @@ status: draft
 owner: horia
 depends_on: [society/population-groups, society/interest-groups, economy/households, society/poverty-inequality, economy/labor-market, economy/prices-inflation, game/world-loop, adr/0008-explainability-architecture, adr/0017-time-base]
 research: [research/approval-pocketbook]
-updated: 2026-10-26
+updated: 2026-10-31
 ---
 
 # Opinion, Ideology & Approval
@@ -100,6 +100,9 @@ All in integers: points in thousandths (millipoints), ratios in millionths, roun
 - **A person who turns 18, arrives or returns** (demographics): starts unsmoothed at the targets; the household's reference is kept, or set to its recent income if the household is new.
 - **All persons of a group are under 18:** the group has no approval (none), not 0.
 - **Extreme inflation** (hyperinflation): the inflation part is not capped, so approval is held at 0 by the bounds part, which the "why" shows.
+
+### Implementation status
+- **2026-10-31:** the first version on the `World` (feature `approval`, off by default; it needs `poverty`'s recent income): each adult's parts and approval at the end of each monthly close, after the poverty indicators, outside the state hash; the households' references; the means nationally and by activity, fifth, region, county, age band, education and sex. A group's mean is 50 plus its five parts' means exactly, so its change is their changes and the composition part is 0 (the parts are means over the group's adults now, entrants and leavers included). AC-APP-01 to 08 pass.
 
 ## Tuning parameters
 `alpha_*`, `lambda_A`, loss-aversion factor, memory decay, ideology drift rates, stance tables (data).
