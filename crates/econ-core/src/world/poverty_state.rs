@@ -33,6 +33,17 @@ pub(crate) struct PovState {
     collective: Vec<bool>,
     n_counties: usize,
     n_regions: usize,
+    /// The month's income `Y_h` of the latest close (step 1).
+    pub(crate) month_income: Vec<Bani>,
+    /// Step 9: purchases since the last close; the month's public health and
+    /// education spending (national); each household's smoothed real
+    /// equivalised consumption by part (thousandths of a ban: purchases,
+    /// home-grown food, imputed rent, health, education) and its SoL.
+    purchases: Vec<Bani>,
+    health_month: Bani,
+    education_month: Bani,
+    sol_parts: Vec<[i128; 5]>,
+    pub(crate) sol: Vec<u32>,
 }
 
 /// `n / d` to the nearest, half away from zero (`d` > 0).
@@ -134,6 +145,24 @@ impl World {
         retain_by(&mut p.county, keep_h);
         retain_by(&mut p.region, keep_h);
         retain_by(&mut p.collective, keep_h);
+        retain_by(&mut p.month_income, keep_h);
+        retain_by(&mut p.purchases, keep_h);
+        retain_by(&mut p.sol_parts, keep_h);
+        retain_by(&mut p.sol, keep_h);
+    }
+
+    /// A household's purchases on the goods market (per household).
+    pub(crate) fn pov_purchase(&mut self, h: usize, x: Bani) {
+        if self.pov.purchases.len() <= h {
+            self.pov.purchases.resize(h + 1, Bani::ZERO);
+        }
+        self.pov.purchases[h] += x;
+    }
+
+    /// The month's public health and education output in kind, national.
+    pub(crate) fn pov_public_services(&mut self, health: Bani, education: Bani) {
+        self.pov.health_month += health;
+        self.pov.education_month += education;
     }
 
     /// Grow the per-household columns to the households table (new records).
@@ -164,6 +193,10 @@ impl World {
         self.pov.year.resize(n, Bani::ZERO);
         self.pov.to_date_prev.resize(n, Bani::ZERO);
         self.pov.imputed.resize(n, Bani::ZERO);
+        self.pov.month_income.resize(n, Bani::ZERO);
+        self.pov.purchases.resize(n, Bani::ZERO);
+        self.pov.sol_parts.resize(n, [0; 5]);
+        self.pov.sol.resize(n, 0);
         self.pov.class_prev.resize(n, None);
         self.pov.persons_prev.resize(n, 0);
     }
@@ -190,13 +223,14 @@ impl World {
         };
         let mut x = vec![0i128; n_hh];
         let mut v = vec![0u64; n_hh];
+        let mut imputed = vec![Bani::ZERO; n_hh];
         for h in 0..n_hh {
             // The month's money income: what `income_to_date` grew by, less
             // imputed rent (step 1: money received, as the survey's).
-            let y = self.households.income_to_date[h]
-                - self.pov.to_date_prev[h]
-                - std::mem::replace(&mut self.pov.imputed[h], Bani::ZERO);
+            imputed[h] = std::mem::replace(&mut self.pov.imputed[h], Bani::ZERO);
+            let y = self.households.income_to_date[h] - self.pov.to_date_prev[h] - imputed[h];
             self.pov.to_date_prev[h] = self.households.income_to_date[h];
+            self.pov.month_income[h] = y;
             // Step 2: recent real income (a new household starts at its
             // first month's).
             let first =
@@ -355,6 +389,198 @@ impl World {
             ));
             self.pov.year.iter_mut().for_each(|y| *y = Bani::ZERO);
         }
+        s.sol = self.sol_close(&ages, &v, &imputed, cpi, &p);
         self.pov.stats.push(s);
+    }
+
+    /// Step 9: each household's standard of living and the month's means.
+    #[allow(clippy::too_many_lines, clippy::needless_range_loop)]
+    fn sol_close(
+        &mut self,
+        ages: &[Vec<u16>],
+        v: &[u64],
+        imputed: &[Bani],
+        cpi: u32,
+        p: &crate::poverty::PovertyParams,
+    ) -> SolStats {
+        let n_hh = v.len();
+        let first = self.pov.stats.is_empty();
+        // The public services' shares: health by age, education by level.
+        let (mut hw, mut ew) = (vec![0u32; n_hh], vec![0u32; n_hh]);
+        for q in 0..self.persons.household_id.len() {
+            if !self.person_resident(q) {
+                continue;
+            }
+            let h = self.persons.household_id[q] as usize;
+            let a = self.pp.age[q] / 12;
+            let g = if a < 5 {
+                0
+            } else if a < 65 {
+                1
+            } else {
+                2
+            };
+            hw[h] += p.sol_health_age_weights_ppm[g];
+            let e = self
+                .people
+                .enrolled
+                .get(q)
+                .copied()
+                .unwrap_or(econ_popgen::Enrolled::None);
+            if e != econ_popgen::Enrolled::None {
+                ew[h] += p.sol_education_level_weights_ppm[e as usize - 1];
+            }
+        }
+        let weights = |pw: &[u32]| -> Vec<(u32, u32)> {
+            (0..n_hh)
+                .map(|h| {
+                    let alive = self.household_alive(h) && !ages[h].is_empty();
+                    (
+                        if alive {
+                            self.households.hh_weight[h]
+                        } else {
+                            0
+                        },
+                        pw[h],
+                    )
+                })
+                .collect()
+        };
+        let (hwts, ewts) = (weights(&hw), weights(&ew));
+        let health =
+            crate::poverty::share_by_weight(std::mem::take(&mut self.pov.health_month), &hwts);
+        let education =
+            crate::poverty::share_by_weight(std::mem::take(&mut self.pov.education_month), &ewts);
+        let scale = self.mixed_scale_ppm();
+        let speed = i128::from(p.income_recent_speed_ppm);
+        let prev_sol = self.pov.sol.clone();
+        let prev_parts = self.pov.sol_parts.clone();
+        let mut counted_prev = vec![false; n_hh];
+        for h in 0..n_hh {
+            counted_prev[h] = prev_sol[h] > 0 || prev_parts[h].iter().any(|&x| x != 0);
+            if v[h] == 0 {
+                self.pov.sol[h] = 0;
+                self.pov.sol_parts[h] = [0; 5];
+                self.pov.purchases[h] = Bani::ZERO;
+                continue;
+            }
+            let w = i128::from(self.households.hh_weight[h].max(1));
+            let raw = [
+                i128::from(std::mem::take(&mut self.pov.purchases[h]).get()),
+                i128::from(
+                    super::money::bani(super::money::ratio(
+                        i128::from(self.hh.subsistence[h].get()),
+                        scale,
+                        1_000_000,
+                    ))
+                    .get(),
+                ),
+                i128::from(imputed[h].get()),
+                rdiv(i128::from(health[h].get()), w),
+                rdiv(i128::from(education[h].get()), w),
+            ];
+            // Real, per equivalised adult, thousandths of a ban.
+            let e = i128::from(eq_adults_milli(&ages[h]).max(1));
+            let start = first || !counted_prev[h];
+            for k in 0..5 {
+                let c = rdiv(raw[k] * 1_000_000_000_000, i128::from(cpi.max(1)) * e);
+                let prev = self.pov.sol_parts[h][k];
+                self.pov.sol_parts[h][k] = if start {
+                    c
+                } else {
+                    prev + rdiv((c - prev) * speed, 1_000_000)
+                };
+            }
+            let total: i128 = self.pov.sol_parts[h].iter().sum();
+            self.pov.sol[h] = crate::poverty::sol_milli(
+                Bani(i64::try_from(total / 1_000).unwrap_or(i64::MAX)),
+                p.sol_subsistence,
+            );
+        }
+        // Weighted means over persons.
+        let mean = |pick: &dyn Fn(usize) -> bool| -> u32 {
+            let (mut num, mut den) = (0i128, 0i128);
+            for h in 0..n_hh {
+                if v[h] > 0 && pick(h) {
+                    num += i128::from(v[h]) * i128::from(self.pov.sol[h]);
+                    den += i128::from(v[h]);
+                }
+            }
+            if den == 0 {
+                0
+            } else {
+                u32::try_from(rdiv(num, den)).expect("points")
+            }
+        };
+        let mut out = SolStats {
+            national_milli: mean(&|_| true),
+            by_county: (0..self.pov.n_counties)
+                .map(|c| mean(&|h| usize::from(self.pov.county[h]) == c))
+                .collect(),
+            by_region: (0..self.pov.n_regions)
+                .map(|r| mean(&|h| usize::from(self.pov.region[h]) == r))
+                .collect(),
+            by_class: std::array::from_fn(|k| {
+                mean(&|h| self.pov.class_prev[h] == Some(u8::try_from(k).expect("a class")))
+            }),
+            by_fifth: std::array::from_fn(|k| {
+                mean(&|h| usize::from(self.households.hh_fifth[h]) == k)
+            }),
+            ..SolStats::default()
+        };
+        // By age: each person with the household's SoL and weight.
+        for (g, (lo, hi)) in [(0u16, 18u16), (18, 65), (65, u16::MAX)]
+            .into_iter()
+            .enumerate()
+        {
+            let (mut num, mut den) = (0i128, 0i128);
+            for h in 0..n_hh {
+                if v[h] == 0 {
+                    continue;
+                }
+                let n = ages[h]
+                    .iter()
+                    .filter(|&&a| a / 12 >= lo && a / 12 < hi)
+                    .count();
+                let wn = i128::from(self.households.hh_weight[h]) * i128::try_from(n).expect("n");
+                num += wn * i128::from(self.pov.sol[h]);
+                den += wn;
+            }
+            out.by_age[g] = if den == 0 {
+                0
+            } else {
+                u32::try_from(rdiv(num, den)).expect("points")
+            };
+        }
+        // The change's parts: each household's SoL change split by its
+        // parts' changes; the rest (households in and out, weights) to
+        // purchases, so the parts sum to the change exactly.
+        if let Some(before) = self.pov.stats.last() {
+            let change = i64::from(out.national_milli) - i64::from(before.sol.national_milli);
+            let pop: f64 = v.iter().map(|&x| x as f64).sum::<f64>().max(1.0);
+            let mut r = [0f64; 5];
+            for h in 0..n_hh {
+                if v[h] == 0 || !counted_prev[h] {
+                    continue;
+                }
+                let d: [i128; 5] =
+                    std::array::from_fn(|k| self.pov.sol_parts[h][k] - prev_parts[h][k]);
+                let dt: i128 = d.iter().sum();
+                if dt == 0 {
+                    continue;
+                }
+                #[allow(clippy::cast_precision_loss)]
+                let ds = (i64::from(self.pov.sol[h]) - i64::from(prev_sol[h])) as f64;
+                #[allow(clippy::cast_precision_loss)]
+                for k in 0..5 {
+                    r[k] += v[h] as f64 * ds * (d[k] as f64 / dt as f64) / pop;
+                }
+            }
+            #[allow(clippy::cast_possible_truncation)]
+            let mut parts: [i64; 5] = r.map(|x| x.round() as i64);
+            parts[0] += change - parts.iter().sum::<i64>();
+            out.parts_change_milli = parts;
+        }
+        out
     }
 }

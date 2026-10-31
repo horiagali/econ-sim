@@ -171,26 +171,52 @@ pub fn recent_income(prev: Bani, month_income: Bani, cpi_ppm: u32, speed_ppm: u3
 /// Step 9 (AC-POV-10): the standard of living of a household, thousandths of
 /// a point, `clamp(10 + 10 log2(c / s), 0, 100)` rounded to the nearest, from
 /// its real equivalised consumption `c` (bani a month per adult, day 0's
-/// prices) and `sol_subsistence` `s`.
-///
-/// Test writer's addition (ADR-0014): the implementation fills it.
+/// prices) and `sol_subsistence` `s`. Nothing or less consumed is 0.
 #[must_use]
 pub fn sol_milli(consumption_real_eq: Bani, subsistence: Bani) -> u32 {
-    let _ = (consumption_real_eq, subsistence);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    if consumption_real_eq <= Bani::ZERO || subsistence <= Bani::ZERO {
+        return 0;
+    }
+    #[allow(clippy::cast_precision_loss)]
+    let ratio = consumption_real_eq.get() as f64 / subsistence.get() as f64;
+    let points = 10.0 + 10.0 * econ_num::math::ln(ratio) / std::f64::consts::LN_2;
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let v = (points.clamp(0.0, 100.0) * 1_000.0).round() as u32;
+    v
 }
 
 /// Step 9 (AC-POV-10): a month's public health (or education) spending
 /// shared out over household records by `record weight × person weight`
 /// (the person weight being the sum of the age or level weights of its
 /// members). Each element is the record's whole amount (its weight
-/// included), whole bani; the elements sum to `total` exactly.
-///
-/// Test writer's addition (ADR-0014): the implementation fills it.
+/// included), whole bani; the elements sum to `total` exactly: each takes
+/// the floor of its exact part, and the bani left go one each to the largest
+/// remainders (ties to the lower index).
 #[must_use]
 pub fn share_by_weight(total: Bani, weights: &[(u32, u32)]) -> Vec<Bani> {
-    let _ = (total, weights);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let k: Vec<i128> = weights
+        .iter()
+        .map(|&(r, p)| i128::from(r) * i128::from(p))
+        .collect();
+    let all: i128 = k.iter().sum();
+    let t = i128::from(total.get().max(0));
+    if all == 0 || t == 0 {
+        return vec![Bani::ZERO; weights.len()];
+    }
+    let mut parts: Vec<i128> = k.iter().map(|&x| t * x / all).collect();
+    let left = t - parts.iter().sum::<i128>();
+    let mut order: Vec<usize> = (0..k.len()).filter(|&i| k[i] > 0).collect();
+    order.sort_by_key(|&i| (std::cmp::Reverse(t * k[i] % all), i));
+    for &i in order
+        .iter()
+        .take(usize::try_from(left).expect("a remainder"))
+    {
+        parts[i] += 1;
+    }
+    parts
+        .into_iter()
+        .map(|x| Bani(i64::try_from(x).expect("an amount")))
+        .collect()
 }
 
 /// Step 9's outputs of a month: weighted means of SoL over persons,
@@ -286,8 +312,7 @@ pub struct PovertyStats {
     /// The annual indicators, on the calendar year's income: December
     /// closes only.
     pub annual: Option<IncomeMeasures>,
-    /// The standard of living (step 9). Test writer's addition (ADR-0014):
-    /// left at its default until the implementation computes it.
+    /// The standard of living (step 9).
     pub sol: SolStats,
 }
 
@@ -322,18 +347,15 @@ impl World {
     /// November's pay on day 0, imputed rent left out, as restated on
     /// 2026-10-31), aligned with [`crate::world::HouseholdColumns`].
     ///
-    /// Test writer's addition (ADR-0014): the implementation fills it.
     pub fn hh_income_month(&self) -> &[Bani] {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.pov().month_income.as_slice()
     }
 
     /// Each household's standard of living (step 9) at the latest close,
     /// thousandths of a point, aligned with
     /// [`crate::world::HouseholdColumns`].
-    ///
-    /// Test writer's addition (ADR-0014): the implementation fills it.
     #[must_use]
     pub fn hh_sol_milli(&self) -> &[u32] {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.pov().sol.as_slice()
     }
 }

@@ -751,6 +751,19 @@ impl World {
                 inv_total += inv_pay[u];
             }
         }
+        // Public health and education in kind, for the standard of living.
+        #[cfg(feature = "poverty")]
+        {
+            let (mut health, mut education) = (0i128, 0i128);
+            for (u, &x) in run_pay.iter().enumerate() {
+                match self.industries.id[usize::from(self.units.industry[u])].as_str() {
+                    "health_services" => health += x,
+                    "education_services" => education += x,
+                    _ => {}
+                }
+            }
+            self.pov_public_services(bani(health), bani(education));
+        }
         post.gov_pays(Sector::Firms, bani(run_total), FlowCode::GOV_PURCHASES);
         post.gov_pays(Sector::Firms, bani(inv_total), FlowCode::GOV_INVESTMENT);
         // The units' market sales of the month go to the government (ESA
