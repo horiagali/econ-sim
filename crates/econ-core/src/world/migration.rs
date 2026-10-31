@@ -2,10 +2,13 @@
 //! `economy/migration-remittances`, feature `migration`): the month's flows
 //! and the diaspora, read-only, for the `[sim]` criteria AC-MIG-05 to 17.
 //!
-//! Test writer's addition (ADR-0014), written with those tests before the
-//! code from the spec's API sketch; every body is `unimplemented!` until the
-//! implementation fills it.
+//! The API is the test writer's (ADR-0014), from the spec's API sketch.
+//! At load the scenario's linked emigrants become person rows of their
+//! households with `abroad` set: inert (no job, no search, no pension, no
+//! income), skipped by every resident loop, ageing and dying with the People
+//! phase; when their household ends they move to the stock.
 
+use econ_popgen::EduLevel;
 use econ_types::{Bani, Month};
 
 use super::World;
@@ -87,7 +90,147 @@ pub struct DiasporaView {
     pub stock: Vec<StockCell>,
 }
 
+/// Migration's state: per person (aligned with the persons table) and the
+/// stock.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct MigState {
+    /// A linked emigrant (live, abroad).
+    pub(crate) abroad: Vec<bool>,
+    /// `months_abroad` of a linked emigrant.
+    pub(crate) months_abroad: Vec<u16>,
+    /// `diaspora_stock[k]`, in the scenario's order; new cells appended.
+    stock: Vec<StockCell>,
+    /// The scripted unemployment shocks by region (AC-MIG-15), millionths.
+    pub(crate) shocks: Vec<(u8, u32)>,
+}
+
+/// The skill tier of an education level: low 0, mid 1, high 2.
+fn tier_of(e: EduLevel) -> u8 {
+    match e {
+        EduLevel::Isced0To2 => 0,
+        EduLevel::Isced3 | EduLevel::Isced4 => 1,
+        EduLevel::Isced5To6 | EduLevel::Isced7To8 => 2,
+    }
+}
+
 impl World {
+    /// Whether person `p` is a linked emigrant.
+    pub(crate) fn mig_abroad(&self, p: usize) -> bool {
+        self.mig.abroad.get(p).copied().unwrap_or(false)
+    }
+
+    /// Load (after the People phase's start): the stock, then each linked
+    /// emigrant as a person row of its household, inert.
+    pub(super) fn start_migration(&mut self) {
+        let n = self.pp.age.len();
+        self.mig.abroad = vec![false; n];
+        self.mig.months_abroad = vec![0; n];
+        self.mig.stock = self
+            .people
+            .diaspora_stock
+            .iter()
+            .map(|c| StockCell {
+                region: c.region,
+                sex: c.sex as u8,
+                birth_year: c.birth_year,
+                // Stage L's tiers are high 0, mid 1, low 2.
+                tier: 2 - c.tier.min(2),
+                persons: c.persons,
+            })
+            .collect();
+        let le = std::mem::take(&mut self.people.linked_emigrants);
+        for i in 0..le.household_id.len() {
+            let h = le.household_id[i];
+            let like = (0..self.persons.household_id.len())
+                .find(|&q| self.persons.household_id[q] == h)
+                .unwrap_or(0);
+            let p = self.push_person_keyed(h, le.sex[i], like, le.person_key[i]);
+            self.pp.age[p] = le.age[i];
+            self.people.role[p] = le.role[i];
+            self.persons.edu_level[p] = le.edu_level[i];
+            self.dem.life.activity[p] = econ_popgen::Activity::InactiveOther;
+            #[cfg(feature = "education")]
+            self.set_base_activity(p, econ_popgen::Activity::InactiveOther);
+            self.mig.abroad[p] = true;
+            self.mig.months_abroad[p] = le.months_abroad[i];
+        }
+        self.people.next_person_key = self
+            .people
+            .next_person_key
+            .max(le.person_key.iter().map(|&k| k + 1).max().unwrap_or(0));
+    }
+
+    /// Append migration's columns for a new person row: a copy of person
+    /// `from`'s, or a resident's.
+    pub(super) fn mig_push_person(&mut self, from: Option<usize>) {
+        let n = self.pp.age.len();
+        let m = &mut self.mig;
+        let (a, k) = from.map_or((false, 0), |p| {
+            (
+                m.abroad.get(p).copied().unwrap_or(false),
+                m.months_abroad.get(p).copied().unwrap_or(0),
+            )
+        });
+        m.abroad.resize(n - 1, false);
+        m.months_abroad.resize(n - 1, 0);
+        m.abroad.push(a);
+        m.months_abroad.push(k);
+    }
+
+    /// The yearly compaction of the People phase.
+    pub(super) fn mig_compact(&mut self, keep_p: &[bool]) {
+        super::money::retain_by(&mut self.mig.abroad, keep_p);
+        super::money::retain_by(&mut self.mig.months_abroad, keep_p);
+    }
+
+    /// A linked emigrant died (the People phase): no longer abroad.
+    pub(super) fn mig_died(&mut self, p: usize) {
+        if let Some(a) = self.mig.abroad.get_mut(p) {
+            *a = false;
+        }
+    }
+
+    /// Household `h` ends: its linked emigrants join the stock with their
+    /// counts (the record's weight) and their rows end.
+    pub(super) fn mig_household_ends(&mut self, h: usize) {
+        let w = u64::from(self.households.hh_weight[h]);
+        let year = i32::from(self.calendar.date(self.today).year);
+        for p in 0..self.pp.age.len() {
+            if self.persons.household_id[p] as usize != h
+                || !self.mig_abroad(p)
+                || !self.dem.life.alive[p]
+            {
+                continue;
+            }
+            let birth_year = u16::try_from(year - i32::from(self.pp.age[p] / 12)).unwrap_or(0);
+            let cell = StockCell {
+                region: self.pp.region[p],
+                sex: self.people.sex[p] as u8,
+                birth_year,
+                tier: tier_of(self.persons.edu_level[p]),
+                persons: w,
+            };
+            match self.mig.stock.iter_mut().find(|c| {
+                (c.region, c.sex, c.birth_year, c.tier)
+                    == (cell.region, cell.sex, cell.birth_year, cell.tier)
+            }) {
+                Some(c) => c.persons += w,
+                None => self.mig.stock.push(cell),
+            }
+            self.mig.abroad[p] = false;
+            self.dem.life.alive[p] = false;
+        }
+    }
+
+    /// The monthly close: a month more abroad.
+    pub(super) fn migration_close(&mut self) {
+        for p in 0..self.mig.abroad.len() {
+            if self.mig.abroad[p] {
+                self.mig.months_abroad[p] = self.mig.months_abroad[p].saturating_add(1);
+            }
+        }
+    }
+
     /// Every closed month's migration, in order (one per monthly close).
     #[must_use]
     pub fn migration_months(&self) -> &[MigrationMonth] {
@@ -99,13 +242,20 @@ impl World {
     /// The diaspora now: linked emigrants and the stock.
     #[must_use]
     pub fn diaspora(&self) -> DiasporaView {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        let linked = (0..self.mig.abroad.len())
+            .filter(|&p| self.mig.abroad[p])
+            .map(|p| u64::from(self.households.hh_weight[self.persons.household_id[p] as usize]))
+            .sum();
+        DiasporaView {
+            linked,
+            stock: self.mig.stock.clone(),
+        }
     }
 
     /// Each person's `abroad` flag (a linked emigrant), aligned with
     /// [`super::PersonColumns`].
     #[must_use]
     pub fn abroad(&self) -> &[bool] {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        &self.mig.abroad
     }
 }

@@ -609,7 +609,7 @@ impl World {
             _ => {
                 let p = &self.persons;
                 for i in 0..p.household_id.len() {
-                    if !self.person_alive(i) {
+                    if !self.person_resident(i) {
                         continue;
                     }
                     let h = p.household_id[i] as usize;

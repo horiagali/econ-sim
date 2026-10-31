@@ -424,7 +424,7 @@ impl World {
 
     /// A resident person's weight (0 for a tombstone or a freed record).
     fn edu_weight(&self, p: usize) -> u64 {
-        if self.person_alive(p) {
+        if self.person_resident(p) {
             u64::from(self.households.hh_weight[self.persons.household_id[p] as usize])
         } else {
             0

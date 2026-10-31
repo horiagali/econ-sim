@@ -76,8 +76,11 @@ pub(super) struct DemState {
     real_income: Vec<i128>,
     /// The life cycle's carries: leaving home by sex × band, unions by the
     /// woman's band, separations.
+    #[cfg_attr(not(feature = "lifecycle"), allow(dead_code))]
     pub(super) carry_leave: [i64; 8],
+    #[cfg_attr(not(feature = "lifecycle"), allow(dead_code))]
     pub(super) carry_union: [i64; 5],
+    #[cfg_attr(not(feature = "lifecycle"), allow(dead_code))]
     pub(super) carry_separation: i64,
 }
 
@@ -209,7 +212,7 @@ impl World {
         let n_hh = self.households.hh_weight.len();
         let (mut head, mut partner) = (vec![None; n_hh], vec![None; n_hh]);
         for p in 0..self.pp.age.len() {
-            if !self.dem.life.alive[p] {
+            if !self.person_resident(p) {
                 continue;
             }
             let h = self.persons.household_id[p] as usize;
@@ -240,7 +243,7 @@ impl World {
                 let h = self.persons.household_id[p] as usize;
                 let years = self.pp.age[p] / 12;
                 let recent = self.dem.life.months_since_birth[p].is_some_and(|m| m < 12);
-                (self.dem.life.alive[p]
+                (self.person_resident(p)
                     && self.people.sex[p] == Sex::F
                     && (15..=49).contains(&years)
                     && !self.dem.hh_life.hh_collective[h]
@@ -448,6 +451,8 @@ impl World {
         self.app_compact(&keep_p, &keep_h);
         #[cfg(feature = "education")]
         self.edu_compact(&keep_p);
+        #[cfg(feature = "migration")]
+        self.mig_compact(&keep_p);
         #[cfg(any(
             feature = "migration",
             feature = "education",
@@ -504,7 +509,7 @@ impl World {
     fn people_contributions(&mut self) {
         let wn = i128::from(self.dem.wage_nominal.get().max(1));
         for p in 0..self.pp.age.len() {
-            if !self.dem.life.alive[p] || self.dem.life.activity[p] == Activity::Retired {
+            if !self.person_resident(p) || self.dem.life.activity[p] == Activity::Retired {
                 continue;
             }
             let declared = if self.persons.employer[p] != NO_EMPLOYER {
@@ -761,9 +766,14 @@ impl World {
     /// `h` (age 0, role child, no job, no pension, a new key), in the
     /// region of `like`.
     fn push_person(&mut self, h: u32, sex: Sex, like: usize) -> usize {
-        let p = self.pp.age.len();
         let key = self.people.next_person_key;
         self.people.next_person_key += 1;
+        self.push_person_keyed(h, sex, like, key)
+    }
+
+    /// The same with a given `person_key`.
+    pub(super) fn push_person_keyed(&mut self, h: u32, sex: Sex, like: usize, key: u64) -> usize {
+        let p = self.pp.age.len();
         let q = &mut self.persons;
         q.household_id.push(h);
         q.edu_level.push(EduLevel::Isced0To2);
@@ -808,6 +818,8 @@ impl World {
         self.act_push(None);
         #[cfg(feature = "education")]
         self.edu_push_person(None);
+        #[cfg(feature = "migration")]
+        self.mig_push_person(None);
         p
     }
 
@@ -833,7 +845,7 @@ impl World {
         (0..self.persons.household_id.len()).find(|&q| {
             q != p
                 && self.persons.household_id[q] == h
-                && self.dem.life.alive[q]
+                && self.person_resident(q)
                 && self.people.role[q] == want
         })
     }
@@ -872,6 +884,8 @@ impl World {
         self.fs_set_points(p, 0);
         self.fs_end_claim(p);
         self.dem.life.alive[p] = false;
+        #[cfg(feature = "migration")]
+        self.mig_died(p);
         // A new head if the head died: the partner, else the oldest adult.
         if self.people.role[p] == Role::Head {
             let h = self.persons.household_id[p];
@@ -879,7 +893,7 @@ impl World {
                 (0..self.persons.household_id.len())
                     .filter(|&q| {
                         self.persons.household_id[q] == h
-                            && self.dem.life.alive[q]
+                            && self.person_resident(q)
                             && self.pp.age[q] >= 18 * 12
                     })
                     .max_by_key(|&q| (self.pp.age[q], std::cmp::Reverse(self.people.person_key[q])))
@@ -891,7 +905,7 @@ impl World {
         let h = self.persons.household_id[p] as usize;
         self.people_recount(h);
         let empty = !(0..self.persons.household_id.len())
-            .any(|q| self.persons.household_id[q] as usize == h && self.dem.life.alive[q]);
+            .any(|q| self.persons.household_id[q] as usize == h && self.person_resident(q));
         if empty {
             self.settle_estate(h, self.pp.age[p]);
         } else {
@@ -913,7 +927,7 @@ impl World {
         let child = (0..n_p)
             .filter(|&q| {
                 let g = self.persons.household_id[q] as usize;
-                self.dem.life.alive[q]
+                self.person_resident(q)
                     && self.dem.life.origin_household[q] == Some(key)
                     && g != h
                     && self.household_alive(g)
@@ -931,7 +945,7 @@ impl World {
         let mut younger = vec![false; n_hh];
         for q in 0..n_p {
             let a = self.pp.age[q];
-            if self.dem.life.alive[q] && a >= lo && a <= hi {
+            if self.person_resident(q) && a >= lo && a <= hi {
                 younger[self.persons.household_id[q] as usize] = true;
             }
         }
@@ -1061,6 +1075,9 @@ impl World {
         life.hh_dwelling_value[h] = Bani::ZERO;
         life.hh_alive[h] = false;
         life.hh_moved_to_date[h] -= bani(left);
+        #[cfg(feature = "migration")]
+        self.mig_household_ends(h);
+        let life = &mut self.dem.hh_life;
         let mut heir_dwelling = None;
         if let Some(g) = heir {
             let a = bani(to_heir_per);
@@ -1116,7 +1133,7 @@ impl World {
     /// live members.
     pub(super) fn people_recount(&mut self, h: usize) {
         let members: Vec<usize> = (0..self.persons.household_id.len())
-            .filter(|&q| self.persons.household_id[q] as usize == h && self.dem.life.alive[q])
+            .filter(|&q| self.persons.household_id[q] as usize == h && self.person_resident(q))
             .collect();
         let mut eq = 0u32;
         let mut adults = 0u32;
@@ -1147,7 +1164,7 @@ impl World {
         let mut early: Vec<Vec<(usize, Candidate)>> = vec![Vec::new(); 2 * EARLY_YEARS];
         for p in 0..self.pp.age.len() {
             let w = self.weight_of(p);
-            if !self.dem.life.alive[p]
+            if !self.person_resident(p)
                 || w == 0
                 || self.dem.life.activity[p] == Activity::Retired
                 || self.people.contribution_months[p] < min_months

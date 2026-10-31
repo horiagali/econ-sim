@@ -28,8 +28,15 @@ const OWNER: u8 = 0;
 const TENANT: u8 = 1;
 
 impl World {
-    /// The live members of household `h`, in index order.
+    /// The live resident members of household `h`, in index order.
     fn members_of(&self, h: usize) -> Vec<usize> {
+        (0..self.persons.household_id.len())
+            .filter(|&p| self.persons.household_id[p] as usize == h && self.person_resident(p))
+            .collect()
+    }
+
+    /// The live members of household `h`, linked emigrants included.
+    fn members_all(&self, h: usize) -> Vec<usize> {
         (0..self.persons.household_id.len())
             .filter(|&p| self.persons.household_id[p] as usize == h && self.dem.life.alive[p])
             .collect()
@@ -131,6 +138,8 @@ impl World {
         self.act_push(Some(p));
         #[cfg(feature = "education")]
         self.edu_push_person(Some(p));
+        #[cfg(feature = "migration")]
+        self.mig_push_person(Some(p));
         let u = self.persons.employer[p];
         if u != NO_EMPLOYER {
             let i = u32::try_from(c).expect("a person");
@@ -156,6 +165,8 @@ impl World {
 
     /// End a household record that no longer has members: it holds nothing.
     fn end_record(&mut self, h: usize) {
+        #[cfg(feature = "migration")]
+        self.mig_household_ends(h);
         self.households.hh_cash[h] = Bani::ZERO;
         self.households.hh_deposits[h] = Bani::ZERO;
         self.households.hh_hardship[h] = false;
@@ -231,7 +242,7 @@ impl World {
         let s = &mut self.hh;
         s.subsistence[c] = s.subsistence[h];
         s.income_last_month[c] = s.income_last_month[h];
-        for p in self.members_of(h) {
+        for p in self.members_all(h) {
             self.copy_person(p, c);
         }
         self.people_recount(c);
@@ -242,9 +253,11 @@ impl World {
     /// Merge two one-person private records of the same weight: `other`'s
     /// person moves into `keep` as partner, the balances add, `other` ends.
     fn merge_records(&mut self, keep: usize, other: usize) {
-        for p in self.members_of(other) {
+        for p in self.members_all(other) {
             self.persons.household_id[p] = u32::try_from(keep).expect("a household");
-            self.people.role[p] = Role::Partner;
+            if self.person_resident(p) {
+                self.people.role[p] = Role::Partner;
+            }
         }
         let (cash, deposits) = (
             self.households.hh_cash[other],
@@ -390,7 +403,8 @@ impl World {
         // The oldest head or partner of each household (the parent proxy).
         let mut elder = vec![0u16; n_hh];
         for p in 0..self.pp.age.len() {
-            if self.dem.life.alive[p] && matches!(self.people.role[p], Role::Head | Role::Partner) {
+            if self.person_resident(p) && matches!(self.people.role[p], Role::Head | Role::Partner)
+            {
                 let h = self.persons.household_id[p] as usize;
                 elder[h] = elder[h].max(self.pp.age[p]);
             }
@@ -399,7 +413,7 @@ impl World {
         for p in 0..self.pp.age.len() {
             let h = self.persons.household_id[p] as usize;
             let a = self.pp.age[p];
-            if !self.dem.life.alive[p]
+            if !self.person_resident(p)
                 || !(18 * 12..35 * 12).contains(&a)
                 || !matches!(self.people.role[p], Role::Child | Role::Other)
                 || self.dem.hh_life.hh_collective[h]
@@ -492,7 +506,7 @@ impl World {
         let mut count = vec![0u32; n_hh];
         let mut only = vec![usize::MAX; n_hh];
         for p in 0..self.pp.age.len() {
-            if self.dem.life.alive[p] {
+            if self.person_resident(p) {
                 let h = self.persons.household_id[p] as usize;
                 count[h] += 1;
                 only[h] = p;
@@ -630,7 +644,7 @@ impl World {
         let mut head = vec![None; n_hh];
         let mut partner = vec![None; n_hh];
         for p in 0..self.pp.age.len() {
-            if !self.dem.life.alive[p] {
+            if !self.person_resident(p) {
                 continue;
             }
             let h = self.persons.household_id[p] as usize;

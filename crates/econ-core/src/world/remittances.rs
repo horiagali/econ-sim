@@ -112,6 +112,33 @@ impl World {
         super::money::retain_by(&mut self.rem.months_abroad0, keep_link);
     }
 
+    /// Each link's household and months abroad now (`t` months closed).
+    fn remitters(&self, t: u32) -> Vec<(usize, u32)> {
+        #[cfg(feature = "migration")]
+        {
+            let _ = t;
+            (0..self.mig.abroad.len())
+                .filter(|&p| self.mig.abroad[p])
+                .map(|p| {
+                    (
+                        self.persons.household_id[p] as usize,
+                        u32::from(self.mig.months_abroad[p]),
+                    )
+                })
+                .collect()
+        }
+        #[cfg(not(feature = "migration"))]
+        {
+            let links = &self.people.linked_emigrants;
+            links
+                .household_id
+                .iter()
+                .enumerate()
+                .map(|(i, &h)| (h as usize, u32::from(self.rem.months_abroad0[i]) + t))
+                .collect()
+        }
+    }
+
     /// The 15th: each link's remittance to its household, in lei at the
     /// day's rate.
     pub(super) fn pay_remittances(&mut self) {
@@ -126,14 +153,12 @@ impl World {
         let n_hh = self.households.hh_weight.len();
         let mut per_hh = vec![0i128; n_hh];
         let mut cents: i128 = 0;
-        let links = &self.people.linked_emigrants;
-        for (i, &h) in links.household_id.iter().enumerate() {
-            let h = h as usize;
+        for (h, months) in self.remitters(t) {
             let w = i128::from(self.households.hh_weight[h]);
             if w == 0 || !self.household_alive(h) {
                 continue;
             }
-            let d = decay_ppm(p.decay_ppm, u32::from(self.rem.months_abroad0[i]) + t);
+            let d = decay_ppm(p.decay_ppm, months);
             // Millionths of a cent → cents, then cents → bani at e.
             let c = ratio(
                 self.rem.rbar_micro_cents * omega_ppm / 1_000_000,

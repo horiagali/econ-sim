@@ -150,7 +150,7 @@ impl World {
         // Members (live persons) and their ages.
         let mut ages: Vec<Vec<u16>> = vec![Vec::new(); n_hh];
         for q in 0..self.persons.household_id.len() {
-            if self.person_alive(q) {
+            if self.person_resident(q) {
                 ages[self.persons.household_id[q] as usize].push(self.pp.age[q]);
             }
         }
