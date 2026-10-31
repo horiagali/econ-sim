@@ -53,6 +53,9 @@ each dimension index clamped to $[0, 1]$ (UNDP's goalposts for health and educat
 
 > **Simplification:** the index is the game's, not UNDP's HDI: its living standard is consumption (SoL) rather than income per head, and life expectancy is national. Its level is not compared with Romania's HDI (0.821 in 2021); its parts are (life expectancy, mean and expected years of schooling).
 
+### Implementation status
+- **2026-10-31:** the wellbeing index on the `World` (feature `wellbeing`, off by default), computed at each close after the poverty indicators, outside the state hash: pure functions in `econ_core::wellbeing`, the close in `world/wellbeing_state.rs`. Life expectancy uses the People phase's table of the year when it acts, else the scenario's 2017–2019 table, ages 0 to 100. Regions are the residents' development regions; SoL by region is step 9's mean over the private households' persons. AC-WB-01 to 04 pass. At 1:1000, month 0: life expectancy 75.4 years (2019: 75.6), mean years of schooling 12.0 (UNDP 2021: 11.3), expected years 14.5 (14.2), index 0.69 (Bucharest-Ilfov 0.72 highest, Nord-Est 0.68 lowest); expected years dip after each June close until the August intake.
+
 ## Player levers
 Police and justice budget, health budget, hospitals (infrastructure), education (see education), transfers (poverty), power plant choice (pollution).
 
