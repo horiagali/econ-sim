@@ -234,6 +234,9 @@ fn run_baseline(world: &mut World, years: u32) -> Option<Stopped> {
         })
     };
     while world.months().len() < months {
+        if let Err(e) = routine_indexation(world) {
+            return stop(world, format!("the routine indexation was rejected: {e}"));
+        }
         match catch_unwind(AssertUnwindSafe(|| world.step(&[]))) {
             Ok(Ok(r)) if r.checks_ok && r.failed.is_empty() => {}
             Ok(Ok(r)) => {
@@ -254,6 +257,86 @@ fn run_baseline(world: &mut World, years: u32) -> Option<Stopped> {
         }
     }
     None
+}
+
+/// The levers a routine budget indexes (spec `game/calibration`, "The
+/// quiet baseline"): the ministries' budgets, public pay, pensions, the
+/// benefits' amounts and the minimum wage. Tax thresholds and brackets are
+/// not indexed (Romania does not index them); excise follows its own law.
+const ROUTINE: [&str; 10] = [
+    "spend.ministry_budget",
+    "spend.public_pay",
+    "transfer.pension.point_value",
+    "transfer.pension.minimum",
+    "transfer.unemployment.isr",
+    "transfer.child.under2",
+    "transfer.child.to18",
+    "transfer.min_income.floor",
+    "transfer.min_income.per_extra",
+    "labour.minimum_wage",
+];
+
+/// The routine government of the quiet baseline (owner, 2026-11-01: the
+/// law's amounts stay in lei, and the baseline re-votes them as a
+/// government does each year, with no other change): on the first day of
+/// each November after the first, every amount of [`ROUTINE`] in force is
+/// raised by the latest close's twelve-month inflation, by ordinary orders
+/// taking effect on 1 January. A fall in prices lowers nothing.
+fn routine_indexation(world: &mut World) -> Result<(), String> {
+    use econ_core::levers::{Command, LeverValue, Order};
+    let date = world.date();
+    if date.month != 11 || date.day != 1 || world.months().len() < 12 {
+        return Ok(());
+    }
+    let inflation = i128::from(world.months().last().map_or(0, |m| m.inflation_ppm).max(0));
+    if inflation == 0 {
+        return Ok(());
+    }
+    let effective = econ_types::Date::new(date.year + 1, 1, 1).ok_or("1 January does not exist")?;
+    let up = |x: i128| x + (x * inflation + 500_000) / 1_000_000;
+    let mut orders = Vec::new();
+    for name in ROUTINE {
+        let Some(meta) = world.registry().find(name).cloned() else {
+            continue;
+        };
+        let keys: Vec<Option<u32>> = if meta.key.is_some() {
+            (0..meta.keys.len())
+                .map(|k| u32::try_from(k).ok())
+                .collect()
+        } else {
+            vec![None]
+        };
+        for key in keys {
+            let value = match world.law().get(meta.id, key) {
+                Some(LeverValue::Money(b)) => LeverValue::Money(econ_types::Bani(
+                    i64::try_from(up(i128::from(b.get()))).map_err(|e| e.to_string())?,
+                )),
+                Some(LeverValue::Rate(r)) => {
+                    LeverValue::Rate(i32::try_from(up(i128::from(*r))).map_err(|e| e.to_string())?)
+                }
+                _ => continue,
+            };
+            let value = match (meta.range, &value) {
+                (Some((_, hi)), LeverValue::Money(b)) if b.get() > hi => {
+                    LeverValue::Money(econ_types::Bani(hi))
+                }
+                (Some((_, hi)), LeverValue::Rate(r)) if i64::from(*r) > hi => {
+                    LeverValue::Rate(i32::try_from(hi).unwrap_or(i32::MAX))
+                }
+                _ => value,
+            };
+            orders.push(Order::Set(Command {
+                lever: meta.id,
+                key,
+                value,
+                effective: Some(effective),
+            }));
+        }
+    }
+    for o in orders {
+        world.give(o).map_err(|r| r.message)?;
+    }
+    Ok(())
 }
 
 /// `report.md`: the targets (out ones first), a line a year of the headline
