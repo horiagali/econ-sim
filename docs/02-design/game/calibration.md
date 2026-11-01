@@ -62,7 +62,8 @@ Each metric reads the registry's monthly points of the indicator at the key over
 - `drift`: the largest absolute difference between a point and the window's first point, in the indicator's unit (ADR-0009's "within ±10% of its base value" is a `drift` band of ±10% of the base);
 - `trend`: the least-squares slope of the points, per year;
 - `ratio(other)`: the mean of the indicator over the mean of `other` over the window, in millionths (for shares of GDP from two registry series);
-- `reached`: 1 if the run has a point at the window's last month, else 0 (band `[1, 1]`: the run must not stop).
+- `reached`: 1 if the run has a point at the window's last month, else 0 (band `[1, 1]`: the run must not stop);
+- `explained(flows)`: for S-05a, the change of the indicator's level series over the window over the sum of the named flow series over the window, in millionths (band `[750_000, 1_250_000]`).
 
 Units and the evaluation use integers where the registry does (`i64` points); `mean`, `trend` and `ratio` are computed in `f64` and rounded half away from zero to the indicator's unit.
 
@@ -94,10 +95,13 @@ L-09 and L-10 need the registry to carry household consumption and the wage bill
 | S-02 | `labour.unemployment_rate` | drift | years 2 to 50 | within ±3 points of year 2's first month |
 | S-03 | `prices.inflation_yoy` | mean of each decade | years 2 to 50 | 0% to 6% |
 | S-04 | `fx.eur_lei` | drift | years 2 to 50 | within ±25% of the start |
-| S-05 | `debt.gdp_ratio` | max | years 1 to 50 | see the open question on debt |
+| S-05a | `debt.gdp_ratio` | explained change, each decade | years 1 to 50 | the decade's change in the debt (lei) within ±25% of the decade's deficits plus revaluations: debt may rise under the 2021 law, but only as the budget says |
+| S-05b | `debt.gdp_ratio` | reached | years 1 to 30 | no debt crisis before year 30 unless the bond risk premium ([fiscal policy](../economy/fiscal-policy.md)) set it off |
 | S-06 | `trade.current_account` over `gdp.nominal` | ratio, each decade | years 1 to 50 | −8% to +2% |
 | S-07 | household consumption and wage bill over GDP | drift | years 2 to 50 | within ±10% of year 2's value (ADR-0009) |
 | S-08 | `people.population` (people) | at year 50 | — | 14.5 to 17.5 million: the direction of INS's and Eurostat's projections (EUROPOP2023 baseline for 2070 about 15.6 million); M5's exit |
+
+The 50-year runs keep the 2021 law and **no fiscal rule**: the player is the government, so nothing in the game corrects the budget for them (owner, 2026-11-01). The 2021 law is not sustainable, and that is a correct result; the stability targets ask that the economy's own dynamics stay sound while the debt climbs as the deficits say. A scripted consolidation run (ordinary lever orders trimming the deficit, to check stability under a governed budget) is not built now; revisited later if the targets need it (owner, 2026-11-01).
 
 **Lever responses** (R) come after the levels: ADR-0009's R-1 (after a 1 point policy-rate rise the CPI's trough lies 8 to 24 months later and between −0.2% and −1.5%) and one per M4 scenario, each anchored in evidence, reusing the [policy-scenario](policy-scenarios.md) harness. Their bands are proposed when the baseline's levels are in band.
 
@@ -117,7 +121,7 @@ CI runs the 10-year core report at 1:1000 on every PR that touches `crates/` and
 IDs are stable. Tests in `crates/econ-core/tests/acceptance/calibration.rs` and `crates/econ-cli/tests/acceptance/calibrate.rs` (protected; the test-writer's).
 
 - [ ] **AC-CAL-01** `[unit]` The committed `calibration/targets.toml` parses; every target names a registry indicator that is active in its configuration's features, a key the indicator has (or national), a known metric and a band with low ≤ high; ids are unique.
-- [ ] **AC-CAL-02** `[unit]` Each metric on hand-built histories: `mean`, `at`, `min`, `max`, `drift`, `trend` and `ratio` give the stated values (including negative values, a one-point window and rounding half away from zero); a window past the history's end makes the target fail with "not reached", never panics.
+- [ ] **AC-CAL-02** `[unit]` Each metric on hand-built histories: `mean`, `at`, `min`, `max`, `drift`, `trend`, `ratio` and `explained` give the stated values (including negative values, a one-point window and rounding half away from zero); a window past the history's end makes the target fail with "not reached", never panics.
 - [ ] **AC-CAL-03** `[unit]` A target exactly on either end of its band is in band; one ban (or ppm) outside is out; "how far out" is the distance to the nearer end over the band's width.
 - [ ] **AC-CAL-04** `[sim]` `econ-cli calibrate --years 3 --config core` at 1:1000 writes `report.json` and `report.md`; their values equal the evaluation of the registry history of a direct run of the same baseline; two runs give byte-identical `report.md` and equal `report.json` apart from `timing`.
 - [ ] **AC-CAL-05** `[sim]` Exit codes: a targets file whose bands all contain the 3-year values exits 0; moving one band off exits 1 and lists that target first in `report.md`; an unreadable targets file exits 2.
@@ -128,6 +132,6 @@ IDs are stable. Tests in `crates/econ-core/tests/acceptance/calibration.rs` and 
 The M7 exit criterion is not an acceptance test of this spec: it is the report with every target in band, which the owner accepts.
 
 ## Open questions
-- [ ] **Debt in a quiet baseline (owner).** The 2021 law runs a 7% deficit; at nominal growth of about 5% the debt ratio tends to about 140% of GDP even if nothing else goes wrong, and Romania itself consolidated after 2021. Three readings: (a) the quiet baseline keeps the 2021 law and S-05 only asks the ratio to stay finite and below 150% at year 50; (b) the quiet baseline includes a consolidation path or a fiscal rule (government spending or taxes respond to the deficit), so the ratio stabilises near 50–70%; (c) both: the report runs the 2021 law for 10 years and a rule-based baseline for 50. *Proposed: (c)*: the 2021 law tells the player what they inherited, and the 50-year stability check needs a government that reacts, as every other sector does. A fiscal rule would be a new mechanic with its own spec.
+- [x] **Debt in a quiet baseline (owner).** *Decided 2026-11-01 (owner):* no automatic fiscal rule in the game, now or as a default, since it would play the Ministry of Finance for the player. The quiet baselines keep the 2021 law with S-05a and S-05b; a scripted consolidation run waits until needed. What answers a rising debt in the game: the bond risk premium and the debt crisis ([fiscal policy](../economy/fiscal-policy.md)), the automatic stabilisers, the EU's deficit rules (M18). Later, and never by default: a Ministry of Finance **adviser** that proposes a budget (as the central bank's rule is shown once the player overrides it), **politics** that resists or forces budget changes, and **automation** the player opts into per area, as in Europa Universalis ([roadmap](../../roadmap.md), after v1).
 - [x] **The bands (owner).** *Decided 2026-11-01 (owner): accepted as proposed*, as a starting point to tighten once the baseline is in band.
 - [ ] **The start transient.** Real GDP falls by about a fifth in the first six months; the levels skip year 1 for that reason. Whether the transient itself becomes a target (month 0 to 6 drift of GDP within ±5%) is proposed for after the household income fix, which is its likely cause.
