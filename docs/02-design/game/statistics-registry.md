@@ -41,19 +41,19 @@ At the end of every monthly close, after every mechanic's own close, the `World`
 - **Values equal their source exactly:** an indicator read from a month record has that record's value for that month (the tests compare them); the registry computes nothing a mechanic already computes.
 
 ## The alpha indicators
-Grouped by the [information](information.md) views. **(new)** marks a value no month record holds today: it is computed by the registry from the state at the close, as its spec defines it.
+Grouped by the [information](information.md) views. **(planned)** marks a value no month record holds today: it is listed with `status = "planned"` and computed with its own milestone (owner, 2026-11-01).
 
 | View | Indicators (ids) | Breakdowns |
 |---|---|---|
 | 1 Overview (headline) | `gdp.nominal`, `gdp.real`, `gdp.per_capita`, `gdp.growth_yoy`, `prices.cpi`, `prices.inflation_yoy`, `labour.unemployment_rate`, `labour.employed`, `wages.mean_nominal`, `wages.mean_real`, `budget.balance`, `debt.gdp_ratio`, `money.policy_rate` (day), `fx.eur_lei` (day), `trade.balance`, `approval.national`, `people.gini`, `people.population` | region, county where the source has them |
 | 3 People (M5) | `people.poverty_rate`, `people.poverty_rate_anchored`, `people.class_share` (class), `people.hardship_rate`, `people.s80_s20`, `people.sol` (region, county, class, fifth, age_band), `people.wellbeing` (region), `people.life_expectancy`, `people.births`, `people.deaths`, `people.emigrants`, `people.returns`, `people.immigrants`, `people.diaspora`, `people.remittances`, `education.enrolled` (level), `education.early_leavers_rate`, `education.tertiary_attainment`, `approval.by_group` (activity, fifth, region, county, age_band, edu, sex) | as listed (each with its feature) |
-| 4 Industry | `industry.output_real`, `industry.price`, `industry.employment`, `industry.wage_cost_per_unit` **(new)**, `industry.investment` | industry |
+| 4 Industry | `industry.output_real`, `industry.price`, `industry.employment`, `industry.wage_cost_per_unit` **(planned, M9)**, `industry.investment` | industry |
 | 5 Budget | `budget.revenue` (flow), `budget.spending` (flow), `budget.interest`, `budget.deficit`, `debt.stock`, `budget.line_paid` (line), `budget.eu_net_balance` | as listed |
-| 6 Prices | `prices.cpi`, `prices.inflation_mom`, `prices.good` (good, day), `prices.cpi_contribution` **(new)** (good: basket weight × the good's price change), `prices.expected_inflation` | as listed |
+| 6 Prices | `prices.cpi`, `prices.inflation_mom`, `prices.good` (good, day), `prices.cpi_contribution` **(planned, M6's "why did this change" slice: it is the CPI's decomposition by good)** (good: basket weight × the good's price change), `prices.expected_inflation` | as listed |
 | 7 Finance | `money.policy_rate` (day), `money.deposits_households`, `money.credit_households`, `money.credit_firms`, `money.cash` (ledger), `money.cb_foreign_assets` | — |
 | 8 Trade | `fx.eur_lei` (day), `trade.exports_volume`, `trade.current_account`, `trade.capital_account`, `trade.current_account_proper` (current less capital), `fx.intervention` | — |
 | 9 Map | every indicator above with a `county` or `region` breakdown | county, region |
-| 15 Informal | `informal.wages_declared_share` **(new)**, `informal.mixed_income_declared_share` **(new)**, `budget.revenue_lost` **(new, from the held payments and the tax gap of [informal economy](../economy/informal-economy.md))** | county, industry |
+| 15 Informal | `informal.wages_declared_share` **(planned, M15)**, `informal.mixed_income_declared_share` **(planned, M15)**, `budget.revenue_lost` **(planned, M15: the held payments and the tax gap of [informal economy](../economy/informal-economy.md))** | county, industry |
 
 The list is the M6 minimum; each later milestone adds its indicators to the registry with its mechanic.
 
@@ -98,4 +98,4 @@ IDs are stable. Tests go in `crates/econ-core/tests/acceptance/stats.rs` (protec
 - [x] **Replace the month records?** *Proposed (2026-11-01):* not in M6; the registry reads them and the tests tie each indicator to its record. M8's UI reads only the registry; the records may then become private.
 - [x] **On by default?** *Proposed:* the feature `stats` joins the defaults once AC-STAT-01 to 08 pass (it changes no state, so no golden value).
 - [x] **Daily points' retention.** *Proposed:* all of them in memory in M6 (a 50-year run at one point a day for a few dozen series is small); what saves keep is ADR-0011's and M6's third slice.
-- [ ] **The new indicators** (wage cost per unit by industry, CPI contributions, the informal shares and revenue lost): computed by the registry from the state as their specs define them. Confirm the list, or move some to their mechanics' milestones.
+- [x] **The new indicators** (wage cost per unit by industry, CPI contributions, the informal shares and revenue lost). **Decided by the owner, 2026-11-01:** each waits for its milestone (M9; M6's "why" slice; M15), listed in the registry as `planned`.
