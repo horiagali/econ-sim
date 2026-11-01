@@ -293,6 +293,8 @@ impl World {
         }
         // Wage cost per unit of output for the prices of next month.
         for j in 0..self.industries.id.len() {
+            #[cfg(feature = "stats")]
+            self.stats_capture_output(j, self.ii.output_month[j]);
             let out = self.ii.output_month[j];
             if out > 0 {
                 let c = ratio(

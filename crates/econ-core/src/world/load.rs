@@ -800,6 +800,10 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         app: super::approval_state::AppState::default(),
         #[cfg(feature = "wellbeing")]
         wb: Vec::new(),
+        #[cfg(feature = "stats")]
+        stats: crate::stats::StatsHistory::default(),
+        #[cfg(feature = "stats")]
+        stats_output: Vec::new(),
         #[cfg(feature = "education")]
         edu: super::education::EduState::default(),
         #[cfg(feature = "migration")]

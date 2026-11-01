@@ -143,6 +143,8 @@ mod approval_state;
 // The poverty and inequality indicators (roadmap M5).
 #[cfg(feature = "poverty")]
 mod poverty_state;
+#[cfg(feature = "stats")]
+mod stats_state;
 #[cfg(feature = "wellbeing")]
 mod wellbeing_state;
 
@@ -1241,6 +1243,11 @@ pub struct World {
     app: approval_state::AppState,
     #[cfg(feature = "wellbeing")]
     wb: Vec<crate::wellbeing::WellbeingStats>,
+    #[cfg(feature = "stats")]
+    stats: crate::stats::StatsHistory,
+    /// Each industry's output of the month just closed (the registry's).
+    #[cfg(feature = "stats")]
+    stats_output: Vec<i64>,
     #[cfg(feature = "education")]
     edu: education::EduState,
     #[cfg(feature = "migration")]
@@ -1333,6 +1340,8 @@ impl World {
         }
         let day = self.today;
         let date = self.calendar.date(day);
+        #[cfg(feature = "stats")]
+        let closes_before = self.months.len();
         self.ledger.begin_tick(day.0);
         self.begin_day();
         #[cfg(feature = "banking")]
@@ -1395,6 +1404,9 @@ impl World {
         self.trade_day_end();
         #[cfg(feature = "investment")]
         self.invest_day_end();
+        // The registry last: every phase of the day is done.
+        #[cfg(feature = "stats")]
+        self.stats_day_end(self.months.len() > closes_before);
         self.today = day.next();
         let state_hash = self.state_hash();
         Ok(DayReport {

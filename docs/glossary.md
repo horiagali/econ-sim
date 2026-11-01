@@ -250,6 +250,15 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `foreign_price_growth[b]`, `foreign_demand_growth[b]` | World setting: growth a year of import prices and of demand for exports, by bloc *b* (EU, non-EU); basis points in code | % / year | lever | economy/trade-fx |
 | — | `fuel_price[fuel]` | World setting: world price of oil (a barrel), gas (a MWh) and coal (a tonne) | LCU / unit | lever | economy/energy |
 | — | `foreign_rate` | World setting: interest rate abroad (the ECB's); basis points in code | % / year | lever | economy/trade-fx |
+| — | `gdp_nominal` | Nominal GDP of the month (production approach), current prices | LCU / month | derived | game/statistics-registry |
+| — | `budget_balance` | General government balance of the month: revenue less spending, interest included (−deficit) | LCU / month | derived | game/statistics-registry |
+| — | `budget_deficit` | General government deficit of the month, interest included | LCU / month | derived | economy/fiscal-policy |
+| — | `debt_gdp_ratio` | Public debt over the last twelve months' nominal GDP | ratio | derived | game/statistics-registry |
+| — | `current_account` | Balance of payments: the rest of the world's non-financing flows of the month (the trade month's total; less the capital account, the current account proper) | LCU / month | derived | economy/trade-fx |
+| — | `capital_account` | Balance of payments: capital transfers of the month (the EU's capital grants, migrants' capital) | LCU / month | derived | economy/trade-fx |
+| — | `eu_net_balance` | Net balance with the EU budget of the month | LCU / month | derived | economy/eu-funds |
+| — | `credit_households` | Households' loans outstanding: mortgages and consumer debt, weighted | LCU | state | economy/money-banking |
+| — | `trade_balance` | Exports less imports of goods and services of the month | LCU / month | derived | economy/trade-fx |
 | $Q_r$ | `home_quality[r]` | Expected quality of life at home in region *r* that migrants weigh: the wellbeing index and jobs, a slow memory, relative to the start | ratio | derived | economy/migration-remittances |
 | — | `sol` | Standard of living of a household: 10 + 10·log2 of its real actual consumption per equivalised adult (purchases, home-grown food, imputed rent, public health and education in kind) over the subsistence basket; 10 is subsistence | points (0–100) | derived | society/poverty-inequality |
 | $W_r$ | `wellbeing_index[r]` | Wellbeing index of region *r* (and the nation): geometric mean of life expectancy, schooling and SoL dimension indices | index (0–1) | derived | society/social-outcomes |
