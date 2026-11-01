@@ -853,7 +853,10 @@
     "glossary": "poverty_rate_anchored",
     "unit": "ppm",
     "period": "month",
-    "breakdowns": [],
+    "breakdowns": [
+      "region",
+      "county"
+    ],
     "aggregate": "none",
     "derive": "",
     "feature": "poverty",
@@ -863,7 +866,7 @@
     "headline": false,
     "milestone": "alpha",
     "status": "active",
-    "source": "society/poverty-inequality: class_share_ppm[0]"
+    "source": "society/poverty-inequality: class_share_ppm[0]; by region and county, the class at risk's share of the area's counted persons"
   },
   {
     "id": "people.class_share",

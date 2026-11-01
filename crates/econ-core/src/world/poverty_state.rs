@@ -136,6 +136,40 @@ impl World {
         self.pov.class_prev.clone()
     }
 
+    /// The share of each region's and each county's counted persons in the
+    /// class at risk (anchored) at the latest close, millionths, as the
+    /// national `class_share_ppm[0]` (roadmap M6, "Standard of living by
+    /// class").
+    #[cfg(feature = "stats")]
+    pub(super) fn pov_anchored_by_area(&self) -> (Vec<u32>, Vec<u32>) {
+        let p = &self.pov;
+        let mut by_r = vec![(0u64, 0u64); p.n_regions];
+        let mut by_c = vec![(0u64, 0u64); p.n_counties];
+        for (h, class) in p.class_prev.iter().enumerate() {
+            let Some(k) = *class else { continue };
+            let v = p.persons_prev[h];
+            let at_risk = if k == 0 { v } else { 0 };
+            for (area, i) in [
+                (&mut by_r, usize::from(p.region[h])),
+                (&mut by_c, usize::from(p.county[h])),
+            ] {
+                if let Some(x) = area.get_mut(i) {
+                    x.0 += at_risk;
+                    x.1 += v;
+                }
+            }
+        }
+        let share = |v: Vec<(u64, u64)>| -> Vec<u32> {
+            v.into_iter()
+                .map(|(a, n)| {
+                    u32::try_from(u128::from(a) * 1_000_000 / u128::from(n.max(1)))
+                        .expect("a share")
+                })
+                .collect()
+        };
+        (share(by_r), share(by_c))
+    }
+
     /// Imputed rent paid to household `h` (per household).
     pub(crate) fn pov_imputed_rent(&mut self, h: usize, x: Bani) {
         if self.pov.imputed.len() <= h {
