@@ -293,6 +293,21 @@ impl StatsHistory {
         self.column(id, key, t).months.push(value);
     }
 
+    /// The monthly points of `id` at `key` from `first_month`, replacing any
+    /// it had (a built history, for the calibration's tests).
+    #[cfg(feature = "calibration")]
+    pub(crate) fn set_months(
+        &mut self,
+        id: IndicatorId,
+        key: Key,
+        first_month: u32,
+        points: &[i64],
+    ) {
+        self.cols.remove(&(id, key));
+        let c = self.column(id, key, first_month);
+        c.months = points.to_vec();
+    }
+
     /// A daily point (the month `t` the day is in, for a new column).
     pub(crate) fn push_day(&mut self, id: IndicatorId, key: Key, t: u32, value: i64) {
         self.column(id, key, t).days.push(value);

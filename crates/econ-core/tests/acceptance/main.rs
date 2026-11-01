@@ -136,5 +136,17 @@ mod api;
 mod explain;
 #[cfg(feature = "groups")]
 mod groups;
-#[cfg(any(feature = "groups", feature = "explain", feature = "api"))]
+#[cfg(any(
+    feature = "groups",
+    feature = "explain",
+    feature = "api",
+    feature = "calibration"
+))]
 mod support_m6;
+
+// M7: calibration (spec game/calibration, AC-CAL-01 to 03 and 07; 04 to 06
+// and 08 are econ-cli's), written before the code against the test writer's
+// API skeleton `econ_core::calibration`, behind the feature `calibration`,
+// which the implementation adds to `default` once they pass.
+#[cfg(feature = "calibration")]
+mod calibration;

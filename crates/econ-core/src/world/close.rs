@@ -496,6 +496,13 @@ impl World {
             Ok(()) => Vec::new(),
             Err(e) => e,
         };
+        #[cfg(feature = "calibration")]
+        if self.fail_checks_on == Some(self.today) {
+            failed.push(InvariantError::NegativeRecord {
+                column: "fail_checks_on (a start edit)",
+                record: 0,
+            });
+        }
         let h = &self.households;
         let weighted = |col: &[Bani]| -> Bani {
             bani(

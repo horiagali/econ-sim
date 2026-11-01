@@ -192,6 +192,16 @@ explain = ["stats"]
 # commands as serde types.
 api = ["groups", "explain", "dep:serde"]
 
+# Calibration (spec game/calibration, roadmap M7, AC-CAL-01 to 03 and 07):
+# `econ_core::calibration`, the targets file, the metrics and the report, the
+# start edit `StartEdit::FailChecksOn` (AC-CAL-06), as an API skeleton
+# written with its acceptance tests before the code (ADR-0014); every body
+# is `unimplemented!` until the code exists. Its tests also read the
+# registry's `gdp.consumption` and `wages.bill` (AC-CAL-07), which the
+# implementation adds to `indicators.toml`. Off by default; the implementation
+# adds it to `default` once its tests pass.
+calibration = ["stats", "dep:serde", "dep:toml"]
+
 [[test]]
 name = "acceptance"
 path = "tests/acceptance/main.rs"

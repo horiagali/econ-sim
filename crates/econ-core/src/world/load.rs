@@ -606,6 +606,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             StartEdit::NoDiaspora => {}
             #[cfg(feature = "migration")]
             StartEdit::MigrationUnemploymentShock { .. } => later.push(e.clone()),
+            #[cfg(feature = "calibration")]
+            StartEdit::FailChecksOn(_) => later.push(e.clone()),
         }
     }
     if let Some(f) = wage_scale {
@@ -808,6 +810,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         stats_cpi_terms: Vec::new(),
         #[cfg(feature = "explain")]
         xp: super::explain_state::XpState::default(),
+        #[cfg(feature = "calibration")]
+        fail_checks_on: None,
         #[cfg(feature = "groups")]
         grp: super::groups_state::GroupState::default(),
         #[cfg(feature = "education")]
@@ -919,6 +923,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             StartEdit::MigrationUnemploymentShock { region, points_ppm } => {
                 world.mig.shocks.push((region, points_ppm));
             }
+            #[cfg(feature = "calibration")]
+            StartEdit::FailChecksOn(day) => world.fail_checks_on = Some(day),
             _ => {}
         }
     }

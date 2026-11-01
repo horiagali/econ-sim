@@ -292,6 +292,7 @@ pub const VARIABLES: &[Variable] = &[
     Variable { code_name: "fuel_price[fuel]", meaning: "World setting: world price of oil (a barrel), gas (a MWh) and coal (a tonne)", unit: "LCU / unit", kind: "lever", owner: "economy/energy" },
     Variable { code_name: "foreign_rate", meaning: "World setting: interest rate abroad (the ECB's); basis points in code", unit: "% / year", kind: "lever", owner: "economy/trade-fx" },
     Variable { code_name: "gdp_nominal", meaning: "Nominal GDP of the month (production approach), current prices", unit: "LCU / month", kind: "derived", owner: "game/statistics-registry" },
+    Variable { code_name: "wage_bill", meaning: "Wages paid by all employers over the month (`months()[t].wage_bill`)", unit: "LCU / month", kind: "flow", owner: "game/calibration" },
     Variable { code_name: "budget_balance", meaning: "General government balance of the month: revenue less spending, interest included (−deficit)", unit: "LCU / month", kind: "derived", owner: "game/statistics-registry" },
     Variable { code_name: "budget_deficit", meaning: "General government deficit of the month, interest included", unit: "LCU / month", kind: "derived", owner: "economy/fiscal-policy" },
     Variable { code_name: "debt_gdp_ratio", meaning: "Public debt over the last twelve months' nominal GDP", unit: "ratio", kind: "derived", owner: "game/statistics-registry" },
