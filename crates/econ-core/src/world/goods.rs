@@ -1042,7 +1042,16 @@ impl World {
                 let _ = u;
             }
             let gv = value(g_s);
-            post.gov_pays(Sector::Firms, bani(gv), FlowCode::GOV_PURCHASES);
+            // Under a budget, these are the purchases no line pays.
+            #[cfg(feature = "levers")]
+            let code = if self.bud_active() {
+                FlowCode::GOV_PURCHASES_FIXED
+            } else {
+                FlowCode::GOV_PURCHASES
+            };
+            #[cfg(not(feature = "levers"))]
+            let code = FlowCode::GOV_PURCHASES;
+            post.gov_pays(Sector::Firms, bani(gv), code);
             self.mac.month.government += gv;
             let iv = value(i_s);
             if let Some(room) = invest_room.as_mut() {

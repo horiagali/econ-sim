@@ -24,6 +24,10 @@ impl FlowCode {
     /// The public units' market sales, which go to the government (ESA
     /// P11 + P12 + P131, spec `game/lever-system`, "Market sales").
     pub const GOV_SALES: FlowCode = FlowCode(1006);
+    /// The government's fixed purchases that no budget line pays: under a
+    /// budget, the input-output table's government consumption of goods no
+    /// public unit makes (spec `economy/budget-2021`; M7, 2026-11-01).
+    pub const GOV_PURCHASES_FIXED: FlowCode = FlowCode(1007);
     // 2xxx — income
     /// Wages paid by firms.
     pub const WAGES: FlowCode = FlowCode(2001);
@@ -155,13 +159,14 @@ impl FlowCode {
 
     /// Every code the ledger knows, in ascending order. A new code is added here
     /// and in [`FlowCode::name`] in the same change.
-    pub const ALL: [FlowCode; 62] = [
+    pub const ALL: [FlowCode; 63] = [
         Self::CONSUMPTION,
         Self::GOV_PURCHASES,
         Self::GOV_INVESTMENT,
         Self::EXPORTS,
         Self::IMPORTS,
         Self::GOV_SALES,
+        Self::GOV_PURCHASES_FIXED,
         Self::WAGES,
         Self::INTEREST_GOV_DEBT,
         Self::MIXED_INCOME,
@@ -236,6 +241,7 @@ impl FlowCode {
             1004 => "exports",
             1005 => "imports",
             1006 => "gov.sales",
+            1007 => "gov.purchases_fixed",
             2001 => "wages",
             2002 => "interest.gov_debt",
             2004 => "interest.loan",
