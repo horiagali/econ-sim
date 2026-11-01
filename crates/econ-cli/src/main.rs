@@ -37,6 +37,9 @@
 use std::io::Write;
 use std::process::ExitCode;
 
+#[cfg(feature = "calibration")]
+mod calibrate;
+
 use econ_core::sim::{Mutation, SimModel, SimParams};
 use econ_rng::{KeyedRng, Stream};
 
@@ -75,10 +78,10 @@ fn main() -> ExitCode {
 /// The calibration report (spec `game/calibration`, "The report"):
 /// `econ-cli calibrate --targets FILE --sample-scale N --years Y
 /// --config core|people|both --out DIR [--fixtures DIR] [--io-table FILE]
-/// [--fail-on-day D]`, behind the feature `calibration`. A test writer's
-/// skeleton (ADR-0014); the implementation fills it.
+/// [--fail-on-day D]`, behind the feature `calibration` (module
+/// `calibrate`).
 ///
-/// Choices the spec left open, stated by the test writer:
+/// Choices the spec left open (the test writer's readings):
 /// - The quiet baseline is built as `build-scenario` builds it: the Romania
 ///   scenario from `--fixtures` (default `python/pipeline/fixtures`) at 1:N,
 ///   seed 42, read back with `--io-table` (default
@@ -104,8 +107,7 @@ fn main() -> ExitCode {
 ///   that cannot be read.
 #[cfg(feature = "calibration")]
 fn calibrate(args: &[String]) -> ExitCode {
-    let _ = args;
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    calibrate::run(args)
 }
 
 /// Headless play (spec `game/lever-system`, "Headless play"):

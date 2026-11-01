@@ -20,6 +20,21 @@ status = "active"
 source = "game/world-loop: months()[t].gdp_production"
 
 [[indicator]]
+id = "gdp.consumption"
+glossary = "consumption"
+unit = "bani"
+period = "month"
+breakdowns = []
+aggregate = "none"
+derive = ""
+feature = ""
+views = ["overview"]
+headline = false
+milestone = "alpha"
+status = "active"
+source = "economy/households: months()[t].consumption"
+
+[[indicator]]
 id = "gdp.real"
 glossary = ""
 unit = "real_bani"
@@ -183,6 +198,21 @@ headline = true
 milestone = "alpha"
 status = "active"
 source = "economy/labor-market: months()[t].employed"
+
+[[indicator]]
+id = "wages.bill"
+glossary = "wage_bill"
+unit = "bani"
+period = "month"
+breakdowns = []
+aggregate = "none"
+derive = ""
+feature = ""
+views = ["overview"]
+headline = false
+milestone = "alpha"
+status = "active"
+source = "economy/labor-market: months()[t].wage_bill"
 
 [[indicator]]
 id = "wages.mean_nominal"

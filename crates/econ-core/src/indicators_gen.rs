@@ -7,6 +7,7 @@ use crate::stats::{Aggregate, Breakdown, Derive, IndicatorMeta, Period, Status, 
 #[allow(missing_docs)]
 pub enum IndicatorId {
     GdpNominal,
+    GdpConsumption,
     GdpReal,
     GdpPerCapita,
     GdpGrowthYoy,
@@ -18,6 +19,7 @@ pub enum IndicatorId {
     PricesCpiContribution,
     LabourUnemploymentRate,
     LabourEmployed,
+    WagesBill,
     WagesMeanNominal,
     WagesMeanReal,
     BudgetBalance,
@@ -75,7 +77,7 @@ pub enum IndicatorId {
 }
 
 /// The registry's entries, in its order.
-pub(crate) static INDICATORS: [IndicatorMeta; 66] = [
+pub(crate) static INDICATORS: [IndicatorMeta; 68] = [
     IndicatorMeta {
         id: IndicatorId::GdpNominal,
         name: "gdp.nominal",
@@ -88,6 +90,20 @@ pub(crate) static INDICATORS: [IndicatorMeta; 66] = [
         feature: None,
         views: &[View::Overview],
         headline: true,
+        status: Status::Active,
+    },
+    IndicatorMeta {
+        id: IndicatorId::GdpConsumption,
+        name: "gdp.consumption",
+        glossary: "consumption",
+        unit: Unit::Bani,
+        period: Period::Month,
+        breakdowns: &[],
+        aggregate: Aggregate::None,
+        derive: None,
+        feature: None,
+        views: &[View::Overview],
+        headline: false,
         status: Status::Active,
     },
     IndicatorMeta {
@@ -242,6 +258,20 @@ pub(crate) static INDICATORS: [IndicatorMeta; 66] = [
         feature: None,
         views: &[View::Overview],
         headline: true,
+        status: Status::Active,
+    },
+    IndicatorMeta {
+        id: IndicatorId::WagesBill,
+        name: "wages.bill",
+        glossary: "wage_bill",
+        unit: Unit::Bani,
+        period: Period::Month,
+        breakdowns: &[],
+        aggregate: Aggregate::None,
+        derive: None,
+        feature: None,
+        views: &[View::Overview],
+        headline: false,
         status: Status::Active,
     },
     IndicatorMeta {

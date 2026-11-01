@@ -251,6 +251,7 @@ Conventions: subscript `t` = tick; stocks are end-of-tick; flows are per tick; m
 | — | `fuel_price[fuel]` | World setting: world price of oil (a barrel), gas (a MWh) and coal (a tonne) | LCU / unit | lever | economy/energy |
 | — | `foreign_rate` | World setting: interest rate abroad (the ECB's); basis points in code | % / year | lever | economy/trade-fx |
 | — | `gdp_nominal` | Nominal GDP of the month (production approach), current prices | LCU / month | derived | game/statistics-registry |
+| — | `wage_bill` | Wages paid by all employers over the month (`months()[t].wage_bill`) | LCU / month | flow | game/calibration |
 | — | `budget_balance` | General government balance of the month: revenue less spending, interest included (−deficit) | LCU / month | derived | game/statistics-registry |
 | — | `budget_deficit` | General government deficit of the month, interest included | LCU / month | derived | economy/fiscal-policy |
 | — | `debt_gdp_ratio` | Public debt over the last twelve months' nominal GDP | ratio | derived | game/statistics-registry |

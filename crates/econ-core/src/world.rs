@@ -1270,6 +1270,9 @@ pub struct World {
     stats_cpi_terms: Vec<i128>,
     #[cfg(feature = "explain")]
     xp: explain_state::XpState,
+    /// The day [`StartEdit::FailChecksOn`] makes the checks fail on.
+    #[cfg(feature = "calibration")]
+    fail_checks_on: Option<Day>,
     #[cfg(feature = "groups")]
     grp: groups_state::GroupState,
     #[cfg(feature = "education")]

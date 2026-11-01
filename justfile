@@ -31,10 +31,15 @@ lint:
     cargo clippy -p econ-core --features lifecycle --all-targets -- -D warnings
     cargo clippy -p econ-core --features api,home_quality,education,approval --all-targets -- -D warnings
     cargo clippy -p econ-io --features history --all-targets -- -D warnings
+    cargo clippy -p econ-core --features calibration --all-targets -- -D warnings
+    cargo clippy -p econ-cli --features calibration --all-targets -- -D warnings
+    cargo clippy -p econ-cli --features calibration-people --all-targets -- -D warnings
 
 # Unit, property and invariant tests
 test:
     cargo test --workspace
+    cargo test -p econ-core --features calibration --test acceptance calibration::
+    cargo test -p econ-cli --features calibration --test acceptance calibrate::
 
 # Prove the determinism deny-lists are active: clippy must REJECT the canary
 lint-canary:
@@ -101,6 +106,13 @@ deny:
 # Save size and save/load/verify time at several scales (Spike 6)
 bench-save:
     cargo run -q --release -p econ-cli -- bench-save
+
+# The calibration report (spec game/calibration): the quiet baseline of each
+# configuration (a build each) for `years`, at 1:`sample_scale`, into `out`/core
+# and `out`/people; exits 1 if a target is out
+calibrate years="10" scale="1000" out="target/calibration":
+    cargo run -q --release -p econ-cli --features calibration -- calibrate --targets calibration/targets.toml --sample-scale {{scale}} --years {{years}} --config core --out {{out}}/core
+    cargo run -q --release -p econ-cli --features calibration-people -- calibrate --targets calibration/targets.toml --sample-scale {{scale}} --years {{years}} --config people --out {{out}}/people
 
 # Calibration loop from Python (Spike 5). Needs `uv`; builds the econ_py bindings.
 calib-spike:

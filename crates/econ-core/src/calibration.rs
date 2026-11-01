@@ -6,10 +6,9 @@
 //! nothing here runs a world.
 //!
 //! The API is the spec's sketch, written with the acceptance tests before the
-//! code (ADR-0014): a test writer's skeleton whose bodies are
-//! `unimplemented!` until the code exists.
+//! code (ADR-0014).
 //!
-//! Choices the sketch left open, stated by the test writer:
+//! Choices the sketch left open (the test writer's readings):
 //! - **Two layers.** [`metric_value`] is a metric over plain monthly series
 //!   ([`Points`]), so the unit tests need no history; [`evaluate`] reads the
 //!   targets' series from a [`StatsHistory`] (built in tests with
@@ -53,7 +52,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::stats::{IndicatorId, Key, StatsHistory};
+use crate::stats::{Breakdown, IndicatorId, Key, StatsHistory};
 
 /// The configurations of the quiet baseline (spec, "The quiet baseline").
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -138,8 +137,117 @@ pub struct TargetsError {
 /// # Errors
 /// A text that is not TOML, or a target with a missing or malformed field.
 pub fn parse_targets(text: &str) -> Result<Vec<Target>, TargetsError> {
-    let _ = text;
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let file: RawFile = toml::from_str(text).map_err(|e| TargetsError {
+        message: format!("the targets file is not a targets file: {e}"),
+    })?;
+    file.target.into_iter().map(Target::from_raw).collect()
+}
+
+/// The file as TOML gives it.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawFile {
+    #[serde(default)]
+    target: Vec<RawTarget>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawTarget {
+    id: String,
+    indicator: String,
+    key: String,
+    metric: String,
+    window: [u32; 2],
+    band: [i64; 2],
+    config: TargetConfig,
+    #[serde(default)]
+    source: String,
+    #[serde(default)]
+    note: String,
+}
+
+impl Target {
+    fn from_raw(r: RawTarget) -> Result<Target, TargetsError> {
+        let err = |what: String| TargetsError {
+            message: format!("target {}: {what}", r.id),
+        };
+        let key = parse_key(&r.key).ok_or_else(|| err(format!("unknown key {:?}", r.key)))?;
+        let metric =
+            parse_metric(&r.metric).ok_or_else(|| err(format!("unknown metric {:?}", r.metric)))?;
+        Ok(Target {
+            id: r.id,
+            indicator: r.indicator,
+            key,
+            metric,
+            window: r.window,
+            band: r.band,
+            config: r.config,
+            source: r.source,
+            note: r.note,
+        })
+    }
+}
+
+/// `national` or `<breakdown>:<index>`.
+fn parse_key(s: &str) -> Option<Key> {
+    if s == "national" {
+        return Some(Key::NATIONAL);
+    }
+    let (name, index) = s.split_once(':')?;
+    let index: u32 = index.trim().parse().ok()?;
+    BREAKDOWNS
+        .iter()
+        .find(|b| b.name() == name.trim())
+        .map(|&b| Key {
+            breakdown: Some(b),
+            index,
+        })
+}
+
+const BREAKDOWNS: [Breakdown; 13] = [
+    Breakdown::Region,
+    Breakdown::County,
+    Breakdown::Industry,
+    Breakdown::Class,
+    Breakdown::Fifth,
+    Breakdown::AgeBand,
+    Breakdown::Sex,
+    Breakdown::Edu,
+    Breakdown::Activity,
+    Breakdown::Level,
+    Breakdown::Flow,
+    Breakdown::Line,
+    Breakdown::Good,
+];
+
+/// A metric's spelling: a name, or `ratio(x)` and `explained(a, b, …)`.
+fn parse_metric(s: &str) -> Option<Metric> {
+    let s = s.trim();
+    let args = |prefix: &str| -> Option<Vec<String>> {
+        let inner = s.strip_prefix(prefix)?.strip_suffix(')')?;
+        let names: Vec<String> = inner.split(',').map(|x| x.trim().to_string()).collect();
+        (!names.iter().any(String::is_empty)).then_some(names)
+    };
+    Some(match s {
+        "mean" => Metric::Mean,
+        "at" => Metric::At,
+        "min" => Metric::Min,
+        "max" => Metric::Max,
+        "drift" => Metric::Drift,
+        "trend" => Metric::Trend,
+        "reached" => Metric::Reached,
+        _ => {
+            if let Some(mut a) = args("ratio(") {
+                if a.len() != 1 {
+                    return None;
+                }
+                Metric::Ratio(a.remove(0))
+            } else {
+                Metric::Explained(args("explained(")?)
+            }
+        }
+    })
 }
 
 /// Read and parse a targets file.
@@ -147,8 +255,10 @@ pub fn parse_targets(text: &str) -> Result<Vec<Target>, TargetsError> {
 /// # Errors
 /// A file that cannot be read, or [`parse_targets`]'s errors.
 pub fn read_targets(path: &Path) -> Result<Vec<Target>, TargetsError> {
-    let _ = path;
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let text = std::fs::read_to_string(path).map_err(|e| TargetsError {
+        message: format!("{}: {e}", path.display()),
+    })?;
+    parse_targets(&text)
 }
 
 /// A series's monthly points.
@@ -182,8 +292,84 @@ pub fn metric_value(
     points: Points<'_>,
     others: &[Points<'_>],
 ) -> Result<i64, NoValue> {
-    let _ = (metric, window, points, others);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    if *metric == Metric::Reached {
+        return Ok(i64::from(in_window(window, points).is_some()));
+    }
+    let p = in_window(window, points).ok_or(NoValue::NotReached)?;
+    let o: Vec<&[i64]> = others
+        .iter()
+        .map(|&x| in_window(window, x).ok_or(NoValue::NotReached))
+        .collect::<Result<_, _>>()?;
+    let n = i128::try_from(p.len()).expect("a length");
+    let sum = |v: &[i64]| v.iter().map(|&x| i128::from(x)).sum::<i128>();
+    let first = p[0];
+    let last = p[p.len() - 1];
+    let v = match metric {
+        Metric::Mean => round_div(sum(p), n),
+        Metric::At => i128::from(last),
+        Metric::Min => i128::from(p.iter().copied().min().expect("a point")),
+        Metric::Max => i128::from(p.iter().copied().max().expect("a point")),
+        Metric::Drift => p
+            .iter()
+            .map(|&x| (i128::from(x) - i128::from(first)).abs())
+            .max()
+            .expect("a point"),
+        Metric::Trend => {
+            // The least-squares slope, exactly: (n Σxy − Σx Σy) / (n Σx² − (Σx)²).
+            let (mut sx, mut sy, mut sxy, mut sxx) = (0i128, 0i128, 0i128, 0i128);
+            for (k, &y) in p.iter().enumerate() {
+                let x = i128::try_from(k).expect("a month");
+                let y = i128::from(y);
+                sx += x;
+                sy += y;
+                sxy += x * y;
+                sxx += x * x;
+            }
+            let d = n * sxx - sx * sx;
+            if d == 0 {
+                0
+            } else {
+                round_div(12 * (n * sxy - sx * sy), d)
+            }
+        }
+        Metric::Ratio(_) => {
+            let b = o.first().ok_or(NoValue::Undefined)?;
+            let nb = i128::try_from(b.len()).expect("a length");
+            let d = sum(b) * n;
+            if d == 0 {
+                return Err(NoValue::Undefined);
+            }
+            round_div(sum(p) * nb * 1_000_000, d)
+        }
+        Metric::Explained(_) => {
+            let flows: i128 = o.iter().map(|f| sum(f)).sum();
+            if flows == 0 {
+                return Err(NoValue::Undefined);
+            }
+            round_div((i128::from(last) - i128::from(first)) * 1_000_000, flows)
+        }
+        Metric::Reached => unreachable!("handled above"),
+    };
+    i64::try_from(v).map_err(|_| NoValue::Undefined)
+}
+
+/// The points of `points` whose months lie in `window`; `None` when it has
+/// no point at the window's last month.
+fn in_window(window: [u32; 2], points: Points<'_>) -> Option<&[i64]> {
+    let [from, to] = window;
+    let end = usize::try_from(to.checked_sub(points.first_month)?).ok()?;
+    if end >= points.months.len() || from > to {
+        return None;
+    }
+    let start = usize::try_from(from.saturating_sub(points.first_month)).ok()?;
+    Some(&points.months[start..=end])
+}
+
+/// `n / d` rounded half away from zero (`d` ≠ 0).
+fn round_div(n: i128, d: i128) -> i128 {
+    let (an, ad) = (n.abs(), d.abs());
+    let q = (2 * an + ad) / (2 * ad);
+    if (n < 0) == (d < 0) { q } else { -q }
 }
 
 /// Where a run stopped.
@@ -257,7 +443,7 @@ impl Report {
     /// Whether every target is in its band (the exit code 0).
     #[must_use]
     pub fn all_in_band(&self) -> bool {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.stopped.is_none() && self.targets.iter().all(|t| t.in_band)
     }
 }
 
@@ -265,8 +451,93 @@ impl Report {
 /// history.
 #[must_use]
 pub fn evaluate(targets: &[Target], history: &StatsHistory, run: &RunInfo) -> Report {
-    let _ = (targets, history, run);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let months = run.years.saturating_mul(12);
+    let results = targets
+        .iter()
+        .filter(|t| t.config.covers(run.config) && t.window[1] < months)
+        .map(|t| judge(t, history))
+        .collect();
+    Report {
+        config: run.config,
+        sample_scale: run.sample_scale,
+        years: run.years,
+        stopped: run.stopped.clone(),
+        targets: results,
+    }
+}
+
+impl TargetConfig {
+    /// Whether a target of this configuration is evaluated on a run of `c`.
+    #[must_use]
+    pub fn covers(self, c: RunConfig) -> bool {
+        matches!(
+            (self, c),
+            (TargetConfig::Both, _)
+                | (TargetConfig::Core, RunConfig::Core)
+                | (TargetConfig::People, RunConfig::People)
+        )
+    }
+}
+
+/// The points of a registry indicator at a key (none when the registry has
+/// no such indicator or the run did not compute it).
+fn points_of<'a>(history: &'a StatsHistory, name: &str, key: Key) -> Points<'a> {
+    let series = crate::stats::indicators()
+        .iter()
+        .find(|m| m.name == name)
+        .and_then(|m| history.series(m.id, key));
+    match series {
+        Some(s) => Points {
+            first_month: s.first_month.0,
+            months: s.months,
+        },
+        None => Points {
+            first_month: 0,
+            months: &[],
+        },
+    }
+}
+
+/// One target's verdict.
+fn judge(t: &Target, history: &StatsHistory) -> TargetResult {
+    let points = points_of(history, &t.indicator, t.key);
+    let named: &[String] = match &t.metric {
+        Metric::Ratio(x) => std::slice::from_ref(x),
+        Metric::Explained(xs) => xs,
+        _ => &[],
+    };
+    let others: Vec<Points<'_>> = named
+        .iter()
+        .map(|n| points_of(history, n, Key::NATIONAL))
+        .collect();
+    let [low, high] = t.band;
+    let (value, status, how_far_out) = match metric_value(&t.metric, t.window, points, &others) {
+        Ok(v) => {
+            if (low..=high).contains(&v) {
+                (Some(v), Status::InBand, Some(0.0))
+            } else {
+                let dist = if v < low {
+                    i128::from(low) - i128::from(v)
+                } else {
+                    i128::from(v) - i128::from(high)
+                };
+                let width = (i128::from(high) - i128::from(low)).max(1);
+                #[allow(clippy::cast_precision_loss)]
+                let far = dist as f64 / width as f64;
+                (Some(v), Status::Out, Some(far))
+            }
+        }
+        Err(NoValue::NotReached) => (None, Status::NotReached, None),
+        Err(NoValue::Undefined) => (None, Status::Out, None),
+    };
+    TargetResult {
+        id: t.id.clone(),
+        value,
+        band: t.band,
+        in_band: status == Status::InBand,
+        status,
+        how_far_out,
+    }
 }
 
 impl StatsHistory {
@@ -274,8 +545,14 @@ impl StatsHistory {
     /// `first_month` (replacing any it had): a built history for the tests
     /// of the evaluation (test writer's addition, ADR-0014).
     #[must_use]
-    pub fn with_months(self, id: IndicatorId, key: Key, first_month: u32, points: &[i64]) -> Self {
-        let _ = (id, key, first_month, points);
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    pub fn with_months(
+        mut self,
+        id: IndicatorId,
+        key: Key,
+        first_month: u32,
+        points: &[i64],
+    ) -> Self {
+        self.set_months(id, key, first_month, points);
+        self
     }
 }

@@ -180,6 +180,8 @@ impl World {
         let tm = u32::try_from(t).expect("a month");
         let m = &self.months[t];
         f.nat(I::GdpNominal, b(m.gdp_production));
+        f.nat(I::GdpConsumption, b(m.consumption));
+        f.nat(I::WagesBill, b(m.wage_bill));
         f.nat(I::PricesCpi, i64::from(m.cpi_ppm));
         f.nat(I::PricesInflationYoy, i64::from(m.inflation_ppm));
         let before = if t == 0 {

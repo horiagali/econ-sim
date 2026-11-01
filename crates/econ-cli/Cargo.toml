@@ -28,6 +28,8 @@ levers = ["econ-core/levers", "econ-io/levers", "dep:serde_json"]
 # the quiet baseline's report, as an API skeleton written with its
 # acceptance tests before the code (ADR-0014); off by default.
 calibration = ["levers", "econ-core/calibration", "econ-io/history"]
+# The `people` configuration of the report: every M5 mechanic.
+calibration-people = ["calibration", "econ-core/home_quality", "econ-core/education", "econ-core/approval"]
 
 [[test]]
 name = "acceptance"

@@ -1,0 +1,454 @@
+# Calibration targets (spec game/calibration, ADR-0009: targets as code).
+# One [[target]] per check: a registry indicator at a key, a metric over a
+# window of months (from 0 = December 2021, both ends included) and a band in
+# the indicator's unit (ppm, bani, persons). Bands accepted by the owner on
+# 2026-11-01 as a starting point. A target the spec states for several
+# windows ("each decade") or metrics (L-03's min and max) is one target per
+# part, with a suffix.
+
+# --- Levels: core, years 2 and 3 (months 12 to 35) unless stated ---
+
+[[target]]
+id = "L-01"
+indicator = "labour.unemployment_rate"
+key = "national"
+metric = "mean"
+window = [12, 35]
+band = [45_000, 75_000]
+config = "core"
+source = "Eurostat une_rt_a, Romania 2021: 5.6%"
+
+[[target]]
+id = "L-02"
+indicator = "prices.inflation_yoy"
+key = "national"
+metric = "mean"
+window = [12, 35]
+band = [15_000, 50_000]
+config = "core"
+source = "BNR target 2.5% +- 1 point"
+note = "a quiet run has no 2022 energy shock"
+
+[[target]]
+id = "L-03-min"
+indicator = "fx.eur_lei"
+key = "national"
+metric = "min"
+window = [12, 35]
+band = [4_500_000, 5_500_000]
+config = "core"
+source = "BNR 2021 average 4.92, end of year 4.95"
+
+[[target]]
+id = "L-03-max"
+indicator = "fx.eur_lei"
+key = "national"
+metric = "max"
+window = [12, 35]
+band = [4_500_000, 5_500_000]
+config = "core"
+source = "BNR 2021 average 4.92, end of year 4.95"
+
+[[target]]
+id = "L-04"
+indicator = "money.policy_rate"
+key = "national"
+metric = "mean"
+window = [12, 35]
+band = [10_000, 60_000]
+config = "core"
+source = "1.75% at the start; the rule's neutral rate with 2.5% inflation"
+
+[[target]]
+id = "L-05"
+indicator = "gdp.growth_yoy"
+key = "national"
+metric = "mean"
+window = [12, 119]
+band = [10_000, 45_000]
+config = "core"
+source = "European Commission potential growth for Romania 2022-2030, about 3 to 4%"
+note = "years 2 to 10; below while productivity growth is 0"
+
+[[target]]
+id = "L-06"
+indicator = "budget.deficit"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [12, 35]
+band = [30_000, 80_000]
+config = "core"
+source = "2021 deficit 7.1% of GDP (ESA)"
+
+[[target]]
+id = "L-07"
+indicator = "trade.current_account"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [12, 35]
+band = [-80_000, -20_000]
+config = "core"
+source = "BNR 2021: -7.2%; 2015-2019: -0.8% to -4.9%"
+
+[[target]]
+id = "L-08"
+indicator = "debt.gdp_ratio"
+key = "national"
+metric = "at"
+window = [0, 0]
+band = [450_000, 530_000]
+config = "core"
+source = "Eurostat 2021: 48.9%"
+note = "the opening book against month 0's annualised GDP"
+
+[[target]]
+id = "L-09"
+indicator = "gdp.consumption"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [12, 35]
+band = [580_000, 660_000]
+config = "core"
+source = "INS 2021: household final consumption about 62% of GDP"
+
+[[target]]
+id = "L-10"
+indicator = "wages.bill"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [12, 35]
+band = [320_000, 420_000]
+config = "core"
+source = "INS 2021: compensation of employees about 37% of GDP"
+
+# --- Stability: core and people, to year 50 ---
+
+[[target]]
+id = "S-01"
+indicator = "gdp.nominal"
+key = "national"
+metric = "reached"
+window = [0, 599]
+band = [1, 1]
+config = "both"
+source = "ADR-0009"
+note = "the run completes: no failed check, no panic"
+
+[[target]]
+id = "S-02"
+indicator = "labour.unemployment_rate"
+key = "national"
+metric = "drift"
+window = [12, 599]
+band = [0, 30_000]
+config = "both"
+source = "ADR-0009"
+note = "within 3 points of year 2's first month"
+
+[[target]]
+id = "S-03-d1"
+indicator = "prices.inflation_yoy"
+key = "national"
+metric = "mean"
+window = [12, 119]
+band = [0, 60_000]
+config = "both"
+source = "BNR target 2.5%; a quiet run keeps inflation positive and moderate"
+note = "decade 1"
+
+[[target]]
+id = "S-03-d2"
+indicator = "prices.inflation_yoy"
+key = "national"
+metric = "mean"
+window = [120, 239]
+band = [0, 60_000]
+config = "both"
+source = "BNR target 2.5%; a quiet run keeps inflation positive and moderate"
+note = "decade 2"
+
+[[target]]
+id = "S-03-d3"
+indicator = "prices.inflation_yoy"
+key = "national"
+metric = "mean"
+window = [240, 359]
+band = [0, 60_000]
+config = "both"
+source = "BNR target 2.5%; a quiet run keeps inflation positive and moderate"
+note = "decade 3"
+
+[[target]]
+id = "S-03-d4"
+indicator = "prices.inflation_yoy"
+key = "national"
+metric = "mean"
+window = [360, 479]
+band = [0, 60_000]
+config = "both"
+source = "BNR target 2.5%; a quiet run keeps inflation positive and moderate"
+note = "decade 4"
+
+[[target]]
+id = "S-03-d5"
+indicator = "prices.inflation_yoy"
+key = "national"
+metric = "mean"
+window = [480, 599]
+band = [0, 60_000]
+config = "both"
+source = "BNR target 2.5%; a quiet run keeps inflation positive and moderate"
+note = "decade 5"
+
+[[target]]
+id = "S-04"
+indicator = "fx.eur_lei"
+key = "national"
+metric = "drift"
+window = [12, 599]
+band = [0, 1_235_000]
+config = "both"
+source = "ADR-0009"
+note = "within 25% of the start's 4.94 lei a euro"
+
+[[target]]
+id = "S-05a-d1"
+indicator = "debt.stock"
+key = "national"
+metric = "explained(budget.deficit)"
+window = [0, 119]
+band = [750_000, 1_250_000]
+config = "both"
+source = "owner 2026-11-01: no fiscal rule; the debt rises only as the deficits say"
+note = "decade 1"
+
+[[target]]
+id = "S-05a-d2"
+indicator = "debt.stock"
+key = "national"
+metric = "explained(budget.deficit)"
+window = [120, 239]
+band = [750_000, 1_250_000]
+config = "both"
+source = "owner 2026-11-01: no fiscal rule; the debt rises only as the deficits say"
+note = "decade 2"
+
+[[target]]
+id = "S-05a-d3"
+indicator = "debt.stock"
+key = "national"
+metric = "explained(budget.deficit)"
+window = [240, 359]
+band = [750_000, 1_250_000]
+config = "both"
+source = "owner 2026-11-01: no fiscal rule; the debt rises only as the deficits say"
+note = "decade 3"
+
+[[target]]
+id = "S-05a-d4"
+indicator = "debt.stock"
+key = "national"
+metric = "explained(budget.deficit)"
+window = [360, 479]
+band = [750_000, 1_250_000]
+config = "both"
+source = "owner 2026-11-01: no fiscal rule; the debt rises only as the deficits say"
+note = "decade 4"
+
+[[target]]
+id = "S-05a-d5"
+indicator = "debt.stock"
+key = "national"
+metric = "explained(budget.deficit)"
+window = [480, 599]
+band = [750_000, 1_250_000]
+config = "both"
+source = "owner 2026-11-01: no fiscal rule; the debt rises only as the deficits say"
+note = "decade 5"
+
+[[target]]
+id = "S-05b"
+indicator = "debt.gdp_ratio"
+key = "national"
+metric = "reached"
+window = [0, 359]
+band = [1, 1]
+config = "both"
+source = "owner 2026-11-01"
+note = "no debt crisis that stops the run before year 30"
+
+[[target]]
+id = "S-06-d1"
+indicator = "trade.current_account"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [0, 119]
+band = [-80_000, 20_000]
+config = "both"
+source = "BNR 2015-2021 range, widened"
+note = "decade 1"
+
+[[target]]
+id = "S-06-d2"
+indicator = "trade.current_account"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [120, 239]
+band = [-80_000, 20_000]
+config = "both"
+source = "BNR 2015-2021 range, widened"
+note = "decade 2"
+
+[[target]]
+id = "S-06-d3"
+indicator = "trade.current_account"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [240, 359]
+band = [-80_000, 20_000]
+config = "both"
+source = "BNR 2015-2021 range, widened"
+note = "decade 3"
+
+[[target]]
+id = "S-06-d4"
+indicator = "trade.current_account"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [360, 479]
+band = [-80_000, 20_000]
+config = "both"
+source = "BNR 2015-2021 range, widened"
+note = "decade 4"
+
+[[target]]
+id = "S-06-d5"
+indicator = "trade.current_account"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [480, 599]
+band = [-80_000, 20_000]
+config = "both"
+source = "BNR 2015-2021 range, widened"
+note = "decade 5"
+
+[[target]]
+id = "S-07a-d1"
+indicator = "gdp.consumption"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [12, 119]
+band = [558_000, 682_000]
+config = "both"
+source = "ADR-0009: within 10% of L-09's 62%"
+note = "decade 1"
+
+[[target]]
+id = "S-07b-d1"
+indicator = "wages.bill"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [12, 119]
+band = [333_000, 407_000]
+config = "both"
+source = "ADR-0009: within 10% of L-10's 37%"
+note = "decade 1"
+
+[[target]]
+id = "S-07a-d2"
+indicator = "gdp.consumption"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [120, 239]
+band = [558_000, 682_000]
+config = "both"
+source = "ADR-0009: within 10% of L-09's 62%"
+note = "decade 2"
+
+[[target]]
+id = "S-07b-d2"
+indicator = "wages.bill"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [120, 239]
+band = [333_000, 407_000]
+config = "both"
+source = "ADR-0009: within 10% of L-10's 37%"
+note = "decade 2"
+
+[[target]]
+id = "S-07a-d3"
+indicator = "gdp.consumption"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [240, 359]
+band = [558_000, 682_000]
+config = "both"
+source = "ADR-0009: within 10% of L-09's 62%"
+note = "decade 3"
+
+[[target]]
+id = "S-07b-d3"
+indicator = "wages.bill"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [240, 359]
+band = [333_000, 407_000]
+config = "both"
+source = "ADR-0009: within 10% of L-10's 37%"
+note = "decade 3"
+
+[[target]]
+id = "S-07a-d4"
+indicator = "gdp.consumption"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [360, 479]
+band = [558_000, 682_000]
+config = "both"
+source = "ADR-0009: within 10% of L-09's 62%"
+note = "decade 4"
+
+[[target]]
+id = "S-07b-d4"
+indicator = "wages.bill"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [360, 479]
+band = [333_000, 407_000]
+config = "both"
+source = "ADR-0009: within 10% of L-10's 37%"
+note = "decade 4"
+
+[[target]]
+id = "S-07a-d5"
+indicator = "gdp.consumption"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [480, 599]
+band = [558_000, 682_000]
+config = "both"
+source = "ADR-0009: within 10% of L-09's 62%"
+note = "decade 5"
+
+[[target]]
+id = "S-07b-d5"
+indicator = "wages.bill"
+key = "national"
+metric = "ratio(gdp.nominal)"
+window = [480, 599]
+band = [333_000, 407_000]
+config = "both"
+source = "ADR-0009: within 10% of L-10's 37%"
+note = "decade 5"
+
+[[target]]
+id = "S-08"
+indicator = "people.population"
+key = "national"
+metric = "at"
+window = [599, 599]
+band = [14_500_000, 17_500_000]
+config = "people"
+source = "EUROPOP2023 baseline for 2070 about 15.6 million"
+note = "M5's exit"

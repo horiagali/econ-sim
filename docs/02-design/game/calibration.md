@@ -20,6 +20,8 @@ The Romania scenario under the law of its folder (`law.json`, `world.json`: the 
 - **core**: econ-core's default features (the population does not change);
 - **people**: with `home_quality`, `education` and `approval` (every M5 mechanic: ageing, births, deaths, the life cycle, migration, education, approval, poverty, wellbeing).
 
+A configuration is a build (the M5 mechanics are compile-time features): econ-cli with the feature `calibration` is the core configuration, with `calibration-people` the people one; `just calibrate` runs both.
+
 Two lengths: **10 years** (the levels and the first decade's paths) and **50 years** (stability). The calibration scale is 1:1000; the report also runs 1:100 when asked, to compare (ADR-0010's three-scale check comes with the goldens at M7's end).
 
 A run that stops (a failed day check or a panic) is a result, not an error of the tool: the report records the month it stopped and fails every target whose window it did not reach.
@@ -47,7 +49,7 @@ id = "L-01"                       # stable; L = level, S = stability, R = lever 
 indicator = "labour.unemployment_rate"   # a registry name (game/statistics-registry)
 key = "national"                  # or "region:3", …
 metric = "mean"                   # see Metrics
-window = [12, 36]                 # months, both included
+window = [12, 35]                 # months from 0 (December 2021), both included
 band = [45_000, 75_000]           # in the indicator's unit (here ppm)
 config = "core"                   # core, people or both
 source = "Eurostat une_rt_a, Romania 2021: 5.6%"
@@ -63,7 +65,9 @@ Each metric reads the registry's monthly points of the indicator at the key over
 - `trend`: the least-squares slope of the points, per year;
 - `ratio(other)`: the mean of the indicator over the mean of `other` over the window, in millionths (for shares of GDP from two registry series);
 - `reached`: 1 if the run has a point at the window's last month, else 0 (band `[1, 1]`: the run must not stop);
-- `explained(flows)`: for S-05a, the change of the indicator's level series over the window over the sum of the named flow series over the window, in millionths (band `[750_000, 1_250_000]`).
+- `explained(a, b, …)`: for S-05a, the change of the indicator over the window (its last point less its first) over the sum of the named flow series' points over the window, in millionths (band `[750_000, 1_250_000]`); a zero sum has no value and the target is out.
+
+A target the tables state for several windows ("each decade") or metrics (L-03's min and max) is one target per part, its id the table's with a suffix (`S-03-d1` … `S-03-d5`, `L-03-min`). Bands are absolute: a band "within x% of the start" is written from the scenario's starting value (S-04), and "within 10% of year 2's value" is read as within 10% of the level target's value (S-07).
 
 Units and the evaluation use integers where the registry does (`i64` points); `mean`, `trend` and `ratio` are computed in `f64` and rounded half away from zero to the indicator's unit.
 
@@ -94,11 +98,11 @@ L-09 and L-10 need the registry to carry household consumption and the wage bill
 | S-01 | any | reached | 50 years | the run completes (no failed check, no panic) |
 | S-02 | `labour.unemployment_rate` | drift | years 2 to 50 | within ±3 points of year 2's first month |
 | S-03 | `prices.inflation_yoy` | mean of each decade | years 2 to 50 | 0% to 6% |
-| S-04 | `fx.eur_lei` | drift | years 2 to 50 | within ±25% of the start |
-| S-05a | `debt.gdp_ratio` | explained change, each decade | years 1 to 50 | the decade's change in the debt (lei) within ±25% of the decade's deficits plus revaluations: debt may rise under the 2021 law, but only as the budget says |
+| S-04 | `fx.eur_lei` | drift | years 2 to 50 | within ±25% of the start's 4.94 (1.235 lei) |
+| S-05a | `debt.stock` | `explained(budget.deficit)`, each decade | years 1 to 50 | the decade's change in the debt within ±25% of the decade's deficits: debt may rise under the 2021 law, but only as the budget says (revaluations of the foreign-currency debt fall inside the ±25%) |
 | S-05b | `debt.gdp_ratio` | reached | years 1 to 30 | no debt crisis before year 30 unless the bond risk premium ([fiscal policy](../economy/fiscal-policy.md)) set it off |
 | S-06 | `trade.current_account` over `gdp.nominal` | ratio, each decade | years 1 to 50 | −8% to +2% |
-| S-07 | household consumption and wage bill over GDP | drift | years 2 to 50 | within ±10% of year 2's value (ADR-0009) |
+| S-07 | `gdp.consumption` and `wages.bill` over `gdp.nominal` | ratio, each decade | years 2 to 50 | within ±10% of L-09's 62% and L-10's 37% (ADR-0009) |
 | S-08 | `people.population` (people) | at year 50 | — | 14.5 to 17.5 million: the direction of INS's and Eurostat's projections (EUROPOP2023 baseline for 2070 about 15.6 million); M5's exit |
 
 The 50-year runs keep the 2021 law and **no fiscal rule**: the player is the government, so nothing in the game corrects the budget for them (owner, 2026-11-01). The 2021 law is not sustainable, and that is a correct result; the stability targets ask that the economy's own dynamics stay sound while the debt climbs as the deficits say. A scripted consolidation run (ordinary lever orders trimming the deficit, to check stability under a governed budget) is not built now; revisited later if the targets need it (owner, 2026-11-01).
@@ -106,16 +110,17 @@ The 50-year runs keep the 2021 law and **no fiscal rule**: the player is the gov
 **Lever responses** (R) come after the levels: ADR-0009's R-1 (after a 1 point policy-rate rise the CPI's trough lies 8 to 24 months later and between −0.2% and −1.5%) and one per M4 scenario, each anchored in evidence, reusing the [policy-scenario](policy-scenarios.md) harness. Their bands are proposed when the baseline's levels are in band.
 
 ## The report
-`econ-cli calibrate --targets calibration/targets.toml --sample-scale 1000 --years 10|50 --config core|people|both --out DIR` (feature `calibration` of econ-cli):
-- runs each configuration's quiet baseline, recording the statistics registry;
-- evaluates every target of the configuration and length;
+`econ-cli calibrate --targets calibration/targets.toml --sample-scale 1000 --years 10|50 --config core|people --out DIR [--fixtures DIR] [--io-table FILE]` (feature `calibration` of econ-cli; `calibration-people` for people):
+- builds the Romania scenario from the fixtures at 1:N, seed 42, under the law of its folder;
+- runs the configuration's quiet baseline, recording the statistics registry, and stops at the first failed check or panic;
+- evaluates every target of the configuration whose window ends within the length;
 - writes `DIR/report.json` (every target: id, value, band, in band, how far out in band widths) and `DIR/report.md` (a table of the targets, failing ones first; then one line a year of the headline indicators; then where the run stopped, if it did);
 - writes the registry's history of each run as history files ([history files](history-files.md)) under `DIR/<config>/history/`, for plots;
 - exits 0 if every target is in its band, 1 if any is out, 2 for bad arguments or a targets file it cannot read.
 
 The evaluation is a pure function of the history and the targets (`econ_core::calibration`, feature `calibration`), so tests check it on built histories without running a world. Same seed, same report: no wall-clock time in the report except a separate `timing` field of `report.json`.
 
-CI runs the 10-year core report at 1:1000 on every PR that touches `crates/` and posts its summary; it does not fail the PR until M7 closes, then every target is required.
+CI runs the 10-year core report at 1:1000 on every PR that touches code and writes `report.md` to the job's summary; it does not fail the PR until M7 closes, then every target is required.
 
 ## Acceptance tests
 IDs are stable. Tests in `crates/econ-core/tests/acceptance/calibration.rs` and `crates/econ-cli/tests/acceptance/calibrate.rs` (protected; the test-writer's).
@@ -130,6 +135,10 @@ IDs are stable. Tests in `crates/econ-core/tests/acceptance/calibration.rs` and 
 - [ ] **AC-CAL-08** `[bench]` The 10-year core report at 1:1000 takes at most 60 seconds in a release build (today's run: about 7 seconds a decade).
 
 The M7 exit criterion is not an acceptance test of this spec: it is the report with every target in band, which the owner accepts.
+
+## Implementation status
+- **2026-11-01:** built. `econ_core::calibration` (feature `calibration`), `calibration/targets.toml` (41 targets: the tables' with their parts), the registry's `gdp.consumption` and `wages.bill`, the start edit `StartEdit::FailChecksOn` (AC-CAL-06), `econ-cli calibrate` (features `calibration`, `calibration-people`), `just calibrate`, and the CI step. Readings: `trend` is the least-squares slope against the month times 12, computed exactly in integers; `mean`, `ratio` and `explained` too (no floats in a value); a run that stops fails `all_in_band` even when every target evaluated is in band. AC-CAL-01 to 08 pass; the 10-year core report takes about 7 s in release.
+- **First report (core, 1:1000):** 10 years: 11 of 16 targets in band; out: unemployment (10.9%, L-01), inflation (0.8%, L-02), the leu's low (4.13, L-03-min), growth (−0.6% a year, L-05), the opening debt (38.5%, L-08). 50 years: the run panics in month 246 (an amount past `i64` bani); in the first two decades the debt rises as the deficits say (S-05a 97% and 100%), and the current account falls to −46% of GDP in the second (S-06-d2). People, 10 years: the five stability targets of the first decade in band; unemployment 18% and population 17.9 million in year 9.
 
 ## Open questions
 - [x] **Debt in a quiet baseline (owner).** *Decided 2026-11-01 (owner):* no automatic fiscal rule in the game, now or as a default, since it would play the Ministry of Finance for the player. The quiet baselines keep the 2021 law with S-05a and S-05b; a scripted consolidation run waits until needed. What answers a rising debt in the game: the bond risk premium and the debt crisis ([fiscal policy](../economy/fiscal-policy.md)), the automatic stabilisers, the EU's deficit rules (M18). Later, and never by default: a Ministry of Finance **adviser** that proposes a budget (as the central bank's rule is shown once the player overrides it), **politics** that resists or forces budget changes, and **automation** the player opts into per area, as in Europa Universalis ([roadmap](../../roadmap.md), after v1).
