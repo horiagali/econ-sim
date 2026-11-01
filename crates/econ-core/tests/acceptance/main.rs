@@ -123,3 +123,18 @@ mod wellbeing;
 // `education` and `approval` as well; AC-STAT-08 is release-only.
 #[cfg(feature = "stats")]
 mod stats;
+
+// M6: group queries, explanations and the core API (specs game/group-queries,
+// game/explanations, game/core-api), written before the code against the
+// test writer's API skeletons `econ_core::groups`, `econ_core::explain` and
+// `econ_core::api`, behind the features `groups`, `explain` and `api`, which
+// the implementation adds to `default` once they pass. The benches are
+// release-only (ignored under debug_assertions, the form of AC-WLD-10).
+#[cfg(feature = "api")]
+mod api;
+#[cfg(feature = "explain")]
+mod explain;
+#[cfg(feature = "groups")]
+mod groups;
+#[cfg(any(feature = "groups", feature = "explain", feature = "api"))]
+mod support_m6;

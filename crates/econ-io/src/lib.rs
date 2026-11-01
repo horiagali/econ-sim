@@ -179,6 +179,10 @@ macro_rules! col {
 pub mod budget;
 #[cfg(feature = "levers")]
 pub mod commands;
+// History files (spec game/history-files, roadmap M6): a test writer's API
+// skeleton (ADR-0014).
+#[cfg(feature = "history")]
+pub mod history;
 pub mod people;
 pub mod popgen;
 pub mod table;

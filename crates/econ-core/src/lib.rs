@@ -8,9 +8,21 @@
 
 // Money arithmetic is checked by `Bani` itself; index maths here is not linted for side effects.
 
+// The core API (spec game/core-api, roadmap M6): a test writer's API
+// skeleton (ADR-0014).
+#[cfg(feature = "api")]
+pub mod api;
 // Approval's first version (spec society/opinion-approval, roadmap M5).
 #[cfg(feature = "approval")]
 pub mod approval;
+// Explanations (spec game/explanations, roadmap M6): a test writer's API
+// skeleton (ADR-0014).
+#[cfg(feature = "explain")]
+pub mod explain;
+// Group queries (spec game/group-queries, roadmap M6): a test writer's API
+// skeleton (ADR-0014).
+#[cfg(feature = "groups")]
+pub mod groups;
 mod hash;
 #[cfg(feature = "levers")]
 pub mod levers;

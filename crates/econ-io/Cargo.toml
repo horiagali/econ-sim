@@ -34,6 +34,12 @@ default = ["budget"]
 levers = ["world", "econ-core/levers"]
 # Stage K's `enrolled` in the `StartState` (spec society/education).
 education = ["world", "econ-core/education"]
+# History files (spec game/history-files, AC-HIST-01 to 05): the statistics
+# history and the watched groups as yearly Arrow blocks, as an API skeleton
+# written with its acceptance tests before the code (ADR-0014); off by
+# default. It reads econ-core's watched groups (`groups`), and its tests run
+# worlds under the scenario's 2021 law (`levers`, for `commands`).
+history = ["world", "levers", "econ-core/groups"]
 
 [dev-dependencies]
 # The reconciliation with the starting population (AC-BUD-09) builds the

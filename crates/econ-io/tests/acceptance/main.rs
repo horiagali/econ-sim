@@ -7,3 +7,11 @@
 mod budget;
 #[cfg(feature = "budget")]
 mod support_budget;
+
+// M6: the history files (game/history-files, AC-HIST-01 to 05), written
+// before the code against the test writer's API skeleton
+// `econ_io::history`, behind the feature `history`, which the
+// implementation adds to `default` once they pass. AC-HIST-05 is
+// release-only (ignored under debug_assertions).
+#[cfg(feature = "history")]
+mod history;
