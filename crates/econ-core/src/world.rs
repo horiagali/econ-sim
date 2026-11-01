@@ -1437,6 +1437,18 @@ impl World {
         self.calendar.date(self.today)
     }
 
+    /// The date of day 0.
+    #[must_use]
+    pub fn start_date(&self) -> Date {
+        self.calendar.start()
+    }
+
+    /// The scenario's `sample_scale`.
+    #[must_use]
+    pub fn sample_scale(&self) -> u32 {
+        self.sample_scale
+    }
+
     /// The parameters the world runs with.
     #[must_use]
     pub fn params(&self) -> &WorldParams {

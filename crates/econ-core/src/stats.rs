@@ -315,6 +315,55 @@ impl StatsHistory {
     }
 }
 
+impl Breakdown {
+    /// The registry file's spelling.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Breakdown::Region => "region",
+            Breakdown::County => "county",
+            Breakdown::Industry => "industry",
+            Breakdown::Class => "class",
+            Breakdown::Fifth => "fifth",
+            Breakdown::AgeBand => "age_band",
+            Breakdown::Sex => "sex",
+            Breakdown::Edu => "edu",
+            Breakdown::Activity => "activity",
+            Breakdown::Level => "level",
+            Breakdown::Flow => "flow",
+            Breakdown::Line => "line",
+            Breakdown::Good => "good",
+        }
+    }
+}
+
+impl Unit {
+    /// The registry file's spelling.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Unit::Bani => "bani",
+            Unit::RealBani => "real_bani",
+            Unit::Ppm => "ppm",
+            Unit::Persons => "persons",
+            Unit::IndexPpm => "index_ppm",
+            Unit::Milli => "milli",
+            Unit::Count => "count",
+        }
+    }
+}
+
+impl Period {
+    /// The registry file's spelling.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Period::Month => "month",
+            Period::Day => "day",
+        }
+    }
+}
+
 impl Key {
     /// The national value's key.
     pub const NATIONAL: Key = Key {
