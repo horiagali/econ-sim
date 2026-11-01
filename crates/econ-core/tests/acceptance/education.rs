@@ -166,11 +166,39 @@ fn enrolled_by_level(w: &World) -> [u64; 7] {
 /// out-of-range persons are not all the same. Checked on the `World` at
 /// 1:1000 before its first day: `enrolled` is Stage K's column of the
 /// scenario.
+///
+/// Restated 2026-11-01 (owner-approved batch closing roadmap M5; not
+/// weaker): with `migration` compiled in, the linked emigrants are folded
+/// into the person table at load as `abroad` rows after the scenario's
+/// persons. "`enrolled` is Stage K's column" means the first rows (one per
+/// scenario person, in the scenario's order) equal Stage K's column, and
+/// every further row is an `abroad` person not enrolled (so study year 0).
+/// The test compared the whole column before. The other checks read every
+/// row, the abroad ones included: they are not enrolled, so they only meet
+/// the study-year-0 check, and `edu_capacity` counts residents only.
 #[test]
 fn ac_edu_01() {
     let w = world_2021_default(1000);
     let start = start_state(1000);
-    assert_eq!(w.enrolled(), &start.enrolled[..], "`enrolled` is Stage K's");
+    let n_start = start.enrolled.len();
+    assert!(
+        w.enrolled().len() >= n_start,
+        "every scenario person has a row"
+    );
+    assert_eq!(
+        &w.enrolled()[..n_start],
+        &start.enrolled[..],
+        "`enrolled` is Stage K's"
+    );
+    #[cfg(feature = "migration")]
+    let abroad = w.abroad().to_vec();
+    #[cfg(not(feature = "migration"))]
+    let abroad = vec![false; w.enrolled().len()];
+    assert_eq!(abroad.len(), w.enrolled().len(), "one `abroad` per person");
+    for (p, (&a, &e)) in abroad.iter().zip(w.enrolled()).enumerate().skip(n_start) {
+        assert!(a, "person {p}, after the scenario's persons, is abroad");
+        assert_eq!(e, Enrolled::None, "person {p}, abroad, is not enrolled");
+    }
     let ages = w.person_age_months();
     let years_col = w.study_year();
     let mut outside: [Vec<u8>; 7] = Default::default();

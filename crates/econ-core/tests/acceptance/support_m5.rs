@@ -129,12 +129,35 @@ pub fn members(w: &World) -> Vec<Vec<usize>> {
 }
 
 /// Whether each household record is collective (an institution): the
-/// scenario's flag for the records of the start; a record added since
-/// (household formation, arrivals) is private.
+/// scenario's flag for the records of the start; a record added since is
+/// private (household formation, arrivals) unless the life cycle made it
+/// collective (an orphan's one-member record, `society/households-lifecycle`,
+/// "Make collective"), which the People phase's `hh_collective` column
+/// (`World::household_life`) records.
+///
+/// A record is followed by its `hh_key` (`World::people`), which at load is
+/// the start's index; records added later get keys after the start's. The
+/// compaction (yearly with the People phase, monthly with migration)
+/// removes freed records, so rows no longer line up with the start's
+/// (restated 2026-11-01; the helper read the start's flag by row before,
+/// and took every added record as private, which missed "Make collective").
 pub fn collective(w: &World, scale: u32) -> Vec<bool> {
     let start = start_state(scale).hh_collective;
-    (0..w.households().hh_weight.len())
-        .map(|h| start.get(h).copied().unwrap_or(false))
+    let keys = &w.people().hh_key;
+    let n = w.households().hh_weight.len();
+    assert_eq!(keys.len(), n, "one `hh_key` per household record");
+    #[cfg(feature = "demography")]
+    let made = w.household_life().hh_collective.clone();
+    #[cfg(not(feature = "demography"))]
+    let made = vec![false; n];
+    keys.iter()
+        .enumerate()
+        .map(
+            |(h, &k)| match usize::try_from(k).ok().and_then(|i| start.get(i)) {
+                Some(&c) => c,
+                None => made.get(h).copied().unwrap_or(false),
+            },
+        )
         .collect()
 }
 

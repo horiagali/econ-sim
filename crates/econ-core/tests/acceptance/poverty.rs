@@ -13,9 +13,13 @@
 //! Readings shared by the tests:
 //! - The population of the indicators is the resident members of private
 //!   households: a household's members are the persons whose
-//!   `household_id` it is (with migration, not `abroad`); collective
-//!   households are the scenario's (a record added during the run is
-//!   private).
+//!   `household_id` it is (with migration, not `abroad`; with the People
+//!   phase, alive: restated 2026-11-01, a dead person's row stays until the
+//!   compaction and is no member); collective households are the
+//!   scenario's, followed by `hh_key`; a record added during the run is
+//!   private unless the life cycle made it collective (orphans,
+//!   `society/households-lifecycle`; restated 2026-11-01, see
+//!   `support_m5::collective`).
 //! - A household's income of a month (`Y_h`, the `World`'s income of the
 //!   month, `World::hh_income_month`) is what its `income_to_date` grew by
 //!   over that month less the imputed rent it received in it (the
@@ -44,9 +48,30 @@ use econ_types::Bani;
 use super::support::params;
 use super::support_lev::{date, give, key_of, set};
 use super::support_m5::{
-    collective, feb_15_2022, members, money_in_force, next_close, round_div, run_closes,
-    scale_money_lever, step_checked, step_until, world_2021, world_2021_default,
+    collective, feb_15_2022, members as resident_members, money_in_force, next_close, round_div,
+    run_closes, scale_money_lever, step_checked, step_until, world_2021, world_2021_default,
 };
+
+/// Each household's members: its resident persons (`support_m5::members`)
+/// that are alive. With the People phase compiled in (`demography`), a
+/// dead person's row stays until the compaction; it is no member.
+fn members(w: &World) -> Vec<Vec<usize>> {
+    #[cfg(feature = "demography")]
+    let m = {
+        let alive = &w.people_life().alive;
+        resident_members(w)
+            .into_iter()
+            .map(|m| {
+                m.into_iter()
+                    .filter(|&p| alive.get(p).copied().unwrap_or(true))
+                    .collect()
+            })
+            .collect()
+    };
+    #[cfg(not(feature = "demography"))]
+    let m = resident_members(w);
+    m
+}
 
 const LINE: u32 = 600_000;
 const CLASS_LINES: [u32; 3] = [600_000, 750_000, 2_000_000];
@@ -917,6 +942,18 @@ fn mean_sol(w: &World, v: &[u64], chosen: impl Fn(usize) -> bool) -> Option<i128
 /// change" is from one close to the next (months 1 to 11):
 /// `national_milli` now less at the close before equals the sum of
 /// `parts_change_milli`, exactly.
+///
+/// Restated 2026-11-01 (owner-approved batch closing roadmap M5; not
+/// weaker): a household's collective flag follows the record by its
+/// `hh_key` (`support_m5::collective`), not by its row, since the
+/// compaction removes freed records; a record the life cycle adds is
+/// collective when it was made collective (an orphan's record,
+/// `society/households-lifecycle`), not always private as the helper read
+/// before (measured 2026-11-01 with `home_quality`: one such record of
+/// weight 919 at month 1 put the test's national mean 2 thousandths off
+/// the stats); and a household's persons are its live
+/// members (a dead person's row, with the People phase, is no member: the
+/// spec's step 1 counts members).
 #[test]
 fn ac_pov_11() {
     let mut w = world_2021_default(1000);
