@@ -233,12 +233,35 @@ impl World {
             sum(&start.investment_imported),
         );
         b.invest_import_ppm = share(inv_imp, inv_dom);
-        // The government's fixed purchases stop; its share of the
-        // investment column leaves it (the lines buy it).
-        for q in &mut self.ii.gov_q {
+        // The government's fixed purchases stop where public units make the
+        // good (the lines buy it); its purchases from industries with no
+        // public unit stay at the table's real level (the table's government
+        // consumption of local public services classified there, about 45
+        // billion lei a year; M7 calibration, 2026-11-01, spec
+        // `economy/budget-2021`). Its share of the investment column leaves
+        // it (the lines buy it).
+        let mut made_public = vec![false; n_i];
+        for u in 0..n_u {
+            if b.public[u] {
+                made_public[usize::from(self.units.industry[u])] = true;
+            }
+        }
+        for (q, _) in self
+            .ii
+            .gov_q
+            .iter_mut()
+            .zip(&made_public)
+            .filter(|(_, p)| **p)
+        {
             *q = 0;
         }
-        for m in &mut self.ii.gov_imp {
+        for (m, _) in self
+            .ii
+            .gov_imp
+            .iter_mut()
+            .zip(&made_public)
+            .filter(|(_, p)| **p)
+        {
             *m = Bani::ZERO;
         }
         let column = inv_dom + inv_imp;
@@ -421,6 +444,10 @@ impl World {
     }
 
     /// Whether unit `u` is a public unit the budget pays.
+    pub(super) fn bud_active(&self) -> bool {
+        self.bud.active
+    }
+
     pub(super) fn budget_public(&self, u: usize) -> bool {
         self.bud.active && self.bud.public[u]
     }
