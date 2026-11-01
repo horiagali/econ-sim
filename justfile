@@ -108,11 +108,13 @@ calib-spike:
 codegen:
     {{python}} scripts/codegen_glossary.py
     {{python}} scripts/codegen_levers.py
+    {{python}} scripts/codegen_indicators.py
 
-# Fail if generated glossary or lever code is stale
+# Fail if generated glossary, lever or indicator code is stale
 codegen-check:
     {{python}} scripts/codegen_glossary.py --check
     {{python}} scripts/codegen_levers.py --check
+    {{python}} scripts/codegen_indicators.py --check
 
 # Every acceptance criterion in a spec has a live test, and no test cites an unknown ID (ADR-0014)
 trace:

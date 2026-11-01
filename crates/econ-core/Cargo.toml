@@ -59,6 +59,8 @@ default = [
     "lever_monetary_financing",
     "lever_fx_devaluation",
     "lever_fuel_price",
+    # The statistics registry (roadmap M6), outputs only: no state changes.
+    "stats",
 ]
 # Gates the `World` of spec game/world-loop and its acceptance tests (AC-WLD-*
 # and the owed `[sim]` criteria of the four M2 mechanics), written before the

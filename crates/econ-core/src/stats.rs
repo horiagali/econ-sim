@@ -1,32 +1,21 @@
 //! The statistics registry (spec `game/statistics-registry`, roadmap M6): one
 //! catalogue of every indicator the player can look at, and one history the
-//! `World` fills at every close.
-//!
-//! **API skeleton only** (ADR-0014): the types and signatures of the spec's
-//! "API sketch", written by the test writer with the acceptance tests
-//! (AC-STAT-01 to 08) before the code; every body is `unimplemented!` until
-//! the implementation fills it. Behind the feature `stats`, off by default.
+//! `World` fills at every close (feature `stats`, off by default). The API is
+//! the spec's sketch, written with the acceptance tests before the code
+//! (ADR-0014).
 //!
 //! The registry's data is `crates/econ-core/indicators.toml`; the generator
-//! `scripts/codegen_indicators.py` writes [`IndicatorId`] and the metadata
-//! (spec, "The registry"). Neither exists yet: [`IndicatorId`] below is a
-//! placeholder the generated enum replaces, and the tests name no variant of
-//! it (they look indicators up by their dotted name in [`indicators`]).
+//! `scripts/codegen_indicators.py` writes [`IndicatorId`] and the metadata.
+//! The history is outputs only: no rule reads it, and it is outside the state
+//! hash.
+
+use std::collections::BTreeMap;
 
 use econ_types::Month;
 
 use crate::world::World;
 
-/// An indicator of the registry.
-///
-/// Placeholder (test writer's addition, ADR-0014): the generator writes the
-/// real enum, one variant per entry of `indicators.toml` (`GdpNominal`,
-/// `GdpReal`, …), and this one goes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum IndicatorId {
-    /// Stands for the generated variants until they exist.
-    Placeholder,
-}
+pub use crate::indicators_gen::IndicatorId;
 
 /// An indicator's unit (spec, "The registry", `unit`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -173,7 +162,7 @@ pub struct IndicatorMeta {
 /// Every indicator of the registry, in its order.
 #[must_use]
 pub fn indicators() -> &'static [IndicatorMeta] {
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    &crate::indicators_gen::INDICATORS
 }
 
 /// One point of a derived indicator at month `t`, by the spec's formulas in
@@ -182,11 +171,27 @@ pub fn indicators() -> &'static [IndicatorMeta] {
 /// `ratio`, the CPI in millionths of `real`, the resident persons of
 /// `per_capita`; unused by the growth rates). `None` where the formula has
 /// no value (before month 12 for `growth_yoy`, at month 0 for `growth_mom`,
-/// a zero denominator). Test writer's addition (ADR-0014).
+/// a zero denominator).
 #[must_use]
 pub fn derive_point(op: DeriveOp, a: &[i64], b: &[i64], t: usize) -> Option<i64> {
-    let _ = (op, a, b, t);
-    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+    let at = |v: &[i64], k: usize| v.get(k).copied();
+    let (n, d) = match op {
+        DeriveOp::Ratio => (i128::from(at(a, t)?) * 1_000_000, i128::from(at(b, t)?)),
+        DeriveOp::Real => (i128::from(at(a, t)?) * 1_000_000, i128::from(at(b, t)?)),
+        DeriveOp::PerCapita => (i128::from(at(a, t)?), i128::from(at(b, t)?)),
+        DeriveOp::GrowthYoy => {
+            let before = i128::from(at(a, t.checked_sub(12)?)?);
+            ((i128::from(at(a, t)?) - before) * 1_000_000, before)
+        }
+        DeriveOp::GrowthMom => {
+            let before = i128::from(at(a, t.checked_sub(1)?)?);
+            ((i128::from(at(a, t)?) - before) * 1_000_000, before)
+        }
+    };
+    if d == 0 {
+        return None;
+    }
+    i64::try_from(round_div(n, d)).ok()
 }
 
 /// A breakdown member of an indicator: `breakdown` `None` is the national
@@ -214,28 +219,116 @@ pub struct Series<'a> {
 /// The history of every indicator (spec, "The history"): outputs only,
 /// outside the state hash.
 #[derive(Debug, Clone, Default)]
-pub struct StatsHistory {}
+pub struct StatsHistory {
+    /// Each (indicator, key)'s column: its first month, monthly points and
+    /// (day indicators) daily points.
+    cols: BTreeMap<(IndicatorId, Key), Column>,
+    /// Each indicator's keys, national first, in the order first recorded.
+    keys: BTreeMap<IndicatorId, Vec<Key>>,
+}
+
+/// One series's points.
+#[derive(Debug, Clone, Default)]
+struct Column {
+    first_month: u32,
+    months: Vec<i64>,
+    days: Vec<i64>,
+}
+
+/// `n / d` rounded half away from zero (`d` ≠ 0).
+fn round_div(n: i128, d: i128) -> i128 {
+    let (an, ad) = (n.abs(), d.abs());
+    let q = (2 * an + ad) / (2 * ad);
+    if (n < 0) == (d < 0) { q } else { -q }
+}
 
 impl StatsHistory {
     /// The points of `id` at `key`; `None` when not computed.
     #[must_use]
     pub fn series(&self, id: IndicatorId, key: Key) -> Option<Series<'_>> {
-        let _ = (id, key);
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        let c = self.cols.get(&(id, key))?;
+        let day = crate::indicators_gen::INDICATORS
+            .iter()
+            .any(|m| m.id == id && m.period == Period::Day);
+        Some(Series {
+            months: &c.months,
+            days: day.then_some(c.days.as_slice()),
+            first_month: Month(c.first_month),
+        })
     }
 
     /// The latest monthly point of `id` at `key`.
     #[must_use]
     pub fn latest(&self, id: IndicatorId, key: Key) -> Option<i64> {
-        let _ = (id, key);
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.cols
+            .get(&(id, key))
+            .and_then(|c| c.months.last().copied())
     }
 
     /// The keys `id` has points for (national included).
     #[must_use]
     pub fn keys(&self, id: IndicatorId) -> &[Key] {
-        let _ = id;
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.keys.get(&id).map_or(&[], Vec::as_slice)
+    }
+}
+
+impl StatsHistory {
+    fn column(&mut self, id: IndicatorId, key: Key, month: u32) -> &mut Column {
+        if !self.cols.contains_key(&(id, key)) {
+            let keys = self.keys.entry(id).or_default();
+            if key.breakdown.is_none() {
+                keys.insert(0, key);
+            } else {
+                keys.push(key);
+            }
+        }
+        self.cols.entry((id, key)).or_insert_with(|| Column {
+            first_month: month,
+            ..Column::default()
+        })
+    }
+
+    /// A monthly point of month `t`.
+    pub(crate) fn push_month(&mut self, id: IndicatorId, key: Key, t: u32, value: i64) {
+        self.column(id, key, t).months.push(value);
+    }
+
+    /// A daily point (the month `t` the day is in, for a new column).
+    pub(crate) fn push_day(&mut self, id: IndicatorId, key: Key, t: u32, value: i64) {
+        self.column(id, key, t).days.push(value);
+    }
+
+    /// The national monthly points of an indicator from month 0, `None`
+    /// where it has none.
+    pub(crate) fn national_from_zero(&self, id: IndicatorId, t: u32) -> Vec<i64> {
+        let Some(c) = self.cols.get(&(id, Key::NATIONAL)) else {
+            return Vec::new();
+        };
+        if c.first_month != 0 {
+            return Vec::new();
+        }
+        c.months
+            .iter()
+            .copied()
+            .take(usize::try_from(t + 1).expect("a month"))
+            .collect()
+    }
+}
+
+impl Key {
+    /// The national value's key.
+    pub const NATIONAL: Key = Key {
+        breakdown: None,
+        index: 0,
+    };
+
+    /// A breakdown member's key.
+    #[must_use]
+    pub fn of(breakdown: Breakdown, index: usize) -> Key {
+        Key {
+            breakdown: Some(breakdown),
+            index: u32::try_from(index).expect("a member"),
+        }
     }
 }
 
@@ -243,6 +336,6 @@ impl World {
     /// The statistics history.
     #[must_use]
     pub fn stats(&self) -> &StatsHistory {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.stats_history()
     }
 }
