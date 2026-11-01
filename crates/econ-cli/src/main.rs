@@ -66,8 +66,46 @@ fn main() -> ExitCode {
         Some("run-world") => run_world(&args[1..]),
         #[cfg(feature = "levers")]
         Some("play") => play(&args[1..]),
+        #[cfg(feature = "calibration")]
+        Some("calibrate") => calibrate(&args[1..]),
         _ => usage(),
     }
+}
+
+/// The calibration report (spec `game/calibration`, "The report"):
+/// `econ-cli calibrate --targets FILE --sample-scale N --years Y
+/// --config core|people|both --out DIR [--fixtures DIR] [--io-table FILE]
+/// [--fail-on-day D]`, behind the feature `calibration`. A test writer's
+/// skeleton (ADR-0014); the implementation fills it.
+///
+/// Choices the spec left open, stated by the test writer:
+/// - The quiet baseline is built as `build-scenario` builds it: the Romania
+///   scenario from `--fixtures` (default `python/pipeline/fixtures`) at 1:N,
+///   seed 42, read back with `--io-table` (default
+///   `python/pipeline/fixtures/io_table2021_ro.json`) under the law of its
+///   folder (`law.json`, `world.json`), `WorldParams::spec_defaults(42)`, no
+///   command, stepped day by day to the close of month `years × 12 − 1`.
+///   `--years` is any positive number of years (the tests use 3).
+/// - A configuration whose econ-core features this build does not have (or
+///   has more of) is a bad argument (exit 2): `people` needs a build with
+///   `home_quality`, `education` and `approval`.
+/// - `--fail-on-day D` (tests only) adds `StartEdit::FailChecksOn(Day(D))`:
+///   the run stops on day D, in that day's month.
+/// - The run stops at the first day whose checks fail, or at a panic (caught):
+///   `Stopped { month, reason }`, the month the day is in.
+/// - `DIR/report.json` is `{"runs": [Report, …], "timing": {…}}`
+///   (`econ_core::calibration::Report`, serde); `DIR/report.md` has the
+///   targets table, out ones first, then a line a year of the headline
+///   indicators, then where the run stopped; neither names `DIR`, and only
+///   `timing` holds wall-clock time. History files go under
+///   `DIR/<config>/history/`.
+/// - Exit 0 when every target is in band, 1 otherwise (a stopped run
+///   included, both files written), 2 for bad arguments or a targets file
+///   that cannot be read.
+#[cfg(feature = "calibration")]
+fn calibrate(args: &[String]) -> ExitCode {
+    let _ = args;
+    unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
 }
 
 /// Headless play (spec `game/lever-system`, "Headless play"):

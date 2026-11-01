@@ -606,6 +606,10 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             StartEdit::NoDiaspora => {}
             #[cfg(feature = "migration")]
             StartEdit::MigrationUnemploymentShock { .. } => later.push(e.clone()),
+            #[cfg(feature = "calibration")]
+            StartEdit::FailChecksOn(_) => {
+                unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+            }
         }
     }
     if let Some(f) = wage_scale {

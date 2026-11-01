@@ -24,6 +24,14 @@ econ-rng.workspace = true
 [features]
 # `play` (spec game/lever-system, headless play), with the lever system.
 levers = ["econ-core/levers", "econ-io/levers", "dep:serde_json"]
+# `calibrate` (spec game/calibration, "The report"; AC-CAL-04 to 06 and 08):
+# the quiet baseline's report, as an API skeleton written with its
+# acceptance tests before the code (ADR-0014); off by default.
+calibration = ["levers", "econ-core/calibration", "econ-io/history"]
+
+[[test]]
+name = "acceptance"
+path = "tests/acceptance/main.rs"
 
 [lints]
 workspace = true

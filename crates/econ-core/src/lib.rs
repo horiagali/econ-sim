@@ -12,6 +12,10 @@
 // skeleton (ADR-0014).
 #[cfg(feature = "api")]
 pub mod api;
+// Calibration targets and the baseline report (spec game/calibration,
+// roadmap M7): a test writer's API skeleton (ADR-0014).
+#[cfg(feature = "calibration")]
+pub mod calibration;
 // Approval's first version (spec society/opinion-approval, roadmap M5).
 #[cfg(feature = "approval")]
 pub mod approval;

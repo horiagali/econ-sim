@@ -486,6 +486,12 @@ pub enum StartEdit {
         /// Millionths (50,000 = 5 points).
         points_ppm: u32,
     },
+    /// The checks phase of the day given reports a failed check (its
+    /// `DayReport` has `checks_ok` false and a non-empty `failed`); nothing
+    /// else changes. A run made to stop on a chosen day (spec
+    /// game/calibration, AC-CAL-06). A test writer's addition (ADR-0014).
+    #[cfg(feature = "calibration")]
+    FailChecksOn(Day),
 }
 
 /// A part of the 2021 law's revenue that [`StartEdit::WithoutRevenue`] leaves
