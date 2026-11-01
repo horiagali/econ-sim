@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/money-banking, economy/prices-inflation, economy/fiscal-policy, economy/opening-balance-sheet, game/world-loop, adr/0017-time-base]
 research: []
-updated: 2026-10-29
+updated: 2026-11-01
 ---
 
 # Monetary Policy & Central Bank
@@ -92,7 +92,7 @@ What is built first, on the `World` of [game/world-loop](../game/world-loop.md).
 | `monfin_pass` | 0.5 | expected inflation per unit of the year's monetary financing over GDP (owner, 2026-10-21; low confidence) |
 | $k_1, k_2, k_3, k_4$ | 1, 10, 20, 1 | weights of the track record, the miss, monetary financing and target changes |
 | `target_band` | ±1 point | what counts as hitting the target |
-| $\rho, r^*, \phi_\pi, \phi_y$ | 0.8, 1%, 1.5, 0.5 | the advisory rule |
+| $\rho, r^*, \phi_\pi, \phi_y$ | 0.928, 1%, 1.5, 0.5 | the advisory rule; $\rho$ is a month's smoothing, 0.8 a quarter ($0.8^{1/3}$; restated 2026-11-01, M7 calibration) |
 
 ## Acceptance tests
 IDs are stable (added 2026-10-20). Tests go in `crates/econ-core/tests/acceptance/` (protected).
@@ -125,6 +125,9 @@ pub fn advisory_rate_ppm(previous: i32, expected_ppm: i32, inflation_ppm: i32, t
                          gap_ppm: i32, p: &RuleParams) -> i32;                                    // AC-MP-02
 ```
 The month-end interest and profit postings and the close live with the `World`. New flow codes, append-only: `interest.reserves`, `interest.cb_foreign`, `transfer.cb_profit`.
+
+## Calibration (M7, 2026-11-01; owner's delegation for M7 changes to locked specs)
+- **The rule's smoothing $\rho$: 0.8 → 0.928 a month.** The rule is computed at each monthly close, while 0.8 is the usual smoothing of a quarterly rule. At 0.8 a month the rate closed a fifth of its gap each month: in the 2021-law baseline it went from 0% to 8.6% within eight months when inflation reached 5.5%, the leu rose 22%, and unemployment cycled between 7% and 13% with a period of about 30 months. At 0.928 (0.8 a quarter) the peaks halve; with the exchange rate's γ₁ ([trade and FX](trade-fx.md)) the calibration report's inflation and policy rate come into their bands (L-02 2.7%, L-04 3.2%).
 
 ## Open questions
 - [x] **The policy rate before levers (M3):** proposed constant at 1.75%; the alternative is the advisory rule set on autopilot until the player can move it (M4). **Decided (owner, 2026-10-20): as proposed.** **Amended (owner, 2026-10-29):** the central bank follows the advisory rule by default in every world, and a `money.policy_rate` command overrides it ("Control"); with the rate pinned at 1.75% the 2021 economy spiralled after about 40 months (inflation, the reserves below their floor, the leu).

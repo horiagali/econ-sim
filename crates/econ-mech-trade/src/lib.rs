@@ -112,7 +112,7 @@ impl FxParams {
     #[must_use]
     pub fn spec_defaults() -> FxParams {
         FxParams {
-            gamma1_ppm: 20_000,
+            gamma1_ppm: 5_000,
             gamma2_ppm: 50_000,
             risk_premium_ppm: 17_500,
             intervention_ppm: 800_000,
