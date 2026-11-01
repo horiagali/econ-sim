@@ -748,7 +748,7 @@ pub(crate) static INDICATORS: [IndicatorMeta; 66] = [
         glossary: "poverty_rate_anchored",
         unit: Unit::Ppm,
         period: Period::Month,
-        breakdowns: &[],
+        breakdowns: &[Breakdown::Region, Breakdown::County],
         aggregate: Aggregate::None,
         derive: None,
         feature: Some("poverty"),

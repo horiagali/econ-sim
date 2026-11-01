@@ -4,6 +4,10 @@
 
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
+import type { Answer, Command, Query } from "./generated/api";
+
+export type * from "./generated/api";
+
 export interface Series {
   name: string;
   values: Float64Array; // one value per month
@@ -38,6 +42,10 @@ export interface Backend {
   countyValues(indicator: string): Promise<Record<string, number>>;
   /** Why did `indicator` change between two months? */
   explain(indicator: string): Promise<ContributionNode>;
+  /** A query of the core API (spec game/core-api): reads, never changes the world. */
+  query(q: Query): Promise<Answer>;
+  /** A command of the core API: steps, orders, watches; answers what it did. */
+  command(c: Command): Promise<Answer>;
 }
 
 function unpack(buf: ArrayBuffer, names: string[]): Series[] {
@@ -59,6 +67,8 @@ const tauriBackend: Backend = {
   },
   countyValues: (indicator) => invoke<Record<string, number>>("county_values", { indicator }),
   explain: (indicator) => invoke<ContributionNode>("explain", { indicator }),
+  query: (q) => invoke<Answer>("api_query", { q }),
+  command: (c) => invoke<Answer>("api_command", { c }),
 };
 
 // Deterministic pseudo-random walk (same numbers every run).
@@ -143,6 +153,32 @@ const mockBackend: Backend = {
         { label: "exchange rate (EUR/RON)", value: -0.2, children: [] },
       ],
     };
+  },
+  async query(q) {
+    if (q === "Status") {
+      const s = mockStatus();
+      const [year, month, day] = s.date ? s.date.split("-").map(Number) : [2021, 12, 1];
+      return {
+        Status: {
+          date: { year, month, day },
+          day: s.day,
+          month: s.months,
+          sample_scale: s.sample_scale,
+          law: "mock",
+          features: [],
+        },
+      };
+    }
+    throw new Error("the browser mock answers only the Status query");
+  },
+  async command(c) {
+    if (typeof c === "object" && "Step" in c) {
+      const before = mockStatus();
+      await mockBackend.worldStep(c.Step.days, mockScale);
+      const after = mockStatus();
+      return { Stepped: { days: after.day - before.day, closes: after.months - before.months } };
+    }
+    throw new Error("the browser mock carries out only the Step command");
   },
 };
 

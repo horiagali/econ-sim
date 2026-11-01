@@ -1,7 +1,9 @@
 //! Tauri 2 host (Spike 8, ADR-0013). The simulation core is linked in-process
 //! as an ordinary crate; commands return binary data where it is large. The
-//! thin UI of roadmap M2 runs the real `World` (`world.rs`); the county map
-//! and the "why" tree are still the spike's placeholders.
+//! thin UI of roadmap M2 runs the real `World` (`world.rs`), and the core API
+//! (`api_query`, `api_command`; spec game/core-api) reaches all of it; the
+//! county map and the "why" tree of the M2 screens are still the spike's
+//! placeholders until M8 draws the API's answers.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -91,6 +93,8 @@ fn main() {
             world::world_step,
             world::world_series,
             world::world_series_names,
+            world::api_query,
+            world::api_command,
             county_values,
             explain,
             ipc_probe
