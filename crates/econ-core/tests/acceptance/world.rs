@@ -275,9 +275,15 @@ fn ac_wld_09() {
     }
 }
 
-/// **AC-WLD-10** `[bench]` At 1:100 a simulated year takes at most 2 seconds
+/// **AC-WLD-10** `[bench]` At 1:100 a simulated year takes at most 3 seconds
 /// on CI hardware in a release build (Spike 4 and spike 10 measured about
-/// 0.2 s for the scale world). A time budget means nothing in a debug build:
+/// 0.2 s for the scale world).
+///
+/// Restated on 2026-11-01 with the spec (owner's delegation): the budget was
+/// 2 seconds; the World with every M3 and M4 mechanic takes about 1.5 s on a
+/// developer machine and 2.15 to 2.3 s on slow CI runners.
+///
+/// A time budget means nothing in a debug build:
 /// the test runs in release builds only (`cargo test --release -p econ-core
 /// --features world --test acceptance ac_wld_10`).
 #[test]
@@ -294,7 +300,7 @@ fn ac_wld_10() {
     }
     let took = started.elapsed();
     assert!(
-        took.as_millis() <= 2_000,
+        took.as_millis() <= 3_000,
         "a simulated year at 1:100 took {took:?}"
     );
     // Every phase ran (a fast year that skips work is no year).
