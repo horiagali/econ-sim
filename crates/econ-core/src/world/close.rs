@@ -295,6 +295,8 @@ impl World {
         for j in 0..self.industries.id.len() {
             #[cfg(feature = "stats")]
             self.stats_capture_output(j, self.ii.output_month[j]);
+            #[cfg(feature = "explain")]
+            self.xp_note_wages(j, self.ii.wages_month[j]);
             let out = self.ii.output_month[j];
             if out > 0 {
                 let c = ratio(
@@ -348,6 +350,15 @@ impl World {
             wages,
             employer_contributions,
         } = m;
+        #[cfg(feature = "explain")]
+        self.xp_note_gdp([
+            consumption,
+            government,
+            investment,
+            exports,
+            output_value - sales_value,
+            imports,
+        ]);
         let production = output_value - inputs_home - inputs_imported + vat;
         let expenditure =
             consumption + government + investment + exports + (output_value - sales_value)

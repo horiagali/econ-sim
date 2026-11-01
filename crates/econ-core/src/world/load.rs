@@ -804,6 +804,10 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         stats: crate::stats::StatsHistory::default(),
         #[cfg(feature = "stats")]
         stats_output: Vec::new(),
+        #[cfg(feature = "stats")]
+        stats_cpi_terms: Vec::new(),
+        #[cfg(feature = "explain")]
+        xp: super::explain_state::XpState::default(),
         #[cfg(feature = "groups")]
         grp: super::groups_state::GroupState::default(),
         #[cfg(feature = "education")]
@@ -918,6 +922,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             _ => {}
         }
     }
+    #[cfg(feature = "stats")]
+    world.stats_start();
     // Layoffs of a starting edit, before the first day (AC-ST-08).
     for (industry, share_ppm) in layoffs {
         world.lay_off_share(industry, share_ppm);

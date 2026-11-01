@@ -45,6 +45,49 @@ impl World {
         &self.stats
     }
 
+    /// Day 0's CPI terms, the base of the first month's contributions.
+    pub(super) fn stats_start(&mut self) {
+        self.stats_cpi_terms = self.cpi_terms();
+        #[cfg(feature = "explain")]
+        self.xp_start();
+    }
+
+    /// Each good's term of the CPI now: basket share × consumer price.
+    pub(super) fn cpi_terms(&self) -> Vec<i128> {
+        let i = &self.industries;
+        i.basket_share_ppm
+            .iter()
+            .zip(&i.consumer_price_ppm)
+            .map(|(&s, &p)| i128::from(s) * i128::from(p))
+            .collect()
+    }
+
+    /// `prices.cpi_contribution`: each good's part of the CPI's change over
+    /// the month (against day 0 for month 0), its term's change rounded so
+    /// that the parts add up to the change exactly.
+    #[allow(clippy::cast_precision_loss)]
+    fn cpi_contribution_points(&mut self, f: &mut Frame) {
+        let t = self.months.len() - 1;
+        let before = if t == 0 {
+            1_000_000
+        } else {
+            self.months[t - 1].cpi_ppm
+        };
+        let change = i64::from(self.months[t].cpi_ppm) - i64::from(before);
+        let now = self.cpi_terms();
+        let parts: Vec<f64> = now
+            .iter()
+            .enumerate()
+            .map(|(j, &x)| (x - self.stats_cpi_terms.get(j).copied().unwrap_or(0)) as f64 / 1e6)
+            .collect();
+        let c = crate::stats::round_to_sum(&parts, change);
+        f.nat(I::PricesCpiContribution, change);
+        for (j, &x) in c.iter().enumerate() {
+            f.at(I::PricesCpiContribution, Breakdown::Good, j, x);
+        }
+        self.stats_cpi_terms = now;
+    }
+
     /// The close keeps each industry's output of the month before it is
     /// reset (`industry.output_real`).
     pub(super) fn stats_capture_output(&mut self, j: usize, out: i64) {
@@ -73,6 +116,9 @@ impl World {
         let mut f = Frame::default();
         f.points.extend(day);
         self.month_points(&mut f);
+        self.cpi_contribution_points(&mut f);
+        #[cfg(feature = "explain")]
+        self.xp_capture();
         for (id, key, v) in f.points {
             self.stats.push_month(id, key, t, v);
         }

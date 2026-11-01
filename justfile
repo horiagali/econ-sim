@@ -29,6 +29,8 @@ lint:
     cargo clippy -p econ-core --features poverty --all-targets -- -D warnings
     cargo clippy -p econ-core --features education --all-targets -- -D warnings
     cargo clippy -p econ-core --features lifecycle --all-targets -- -D warnings
+    cargo clippy -p econ-core --features groups,explain,home_quality,education,approval --all-targets -- -D warnings
+    cargo clippy -p econ-io --features history --all-targets -- -D warnings
 
 # Unit, property and invariant tests
 test:

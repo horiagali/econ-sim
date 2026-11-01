@@ -172,8 +172,8 @@
     ],
     "headline": false,
     "milestone": "alpha",
-    "status": "planned",
-    "source": "M6's why slice: the CPI's decomposition by good"
+    "status": "active",
+    "source": "game/explanations: each good's part of the CPI's change over the month (month 0: against day 0), largest remainders"
   },
   {
     "id": "labour.unemployment_rate",

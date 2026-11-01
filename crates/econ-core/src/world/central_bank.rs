@@ -337,6 +337,13 @@ impl World {
         }
     }
 
+    /// Whether the rate in force is the player's (a `money.policy_rate`
+    /// command took effect).
+    #[cfg(feature = "explain")]
+    pub(super) fn cb_overridden(&self) -> bool {
+        self.cb.overridden
+    }
+
     /// The central bank's state for the state hash.
     pub(super) fn cb_hash(&self, write: &mut impl FnMut(u64)) {
         if !self.cb.active {

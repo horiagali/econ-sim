@@ -214,7 +214,7 @@ pub(crate) static INDICATORS: [IndicatorMeta; 66] = [
         feature: None,
         views: &[View::Prices],
         headline: false,
-        status: Status::Planned,
+        status: Status::Active,
     },
     IndicatorMeta {
         id: IndicatorId::LabourUnemploymentRate,
