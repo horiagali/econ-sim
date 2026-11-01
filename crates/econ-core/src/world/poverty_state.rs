@@ -123,6 +123,19 @@ impl World {
         self.pov.region[h] = region;
     }
 
+    /// Whether household `h` counts in the indicators (private, alive, with
+    /// resident members at the latest close).
+    #[cfg(feature = "groups")]
+    pub(crate) fn pov_counted(&self, h: usize) -> bool {
+        self.pov.persons_prev.get(h).copied().unwrap_or(0) > 0
+    }
+
+    /// Each household's standard-of-living class at the latest close.
+    #[cfg(feature = "groups")]
+    pub(crate) fn pov_classes(&self) -> Vec<Option<u8>> {
+        self.pov.class_prev.clone()
+    }
+
     /// Imputed rent paid to household `h` (per household).
     pub(crate) fn pov_imputed_rent(&mut self, h: usize, x: Bani) {
         if self.pov.imputed.len() <= h {

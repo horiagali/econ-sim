@@ -146,35 +146,31 @@ impl World {
     /// The summary of a filter at the latest close.
     #[must_use]
     pub fn group(&self, f: &Filter) -> GroupSummary {
-        let _ = f;
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.grp_group(f)
     }
 
     /// One summary per value of `by` (with the filter's conditions), in the
     /// attribute's order.
     #[must_use]
     pub fn group_breakdown(&self, f: &Filter, by: Attribute) -> Vec<(u32, GroupSummary)> {
-        let _ = (f, by);
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.grp_breakdown(f, by)
     }
 
     /// Watch a filter under `name`: its summary is recorded from the next
     /// close on.
     pub fn watch_group(&mut self, name: &str, f: Filter) {
-        let _ = (name, f);
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.grp_watch(name, f);
     }
 
     /// The summaries of a watched group, one per close since it was watched.
     #[must_use]
     pub fn watched(&self, name: &str) -> Option<&[GroupSummary]> {
-        let _ = name;
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.grp_watched(name)
     }
 
     /// The names of the watched groups, in the order they were watched.
     #[must_use]
     pub fn watched_names(&self) -> Vec<&str> {
-        unimplemented!("test writer's addition (ADR-0014): the implementation fills it")
+        self.grp_watched_names()
     }
 }

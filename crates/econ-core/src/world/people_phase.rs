@@ -464,13 +464,16 @@ impl World {
         self.app_compact(&keep_p, &keep_h);
         #[cfg(feature = "education")]
         self.edu_compact(&keep_p);
+        #[cfg(feature = "groups")]
+        self.grp_compact(&keep_h);
         #[cfg(feature = "migration")]
         self.mig_compact(&keep_p);
         #[cfg(any(
             feature = "migration",
             feature = "education",
             feature = "approval",
-            feature = "poverty"
+            feature = "poverty",
+            feature = "groups"
         ))]
         self.act_compact(&keep_p);
     }
@@ -826,7 +829,8 @@ impl World {
             feature = "migration",
             feature = "education",
             feature = "approval",
-            feature = "poverty"
+            feature = "poverty",
+            feature = "groups"
         ))]
         self.act_push(None);
         #[cfg(feature = "education")]

@@ -804,6 +804,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
         stats: crate::stats::StatsHistory::default(),
         #[cfg(feature = "stats")]
         stats_output: Vec::new(),
+        #[cfg(feature = "groups")]
+        grp: super::groups_state::GroupState::default(),
         #[cfg(feature = "education")]
         edu: super::education::EduState::default(),
         #[cfg(feature = "migration")]
@@ -812,7 +814,8 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
             feature = "migration",
             feature = "education",
             feature = "approval",
-            feature = "poverty"
+            feature = "poverty",
+            feature = "groups"
         ))]
         act: super::persons_view::Activities::start(&s.activity),
         #[cfg(feature = "demography")]
@@ -874,13 +877,16 @@ pub(super) fn new(start: StartState, law: Law, params: WorldParams) -> Result<Wo
     world.start_migration();
     #[cfg(feature = "poverty")]
     world.start_poverty(&s);
+    #[cfg(feature = "groups")]
+    world.start_groups(&s);
     #[cfg(feature = "education")]
     world.start_education();
     #[cfg(any(
         feature = "migration",
         feature = "education",
         feature = "approval",
-        feature = "poverty"
+        feature = "poverty",
+        feature = "groups"
     ))]
     world.refresh_activities();
     #[cfg(feature = "revenue")]

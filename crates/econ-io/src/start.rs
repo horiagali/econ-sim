@@ -449,6 +449,11 @@ pub fn read_start_state(scenario_dir: &Path, io_table: &Path) -> Result<StartSta
     s.hh_county = hh_county;
     s.hh_region = hh_region;
     s.hh_collective = hh_collective;
+    // Stage E's locality type (a scenario without it: urban for all).
+    if hb.schema().column_with_name("hh_urban").is_some() {
+        let u = column::<BooleanArray>(&hb, hf, "hh_urban")?;
+        s.hh_urban = (0..u.len()).map(|k| u.value(k)).collect();
+    }
     s.self_employment_declared = money(&pb, pf, "self_employment_declared")?;
     s.unit_size = u8s(&fb, ff, "size")?;
     s.unit_firm_count = u32s(&fb, ff, "firm_count")?;

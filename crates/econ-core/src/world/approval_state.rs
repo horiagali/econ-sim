@@ -36,7 +36,7 @@ fn age_band(age_months: u16) -> usize {
 
 /// A group's mean over (weight, parts) of its adults: the five parts' means
 /// and `A` = 50 + their sum exactly.
-fn mean(members: &[(u64, [i32; 5])]) -> Option<GroupApproval> {
+pub(super) fn group_mean(members: &[(u64, [i32; 5])]) -> Option<GroupApproval> {
     let total: i128 = members.iter().map(|&(w, _)| i128::from(w)).sum();
     if total == 0 {
         return None;
@@ -176,23 +176,23 @@ impl World {
         }
         let arr5 = |v: &[Vec<(u64, [i32; 5])>]| -> [Option<GroupApproval>; 5] {
             [
-                mean(&v[0]),
-                mean(&v[1]),
-                mean(&v[2]),
-                mean(&v[3]),
-                mean(&v[4]),
+                group_mean(&v[0]),
+                group_mean(&v[1]),
+                group_mean(&v[2]),
+                group_mean(&v[3]),
+                group_mean(&v[4]),
             ]
         };
         self.app.stats.push(ApprovalStats {
             month: Month(u32::try_from(t).expect("a month")),
-            national: mean(&nat),
-            by_activity: act.iter().map(|v| mean(v)).collect(),
+            national: group_mean(&nat),
+            by_activity: act.iter().map(|v| group_mean(v)).collect(),
             by_fifth: arr5(&fifth),
-            by_region: reg.iter().map(|v| mean(v)).collect(),
-            by_county: cty.iter().map(|v| mean(v)).collect(),
-            by_age: age.iter().map(|v| mean(v)).collect(),
+            by_region: reg.iter().map(|v| group_mean(v)).collect(),
+            by_county: cty.iter().map(|v| group_mean(v)).collect(),
+            by_age: age.iter().map(|v| group_mean(v)).collect(),
             by_edu: arr5(&edu),
-            by_sex: [mean(&sex[0]), mean(&sex[1])],
+            by_sex: [group_mean(&sex[0]), group_mean(&sex[1])],
         });
     }
 }

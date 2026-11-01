@@ -30,7 +30,7 @@ Roadmap M6, fifth slice (owner, 2026-11-01). Everything the UI (M8) asks of the 
 | `Step { days }`, `StepMonths { months }` | step the `World` (to the next close for a month) |
 | `Order { order }` | a lever order (set, cancel), validated as the lever system does; the answer is its acceptance or rejection |
 | `Watch { name, filter }` | watch a group from the next close |
-| `WriteHistory { dir }` | write the closed years' history files ([history files](history-files.md)) |
+| `WriteHistory { dir }` | write the closed years' history files ([history files](history-files.md)): the host's command (the writer is `econ_io::history`, and Arrow stays out of econ-core, ADR-0011); `World::command` answers it with an error naming the host |
 
 A query never changes the `World`; a command answers with what it did (the days stepped and the closes made, the order's acceptance, the files written). Errors are values (`ApiError`: unknown indicator, bad key, rejected order, I/O), never panics.
 

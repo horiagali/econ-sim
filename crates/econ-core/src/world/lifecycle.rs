@@ -85,6 +85,8 @@ impl World {
         #[cfg(feature = "investment")]
         self.invest_push_household(0);
         self.dem.report.life.households_formed.push(key);
+        #[cfg(feature = "groups")]
+        self.grp_push_household(like);
         n
     }
 
@@ -133,7 +135,8 @@ impl World {
             feature = "migration",
             feature = "education",
             feature = "approval",
-            feature = "poverty"
+            feature = "poverty",
+            feature = "groups"
         ))]
         self.act_push(Some(p));
         #[cfg(feature = "education")]

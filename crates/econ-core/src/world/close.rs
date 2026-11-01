@@ -407,7 +407,8 @@ impl World {
             feature = "migration",
             feature = "education",
             feature = "approval",
-            feature = "poverty"
+            feature = "poverty",
+            feature = "groups"
         ))]
         self.refresh_activities();
         // The treasury: the units' shortfalls of the day settled first, so

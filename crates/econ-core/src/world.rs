@@ -132,7 +132,8 @@ mod moves;
     feature = "migration",
     feature = "education",
     feature = "approval",
-    feature = "poverty"
+    feature = "poverty",
+    feature = "groups"
 ))]
 mod persons_view;
 #[cfg(feature = "migration")]
@@ -141,6 +142,8 @@ mod returns;
 #[cfg(feature = "approval")]
 mod approval_state;
 // The poverty and inequality indicators (roadmap M5).
+#[cfg(feature = "groups")]
+mod groups_state;
 #[cfg(feature = "poverty")]
 mod poverty_state;
 #[cfg(feature = "stats")]
@@ -210,6 +213,8 @@ pub struct StartState {
     pub hh_county: Vec<u8>,
     /// A collective household (institution).
     pub hh_collective: Vec<bool>,
+    /// An urban household (stage E's locality type); empty: urban for all.
+    pub hh_urban: Vec<bool>,
     /// The region of the household's county.
     pub hh_region: Vec<u8>,
     pub hh_cash: Vec<Bani>,
@@ -1248,6 +1253,8 @@ pub struct World {
     /// Each industry's output of the month just closed (the registry's).
     #[cfg(feature = "stats")]
     stats_output: Vec<i64>,
+    #[cfg(feature = "groups")]
+    grp: groups_state::GroupState,
     #[cfg(feature = "education")]
     edu: education::EduState,
     #[cfg(feature = "migration")]
@@ -1258,7 +1265,8 @@ pub struct World {
         feature = "migration",
         feature = "education",
         feature = "approval",
-        feature = "poverty"
+        feature = "poverty",
+        feature = "groups"
     ))]
     act: persons_view::Activities,
     #[cfg(feature = "demography")]
@@ -1407,6 +1415,10 @@ impl World {
         // The registry last: every phase of the day is done.
         #[cfg(feature = "stats")]
         self.stats_day_end(self.months.len() > closes_before);
+        #[cfg(feature = "groups")]
+        if self.months.len() > closes_before {
+            self.grp_record();
+        }
         self.today = day.next();
         let state_hash = self.state_hash();
         Ok(DayReport {
