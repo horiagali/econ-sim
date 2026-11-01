@@ -20,9 +20,15 @@ fmt:
 fmt-check:
     cargo fmt --all -- --check
 
-# Clippy with warnings as errors (includes the determinism deny-lists)
+# Clippy with warnings as errors (includes the determinism deny-lists), and
+# econ-core with the M5 features that are off by default (every M5 feature
+# together, and the ones whose `cfg(not(...))` branches differ alone)
 lint:
     cargo clippy --workspace --all-targets -- -D warnings
+    cargo clippy -p econ-core --features home_quality,education,approval --all-targets -- -D warnings
+    cargo clippy -p econ-core --features poverty --all-targets -- -D warnings
+    cargo clippy -p econ-core --features education --all-targets -- -D warnings
+    cargo clippy -p econ-core --features lifecycle --all-targets -- -D warnings
 
 # Unit, property and invariant tests
 test:
