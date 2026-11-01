@@ -390,11 +390,23 @@ impl World {
         if !self.invest_rule_active() {
             return;
         }
+        // Under a budget the lines buy the government's investment, which
+        // has left the column (spec game/lever-system, "What it replaces"):
+        // the rule then plans the units' alone (M7, 2026-11-02; with both,
+        // the government paid it twice).
+        #[cfg(feature = "levers")]
+        let gov_day = if self.bud_active() {
+            0
+        } else {
+            self.inv.rule.gov_day
+        };
+        #[cfg(not(feature = "levers"))]
+        let gov_day = self.inv.rule.gov_day;
         let r = &mut self.inv.rule;
         let units: i128 = r.budget_day.iter().sum();
-        let total = units + r.gov_day;
+        let total = units + gov_day;
         r.today_total = total;
-        r.today_gov = r.gov_day;
+        r.today_gov = gov_day;
         for g in 0..self.ii.inv_q.len() {
             let value = total * r.dom_share[g] / 1_000_000;
             let price = i128::from(self.industries.price_ppm[g].max(1));
