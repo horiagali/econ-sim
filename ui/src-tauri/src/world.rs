@@ -168,3 +168,43 @@ pub fn world_series(state: tauri::State<'_, Held>) -> Result<tauri::ipc::Respons
 pub fn world_series_names() -> Vec<&'static str> {
     SERIES.to_vec()
 }
+
+/// A query of the core API (spec game/core-api) on the open world.
+#[tauri::command(async)]
+pub fn api_query(
+    state: tauri::State<'_, Held>,
+    q: econ_core::api::Query,
+) -> Result<econ_core::api::Answer, String> {
+    let held = state.0.lock().map_err(|_| "the world's lock is poisoned")?;
+    let w = held.as_ref().ok_or("no world is open")?;
+    w.query(&q).map_err(|e| format!("{e:?}"))
+}
+
+/// A command of the core API on the open world. `WriteHistory` is the
+/// host's: it writes the closed years' history files with `econ_io::history`
+/// (Arrow stays out of econ-core, ADR-0011).
+#[tauri::command(async)]
+pub fn api_command(
+    state: tauri::State<'_, Held>,
+    c: econ_core::api::Command,
+) -> Result<econ_core::api::Answer, String> {
+    use econ_core::api::{Answer, BlockDto, Command};
+    let mut held = state.0.lock().map_err(|_| "the world's lock is poisoned")?;
+    let w = held.as_mut().ok_or("no world is open")?;
+    if let Command::WriteHistory { dir } = &c {
+        let blocks = econ_io::history::write_all(Path::new(dir), w)
+            .map_err(|e| format!("{dir}: {e:?}"))?;
+        return Ok(Answer::Written(
+            blocks
+                .into_iter()
+                .map(|b| BlockDto {
+                    year: b.year,
+                    file: b.file,
+                    sha256: b.sha256,
+                    rows: b.rows,
+                })
+                .collect(),
+        ));
+    }
+    w.command(&c).map_err(|e| format!("{e:?}"))
+}

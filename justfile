@@ -29,7 +29,7 @@ lint:
     cargo clippy -p econ-core --features poverty --all-targets -- -D warnings
     cargo clippy -p econ-core --features education --all-targets -- -D warnings
     cargo clippy -p econ-core --features lifecycle --all-targets -- -D warnings
-    cargo clippy -p econ-core --features groups,explain,home_quality,education,approval --all-targets -- -D warnings
+    cargo clippy -p econ-core --features api,home_quality,education,approval --all-targets -- -D warnings
     cargo clippy -p econ-io --features history --all-targets -- -D warnings
 
 # Unit, property and invariant tests
@@ -111,12 +111,14 @@ codegen:
     {{python}} scripts/codegen_glossary.py
     {{python}} scripts/codegen_levers.py
     {{python}} scripts/codegen_indicators.py
+    {{python}} scripts/codegen_api.py
 
-# Fail if generated glossary, lever or indicator code is stale
+# Fail if generated glossary, lever, indicator or API code is stale
 codegen-check:
     {{python}} scripts/codegen_glossary.py --check
     {{python}} scripts/codegen_levers.py --check
     {{python}} scripts/codegen_indicators.py --check
+    {{python}} scripts/codegen_api.py --check
 
 # Every acceptance criterion in a spec has a live test, and no test cites an unknown ID (ADR-0014)
 trace:

@@ -463,6 +463,12 @@ impl World {
             I::PeoplePovertyRateAnchored,
             i64::from(s.class_share_ppm[0]),
         );
+        let (by_r, by_c) = self.pov_anchored_by_area();
+        for (br, v) in [(Breakdown::Region, by_r), (Breakdown::County, by_c)] {
+            for (k, x) in v.into_iter().enumerate() {
+                f.at(I::PeoplePovertyRateAnchored, br, k, i64::from(x));
+            }
+        }
         f.nat(I::PeopleClassShare, i64::from(s.class_share_ppm[0]));
         for (k, &x) in s.class_share_ppm.iter().enumerate() {
             f.at(I::PeopleClassShare, Breakdown::Class, k, i64::from(x));

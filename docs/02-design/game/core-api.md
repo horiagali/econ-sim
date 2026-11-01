@@ -65,5 +65,17 @@ IDs are stable. Tests in `crates/econ-core/tests/acceptance/api.rs` (protected; 
 - [ ] **AC-API-04** `[unit]` `ui/src/generated/api.ts` is in step with the Rust types (`just codegen-check`), and the UI's `api.ts` adapter compiles against it (the CI's `ui` job).
 - [ ] **AC-API-05** `[sim]` A session through the API alone reproduces a direct run: the same orders and steps through `command` give the same state hash after 12 closes as calling the `World`'s methods.
 
+## Implementation status
+- **2026-11-01:** built (feature `api`, off by default; `api.rs`). Readings where the spec leaves room:
+  - `Filter`, `GroupSummary` and `Node` pass through private mirror types with the same fields: persons' attributes by their variant names (`"F"`, `"Isced3"`, `"Retired"`), money as bani, an indicator by its dotted name. So econ-popgen and econ-types need no `serde`.
+  - A key is national, or a member the indicator has points for (else `BadKey`). A national series without a point yet answers an empty series.
+  - `Status`'s law is "the law of" the start year: the `World` does not name its law until M8's campaigns.
+  - `WriteHistory` is answered by the Tauri host (`api_command` writes with `econ_io::history::write_all`). `World::command` answers it with `Io`, naming the host.
+  - An order naming a lever or key the registry lacks answers the lever system's `unknown_lever` or `bad_key`.
+  - `scripts/codegen_api.py` writes `ui/src/generated/api.ts` from the serde types of `api.rs` (and `Attribute`). It runs in `just codegen` and `codegen-check`, and writes serde_json's external tagging.
+  - The UI's `api.ts` adds `query` and `command` over the Tauri commands `api_query` and `api_command`. The browser mock answers `Status` and `Step` only.
+  - The M2 screens keep their own commands until M8 draws the API's answers.
+  - AC-API-01 to 05 pass.
+
 ## Open questions
 - [x] **Generating the TypeScript types.** *Proposed (2026-11-01):* a small generator over the serde types (`ts-rs` or a script over a JSON schema from `schemars`), run by `just codegen`; the choice is the implementation's.
