@@ -148,6 +148,11 @@ mod groups_state;
 mod poverty_state;
 #[cfg(feature = "stats")]
 mod stats_state;
+// The explanations' monthly details (roadmap M6).
+#[cfg(feature = "explain")]
+mod explain_state;
+#[cfg(feature = "explain")]
+pub(crate) use explain_state::XpFrame;
 #[cfg(feature = "wellbeing")]
 mod wellbeing_state;
 
@@ -1253,6 +1258,12 @@ pub struct World {
     /// Each industry's output of the month just closed (the registry's).
     #[cfg(feature = "stats")]
     stats_output: Vec<i64>,
+    /// Each good's term of the CPI at the latest close (day 0's at load),
+    /// basket share × consumer price, in millionths squared.
+    #[cfg(feature = "stats")]
+    stats_cpi_terms: Vec<i128>,
+    #[cfg(feature = "explain")]
+    xp: explain_state::XpState,
     #[cfg(feature = "groups")]
     grp: groups_state::GroupState,
     #[cfg(feature = "education")]

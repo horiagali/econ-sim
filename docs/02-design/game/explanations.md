@@ -67,6 +67,18 @@ IDs are stable. Tests in `crates/econ-core/tests/acceptance/explain.rs` (protect
 - [ ] **AC-WHY-06** `[unit]` Drill-down: every child that names a registry indicator names an active one with that key, and its value equals that indicator's change over the window when the child is the indicator itself (for example the VAT child of `budget.balance` equals `budget.revenue`'s VAT member's change).
 - [ ] **AC-WHY-07** `[sim]` Isolation: computing trees changes no state (the state hash after 6 closes is the same whether `explain` is called at every close or never).
 
+## Implementation status
+- **2026-11-01:** built (feature `explain`, off by default; `explain.rs`, `world/explain_state.rs`). The trees read the registry's history, the mechanics' month records, and a few details the `World` keeps at each close: GDP's six expenditure parts, each good's CPI term, employed and unemployed persons by region, each industry's wages and staff, and whether the policy rate at the close is the player's. Readings where the spec leaves room:
+  - Each month's parts are computed in floats and rounded by largest remainders to the month's change (records that are integers, such as the flows, the SoL parts and the approval parts, come out unchanged); a window adds the monthly trees child by child. The year-on-year rates' window of twelve months explains their value, another window their change (from month 12 on).
+  - `prices.cpi`'s children are `prices.cpi_contribution`'s members. `prices.inflation_yoy`'s first year (annualised from day 0) shares the rate among the goods by their terms' change since day 0.
+  - `labour.unemployment_rate` and `wages.mean_nominal` have two children (within, composition), each with one part per region or industry. The mean wage's shares are of all employed persons, so that persons outside the firm units' staff (the self-employed) count as a group without wages of the bill.
+  - `labour.employed` by region: the indicator has no regional breakdown, so the regions' children name no indicator.
+  - `budget.balance`: one child per revenue and spending flow code with a point other than zero in the history, and interest.
+  - `money.policy_rate`, "who set the rate": once an order has taken effect the rule no longer sets the rate, so a month whose closing rate is the player's gives the player's orders the whole change; before that, the advisory rule.
+  - `people.population` without migration: each region's change (its registry member), as births and deaths have no month record without the migration feature.
+  - `people.poverty_rate_anchored`: five children from the class flows of step 7 (entering, leaving, persons added, persons removed, and the change of the persons counted).
+  - AC-WHY-01 to 07 pass, with and without the M5 features.
+
 ## Open questions
 - [x] **The Gini's tree.** *Proposed (2026-11-01):* with M14's distribution depth (the income-source decomposition of the level, then of the change); none in M6.
 - [x] **Trees of rules (L2).** *Proposed:* as each rule moves to `behaviour_rule!` with its milestone; the M6 trees are accounting decompositions.

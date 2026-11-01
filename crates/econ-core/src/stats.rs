@@ -388,3 +388,51 @@ impl World {
         self.stats_history()
     }
 }
+
+/// Floats rounded to integers summing to `total` by largest remainders (spec
+/// game/explanations): each to its floor or ceiling when the floats sum to
+/// `total`; otherwise the difference is first spread over the values in
+/// proportion to their size. Ties go to the earlier value.
+#[must_use]
+pub(crate) fn round_to_sum(values: &[f64], total: i64) -> Vec<i64> {
+    if values.is_empty() {
+        return Vec::new();
+    }
+    #[allow(clippy::cast_precision_loss)]
+    let gap = total as f64 - values.iter().sum::<f64>();
+    let size: f64 = values.iter().map(|v| v.abs()).sum();
+    let fitted: Vec<f64> = if gap.abs() < 1e-6 {
+        values.to_vec()
+    } else if size > 0.0 {
+        values.iter().map(|v| v + gap * v.abs() / size).collect()
+    } else {
+        let mut v = values.to_vec();
+        v[0] += gap;
+        v
+    };
+    #[allow(clippy::cast_possible_truncation)]
+    let mut out: Vec<i64> = fitted.iter().map(|v| v.floor() as i64).collect();
+    let mut rest = total - out.iter().sum::<i64>();
+    let mut order: Vec<usize> = (0..fitted.len()).collect();
+    #[allow(clippy::cast_precision_loss)]
+    let frac = |k: usize| fitted[k] - out[k] as f64;
+    let fr: Vec<f64> = (0..fitted.len()).map(frac).collect();
+    order.sort_by(|&a, &b| fr[b].total_cmp(&fr[a]).then(a.cmp(&b)));
+    // `rest` is within [0, n] up to float error; any excess goes round
+    // the values again.
+    let n = i64::try_from(order.len()).expect("a count");
+    while rest != 0 {
+        let step = rest.signum();
+        let k = usize::try_from(rest.abs().min(n)).expect("a count");
+        let pick: Vec<usize> = if step > 0 {
+            order[..k].to_vec()
+        } else {
+            order[order.len() - k..].to_vec()
+        };
+        for i in pick {
+            out[i] += step;
+            rest -= step;
+        }
+    }
+    out
+}
