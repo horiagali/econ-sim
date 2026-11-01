@@ -46,5 +46,8 @@ IDs are stable. Tests in `crates/econ-io/tests/acceptance/history.rs` (protected
 - [ ] **AC-HIST-04** `[unit]` The schema metadata carries the format version, `sample_scale`, the scenario id and each indicator's unit and period; reading a block needs no registry (a reader given only the files gets the units).
 - [ ] **AC-HIST-05** `[bench]` A 50-year history at 1:1000 (600 monthly frames of every registry indicator with their breakdowns, and the day series; a synthetic history of that shape, as long runs wait for M7's stability) is at most 20 MB on disk and reads back in at most 2 seconds in a release build.
 
+## Implementation status
+- **2026-11-01:** built (econ-io feature `history`, off by default). Readings where the spec leaves room: an Arrow IPC file holds one table, so the watched groups' summaries are rows of the same table, named `group.<name>.<field>` (a mean that is `None` has no row); the metadata is one schema key, `econ_sim_history`, a JSON object (format version, `sample_scale`, scenario id, engine, year, start date, each indicator's unit and period), so the bytes do not depend on a map's order; SHA-256 is computed by econ-io itself (no new dependency). A history written from a `World` has an empty scenario id (the `World` does not know its scenario's name until M8's campaigns); the engine is the build's `ECON_GIT_HASH`, else econ-io's version. AC-HIST-01 to 05 pass.
+
 ## Open questions
 - [x] **Where the files live before M8's campaigns.** *Proposed (2026-11-01):* a folder the caller names (the CLI's `--out`, the tests' temp folder); M8 puts it in the campaign folder.
