@@ -217,17 +217,15 @@ pub fn rate_in_force(w: &World, lever: LeverId, key: Option<u32>) -> i32 {
     }
 }
 
-/// Every key of a keyed money lever times `num / den`, given today.
-pub fn scale_money_lever(w: &mut World, lever: LeverId, num: i64, den: i64) {
+/// Every key of a keyed money lever set to `value(key, value in force)`,
+/// given today.
+pub fn set_money_lever(w: &mut World, lever: LeverId, value: impl Fn(&str, Bani) -> Bani) {
     let keys: Vec<String> = w.registry().get(lever).keys.clone();
     assert!(!keys.is_empty(), "{} is keyed", lever.as_str());
     for k in keys {
         let key = key_of(w, lever, &k);
         let now = money_in_force(w, lever, Some(key));
-        give(
-            w,
-            set(lever, Some(key), LeverValue::Money(now.mul_ratio(num, den))),
-        );
+        give(w, set(lever, Some(key), LeverValue::Money(value(&k, now))));
     }
 }
 

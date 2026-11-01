@@ -728,6 +728,11 @@ pub struct WorldParams {
     /// Migration (spec economy/migration-remittances).
     #[cfg(feature = "migration")]
     pub migration: migration::MigrationWorldParams,
+    /// Whether the statistics history is filled (spec
+    /// game/statistics-registry); `false`: it is not (AC-STAT-06). A test
+    /// writer's addition (ADR-0014).
+    #[cfg(feature = "stats")]
+    pub stats: bool,
 }
 
 impl WorldParams {
@@ -783,6 +788,8 @@ impl WorldParams {
             education: education::EducationParams::spec_defaults(),
             #[cfg(feature = "migration")]
             migration: migration::MigrationWorldParams::spec_defaults(),
+            #[cfg(feature = "stats")]
+            stats: true,
         }
     }
 }

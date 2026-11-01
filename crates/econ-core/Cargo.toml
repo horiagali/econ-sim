@@ -167,6 +167,15 @@ wellbeing = ["poverty"]
 # unemployment and multiplies returns, emigration and immigration.
 home_quality = ["migration", "wellbeing"]
 
+# The statistics registry (spec game/statistics-registry, roadmap M6, AC-STAT-01
+# to 08): the registry's types, the history (`World::stats`) and
+# `WorldParams::stats`, as an API skeleton written with its acceptance tests
+# before the code (ADR-0014); every body is `unimplemented!` until the code
+# exists. Off by default; the implementation adds it to `default` once its
+# tests pass. The criteria run under the 2021 law of `law.json`, so it needs
+# the lever system.
+stats = ["levers"]
+
 [[test]]
 name = "acceptance"
 path = "tests/acceptance/main.rs"

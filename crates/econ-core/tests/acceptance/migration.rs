@@ -688,6 +688,13 @@ fn first_month_imports(w: &mut World) -> i128 {
     total
 }
 
+/// The current account proper of closed month `t`: the trade month's
+/// `current_account` less the capital account it holds as a memo.
+fn current_account_proper(w: &World, t: usize) -> i128 {
+    let m = &w.trade_months()[t];
+    i128::from(m.current_account.get()) - i128::from(m.capital_account.get())
+}
+
 /// **AC-MIG-14** `[sim]` Remittances support the leu: in the counterfactual
 /// without the diaspora tables, the exchange rate after 24 months is higher
 /// (the leu weaker) than with them, and the current account lower: in the
@@ -712,6 +719,13 @@ fn first_month_imports(w: &mut World) -> i128 {
 /// world's receipts under the flow code `imports` over the month's days (to
 /// the day of its close), so the first month's floor is `r − (imports with −
 /// imports without) − 5% · r`, in bani.
+///
+/// Restated on 2026-11-01 with the spec (owner's delegation): "the current
+/// account" is the current account proper, the trade month's
+/// `current_account` less its `capital_account` (migrants' capital and the
+/// EU's capital grants are capital-account flows, which the trade month
+/// keeps inside its total as a memo), in every month compared, the first
+/// and the later ones. The first month's extra imports are unchanged.
 #[test]
 fn ac_mig_14() {
     let mut with = world(1000, Vec::new());
@@ -727,8 +741,7 @@ fn ac_mig_14() {
     );
     let remittances = span(&with, 0, 24);
     for (t, m) in remittances.iter().enumerate() {
-        let gap = i128::from(with.trade_months()[t].current_account.get())
-            - i128::from(without.trade_months()[t].current_account.get());
+        let gap = current_account_proper(&with, t) - current_account_proper(&without, t);
         let r = i128::from(m.remittances.get());
         assert!(r > 0, "month {t}: remittances are paid");
         if t == 0 {

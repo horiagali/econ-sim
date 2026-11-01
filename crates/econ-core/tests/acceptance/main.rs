@@ -115,3 +115,11 @@ mod support_m5;
 // so `support_m5` is compiled with it).
 #[cfg(feature = "wellbeing")]
 mod wellbeing;
+
+// M6: the statistics registry (spec game/statistics-registry, AC-STAT-01 to
+// 08), written before the code against the test writer's API skeleton
+// `econ_core::stats`, behind the feature `stats`, which the implementation
+// adds to `default` once they pass. AC-STAT-07 needs `home_quality`,
+// `education` and `approval` as well; AC-STAT-08 is release-only.
+#[cfg(feature = "stats")]
+mod stats;

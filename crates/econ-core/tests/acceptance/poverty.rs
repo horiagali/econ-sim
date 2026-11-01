@@ -49,7 +49,7 @@ use super::support::params;
 use super::support_lev::{date, give, key_of, set};
 use super::support_m5::{
     collective, feb_15_2022, members as resident_members, money_in_force, next_close, round_div,
-    run_closes, scale_money_lever, step_checked, step_until, world_2021, world_2021_default,
+    run_closes, set_money_lever, step_checked, step_until, world_2021, world_2021_default,
 };
 
 /// Each household's members: its resident persons (`support_m5::members`)
@@ -420,13 +420,51 @@ fn ac_pov_05() {
     );
 }
 
-/// The indicators at the close of month 5 of a run with an order given on
-/// 15 February 2022 (none for the baseline).
-fn min_income_run(change: Option<(i64, i64)>) -> (u32, u32, u32) {
+/// The minimum-income floor of a run, ordered on 15 February 2022.
+#[derive(Clone, Copy)]
+enum Floor {
+    /// The law in force: no order.
+    Baseline,
+    /// Every household size's floor set to the at-risk line of one adult in
+    /// lei of the day.
+    AtRiskLine,
+    /// Every household size's floor set to zero.
+    Zero,
+}
+
+/// The at-risk line of one adult in lei of the day: 60% of
+/// `poverty_anchor` (December 2021 lei, the prices of day 0) times the CPI
+/// of the latest close (millionths of day 0's prices), rounded to the ban
+/// half away from zero.
+fn at_risk_line_of_the_day(w: &World) -> Bani {
+    let anchor = i128::from(w.poverty_anchor().get());
+    assert!(anchor > 0, "the anchor is positive: {anchor}");
+    let cpi = i128::from(w.months().last().expect("a close before the order").cpi_ppm);
+    let line = round_div(anchor * 600_000 * cpi, 1_000_000_000_000);
+    Bani(i64::try_from(line).expect("the line fits a ban"))
+}
+
+/// The indicators at the close of month 5 of a run with the floor `floor`
+/// ordered on 15 February 2022.
+fn min_income_run(floor: Floor) -> (u32, u32, u32) {
     let mut w = world_2021_default(1000);
     step_until(&mut w, feb_15_2022());
-    if let Some((num, den)) = change {
-        scale_money_lever(&mut w, LeverId::TransferMinIncomeFloor, num, den);
+    let lever = LeverId::TransferMinIncomeFloor;
+    let value = match floor {
+        Floor::Baseline => None,
+        Floor::AtRiskLine => Some(at_risk_line_of_the_day(&w)),
+        Floor::Zero => Some(Bani::ZERO),
+    };
+    if let Some(value) = value {
+        set_money_lever(&mut w, lever, |k, now| {
+            if matches!(floor, Floor::AtRiskLine) {
+                assert!(
+                    value > now,
+                    "size {k}: the at-risk line {value:?} raises the floor in force {now:?}"
+                );
+            }
+            value
+        });
     }
     run_closes(&mut w, 6);
     let s = &w.poverty_stats()[5];
@@ -437,29 +475,48 @@ fn min_income_run(change: Option<(i64, i64)>) -> (u32, u32, u32) {
     )
 }
 
-/// **AC-POV-06** `[sim]` At 1:1000, raising `transfer.min_income.floor` by
-/// 50% from month 3 lowers the poverty rate, the class at risk and the
+/// **AC-POV-06** `[sim]` At 1:1000, raising `transfer.min_income.floor`
+/// from month 3 to the at-risk line of one adult (60% of `poverty_anchor`,
+/// in lei of the day) lowers the poverty rate, the class at risk and the
 /// hardship rate within 3 months against the same run without the change;
-/// cutting it to zero raises them.
+/// cutting it to zero does not lower them.
 ///
-/// Readings: every key (household size) of the lever is set to 150% (or 0)
-/// of its value in force on 15 February 2022, which takes effect on 1 March
-/// 2022 (month 3). "Within 3 months": at the close of month 5 (May 2022),
-/// the third month of the change, each of the three indicators is strictly
-/// below (above) the baseline's.
+/// Restated on 2026-11-01 with the spec (owner's delegation): the floor was
+/// raised by 50% before, which moved no household across a line (2021's
+/// floor is about 142 lei for one person against a line of about 2,000 lei
+/// per adult), and cutting it to zero had to raise the indicators strictly;
+/// it now need only not lower them (at or above the baseline).
+///
+/// Readings: the order is given on 15 February 2022 and takes effect on 1
+/// March 2022 (month 3). "The at-risk line of one adult in lei of the day"
+/// is `World::poverty_anchor()` (December 2021 lei) × 60% × the CPI of the
+/// latest close before the order (January 2022's, `months().last().cpi_ppm`,
+/// millionths of day 0's prices), rounded to the ban half away from zero.
+/// Every key of the lever (household sizes 1 to 5) is set to that one value,
+/// which the test checks is above each size's floor in force (so every floor
+/// is raised); "cutting it to zero" sets every key to 0. "Within 3 months":
+/// at the close of month 5 (May 2022), the third month of the change, each
+/// of the three indicators is strictly below the baseline's with the raised
+/// floor, and at or above it with the zero floor.
 #[test]
 fn ac_pov_06() {
-    let base = min_income_run(None);
-    let up = min_income_run(Some((3, 2)));
-    let down = min_income_run(Some((0, 1)));
+    let base = min_income_run(Floor::Baseline);
+    let up = min_income_run(Floor::AtRiskLine);
+    let down = min_income_run(Floor::Zero);
     let names = ["poverty rate", "class at risk", "hardship rate"];
     let b = [base.0, base.1, base.2];
     let u = [up.0, up.1, up.2];
     let d = [down.0, down.1, down.2];
     for k in 0..3 {
-        assert!(u[k] < b[k], "+50%: {} {} against {}", names[k], u[k], b[k]);
         assert!(
-            d[k] > b[k],
+            u[k] < b[k],
+            "at-risk line: {} {} against {}",
+            names[k],
+            u[k],
+            b[k]
+        );
+        assert!(
+            d[k] >= b[k],
             "to zero: {} {} against {}",
             names[k],
             d[k],
