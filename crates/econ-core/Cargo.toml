@@ -178,6 +178,20 @@ home_quality = ["migration", "wellbeing"]
 # the lever system.
 stats = ["levers"]
 
+# The rest of roadmap M6 (specs game/group-queries, game/explanations,
+# game/core-api), written with their acceptance tests before the code
+# (ADR-0014): API skeletons whose bodies are `unimplemented!`, off by
+# default; the implementation adds each to `default` once its tests pass.
+# Group queries (AC-GRP-01 to 06): `econ_core::groups`, any filter over the
+# persons, its summary and breakdown, and watched groups.
+groups = ["stats"]
+# Explanations (AC-WHY-01 to 07): `econ_core::explain`, the trees of the
+# headline indicators' changes.
+explain = ["stats"]
+# The core API (AC-API-01 to 05): `econ_core::api`, typed queries and
+# commands as serde types.
+api = ["groups", "explain", "dep:serde"]
+
 [[test]]
 name = "acceptance"
 path = "tests/acceptance/main.rs"
