@@ -5,7 +5,7 @@ status: locked
 owner: horia
 depends_on: [economy/production, economy/prices-inflation, economy/money-banking, economy/monetary-policy, economy/opening-balance-sheet, game/world-loop, adr/0017-time-base]
 research: []
-updated: 2026-10-29
+updated: 2026-11-01
 ---
 
 # Trade & Exchange Rate
@@ -101,7 +101,7 @@ with $d$ the command's rate (1000 = +10%, the leu 10% weaker; a negative rate re
 | `armington_sigma` $\sigma$ | 1.5 | how far import shares move with relative prices |
 | `share_adjustment` | 0.1 a month | how fast they move |
 | `export_elasticity` $\epsilon$ | 1.0 | export volume per relative price |
-| $\gamma_1$ | 0.02 a month per point of real-rate gap | interest parity pull |
+| $\gamma_1$ | 0.005 a month per point of real-rate gap | interest parity pull (0.02 until 2026-11-01; see Calibration) |
 | $\gamma_2$ | 0.05 a month per unit of CA/GDP | flow pressure |
 | `risk_premium` rp | the starting real-rate gap (1.75 points) | Romania's premium over the euro area; a constant of 3 points made the rate drift about 1% a month at the start (restated 2026-10-21) |
 | `intervention_share` | 0.8 | share of a move the BNR offsets (a tightly managed float) |
@@ -151,6 +151,9 @@ pub fn fx_step(rate_ppm: u32, real_gap_ppm: i32, ca_over_gdp_ppm: i32, reserves_
                gdp_month: Bani, p: &FxParams) -> FxStep;                                                                 // AC-TFX-02
 ```
 Powers through `econ_num::math` (ADR-0006). The monthly close and the settlement live with the `World`.
+
+## Calibration (M7, 2026-11-01; owner's delegation for M7 changes to locked specs)
+- **γ₁: 0.02 → 0.005 a month per point of real-rate gap.** The update rule moves the rate of change of the leu with the gap, so a gap held for a year moves the level by about twelve months' worth: at 0.02, a rate cycle of 0% to 8.6% moved the leu from 5.28 to 4.13 within a year (after the 80% intervention), pulled demand abroad and drove unemployment from 7% to 13%. Romania's leu moved within about 4.87 to 4.95 a euro in 2021 to 2023 under the BNR's managed float. At 0.005 the 2021-law baseline's leu stays between 4.88 and 5.07 over ten years (L-03 in band). A rule on the level (parity as a jump, not a drift) is a later option if the lever responses need it.
 
 ## Open questions
 - [x] **AC-TFX-03 and the risk premium restated** (2026-10-21, under the owner's delegation, after the test session): the balance of payments includes the rest of the world's bond purchases and coupons; the risk premium is the starting real-rate gap, so the quiet baseline (AC-TFX-05) does not drift.

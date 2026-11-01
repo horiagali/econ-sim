@@ -103,7 +103,7 @@ impl RuleParams {
     #[must_use]
     pub fn spec_defaults() -> RuleParams {
         RuleParams {
-            smoothing_ppm: 800_000,
+            smoothing_ppm: 928_000,
             neutral_ppm: 10_000,
             phi_pi_ppm: 1_500_000,
             phi_y_ppm: 500_000,
